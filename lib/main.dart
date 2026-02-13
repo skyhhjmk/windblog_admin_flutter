@@ -1,7 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
+import 'data/admin_api_client.dart';
+import 'data/models.dart';
 
 void main() {
   runApp(const WindblogAdminApp());
@@ -453,7 +453,7 @@ class _PostsPageState extends State<PostsPage> {
                   return ListTile(
                     title: Text(it.zhTitle.isEmpty ? it.slug : it.zhTitle),
                     subtitle: Text(
-                      'slug: ${it.slug} | 状态: ${it.statusText} | v${it.version}',
+                      'slug: ${it.slug} | 状态: ${it.statusText} | 渲染: ${it.renderTypeText} | v${it.version}',
                     ),
                     trailing: Wrap(
                       spacing: 8,
@@ -537,8 +537,10 @@ class _PostDialogState extends State<PostDialog> {
   late final TextEditingController titleCtrl;
   late final TextEditingController summaryCtrl;
   late final TextEditingController contentCtrl;
+
   int status = 0;
   int visibility = 0;
+  int renderType = 0;
   int editorType = 0;
 
   @override
@@ -553,6 +555,7 @@ class _PostDialogState extends State<PostDialog> {
     );
     status = d?.status ?? 0;
     visibility = d?.visibility ?? 0;
+    renderType = d?.renderType ?? 0;
     editorType = d?.editorType ?? 0;
   }
 
@@ -631,6 +634,19 @@ class _PostDialogState extends State<PostDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
+                initialValue: renderType,
+                decoration: const InputDecoration(labelText: '渲染类型'),
+                items: const [
+                  DropdownMenuItem(value: 0, child: Text('Markdown')),
+                  DropdownMenuItem(value: 1, child: Text('HTML')),
+                  DropdownMenuItem(value: 2, child: Text('Vditor')),
+                  DropdownMenuItem(value: 3, child: Text('V Builder')),
+                  DropdownMenuItem(value: 4, child: Text('Gutenberg')),
+                ],
+                onChanged: (v) => renderType = v ?? 0,
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<int>(
                 initialValue: editorType,
                 decoration: const InputDecoration(labelText: '编辑器'),
                 items: const [
@@ -665,6 +681,7 @@ class _PostDialogState extends State<PostDialog> {
                 contentMarkdown: {'zh-cn': contentCtrl.text.trim()},
                 status: status,
                 visibility: visibility,
+                renderType: renderType,
                 editorType: editorType,
                 version: 0,
               ),
@@ -675,320 +692,4 @@ class _PostDialogState extends State<PostDialog> {
       ],
     );
   }
-}
-
-class AdminApiClient {
-  String baseUrl = 'http://localhost:8080';
-  String? token;
-
-  Future<String> login({
-    required String account,
-    required String password,
-  }) async {
-    final res = await _post(
-      '/api/admin/auth/login',
-      body: {'account': account, 'password': password},
-      auth: false,
-      authFailureAsSessionExpired: false,
-    );
-    final map = _map(jsonDecode(res.body));
-    final t = map['token'] as String?;
-    if (t == null || t.isEmpty) throw Exception('登录失败: token 为空');
-    token = t;
-    return t;
-  }
-
-  Future<AdminUser> me() async {
-    final res = await _get('/api/admin/auth/me');
-    final map = _map(jsonDecode(res.body));
-    final user = _map(map['user']);
-    return AdminUser(
-      id: (user['id'] as num?)?.toInt() ?? 0,
-      username: user['username']?.toString() ?? '-',
-      email: user['email']?.toString() ?? '-',
-    );
-  }
-
-  Future<Map<String, dynamic>> overview() async {
-    final res = await _get('/api/admin/base/overview');
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
-  }
-
-  Future<PostListResult> listPosts({
-    required int page,
-    required int pageSize,
-    String? keyword,
-  }) async {
-    final query = {
-      'page': '$page',
-      'pageSize': '$pageSize',
-      if ((keyword?.isNotEmpty ?? false)) 'keyword': keyword!,
-    };
-    final res = await _get('/api/admin/posts', query: query);
-    final map = _map(jsonDecode(res.body));
-    final list = (map['items'] as List<dynamic>? ?? [])
-        .map((e) => PostItem.fromMap(_map(e)))
-        .toList();
-    return PostListResult(
-      items: list,
-      total: (map['total'] as num?)?.toInt() ?? 0,
-      page: (map['page'] as num?)?.toInt() ?? 1,
-      pageSize: (map['pageSize'] as num?)?.toInt() ?? pageSize,
-    );
-  }
-
-  Future<PostDetail> postDetail(int id) async {
-    final res = await _get('/api/admin/posts/$id');
-    return PostDetail.fromMap(_map(jsonDecode(res.body)));
-  }
-
-  Future<void> createPost(PostEditRequest req) async =>
-      _post('/api/admin/posts', body: req.toCreateBody());
-  Future<void> updatePost(int id, PostEditRequest req) async =>
-      _put('/api/admin/posts/$id', body: req.toUpdateBody());
-  Future<void> publishPost(int id) async =>
-      _post('/api/admin/posts/$id/publish', body: const {});
-  Future<void> deletePost(int id) async => _delete('/api/admin/posts/$id');
-
-  Future<http.Response> _get(String path, {Map<String, String>? query}) async {
-    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
-    final res = await http.get(uri, headers: _headers(true));
-    _check(res, authFailureAsSessionExpired: true);
-    return res;
-  }
-
-  Future<http.Response> _post(
-    String path, {
-    required Map<String, dynamic> body,
-    bool auth = true,
-    bool authFailureAsSessionExpired = true,
-  }) async {
-    final uri = Uri.parse('$baseUrl$path');
-    final res = await http.post(
-      uri,
-      headers: _headers(auth),
-      body: jsonEncode(body),
-    );
-    _check(res, authFailureAsSessionExpired: authFailureAsSessionExpired);
-    return res;
-  }
-
-  Future<http.Response> _put(
-    String path, {
-    required Map<String, dynamic> body,
-  }) async {
-    final uri = Uri.parse('$baseUrl$path');
-    final res = await http.put(
-      uri,
-      headers: _headers(true),
-      body: jsonEncode(body),
-    );
-    _check(res, authFailureAsSessionExpired: true);
-    return res;
-  }
-
-  Future<http.Response> _delete(String path) async {
-    final uri = Uri.parse('$baseUrl$path');
-    final res = await http.delete(uri, headers: _headers(true));
-    _check(res, authFailureAsSessionExpired: true);
-    return res;
-  }
-
-  Map<String, String> _headers(bool auth) {
-    final headers = <String, String>{'Content-Type': 'application/json'};
-    if (auth) {
-      if (token == null || token!.isEmpty) throw UnauthorizedException('请先登录');
-      headers['Authorization'] = 'Bearer $token';
-    }
-    return headers;
-  }
-
-  void _check(http.Response res, {required bool authFailureAsSessionExpired}) {
-    if (res.statusCode >= 200 && res.statusCode < 300) return;
-
-    String message = '请求失败(${res.statusCode})';
-    try {
-      final map = _map(jsonDecode(res.body));
-      final m = map['message']?.toString();
-      if (m != null && m.isNotEmpty) message = m;
-    } catch (_) {}
-
-    if ((res.statusCode == 401 || res.statusCode == 403) &&
-        authFailureAsSessionExpired) {
-      throw UnauthorizedException('登录已过期或无权限');
-    }
-    throw Exception(message);
-  }
-
-  Map<String, dynamic> _map(Object? obj) {
-    if (obj is Map<String, dynamic>) return obj;
-    if (obj is Map) return obj.map((k, v) => MapEntry('$k', v));
-    return {};
-  }
-}
-
-class UnauthorizedException implements Exception {
-  UnauthorizedException(this.message);
-  final String message;
-  @override
-  String toString() => message;
-}
-
-class AdminUser {
-  AdminUser({required this.id, required this.username, required this.email});
-  final int id;
-  final String username;
-  final String email;
-}
-
-class PostListResult {
-  PostListResult({
-    required this.items,
-    required this.total,
-    required this.page,
-    required this.pageSize,
-  });
-  final List<PostItem> items;
-  final int total;
-  final int page;
-  final int pageSize;
-}
-
-class PostItem {
-  PostItem({
-    required this.id,
-    required this.slug,
-    required this.title,
-    required this.status,
-    required this.version,
-  });
-  final int id;
-  final String slug;
-  final Map<String, String> title;
-  final int status;
-  final int version;
-
-  String get zhTitle =>
-      title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
-  String get statusText => status == 1 ? '已发布' : (status == 2 ? '归档' : '草稿');
-
-  factory PostItem.fromMap(Map<String, dynamic> map) {
-    return PostItem(
-      id: (map['id'] as num?)?.toInt() ?? 0,
-      slug: map['slug']?.toString() ?? '',
-      title: toStringMap(map['title']),
-      status: (map['status'] as num?)?.toInt() ?? 0,
-      version: (map['version'] as num?)?.toInt() ?? 0,
-    );
-  }
-}
-
-class PostDetail {
-  PostDetail({
-    required this.id,
-    required this.slug,
-    required this.title,
-    required this.summary,
-    required this.contentMarkdown,
-    required this.status,
-    required this.visibility,
-    required this.editorType,
-    required this.version,
-  });
-
-  final int id;
-  final String slug;
-  final Map<String, String> title;
-  final Map<String, String> summary;
-  final Map<String, String> contentMarkdown;
-  final int status;
-  final int visibility;
-  final int editorType;
-  final int version;
-
-  factory PostDetail.fromMap(Map<String, dynamic> map) {
-    return PostDetail(
-      id: (map['id'] as num?)?.toInt() ?? 0,
-      slug: map['slug']?.toString() ?? '',
-      title: toStringMap(map['title']),
-      summary: toStringMap(map['summary']),
-      contentMarkdown: toStringMap(map['contentMarkdown']),
-      status: (map['status'] as num?)?.toInt() ?? 0,
-      visibility: (map['visibility'] as num?)?.toInt() ?? 0,
-      editorType: (map['editorType'] as num?)?.toInt() ?? 0,
-      version: (map['version'] as num?)?.toInt() ?? 0,
-    );
-  }
-}
-
-class PostEditRequest {
-  PostEditRequest({
-    required this.slug,
-    required this.title,
-    required this.summary,
-    required this.aiSummary,
-    required this.contentMarkdown,
-    required this.status,
-    required this.visibility,
-    required this.editorType,
-    required this.version,
-  });
-
-  final String slug;
-  final Map<String, String> title;
-  final Map<String, String> summary;
-  final Map<String, String> aiSummary;
-  final Map<String, String> contentMarkdown;
-  final int status;
-  final int visibility;
-  final int editorType;
-  final int version;
-
-  Map<String, dynamic> toCreateBody() {
-    return {
-      'slug': slug,
-      'title': title,
-      'summary': summary,
-      'aiSummary': aiSummary,
-      'contentMarkdown': contentMarkdown,
-      'status': status,
-      'visibility': visibility,
-      'editorType': editorType,
-    };
-  }
-
-  Map<String, dynamic> toUpdateBody() {
-    return {
-      'slug': slug,
-      'title': title,
-      'summary': summary,
-      'aiSummary': aiSummary,
-      'contentMarkdown': contentMarkdown,
-      'status': status,
-      'visibility': visibility,
-      'editorType': editorType,
-      'version': version,
-    };
-  }
-
-  PostEditRequest copyWith({int? version}) {
-    return PostEditRequest(
-      slug: slug,
-      title: title,
-      summary: summary,
-      aiSummary: aiSummary,
-      contentMarkdown: contentMarkdown,
-      status: status,
-      visibility: visibility,
-      editorType: editorType,
-      version: version ?? this.version,
-    );
-  }
-}
-
-Map<String, String> toStringMap(Object? value) {
-  if (value is Map<String, String>) return value;
-  if (value is Map) return value.map((k, v) => MapEntry('$k', '${v ?? ''}'));
-  return {};
 }
