@@ -184,3 +184,81 @@ Map<String, String> toStringMap(Object? value) {
   if (value is Map) return value.map((k, v) => MapEntry('$k', '${v ?? ''}'));
   return {};
 }
+
+class AiProviderConfig {
+  AiProviderConfig({
+    required this.provider,
+    required this.enabled,
+    this.endpoint,
+    this.model,
+    this.apiKey,
+    this.updatedAt,
+  });
+
+  final String provider;
+  final bool enabled;
+  final String? endpoint;
+  final String? model;
+  final String? apiKey;
+  final DateTime? updatedAt;
+
+  AiProviderConfig copyWith({
+    bool? enabled,
+    String? endpoint,
+    String? model,
+    String? apiKey,
+    DateTime? updatedAt,
+  }) {
+    return AiProviderConfig(
+      provider: provider,
+      enabled: enabled ?? this.enabled,
+      endpoint: endpoint ?? this.endpoint,
+      model: model ?? this.model,
+      apiKey: apiKey ?? this.apiKey,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  factory AiProviderConfig.fromMap(Map<String, dynamic> map) {
+    return AiProviderConfig(
+      provider: map['provider']?.toString() ?? '',
+      enabled: (map['enabled'] as bool?) ?? false,
+      endpoint: map['endpoint']?.toString(),
+      model: map['model']?.toString(),
+      apiKey: map['apiKey']?.toString(),
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.tryParse(map['updatedAt'].toString())
+          : null,
+    );
+  }
+}
+
+class AiProviderConfigUpdateRequest {
+  AiProviderConfigUpdateRequest({
+    required this.enabled,
+    this.endpoint,
+    this.model,
+    this.apiKey,
+  });
+
+  final bool enabled;
+  final String? endpoint;
+  final String? model;
+  final String? apiKey;
+
+  Map<String, dynamic> toJson() {
+    final payload = <String, dynamic>{
+      'enabled': enabled,
+    };
+    if (endpoint != null) {
+      payload['endpoint'] = endpoint;
+    }
+    if (model != null) {
+      payload['model'] = model;
+    }
+    if (apiKey != null) {
+      payload['apiKey'] = apiKey;
+    }
+    return payload;
+  }
+}

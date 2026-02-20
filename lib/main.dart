@@ -207,6 +207,11 @@ class _HomePageState extends State<HomePage> {
                 selectedIcon: Icon(Icons.article),
                 label: Text('文章'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.memory_outlined),
+                selectedIcon: Icon(Icons.memory),
+                label: Text('AI'),
+              ),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -221,7 +226,11 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: Row(
                     children: [
-                      Text(tab == 0 ? '后台概览' : '文章管理'),
+                      Text(tab == 0
+                          ? '后台概览'
+                          : tab == 1
+                          ? '文章管理'
+                          : 'AI 配置'),
                       const Spacer(),
                       if (widget.user != null) Text(widget.user!.username),
                       const SizedBox(width: 8),
@@ -235,13 +244,18 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: tab == 0
                       ? OverviewPage(
-                          api: widget.api,
-                          onAuthError: widget.onLogout,
-                        )
-                      : PostsPage(
-                          api: widget.api,
-                          onAuthError: widget.onLogout,
-                        ),
+                    api: widget.api,
+                    onAuthError: widget.onLogout,
+                  )
+                      : tab == 1
+                      ? PostsPage(
+                    api: widget.api,
+                    onAuthError: widget.onLogout,
+                  )
+                      : AiProvidersPage(
+                    api: widget.api,
+                    onAuthError: widget.onLogout,
+                  ),
                 ),
               ],
             ),
@@ -691,5 +705,239 @@ class _PostDialogState extends State<PostDialog> {
         ),
       ],
     );
+  }
+}
+
+class AiProvidersPage extends StatefulWidget {
+  const AiProvidersPage({
+    super.key,
+    required this.api,
+    required this.onAuthError,
+  });
+
+  final AdminApiClient api;
+  final VoidCallback onAuthError;
+
+  @override
+  State<AiProvidersPage> createState() => _AiProvidersPageState();
+}
+
+class _AiProvidersPageState extends State<AiProvidersPage> {
+  final List<_ProviderForm> forms = [];
+  bool loading = true;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    for (final form in forms) {
+      form.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final configs = await widget.api.listAiProviders();
+      setState(() {
+        for (final form in forms) {
+          form.dispose();
+        }
+        forms
+          ..clear()
+          ..addAll(configs.map(_ProviderForm.fromConfig));
+      });
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = '$e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _save(_ProviderForm form) async {
+    if (form.saving) return;
+    if (!mounted) return;
+    setState(() => form.saving = true);
+    try {
+      final updated = await widget.api.updateAiProvider(
+        form.provider,
+        AiProviderConfigUpdateRequest(
+          enabled: form.enabled,
+          endpoint: form.endpointCtrl.text.trim(),
+          model: form.modelCtrl.text.trim(),
+          apiKey: form.apiKeyCtrl.text.trim(),
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        form.enabled = updated.enabled;
+        form.endpointCtrl.text = updated.endpoint ?? '';
+        form.modelCtrl.text = updated.model ?? '';
+        form.apiKeyCtrl.text = updated.apiKey ?? '';
+        form.updatedAt = updated.updatedAt;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI 配置已保存')),
+      );
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => form.saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (error != null) {
+      return Center(child: Text(error!));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: forms.length,
+      itemBuilder: (context, index) {
+        final form = forms[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      form.provider,
+                      style: Theme
+                          .of(context)
+                          .textTheme
+                          .titleMedium,
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        const Text('启用'),
+                        Switch(
+                          value: form.enabled,
+                          onChanged: (value) =>
+                              setState(() => form.enabled = value),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (form.updatedAt != null)
+                  Text(
+                    '上次更新: ${form.updatedAt!.toLocal()}',
+                    style: Theme
+                        .of(context)
+                        .textTheme
+                        .bodySmall,
+                  ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: form.endpointCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '接口 URL',
+                    border: OutlineInputBorder(),
+                    hintText: '如 http://localhost:11434',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: form.modelCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '模型标识',
+                    border: OutlineInputBorder(),
+                    hintText: '如 ollama/llama3',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: form.apiKeyCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'API Key',
+                    border: OutlineInputBorder(),
+                    hintText: '如需 Bearer Token',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton(
+                    onPressed: form.saving ? null : () => _save(form),
+                    child: Text(form.saving ? '保存中...' : '保存'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProviderForm {
+  _ProviderForm({
+    required this.provider,
+    required this.endpointCtrl,
+    required this.modelCtrl,
+    required this.apiKeyCtrl,
+    this.enabled = false,
+    this.updatedAt,
+  });
+
+  factory _ProviderForm.fromConfig(AiProviderConfig config) {
+    return _ProviderForm(
+      provider: config.provider,
+      endpointCtrl: TextEditingController(text: config.endpoint ?? ''),
+      modelCtrl: TextEditingController(text: config.model ?? ''),
+      apiKeyCtrl: TextEditingController(text: config.apiKey ?? ''),
+      enabled: config.enabled,
+      updatedAt: config.updatedAt,
+    );
+  }
+
+  final String provider;
+  final TextEditingController endpointCtrl;
+  final TextEditingController modelCtrl;
+  final TextEditingController apiKeyCtrl;
+  bool enabled;
+  bool saving = false;
+  DateTime? updatedAt;
+
+  void dispose() {
+    endpointCtrl.dispose();
+    modelCtrl.dispose();
+    apiKeyCtrl.dispose();
   }
 }

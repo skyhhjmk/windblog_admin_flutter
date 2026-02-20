@@ -42,6 +42,21 @@ class AdminApiClient {
     return _map(map['data']);
   }
 
+  Future<List<AiProviderConfig>> listAiProviders() async {
+    final res = await _get('/api/admin/ai/providers');
+    final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
+    return list
+        .map((e) => AiProviderConfig.fromMap(_map(e)))
+        .toList();
+  }
+
+  Future<AiProviderConfig> updateAiProvider(String provider,
+      AiProviderConfigUpdateRequest request,) async {
+    final res = await _put(
+        '/api/admin/ai/providers/$provider', body: request.toJson());
+    return AiProviderConfig.fromMap(_map(jsonDecode(res.body)));
+  }
+
   Future<PostListResult> listPosts({
     required int page,
     required int pageSize,
