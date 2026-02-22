@@ -1327,67 +1327,171 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
       itemBuilder: (context, index) {
         final item = items[index];
         return ListTile(
+          onTap: () => _openMediaDetail(item),
           leading: item.isImage
-              ? Image.network(item.url, width: 48, fit: BoxFit.cover)
+              ? ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: _ProgressiveImage(
+              previewUrl: item.previewUrl,
+              thumbnailUrl: item.thumbnailUrl,
+              fallbackUrl: item.url,
+              width: 48,
+              height: 48,
+              fit: BoxFit.cover,
+            ),
+          )
               : const Icon(Icons.insert_drive_file),
           title: Text(item.fileName),
           subtitle: Text(
-            '${_formatBytes(item.size)} • 引用 ${item.references.length} 次',
-          ),
+              '${_formatBytes(item.size)} • 引用 ${item.references.length} 次'),
         );
       },
     );
   }
-
   Widget _buildMediaCard(MediaItem item) {
     final preview = item.isImage
-        ? Image.network(
-            item.url,
-            fit: BoxFit.cover,
+        ? _ProgressiveImage(
+      previewUrl: item.previewUrl,
+      thumbnailUrl: item.thumbnailUrl,
+      fallbackUrl: item.url,
             width: double.infinity,
-            height: 120,
+      height: 140,
+      fit: BoxFit.contain,
           )
         : const SizedBox(
-            height: 120,
+      height: 140,
             child: Center(child: Icon(Icons.insert_drive_file, size: 48)),
           );
     return Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          preview,
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Text(
-              item.fileName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      child: InkWell(
+        onTap: () => _openMediaDetail(item),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              height: 140,
+              color: Colors.grey.shade100,
+              child: preview,
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              '${_formatBytes(item.size)} • ${item.uploadedByName ?? '未知用户'}',
-              style: Theme.of(context).textTheme.bodySmall,
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                item.fileName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Wrap(
-              spacing: 4,
-              children: item.references
-                  .map((ref) => Chip(
-                        label: Text(ref.postSlug),
-                        visualDensity: VisualDensity.compact,
-                      ))
-                  .toList(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                '${_formatBytes(item.size)} • ${item.uploadedByName ??
+                    '未知用户'}',
+                style: Theme
+                    .of(context)
+                    .textTheme
+                    .bodySmall,
+              ),
             ),
-          ),
-        ],
+            if (item.requiresManualOriginal)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Text(
+                  '原文件>5MB，详情页手动加载',
+                  style: TextStyle(color: Colors.orange, fontSize: 12),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Wrap(
+                spacing: 4,
+                children: item.references
+                    .map((ref) =>
+                    Chip(
+                      label: Text(ref.postSlug),
+                      visualDensity: VisualDensity.compact,
+                    ))
+                    .toList(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  Future<void> _openMediaDetail(MediaItem item) async {
+    bool loadOriginal = !item.requiresManualOriginal;
+    await showDialog<void>(
+      context: context,
+      builder: (context) =>
+          StatefulBuilder(
+            builder: (context, setLocalState) =>
+                AlertDialog(
+                  title: Text(item.fileName),
+                  content: SizedBox(
+                    width: 640,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (item.isImage)
+                          Container(
+                            width: double.infinity,
+                            height: 320,
+                            color: Colors.black12,
+                            child: loadOriginal
+                                ? Image.network(
+                              item.url,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) =>
+                              const Center(child: Icon(Icons.broken_image)),
+                            )
+                                : _ProgressiveImage(
+                              previewUrl: item.previewUrl,
+                              thumbnailUrl: item.thumbnailUrl,
+                              fallbackUrl: item.url,
+                              width: double.infinity,
+                              height: 320,
+                              fit: BoxFit.contain,
+                            ),
+                          )
+                        else
+                          const SizedBox(
+                            height: 120,
+                            child: Center(
+                                child: Icon(Icons.insert_drive_file, size: 56)),
+                          ),
+                        const SizedBox(height: 8),
+                        Text('类型: ${item.mimeType}'),
+                        Text('大小: ${_formatBytes(item.size)}'),
+                        SelectableText('原始地址: ${item.url}'),
+                        if (item.requiresManualOriginal)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: OutlinedButton(
+                              onPressed: loadOriginal
+                                  ? null
+                                  : () =>
+                                  setLocalState(() => loadOriginal = true),
+                              child: Text(item.isImage
+                                  ? '手动加载原图'
+                                  : '手动加载原始文件'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('关闭'),
+                    ),
+                  ],
+                ),
+          ),
+    );
+  }
   Widget _buildPagination() {
     final total = mediaResult?.total ?? 0;
     return Row(
@@ -1430,6 +1534,85 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
   }
 }
 
+class _ProgressiveImage extends StatefulWidget {
+  const _ProgressiveImage({
+    required this.previewUrl,
+    required this.thumbnailUrl,
+    required this.fallbackUrl,
+    required this.width,
+    required this.height,
+    required this.fit,
+  });
+
+  final String? previewUrl;
+  final String? thumbnailUrl;
+  final String fallbackUrl;
+  final double width;
+  final double height;
+  final BoxFit fit;
+
+  @override
+  State<_ProgressiveImage> createState() => _ProgressiveImageState();
+}
+
+class _ProgressiveImageState extends State<_ProgressiveImage> {
+  late String _currentUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUrl = _pickInitialUrl();
+    _upgradeToThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProgressiveImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.previewUrl != widget.previewUrl ||
+        oldWidget.thumbnailUrl != widget.thumbnailUrl ||
+        oldWidget.fallbackUrl != widget.fallbackUrl) {
+      _currentUrl = _pickInitialUrl();
+      _upgradeToThumbnail();
+    }
+  }
+
+  String _pickInitialUrl() {
+    final preview = widget.previewUrl?.trim();
+    if (preview != null && preview.isNotEmpty) {
+      return preview;
+    }
+    final thumb = widget.thumbnailUrl?.trim();
+    if (thumb != null && thumb.isNotEmpty) {
+      return thumb;
+    }
+    return widget.fallbackUrl;
+  }
+
+  Future<void> _upgradeToThumbnail() async {
+    final thumb = widget.thumbnailUrl?.trim();
+    if (thumb == null || thumb.isEmpty || thumb == _currentUrl) {
+      return;
+    }
+    final provider = NetworkImage(thumb);
+    try {
+      await precacheImage(provider, context);
+      if (!mounted) return;
+      setState(() => _currentUrl = thumb);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.network(
+      _currentUrl,
+      width: widget.width,
+      height: widget.height,
+      fit: widget.fit,
+      errorBuilder: (_, __, ___) =>
+      const Center(child: Icon(Icons.broken_image)),
+    );
+  }
+}
 class UserManagementPage extends StatefulWidget {
   const UserManagementPage({
     super.key,

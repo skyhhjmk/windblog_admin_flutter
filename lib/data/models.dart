@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class AdminUser {
   AdminUser({
     required this.id,
@@ -47,12 +49,12 @@ class PostItem {
 
   factory PostItem.fromMap(Map<String, dynamic> map) {
     return PostItem(
-      id: (map['id'] as num?)?.toInt() ?? 0,
+      id: toInt(map['id']) ?? 0,
       slug: map['slug']?.toString() ?? '',
       title: toStringMap(map['title']),
-      status: (map['status'] as num?)?.toInt() ?? 0,
-      renderType: (map['renderType'] as num?)?.toInt() ?? 0,
-      version: (map['version'] as num?)?.toInt() ?? 0,
+      status: toInt(map['status']) ?? 0,
+      renderType: toInt(map['renderType']) ?? 0,
+      version: toInt(map['version']) ?? 0,
     );
   }
 }
@@ -84,16 +86,16 @@ class PostDetail {
 
   factory PostDetail.fromMap(Map<String, dynamic> map) {
     return PostDetail(
-      id: (map['id'] as num?)?.toInt() ?? 0,
+      id: toInt(map['id']) ?? 0,
       slug: map['slug']?.toString() ?? '',
       title: toStringMap(map['title']),
       summary: toStringMap(map['summary']),
       contentMarkdown: toStringMap(map['contentMarkdown']),
-      status: (map['status'] as num?)?.toInt() ?? 0,
-      visibility: (map['visibility'] as num?)?.toInt() ?? 0,
-      renderType: (map['renderType'] as num?)?.toInt() ?? 0,
-      editorType: (map['editorType'] as num?)?.toInt() ?? 0,
-      version: (map['version'] as num?)?.toInt() ?? 0,
+      status: toInt(map['status']) ?? 0,
+      visibility: toInt(map['visibility']) ?? 0,
+      renderType: toInt(map['renderType']) ?? 0,
+      editorType: toInt(map['editorType']) ?? 0,
+      version: toInt(map['version']) ?? 0,
     );
   }
 }
@@ -228,7 +230,7 @@ class AiProviderConfig {
   factory AiProviderConfig.fromMap(Map<String, dynamic> map) {
     return AiProviderConfig(
       provider: map['provider']?.toString() ?? '',
-      enabled: (map['enabled'] as bool?) ?? false,
+      enabled: toBool(map['enabled']) ?? false,
       endpoint: map['endpoint']?.toString(),
       model: map['model']?.toString(),
       apiKey: map['apiKey']?.toString(),
@@ -285,15 +287,15 @@ class PageResult<T> {
     Map<String, dynamic> map,
     T Function(Map<String, dynamic>) converter,
   ) {
-    final list = (map['items'] as List<dynamic>?)
+    final list = asDynamicList(map['items'])
             ?.map((e) => converter(toStringMap(e)))
             .toList() ??
         [];
     return PageResult(
       items: list,
-      total: (map['total'] as num?)?.toInt() ?? 0,
-      page: (map['page'] as num?)?.toInt() ?? 1,
-      pageSize: (map['pageSize'] as num?)?.toInt() ?? list.length,
+      total: toInt(map['total']) ?? 0,
+      page: toInt(map['page']) ?? 1,
+      pageSize: toInt(map['pageSize']) ?? list.length,
     );
   }
 }
@@ -323,12 +325,12 @@ class UserListItem {
 
   factory UserListItem.fromMap(Map<String, dynamic> map) {
     return UserListItem(
-      id: (map['id'] as num?)?.toInt() ?? 0,
+      id: toInt(map['id']) ?? 0,
       username: map['username']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
       avatar: map['avatar']?.toString() ?? 'https://ui-avatars.com/api/?name=User',
       roleName: map['roleName']?.toString() ?? '',
-      status: (map['status'] as num?)?.toInt() ?? 0,
+      status: toInt(map['status']) ?? 0,
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
       updatedAt: parseDate(map['updatedAt']) ?? DateTime.now(),
     );
@@ -370,16 +372,16 @@ class PermissionRoleItem {
   final DateTime? updatedAt;
 
   factory PermissionRoleItem.fromMap(Map<String, dynamic> map) {
-    final raw = map['allowedMimeTypes'] as List<dynamic>?;
+    final raw = asDynamicList(map['allowedMimeTypes']);
     return PermissionRoleItem(
       name: map['name']?.toString() ?? '',
       displayName: map['displayName']?.toString() ?? '',
       description: map['description']?.toString() ?? '',
-      canUpload: map['canUpload'] as bool? ?? false,
+      canUpload: toBool(map['canUpload']) ?? false,
       allowedMimeTypes:
           raw?.map((e) => e?.toString() ?? '').where((value) => value.isNotEmpty).toList() ?? [],
-      maxSingleUploadBytes: (map['maxSingleUploadBytes'] as num?)?.toInt(),
-      maxTotalUploadBytes: (map['maxTotalUploadBytes'] as num?)?.toInt(),
+      maxSingleUploadBytes: toInt(map['maxSingleUploadBytes']),
+      maxTotalUploadBytes: toInt(map['maxTotalUploadBytes']),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
     );
@@ -446,10 +448,10 @@ class MediaReference {
 
   factory MediaReference.fromMap(Map<String, dynamic> map) {
     return MediaReference(
-      postId: (map['postId'] as num?)?.toInt() ?? 0,
+      postId: toInt(map['postId']) ?? 0,
       postSlug: map['postSlug']?.toString() ?? '',
       postTitle: map['postTitle']?.toString() ?? '',
-      usageType: (map['usageType'] as num?)?.toInt() ?? 0,
+      usageType: toInt(map['usageType']) ?? 0,
       referencedAt: parseDate(map['referencedAt']) ?? DateTime.now(),
     );
   }
@@ -460,6 +462,9 @@ class MediaItem {
     required this.id,
     required this.storageKey,
     required this.url,
+    this.thumbnailUrl,
+    this.previewUrl,
+    required this.requiresManualOriginal,
     required this.fileName,
     required this.mimeType,
     required this.size,
@@ -476,6 +481,9 @@ class MediaItem {
   final int id;
   final String storageKey;
   final String url;
+  final String? thumbnailUrl;
+  final String? previewUrl;
+  final bool requiresManualOriginal;
   final String fileName;
   final String mimeType;
   final int? size;
@@ -490,25 +498,32 @@ class MediaItem {
 
   bool get isImage => mimeType.toLowerCase().startsWith('image/');
 
+  bool get isAudio => mimeType.toLowerCase().startsWith('audio/');
+
+  bool get isVideo => mimeType.toLowerCase().startsWith('video/');
+
   factory MediaItem.fromMap(Map<String, dynamic> map) {
-    final refList = (map['references'] as List<dynamic>?)
+    final refList = asDynamicList(map['references'])
             ?.map((e) => MediaReference.fromMap(toStringMap(e)))
             .toList() ??
         [];
     return MediaItem(
-      id: (map['id'] as num?)?.toInt() ?? 0,
+      id: toInt(map['id']) ?? 0,
       storageKey: map['storageKey']?.toString() ?? '',
       url: map['url']?.toString() ?? '',
+      thumbnailUrl: map['thumbnailUrl']?.toString(),
+      previewUrl: map['previewUrl']?.toString(),
+      requiresManualOriginal: toBool(map['requiresManualOriginal']) ?? false,
       fileName: map['fileName']?.toString() ?? '',
       mimeType: map['mimeType']?.toString() ?? '',
-      size: (map['size'] as num?)?.toInt(),
-      mediaType: (map['mediaType'] as num?)?.toInt() ?? 0,
-      width: (map['width'] as num?)?.toInt(),
-      height: (map['height'] as num?)?.toInt(),
-      uploadedBy: (map['uploadedBy'] as num?)?.toInt(),
+      size: toInt(map['size']),
+      mediaType: toInt(map['mediaType']) ?? 0,
+      width: toInt(map['width']),
+      height: toInt(map['height']),
+      uploadedBy: toInt(map['uploadedBy']),
       uploadedByName: map['uploadedByName']?.toString(),
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
-      referenced: map['referenced'] as bool? ?? false,
+      referenced: toBool(map['referenced']) ?? false,
       references: refList,
     );
   }
@@ -528,15 +543,15 @@ class MediaListResult {
   final int pageSize;
 
   factory MediaListResult.fromMap(Map<String, dynamic> map) {
-    final items = (map['items'] as List<dynamic>?)
+    final items = asDynamicList(map['items'])
             ?.map((e) => MediaItem.fromMap(toStringMap(e)))
             .toList() ??
         [];
     return MediaListResult(
       items: items,
-      total: (map['total'] as num?)?.toInt() ?? 0,
-      page: (map['page'] as num?)?.toInt() ?? 1,
-      pageSize: (map['pageSize'] as num?)?.toInt() ?? items.length,
+      total: toInt(map['total']) ?? 0,
+      page: toInt(map['page']) ?? 1,
+      pageSize: toInt(map['pageSize']) ?? items.length,
     );
   }
 }
@@ -554,11 +569,53 @@ class MediaScanResult {
 
   factory MediaScanResult.fromMap(Map<String, dynamic> map) {
     return MediaScanResult(
-      postsScanned: (map['postsScanned'] as num?)?.toInt() ?? 0,
-      referencesCreated: (map['referencesCreated'] as num?)?.toInt() ?? 0,
-      unreferenced: (map['unreferenced'] as num?)?.toInt() ?? 0,
+      postsScanned: toInt(map['postsScanned']) ?? 0,
+      referencesCreated: toInt(map['referencesCreated']) ?? 0,
+      unreferenced: toInt(map['unreferenced']) ?? 0,
     );
   }
+}
+
+int? toInt(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    final text = value.trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    return int.tryParse(text) ?? double.tryParse(text)?.toInt();
+  }
+  return int.tryParse(value.toString());
+}
+
+bool? toBool(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is bool) {
+    return value;
+  }
+  if (value is num) {
+    return value != 0;
+  }
+  if (value is String) {
+    final text = value.trim().toLowerCase();
+    if (text.isEmpty) {
+      return null;
+    }
+    if (text == 'true' || text == '1' || text == 'yes') {
+      return true;
+    }
+    if (text == 'false' || text == '0' || text == 'no') {
+      return false;
+    }
+  }
+  return null;
 }
 
 DateTime? parseDate(Object? value) {
@@ -566,4 +623,34 @@ DateTime? parseDate(Object? value) {
     return null;
   }
   return DateTime.tryParse(value.toString());
+}
+
+List<dynamic>? asDynamicList(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is List<dynamic>) {
+    return value;
+  }
+  if (value is List) {
+    return value.cast<dynamic>();
+  }
+  if (value is String) {
+    final text = value.trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    if (text.startsWith('[') && text.endsWith(']')) {
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is List<dynamic>) {
+          return decoded;
+        }
+        if (decoded is List) {
+          return decoded.cast<dynamic>();
+        }
+      } catch (_) {}
+    }
+  }
+  return null;
 }

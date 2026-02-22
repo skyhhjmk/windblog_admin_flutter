@@ -108,7 +108,7 @@ class AdminApiClient {
       'pageSize': '$pageSize',
       'unreferenced': unreferenced ? 'true' : 'false',
     });
-    final map = _map(jsonDecode(res.body));
+    final map = _normalizeMediaListMap(_map(jsonDecode(res.body)));
     return MediaListResult.fromMap(map);
   }
 
@@ -140,7 +140,8 @@ class AdminApiClient {
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     _check(response, authFailureAsSessionExpired: true);
-    return MediaItem.fromMap(_map(jsonDecode(response.body)));
+    return MediaItem.fromMap(
+        _normalizeMediaItemMap(_map(jsonDecode(response.body))));
   }
 
   Future<PageResult<UserListItem>> listUsers({
@@ -279,6 +280,42 @@ class AdminApiClient {
     if (obj is Map<String, dynamic>) return obj;
     if (obj is Map) return obj.map((k, v) => MapEntry('$k', v));
     return {};
+  }
+
+  Map<String, dynamic> _normalizeMediaListMap(Map<String, dynamic> map) {
+    final normalized = Map<String, dynamic>.from(map);
+    final rawItems = normalized['items'];
+    if (rawItems is List) {
+      normalized['items'] = rawItems
+          .map((e) => e is Map ? _normalizeMediaItemMap(_map(e)) : e)
+          .toList();
+    }
+    return normalized;
+  }
+
+  Map<String, dynamic> _normalizeMediaItemMap(Map<String, dynamic> map) {
+    final normalized = Map<String, dynamic>.from(map);
+    normalized['url'] = _normalizeMediaUrl(normalized['url']?.toString());
+    normalized['thumbnailUrl'] =
+        _normalizeMediaUrl(normalized['thumbnailUrl']?.toString());
+    normalized['previewUrl'] =
+        _normalizeMediaUrl(normalized['previewUrl']?.toString());
+    return normalized;
+  }
+
+  String _normalizeMediaUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl.isEmpty) {
+      return '';
+    }
+    final parsed = Uri.tryParse(rawUrl);
+    if (parsed != null && parsed.hasScheme) {
+      return rawUrl;
+    }
+    final base = Uri.parse(baseUrl);
+    final resolved = rawUrl.startsWith('/')
+        ? base.replace(path: rawUrl, query: null, fragment: null)
+        : base.resolve(rawUrl);
+    return resolved.toString();
   }
 }
 
