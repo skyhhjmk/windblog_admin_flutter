@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import 'models.dart';
 
@@ -20,7 +22,7 @@ class AdminApiClient {
     );
     final map = _map(jsonDecode(res.body));
     final t = map['token'] as String?;
-    if (t == null || t.isEmpty) throw Exception('登录失败: token 为空');
+    if (t == null || t.isEmpty) throw Exception('登录失败：token 缺失');
     token = t;
     return t;
   }
@@ -33,6 +35,7 @@ class AdminApiClient {
       id: (user['id'] as num?)?.toInt() ?? 0,
       username: user['username']?.toString() ?? '-',
       email: user['email']?.toString() ?? '-',
+      roleName: user['roleName']?.toString() ?? '',
     );
   }
 
@@ -45,15 +48,14 @@ class AdminApiClient {
   Future<List<AiProviderConfig>> listAiProviders() async {
     final res = await _get('/api/admin/ai/providers');
     final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
-    return list
-        .map((e) => AiProviderConfig.fromMap(_map(e)))
-        .toList();
+    return list.map((e) => AiProviderConfig.fromMap(_map(e))).toList();
   }
 
-  Future<AiProviderConfig> updateAiProvider(String provider,
-      AiProviderConfigUpdateRequest request,) async {
-    final res = await _put(
-        '/api/admin/ai/providers/$provider', body: request.toJson());
+  Future<AiProviderConfig> updateAiProvider(
+    String provider,
+    AiProviderConfigUpdateRequest request,
+  ) async {
+    final res = await _put('/api/admin/ai/providers/$provider', body: request.toJson());
     return AiProviderConfig.fromMap(_map(jsonDecode(res.body)));
   }
 
@@ -87,11 +89,118 @@ class AdminApiClient {
 
   Future<void> createPost(PostEditRequest req) async =>
       _post('/api/admin/posts', body: req.toCreateBody());
+
   Future<void> updatePost(int id, PostEditRequest req) async =>
       _put('/api/admin/posts/$id', body: req.toUpdateBody());
+
   Future<void> publishPost(int id) async =>
       _post('/api/admin/posts/$id/publish', body: const {});
+
   Future<void> deletePost(int id) async => _delete('/api/admin/posts/$id');
+
+  Future<MediaListResult> listMedia({
+    int page = 1,
+    int pageSize = 20,
+    bool unreferenced = false,
+  }) async {
+    final res = await _get('/api/admin/media', query: {
+      'page': '$page',
+      'pageSize': '$pageSize',
+      'unreferenced': unreferenced ? 'true' : 'false',
+    });
+    final map = _map(jsonDecode(res.body));
+    return MediaListResult.fromMap(map);
+  }
+
+  Future<MediaScanResult> scanMedia() async {
+    final res = await _post('/api/admin/media/scan', body: {});
+    return MediaScanResult.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<MediaItem> uploadMedia({
+    required String fileName,
+    required Uint8List bytes,
+    String? mimeType,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/admin/media/upload');
+    final request = http.MultipartRequest('POST', uri);
+    final headers = _headers(true, json: false);
+    request.headers.addAll(headers);
+    final detected = mimeType ?? 'application/octet-stream';
+    final parts = detected.split('/');
+    final contentType = parts.length == 2
+        ? MediaType(parts[0], parts[1])
+        : MediaType('application', 'octet-stream');
+    request.files.add(http.MultipartFile.fromBytes(
+      'file',
+      bytes,
+      filename: fileName,
+      contentType: contentType,
+    ));
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    _check(response, authFailureAsSessionExpired: true);
+    return MediaItem.fromMap(_map(jsonDecode(response.body)));
+  }
+
+  Future<PageResult<UserListItem>> listUsers({
+    int page = 1,
+    int pageSize = 20,
+    String? keyword,
+  }) async {
+    final res = await _get('/api/admin/users', query: {
+      'page': '$page',
+      'pageSize': '$pageSize',
+      if ((keyword?.isNotEmpty ?? false)) 'keyword': keyword!,
+    });
+    final map = _map(jsonDecode(res.body));
+    return PageResult.fromMap(map, (item) => UserListItem.fromMap(item));
+  }
+
+  Future<UserListItem> updateUser(
+    int id, {
+    String? email,
+    int? status,
+    String? roleName,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (email != null) payload['email'] = email;
+    if (status != null) payload['status'] = status;
+    if (roleName != null) payload['roleName'] = roleName;
+    final res = await _put('/api/admin/users/$id', body: payload);
+    return UserListItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<List<PermissionRoleItem>> listRoles() async {
+    final res = await _get('/api/admin/permissions/roles');
+    final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
+    return list
+        .map((e) => PermissionRoleItem.fromMap(_map(e)))
+        .toList();
+  }
+
+  Future<PermissionRoleItem> createRole(PermissionRoleRequest request) async {
+    final res = await _post(
+      '/api/admin/permissions/roles',
+      body: request.toCreateJson(),
+    );
+    return PermissionRoleItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<PermissionRoleItem> updateRole(
+    String name,
+    PermissionRoleRequest request,
+  ) async {
+    final res = await _put(
+      '/api/admin/permissions/roles/$name',
+      body: request.toUpdateJson(),
+    );
+    return PermissionRoleItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> deleteRole(String name) async {
+    await _delete('/api/admin/permissions/roles/$name');
+  }
 
   Future<http.Response> _get(String path, {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
@@ -137,8 +246,11 @@ class AdminApiClient {
     return res;
   }
 
-  Map<String, String> _headers(bool auth) {
-    final headers = <String, String>{'Content-Type': 'application/json'};
+  Map<String, String> _headers(bool auth, {bool json = true}) {
+    final headers = <String, String>{};
+    if (json) {
+      headers['Content-Type'] = 'application/json';
+    }
     if (auth) {
       if (token == null || token!.isEmpty) throw UnauthorizedException('请先登录');
       headers['Authorization'] = 'Bearer $token';
@@ -158,7 +270,7 @@ class AdminApiClient {
 
     if ((res.statusCode == 401 || res.statusCode == 403) &&
         authFailureAsSessionExpired) {
-      throw UnauthorizedException('登录已过期或无权限');
+      throw UnauthorizedException('需要重新登录');
     }
     throw Exception(message);
   }

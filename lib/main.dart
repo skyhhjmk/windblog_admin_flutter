@@ -1,7 +1,16 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:mime/mime.dart';
 
 import 'data/admin_api_client.dart';
 import 'data/models.dart';
+
+String _resolveMimeType(PlatformFile file) {
+  final candidate = file.path ?? file.name;
+  if (candidate.isEmpty) return 'application/octet-stream';
+  return lookupMimeType(candidate) ?? 'application/octet-stream';
+}
 
 void main() {
   runApp(const WindblogAdminApp());
@@ -190,6 +199,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isSuperAdmin = widget.user?.roleName == 'SUPER_ADMIN';
     return Scaffold(
       body: Row(
         children: [
@@ -206,6 +216,21 @@ class _HomePageState extends State<HomePage> {
                 icon: Icon(Icons.article_outlined),
                 selectedIcon: Icon(Icons.article),
                 label: Text('文章'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.photo_library_outlined),
+                selectedIcon: Icon(Icons.photo_library),
+                label: Text('媒体'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.people_outline),
+                selectedIcon: Icon(Icons.people),
+                label: Text('用户'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.security_outlined),
+                selectedIcon: Icon(Icons.security),
+                label: Text('权限'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.memory_outlined),
@@ -226,11 +251,16 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: Row(
                     children: [
-                      Text(tab == 0
-                          ? '后台概览'
-                          : tab == 1
-                          ? '文章管理'
-                          : 'AI 配置'),
+                      Text(
+                        switch (tab) {
+                          0 => '后台概览',
+                          1 => '文章管理',
+                          2 => '媒体库',
+                          3 => '用户管理',
+                          4 => '权限组',
+                          _ => 'AI 管理',
+                        },
+                      ),
                       const Spacer(),
                       if (widget.user != null) Text(widget.user!.username),
                       const SizedBox(width: 8),
@@ -242,20 +272,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 Expanded(
-                  child: tab == 0
-                      ? OverviewPage(
-                    api: widget.api,
-                    onAuthError: widget.onLogout,
-                  )
-                      : tab == 1
-                      ? PostsPage(
-                    api: widget.api,
-                    onAuthError: widget.onLogout,
-                  )
-                      : AiProvidersPage(
-                    api: widget.api,
-                    onAuthError: widget.onLogout,
-                  ),
+                  child: _pageForIndex(tab, isSuperAdmin),
                 ),
               ],
             ),
@@ -263,6 +280,25 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  Widget _pageForIndex(int index, bool isSuperAdmin) {
+    return switch (index) {
+      0 => OverviewPage(api: widget.api, onAuthError: widget.onLogout),
+      1 => PostsPage(api: widget.api, onAuthError: widget.onLogout),
+      2 => MediaLibraryPage(api: widget.api, onAuthError: widget.onLogout),
+      3 => UserManagementPage(
+          api: widget.api,
+          onAuthError: widget.onLogout,
+          isSuperAdmin: isSuperAdmin,
+        ),
+      4 => PermissionManagementPage(
+          api: widget.api,
+          isSuperAdmin: isSuperAdmin,
+          onAuthError: widget.onLogout,
+        ),
+      _ => AiProvidersPage(api: widget.api, onAuthError: widget.onLogout),
+    };
   }
 }
 
@@ -400,7 +436,7 @@ class _PostsPageState extends State<PostsPage> {
     if (!mounted) return;
     final req = await showDialog<PostEditRequest>(
       context: context,
-      builder: (_) => PostDialog(detail: detail),
+      builder: (_) => PostDialog(detail: detail, api: widget.api),
     );
     if (req == null) return;
 
@@ -538,9 +574,10 @@ class _PostsPageState extends State<PostsPage> {
 }
 
 class PostDialog extends StatefulWidget {
-  const PostDialog({super.key, this.detail});
+  const PostDialog({super.key, this.detail, required this.api});
 
   final PostDetail? detail;
+  final AdminApiClient api;
 
   @override
   State<PostDialog> createState() => _PostDialogState();
@@ -555,7 +592,6 @@ class _PostDialogState extends State<PostDialog> {
   int status = 0;
   int visibility = 0;
   int renderType = 0;
-  int editorType = 0;
 
   @override
   void initState() {
@@ -570,7 +606,6 @@ class _PostDialogState extends State<PostDialog> {
     status = d?.status ?? 0;
     visibility = d?.visibility ?? 0;
     renderType = d?.renderType ?? 0;
-    editorType = d?.editorType ?? 0;
   }
 
   @override
@@ -580,6 +615,119 @@ class _PostDialogState extends State<PostDialog> {
     summaryCtrl.dispose();
     contentCtrl.dispose();
     super.dispose();
+  }
+
+  Widget _buildEditorPane() {
+    return SizedBox(
+      height: 420,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              FilledButton.icon(
+                onPressed: _uploadMedia,
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text('上传媒体'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: _buildMarkdownEditor(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMarkdownEditor() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 1,
+          child: TextField(
+            controller: contentCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Markdown 内容',
+              border: OutlineInputBorder(),
+            ),
+            minLines: 12,
+            maxLines: null,
+            expands: true,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 1,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.grey.shade50,
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: contentCtrl,
+                builder: (context, value, child) {
+                  return MarkdownBody(data: value.text);
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _uploadMedia() async {
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      return;
+    }
+    final mimeType = _resolveMimeType(file);
+    try {
+      final media = await widget.api.uploadMedia(
+        fileName: file.name,
+        bytes: bytes,
+        mimeType: mimeType,
+      );
+      final currentText = contentCtrl.text;
+      final selection = contentCtrl.selection;
+      final insertText = '![${media.fileName}](${media.url})\n';
+      final newText = currentText.replaceRange(
+        selection.baseOffset,
+        selection.extentOffset,
+        insertText,
+      );
+      contentCtrl.text = newText;
+      contentCtrl.selection = TextSelection.collapsed(
+        offset: selection.baseOffset + insertText.length,
+      );
+      if (!mounted) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已插入 ${media.fileName}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('上传失败：$e')),
+        );
+      }
+    }
   }
 
   @override
@@ -608,14 +756,7 @@ class _PostDialogState extends State<PostDialog> {
                 maxLines: 3,
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: contentCtrl,
-                decoration: const InputDecoration(
-                  labelText: '正文 Markdown(zh-cn)',
-                ),
-                minLines: 8,
-                maxLines: 10,
-              ),
+              _buildEditorPane(),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -656,18 +797,10 @@ class _PostDialogState extends State<PostDialog> {
                   DropdownMenuItem(value: 2, child: Text('Vditor')),
                   DropdownMenuItem(value: 3, child: Text('V Builder')),
                   DropdownMenuItem(value: 4, child: Text('Gutenberg')),
+                  DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
+                  DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
                 ],
                 onChanged: (v) => renderType = v ?? 0,
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                initialValue: editorType,
-                decoration: const InputDecoration(labelText: '编辑器'),
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('Markdown')),
-                  DropdownMenuItem(value: 1, child: Text('HTML')),
-                ],
-                onChanged: (v) => editorType = v ?? 0,
               ),
             ],
           ),
@@ -680,9 +813,10 @@ class _PostDialogState extends State<PostDialog> {
         ),
         FilledButton(
           onPressed: () {
+            final finalContent = contentCtrl.text.trim();
             if (slugCtrl.text.trim().isEmpty ||
                 titleCtrl.text.trim().isEmpty ||
-                contentCtrl.text.trim().isEmpty) {
+                finalContent.isEmpty) {
               return;
             }
             Navigator.pop(
@@ -692,11 +826,11 @@ class _PostDialogState extends State<PostDialog> {
                 title: {'zh-cn': titleCtrl.text.trim()},
                 summary: {'zh-cn': summaryCtrl.text.trim()},
                 aiSummary: const {},
-                contentMarkdown: {'zh-cn': contentCtrl.text.trim()},
+                contentMarkdown: {'zh-cn': finalContent},
                 status: status,
                 visibility: visibility,
                 renderType: renderType,
-                editorType: editorType,
+                editorType: 0,
                 version: 0,
               ),
             );
@@ -939,5 +1073,919 @@ class _ProviderForm {
     endpointCtrl.dispose();
     modelCtrl.dispose();
     apiKeyCtrl.dispose();
+  }
+}
+
+class MediaLibraryPage extends StatefulWidget {
+  const MediaLibraryPage({
+    super.key,
+    required this.api,
+    required this.onAuthError,
+  });
+
+  final AdminApiClient api;
+  final VoidCallback onAuthError;
+
+  @override
+  State<MediaLibraryPage> createState() => _MediaLibraryPageState();
+}
+
+class _MediaLibraryPageState extends State<MediaLibraryPage> {
+  bool gridMode = true;
+  MediaListResult? mediaResult;
+  MediaListResult? unreferencedResult;
+  MediaScanResult? scanResult;
+  bool loadingMedia = true;
+  bool loadingUnreferenced = true;
+  bool scanning = false;
+  int page = 1;
+  int unreferencedPage = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMedia();
+    _loadUnreferenced();
+  }
+
+  Future<void> _loadMedia() async {
+    setState(() => loadingMedia = true);
+    try {
+      mediaResult = await widget.api.listMedia(page: page, pageSize: 24);
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('媒体列表加载失败：$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => loadingMedia = false);
+    }
+  }
+
+  Future<void> _loadUnreferenced() async {
+    setState(() => loadingUnreferenced = true);
+    try {
+      unreferencedResult = await widget.api.listMedia(
+        page: unreferencedPage,
+        pageSize: 24,
+        unreferenced: true,
+      );
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('未引用媒体加载失败：$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => loadingUnreferenced = false);
+    }
+  }
+
+  Future<void> _scanReferences() async {
+    setState(() => scanning = true);
+    try {
+      scanResult = await widget.api.scanMedia();
+      await _loadMedia();
+      await _loadUnreferenced();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('扫描失败：$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => scanning = false);
+    }
+  }
+
+  Future<void> _uploadMedia() async {
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+    final mimeType = _resolveMimeType(file);
+    try {
+      await widget.api.uploadMedia(
+        fileName: file.name,
+        bytes: bytes,
+        mimeType: mimeType,
+      );
+      await _loadMedia();
+      if (!mounted) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('上传成功')),
+        );
+      }
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (!mounted) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('上传失败：$e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: DefaultTabController(
+        length: 2,
+        child: Column(
+          children: [
+            const TabBar(
+              tabs: [
+                Tab(text: '资源'),
+                Tab(text: '未引用'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildMediaTab(),
+                  _buildUnreferencedTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaTab() {
+    final total = mediaResult?.total ?? 0;
+    return Column(
+      children: [
+        Row(
+          children: [
+            ToggleButtons(
+              isSelected: [gridMode, !gridMode],
+              onPressed: (index) => setState(() => gridMode = index == 0),
+              children: const [
+                Icon(Icons.grid_view),
+                Icon(Icons.list),
+              ],
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _uploadMedia,
+              child: const Text('上传媒体'),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: scanning ? null : _scanReferences,
+              child: Text(scanning ? '扫描中...' : '重新扫描'),
+            ),
+            const Spacer(),
+            Text('共 $total 条'),
+          ],
+        ),
+        if (scanResult != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text(
+              '扫描: ${scanResult!.postsScanned} 篇文章，引用 ${scanResult!.referencesCreated} 次，未引用 ${scanResult!.unreferenced} 个',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: loadingMedia
+              ? const Center(child: CircularProgressIndicator())
+              : gridMode
+                  ? _buildGridView()
+                  : _buildListView(),
+        ),
+        const SizedBox(height: 8),
+        _buildPagination(),
+      ],
+    );
+  }
+
+  Widget _buildUnreferencedTab() {
+    return loadingUnreferenced
+        ? const Center(child: CircularProgressIndicator())
+        : unreferencedResult == null || unreferencedResult!.items.isEmpty
+            ? const Center(child: Text('暂无未引用媒体'))
+            : ListView.separated(
+                itemCount: unreferencedResult!.items.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final item = unreferencedResult!.items[index];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      child: Text(item.fileName.isEmpty
+                          ? '?'
+                          : item.fileName[0].toUpperCase()),
+                    ),
+                    title: Text(item.fileName),
+                    subtitle: Text('${_formatBytes(item.size)} • 上传 ${item.createdAt.toLocal()}'),
+                  );
+                },
+              );
+  }
+
+  Widget _buildGridView() {
+    final items = mediaResult?.items ?? [];
+    if (items.isEmpty) {
+      return const Center(child: Text('暂无媒体'));
+    }
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 0.75,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) => _buildMediaCard(items[index]),
+    );
+  }
+
+  Widget _buildListView() {
+    final items = mediaResult?.items ?? [];
+    if (items.isEmpty) {
+      return const Center(child: Text('暂无媒体'));
+    }
+    return ListView.separated(
+      itemCount: items.length,
+      separatorBuilder: (context, index) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return ListTile(
+          leading: item.isImage
+              ? Image.network(item.url, width: 48, fit: BoxFit.cover)
+              : const Icon(Icons.insert_drive_file),
+          title: Text(item.fileName),
+          subtitle: Text(
+            '${_formatBytes(item.size)} • 引用 ${item.references.length} 次',
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMediaCard(MediaItem item) {
+    final preview = item.isImage
+        ? Image.network(
+            item.url,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: 120,
+          )
+        : const SizedBox(
+            height: 120,
+            child: Center(child: Icon(Icons.insert_drive_file, size: 48)),
+          );
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          preview,
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(
+              item.fileName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              '${_formatBytes(item.size)} • ${item.uploadedByName ?? '未知用户'}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Wrap(
+              spacing: 4,
+              children: item.references
+                  .map((ref) => Chip(
+                        label: Text(ref.postSlug),
+                        visualDensity: VisualDensity.compact,
+                      ))
+                  .toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPagination() {
+    final total = mediaResult?.total ?? 0;
+    return Row(
+      children: [
+        Text('第 $page 页 / 共 $total 条'),
+        const Spacer(),
+        IconButton(
+          onPressed: page <= 1
+              ? null
+              : () {
+                  setState(() => page--);
+                  _loadMedia();
+                },
+          icon: const Icon(Icons.chevron_left),
+        ),
+        IconButton(
+          onPressed: page * 24 >= total
+              ? null
+              : () {
+                  setState(() => page++);
+                  _loadMedia();
+                },
+          icon: const Icon(Icons.chevron_right),
+        ),
+        FilledButton(
+          onPressed: _loadMedia,
+          child: const Text('刷新'),
+        ),
+      ],
+    );
+  }
+
+  String _formatBytes(int? bytes) {
+    if (bytes == null) return '-';
+    if (bytes < 1024) return '$bytes B';
+    final kb = bytes / 1024;
+    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
+    final mb = kb / 1024;
+    return '${mb.toStringAsFixed(1)} MB';
+  }
+}
+
+class UserManagementPage extends StatefulWidget {
+  const UserManagementPage({
+    super.key,
+    required this.api,
+    required this.onAuthError,
+    required this.isSuperAdmin,
+  });
+
+  final AdminApiClient api;
+  final VoidCallback onAuthError;
+  final bool isSuperAdmin;
+
+  @override
+  State<UserManagementPage> createState() => _UserManagementPageState();
+}
+
+class _UserManagementPageState extends State<UserManagementPage> {
+  final keywordCtrl = TextEditingController();
+  PageResult<UserListItem>? pageResult;
+  bool loading = false;
+  bool loadingRoles = true;
+  List<PermissionRoleItem> roles = [];
+  int page = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRoles();
+    _loadUsers();
+  }
+
+  @override
+  void dispose() {
+    keywordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUsers() async {
+    setState(() => loading = true);
+    try {
+      pageResult = await widget.api.listUsers(
+        page: page,
+        pageSize: 20,
+        keyword: keywordCtrl.text.trim(),
+      );
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('用户列表加载失败：$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _loadRoles() async {
+    setState(() => loadingRoles = true);
+    try {
+      roles = await widget.api.listRoles();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (_) {}
+    if (mounted) setState(() => loadingRoles = false);
+  }
+
+  Future<void> _editUser(UserListItem user) async {
+    final result = await showDialog<_UserEditResult>(
+      context: context,
+      builder: (context) => _UserEditDialog(
+        user: user,
+        roles: roles,
+        isSuperAdmin: widget.isSuperAdmin,
+      ),
+    );
+    if (result == null) return;
+    try {
+      await widget.api.updateUser(
+        user.id,
+        email: result.email,
+        status: result.status,
+        roleName: result.role,
+      );
+      await _loadUsers();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('更新失败：$e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final users = pageResult?.items ?? [];
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: keywordCtrl,
+                  decoration: const InputDecoration(
+                    hintText: '按用户名或邮箱搜索',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () {
+                  page = 1;
+                  _loadUsers();
+                },
+                child: const Text('搜索'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _loadUsers,
+                child: const Text('刷新'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: loading
+                ? const Center(child: CircularProgressIndicator())
+                : users.isEmpty
+                    ? const Center(child: Text('暂无用户'))
+                    : ListView.separated(
+                        itemCount: users.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final user = users[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              child: Text(user.username.isEmpty
+                                  ? '?'
+                                  : user.username[0].toUpperCase()),
+                            ),
+                            title: Text(user.username),
+                            subtitle: Text('${user.email} • ${user.roleName}'),
+                            trailing: Text(user.statusText),
+                            onTap: () => _editUser(user),
+                          );
+                        },
+                      ),
+          ),
+          if (pageResult != null)
+            Row(
+              children: [
+                Text('第 ${pageResult!.page} 页 / 共 ${pageResult!.total} 条'),
+                const Spacer(),
+                IconButton(
+                  onPressed: page <= 1 ? null : () => setState(() => page--),
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                IconButton(
+                  onPressed: page * pageResult!.pageSize >= pageResult!.total
+                      ? null
+                      : () => setState(() => page++),
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserEditDialog extends StatefulWidget {
+  const _UserEditDialog({
+    required this.user,
+    required this.roles,
+    required this.isSuperAdmin,
+  });
+
+  final UserListItem user;
+  final List<PermissionRoleItem> roles;
+  final bool isSuperAdmin;
+
+  @override
+  State<_UserEditDialog> createState() => _UserEditDialogState();
+}
+
+class _UserEditDialogState extends State<_UserEditDialog> {
+  late final TextEditingController emailCtrl;
+  late int status;
+  late String roleName;
+
+  List<PermissionRoleItem> get _availableRoles {
+    if (widget.roles.isNotEmpty) return widget.roles;
+    return [
+      PermissionRoleItem(
+        name: widget.user.roleName,
+        displayName: widget.user.roleName,
+        description: '',
+        canUpload: false,
+        allowedMimeTypes: const [],
+        createdAt: null,
+        updatedAt: null,
+      )
+    ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    emailCtrl = TextEditingController(text: widget.user.email);
+    status = widget.user.status;
+    roleName = widget.user.roleName;
+  }
+
+  @override
+  void dispose() {
+    emailCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('编辑用户'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: emailCtrl,
+              decoration: const InputDecoration(labelText: '邮箱'),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int>(
+              initialValue: status,
+              decoration: const InputDecoration(labelText: '状态'),
+              items: const [
+                DropdownMenuItem(value: 0, child: Text('未激活')),
+                DropdownMenuItem(value: 1, child: Text('正常')),
+                DropdownMenuItem(value: 2, child: Text('已封禁')),
+              ],
+              onChanged: (v) => setState(() => status = v ?? 0),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: roleName,
+              decoration: const InputDecoration(labelText: '角色'),
+              items: _availableRoles
+                  .map((role) => DropdownMenuItem(
+                        value: role.name,
+                        child: Text(role.displayName),
+                      ))
+                  .toList(),
+              onChanged: widget.isSuperAdmin
+                  ? (v) => setState(() => roleName = v ?? roleName)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+            context,
+            _UserEditResult(
+              emailCtrl.text.trim(),
+              status,
+              roleName,
+            ),
+          ),
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
+
+class _UserEditResult {
+  _UserEditResult(this.email, this.status, this.role);
+
+  final String email;
+  final int status;
+  final String role;
+}
+
+class PermissionManagementPage extends StatefulWidget {
+  const PermissionManagementPage({
+    super.key,
+    required this.api,
+    required this.isSuperAdmin,
+    required this.onAuthError,
+  });
+
+  final AdminApiClient api;
+  final bool isSuperAdmin;
+  final VoidCallback onAuthError;
+
+  @override
+  State<PermissionManagementPage> createState() => _PermissionManagementPageState();
+}
+
+class _PermissionManagementPageState extends State<PermissionManagementPage> {
+  List<PermissionRoleItem> roles = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRoles();
+  }
+
+  Future<void> _loadRoles() async {
+    setState(() => loading = true);
+    try {
+      roles = await widget.api.listRoles();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _openRoleDialog([PermissionRoleItem? role]) async {
+    final result = await showDialog<PermissionRoleRequest>(
+      context: context,
+      builder: (_) => _RoleFormDialog(
+        role: role,
+      ),
+    );
+    if (result == null) return;
+    try {
+      if (role == null) {
+        await widget.api.createRole(result);
+      } else {
+        await widget.api.updateRole(role.name, result);
+      }
+      await _loadRoles();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存失败：$e')),
+      );
+    }
+  }
+
+  Future<void> _deleteRole(String name) async {
+    try {
+      await widget.api.deleteRole(name);
+      await _loadRoles();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('删除失败：$e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Text('权限角色'),
+              const Spacer(),
+              ElevatedButton(
+                onPressed: widget.isSuperAdmin ? () => _openRoleDialog() : null,
+                child: const Text('新增角色'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: loading
+                ? const Center(child: CircularProgressIndicator())
+                : roles.isEmpty
+                    ? const Center(child: Text('暂无角色'))
+                    : ListView.separated(
+                        itemCount: roles.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final role = roles[index];
+                          return ListTile(
+                            title: Text(role.displayName),
+                            subtitle: Text(
+                                '${role.canUpload ? '可上传' : '不可上传'} • ${role.allowedMimeTypes.join(', ')}'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  onPressed: widget.isSuperAdmin
+                                      ? () => _openRoleDialog(role)
+                                      : null,
+                                  icon: const Icon(Icons.edit),
+                                ),
+                                IconButton(
+                                  onPressed: widget.isSuperAdmin &&
+                                          !_defaultRoles.contains(role.name)
+                                      ? () => _deleteRole(role.name)
+                                      : null,
+                                  icon: const Icon(Icons.delete),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const List<String> _defaultRoles = ['SUPER_ADMIN', 'ADMIN', 'USER', 'GUEST'];
+
+class _RoleFormDialog extends StatefulWidget {
+  const _RoleFormDialog({this.role});
+
+  final PermissionRoleItem? role;
+
+  @override
+  State<_RoleFormDialog> createState() => _RoleFormDialogState();
+}
+
+class _RoleFormDialogState extends State<_RoleFormDialog> {
+  late final TextEditingController nameCtrl;
+  late final TextEditingController displayCtrl;
+  late final TextEditingController descriptionCtrl;
+  late final TextEditingController mimeCtrl;
+  late final TextEditingController singleCtrl;
+  late final TextEditingController totalCtrl;
+  bool canUpload = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final role = widget.role;
+    nameCtrl = TextEditingController(text: role?.name ?? '');
+    displayCtrl = TextEditingController(text: role?.displayName ?? '');
+    descriptionCtrl = TextEditingController(text: role?.description ?? '');
+    mimeCtrl = TextEditingController(
+      text: role?.allowedMimeTypes.join(', ') ?? '',
+    );
+    singleCtrl = TextEditingController(
+      text: role?.maxSingleUploadBytes?.toString() ?? '',
+    );
+    totalCtrl = TextEditingController(
+      text: role?.maxTotalUploadBytes?.toString() ?? '',
+    );
+    canUpload = role?.canUpload ?? false;
+  }
+
+  @override
+  void dispose() {
+    nameCtrl.dispose();
+    displayCtrl.dispose();
+    descriptionCtrl.dispose();
+    mimeCtrl.dispose();
+    singleCtrl.dispose();
+    totalCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.role == null ? '新增角色' : '编辑角色'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: '角色标识'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: displayCtrl,
+                decoration: const InputDecoration(labelText: '显示名称'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: descriptionCtrl,
+                decoration: const InputDecoration(labelText: '描述'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: mimeCtrl,
+                decoration: const InputDecoration(labelText: '允许的 MIME，逗号分隔'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: singleCtrl,
+                decoration: const InputDecoration(labelText: '单文件大小上限（字节）'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: totalCtrl,
+                decoration: const InputDecoration(labelText: '总上传配额（字节）'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: canUpload,
+                onChanged: (value) => setState(() => canUpload = value ?? false),
+                title: const Text('允许上传'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final request = PermissionRoleRequest(
+              name: nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim(),
+              displayName: displayCtrl.text.trim(),
+              description: descriptionCtrl.text.trim(),
+              canUpload: canUpload,
+              allowedMimeTypes: mimeCtrl.text
+                  .split(',')
+                  .map((e) => e.trim())
+                  .where((e) => e.isNotEmpty)
+                  .toList(),
+              maxSingleUploadBytes: int.tryParse(singleCtrl.text.trim()),
+              maxTotalUploadBytes: int.tryParse(totalCtrl.text.trim()),
+            );
+            Navigator.pop(context, request);
+          },
+          child: const Text('保存'),
+        ),
+      ],
+    );
   }
 }
