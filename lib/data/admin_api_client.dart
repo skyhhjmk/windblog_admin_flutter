@@ -22,7 +22,7 @@ class AdminApiClient {
     );
     final map = _map(jsonDecode(res.body));
     final t = map['token'] as String?;
-    if (t == null || t.isEmpty) throw Exception('登录失败：token 缺失');
+    if (t == null || t.isEmpty) throw Exception('Missing token in login response');
     token = t;
     return t;
   }
@@ -253,7 +253,7 @@ class AdminApiClient {
       headers['Content-Type'] = 'application/json';
     }
     if (auth) {
-      if (token == null || token!.isEmpty) throw UnauthorizedException('请先登录');
+      if (token == null || token!.isEmpty) throw UnauthorizedException('Session expired');
       headers['Authorization'] = 'Bearer $token';
     }
     return headers;
@@ -262,7 +262,7 @@ class AdminApiClient {
   void _check(http.Response res, {required bool authFailureAsSessionExpired}) {
     if (res.statusCode >= 200 && res.statusCode < 300) return;
 
-    String message = '请求失败(${res.statusCode})';
+    String message = '\u8bf7\u6c42\u5931\u8d25(${res.statusCode})';
     try {
       final map = _map(jsonDecode(res.body));
       final m = map['message']?.toString();
@@ -271,7 +271,7 @@ class AdminApiClient {
 
     if ((res.statusCode == 401 || res.statusCode == 403) &&
         authFailureAsSessionExpired) {
-      throw UnauthorizedException('需要重新登录');
+      throw UnauthorizedException('Session expired');
     }
     throw Exception(message);
   }

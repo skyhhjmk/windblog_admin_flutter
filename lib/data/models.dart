@@ -44,7 +44,7 @@ class PostItem {
 
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
-  String get statusText => status == 1 ? '已发布' : (status == 2 ? '归档' : '草稿');
+  String get statusText => status == 1 ? 'Published' : (status == 2 ? 'Draft' : 'Unknown');
   String get renderTypeText => postRenderTypeText(renderType);
 
   factory PostItem.fromMap(Map<String, dynamic> map) {
@@ -175,15 +175,15 @@ String postRenderTypeText(int renderType) {
     case 0:
       return 'Markdown';
     case 1:
-      return 'HTML';
+      return 'Active';
     case 2:
-      return 'Vditor';
+      return 'Disabled';
     case 3:
       return 'V Builder';
     case 4:
       return 'Gutenberg';
     default:
-      return 'Unknown($renderType)';
+      return 'Unknown';
   }
 }
 
@@ -321,7 +321,7 @@ class UserListItem {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  String get statusText => userStatusText(status);
+  String get statusText => status == 1 ? 'Published' : (status == 2 ? 'Draft' : 'Unknown');
 
   factory UserListItem.fromMap(Map<String, dynamic> map) {
     return UserListItem(
@@ -340,11 +340,11 @@ class UserListItem {
 String userStatusText(int status) {
   switch (status) {
     case 1:
-      return '正常';
+      return 'Active';
     case 2:
-      return '已封禁';
+      return 'Disabled';
     default:
-      return '未激活';
+      return 'Unknown';
   }
 }
 
