@@ -87,14 +87,14 @@ class _AiProvidersPageState extends State<AiProvidersPage> {
         form.updatedAt = updated.updatedAt;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('AI provider updated')),
+        SnackBar(content: Text(t(context, 'ai_provider_updated'))),
       );
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\u4fdd\u5b58\u5931\u8d25: $e')));
+          SnackBar(content: Text('${t(context, 'save_failed')}$e')));
     } finally {
       if (mounted) {
         setState(() => form.saving = false);
@@ -135,7 +135,7 @@ class _AiProvidersPageState extends State<AiProvidersPage> {
                     const Spacer(),
                     Row(
                       children: [
-                        const Text('\u542f\u7528'),
+                        Text(t(context, 'enabled')),
                         Switch(
                           value: form.enabled,
                           onChanged: (value) =>
@@ -147,7 +147,7 @@ class _AiProvidersPageState extends State<AiProvidersPage> {
                 ),
                 if (form.updatedAt != null)
                   Text(
-                    '\u6700\u8fd1\u66f4\u65b0\u65f6\u95f4: ${form.updatedAt!.toLocal()}',
+                    '${t(context, 'last_updated')}${form.updatedAt!.toLocal()}',
                     style: Theme
                         .of(context)
                         .textTheme
@@ -156,29 +156,29 @@ class _AiProvidersPageState extends State<AiProvidersPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: form.endpointCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '\u670d\u52a1\u5730\u5740 URL',
-                    border: OutlineInputBorder(),
-                    hintText: '\u4f8b\u5982: http://localhost:11434',
+                  decoration: InputDecoration(
+                    labelText: t(context, 'endpoint_url'),
+                    border: const OutlineInputBorder(),
+                    hintText: t(context, 'endpoint_hint'),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: form.modelCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '\u6a21\u578b\u540d\u79f0',
-                    border: OutlineInputBorder(),
-                    hintText: '\u4f8b\u5982: ollama/llama3',
+                  decoration: InputDecoration(
+                    labelText: t(context, 'model_name'),
+                    border: const OutlineInputBorder(),
+                    hintText: t(context, 'model_hint'),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: form.apiKeyCtrl,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'API Key',
-                    border: OutlineInputBorder(),
-                    hintText: '\u7559\u7a7a\u8868\u793a\u4e0d\u8bbe\u7f6e Bearer Token',
+                  decoration: InputDecoration(
+                    labelText: t(context, 'api_key'),
+                    border: const OutlineInputBorder(),
+                    hintText: t(context, 'api_key_hint'),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -186,7 +186,7 @@ class _AiProvidersPageState extends State<AiProvidersPage> {
                   alignment: Alignment.centerRight,
                   child: FilledButton(
                     onPressed: form.saving ? null : () => _save(form),
-                    child: Text(form.saving ? '\u4fdd\u5b58\u4e2d...' : '\u4fdd\u5b58\u8bbe\u7f6e'),
+                    child: Text(form.saving ? t(context, 'saving') : t(context, 'save_settings')),
                   ),
                 ),
               ],
@@ -233,4 +233,3 @@ class _ProviderForm {
     apiKeyCtrl.dispose();
   }
 }
-

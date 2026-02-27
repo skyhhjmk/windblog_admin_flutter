@@ -15,7 +15,6 @@ class MediaLibraryPage extends StatefulWidget {
 }
 
 class _MediaLibraryPageState extends State<MediaLibraryPage> {
-  bool gridMode = true;
   MediaListResult? mediaResult;
   MediaListResult? unreferencedResult;
   MediaScanResult? scanResult;
@@ -41,7 +40,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\u52a0\u8f7d\u5a92\u4f53\u5217\u8868\u5931\u8d25: $e')),
+          SnackBar(content: Text('${t(context, 'load_media_failed')}$e')),
         );
       }
     } finally {
@@ -62,7 +61,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\u52a0\u8f7d\u672a\u5f15\u7528\u5a92\u4f53\u5931\u8d25: $e')),
+          SnackBar(content: Text('${t(context, 'load_unreferenced_failed')}$e')),
         );
       }
     } finally {
@@ -81,7 +80,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\u91cd\u65b0\u626b\u63cf\u5931\u8d25: $e')),
+          SnackBar(content: Text('${t(context, 'rescan_failed')}$e')),
         );
       }
     } finally {
@@ -106,7 +105,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
       if (!mounted) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Upload success')),
+          SnackBar(content: Text(t(context, 'upload_success'))),
         );
       }
     } on UnauthorizedException {
@@ -115,7 +114,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
       if (!mounted) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\u5220\u9664\u5a92\u4f53\u5931\u8d25: $e')),
+          SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
         );
       }
     }
@@ -129,10 +128,10 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
         length: 2,
         child: Column(
           children: [
-            const TabBar(
+            TabBar(
               tabs: [
-                Tab(text: '\u5a92\u4f53\u5e93'),
-                Tab(text: '\u672a\u5f15\u7528\u6587\u4ef6'),
+                Tab(text: t(context, 'media_library')),
+                Tab(text: t(context, 'unreferenced_files')),
               ],
             ),
             const SizedBox(height: 8),
@@ -156,33 +155,24 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
       children: [
         Row(
           children: [
-            ToggleButtons(
-              isSelected: [gridMode, !gridMode],
-              onPressed: (index) => setState(() => gridMode = index == 0),
-              children: const [
-                Icon(Icons.grid_view),
-                Icon(Icons.list),
-              ],
-            ),
-            const SizedBox(width: 8),
             FilledButton(
               onPressed: _uploadMedia,
-                      child: const Text('Close'),
+              child: Text(t(context, 'upload')),
             ),
             const SizedBox(width: 8),
             FilledButton(
               onPressed: scanning ? null : _scanReferences,
-              child: Text(scanning ? 'Scanning...' : 'Rescan'),
+              child: Text(scanning ? t(context, 'scanning') : t(context, 'rescan')),
             ),
             const Spacer(),
-            Text('\u603b\u6570: $total'),
+            Text('${t(context, 'total')}: $total'),
           ],
         ),
         if (scanResult != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Text(
-              '\u626b\u63cf\u7ed3\u679c\uff1a\u626b\u63cf\u6587\u7ae0 ${scanResult!.postsScanned} \u7bc7\uff0c\u5efa\u7acb\u5f15\u7528 ${scanResult!.referencesCreated} \u6761\uff0c\u672a\u5f15\u7528 ${scanResult!.unreferenced} \u4e2a\u3002',
+              t(context, 'scan_result').replaceAll('%d', scanResult!.postsScanned.toString()).replaceFirst('%d', scanResult!.referencesCreated.toString()).replaceFirst('%d', scanResult!.unreferenced.toString()),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -190,9 +180,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
         Expanded(
           child: loadingMedia
               ? const Center(child: CircularProgressIndicator())
-              : gridMode
-                  ? _buildGridView()
-                  : _buildListView(),
+              : _buildListView(),
         ),
         const SizedBox(height: 8),
         _buildPagination(),
@@ -204,7 +192,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     return loadingUnreferenced
         ? const Center(child: CircularProgressIndicator())
         : unreferencedResult == null || unreferencedResult!.items.isEmpty
-            ? const Center(child: Text('No unreferenced media'))
+            ? Center(child: Text(t(context, 'no_unreferenced_media')))
             : ListView.separated(
                 itemCount: unreferencedResult!.items.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
@@ -223,27 +211,10 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
               );
   }
 
-  Widget _buildGridView() {
-    final items = mediaResult?.items ?? [];
-    if (items.isEmpty) {
-      return const Center(child: Text('No media found'));
-    }
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) => _buildMediaCard(items[index]),
-    );
-  }
-
   Widget _buildListView() {
     final items = mediaResult?.items ?? [];
     if (items.isEmpty) {
-      return const Center(child: Text('No media found'));
+      return Center(child: Text(t(context, 'no_media_found')));
     }
     return ListView.separated(
       itemCount: items.length,
@@ -272,78 +243,11 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     );
   }
 
-  Widget _buildMediaCard(MediaItem item) {
-    final preview = item.isImage
-        ? _ProgressiveImage(
-            previewUrl: item.previewUrl,
-            thumbnailUrl: item.thumbnailUrl,
-            fallbackUrl: item.url,
-            width: double.infinity,
-            height: 140,
-            fit: BoxFit.contain,
-          )
-        : const SizedBox(
-            height: 140,
-            child: Center(child: Icon(Icons.insert_drive_file, size: 48)),
-          );
-    return Card(
-      child: InkWell(
-        onTap: () => _openMediaDetail(item),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              height: 140,
-              color: Colors.grey.shade100,
-              child: preview,
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                item.fileName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                '${_formatBytes(item.size)} - ${item.uploadedByName ?? 'Unknown'}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            if (item.requiresManualOriginal)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Text(
-                  'Original file >5MB, load manually in detail dialog',
-                  style: TextStyle(color: Colors.orange, fontSize: 12),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Wrap(
-                spacing: 4,
-                children: item.references
-                    .map((ref) => Chip(
-                          label: Text(ref.postSlug),
-                          visualDensity: VisualDensity.compact,
-                        ))
-                    .toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _openMediaDetail(MediaItem item) async {
     bool loadOriginal = !item.requiresManualOriginal;
     await showDialog<void>(
       context: context,
-      builder: (context) =>
+      builder: (dialogContext) =>
           StatefulBuilder(
             builder: (context, setLocalState) =>
                 AlertDialog(
@@ -382,9 +286,9 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                                 child: Icon(Icons.insert_drive_file, size: 56)),
                           ),
                         const SizedBox(height: 8),
-                        Text('\u7c7b\u578b: ${item.mimeType}'),
-                        Text('\u5927\u5c0f: ${_formatBytes(item.size)}'),
-                        SelectableText('\u5730\u5740: ${item.url}'),
+                        Text('${t(dialogContext, 'type')}: ${item.mimeType}'),
+                        Text('${t(dialogContext, 'size')}: ${_formatBytes(item.size)}'),
+                        SelectableText('${t(dialogContext, 'url')}: ${item.url}'),
                         if (item.requiresManualOriginal)
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
@@ -393,7 +297,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                                   ? null
                                   : () =>
                                   setLocalState(() => loadOriginal = true),
-                              child: Text(item.isImage ? 'Load Original Image' : 'Load Original File'),
+                              child: Text(item.isImage ? t(dialogContext, 'load_original_image') : t(dialogContext, 'load_original_file')),
                             ),
                           ),
                       ],
@@ -401,8 +305,8 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Close'),
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: Text(t(dialogContext, 'close')),
                     ),
                   ],
                 ),
@@ -413,7 +317,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     final total = mediaResult?.total ?? 0;
     return Row(
       children: [
-        Text('\u7b2c $page \u9875 / \u5171 $total \u6761'),
+        Text(t(context, 'page_number').replaceAll('%d', page.toString()).replaceFirst('%d', total.toString())),
         const Spacer(),
         IconButton(
           onPressed: page <= 1
@@ -435,7 +339,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
         ),
         FilledButton(
           onPressed: _loadMedia,
-                      child: const Text('Close'),
+          child: Text(t(context, 'refresh')),
         ),
       ],
     );
@@ -450,4 +354,3 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     return '${mb.toStringAsFixed(1)} MB';
   }
 }
-

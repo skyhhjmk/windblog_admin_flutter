@@ -58,46 +58,46 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'WindBlog \u7ba1\u7406\u540e\u53f0',
+                      t(context, 'login_title'),
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 18),
                     TextFormField(
                       controller: baseUrlCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'API Base URL',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: t(context, 'api_base_url'),
+                        border: const OutlineInputBorder(),
                       ),
                       validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'N/A' : null,
+                          (v == null || v.trim().isEmpty) ? t(context, 'required') : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: accountCtrl,
-                      decoration: const InputDecoration(
-                        labelText: '\u7528\u6237\u540d',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: t(context, 'username'),
+                        border: const OutlineInputBorder(),
                       ),
                       validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'N/A' : null,
+                          (v == null || v.trim().isEmpty) ? t(context, 'required') : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: passwordCtrl,
                       obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: '\u5bc6\u7801',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: t(context, 'password'),
+                        border: const OutlineInputBorder(),
                       ),
                       validator: (v) =>
-                          (v == null || v.isEmpty) ? 'N/A' : null,
+                          (v == null || v.isEmpty) ? t(context, 'required') : null,
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: loading ? null : submit,
-                        child: Text(loading ? '\u767b\u5f55\u4e2d...' : '\u767b\u5f55'),
+                        child: Text(loading ? t(context, 'logging_in') : t(context, 'login')),
                       ),
                     ),
                   ],

@@ -50,7 +50,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\u52a0\u8f7d\u7528\u6237\u5217\u8868\u5931\u8d25: $e')),
+          SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
     } finally {
@@ -91,7 +91,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('\u66f4\u65b0\u7528\u6237\u5931\u8d25: $e')),
+        SnackBar(content: Text('${t(context, 'update_failed')}$e')),
       );
     }
   }
@@ -108,9 +108,9 @@ class _UserManagementPageState extends State<UserManagementPage> {
               Expanded(
                 child: TextField(
                   controller: keywordCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Search username/email',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    hintText: t(context, 'search_username_email'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ),
@@ -120,12 +120,12 @@ class _UserManagementPageState extends State<UserManagementPage> {
                   page = 1;
                   _loadUsers();
                 },
-                child: const Text('Search'),
+                child: Text(t(context, 'search')),
               ),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: _loadUsers,
-                child: const Text('Search'),
+                child: Text(t(context, 'refresh')),
               ),
             ],
           ),
@@ -134,7 +134,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
             child: loading
                 ? const Center(child: CircularProgressIndicator())
                 : users.isEmpty
-                    ? const Center(child: Text('No users'))
+                    ? Center(child: Text(t(context, 'no_users')))
                     : ListView.separated(
                         itemCount: users.length,
                         separatorBuilder: (context, index) => const Divider(height: 1),
@@ -147,7 +147,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                   : user.username[0].toUpperCase()),
                             ),
                             title: Text(user.username),
-                            subtitle: Text('${user.email} \u00b7 ${user.roleName}'),
+                            subtitle: Text('${user.email} · ${user.roleName}'),
                             trailing: Text(user.statusText),
                             onTap: () => _editUser(user),
                           );
@@ -157,7 +157,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
           if (pageResult != null)
             Row(
               children: [
-                Text('Page: $page / Total: ${pageResult!.total}'),
+                Text(t(context, 'page_of').replaceAll('%d', page.toString()).replaceFirst('%d', pageResult!.total.toString())),
                 const Spacer(),
                 IconButton(
                   onPressed: page <= 1 ? null : () => setState(() => page--),
@@ -229,7 +229,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit User'),
+      title: Text(t(context, 'edit_user')),
       content: SizedBox(
         width: 400,
         child: Column(
@@ -237,23 +237,23 @@ class _UserEditDialogState extends State<_UserEditDialog> {
           children: [
             TextField(
               controller: emailCtrl,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: InputDecoration(labelText: t(context, 'email')),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<int>(
               initialValue: status,
-              decoration: const InputDecoration(labelText: 'Email'),
-              items: const [
-                DropdownMenuItem(value: 0, child: Text('Active')),
-                DropdownMenuItem(value: 1, child: Text('Disabled')),
-                DropdownMenuItem(value: 2, child: Text('Locked')),
+              decoration: InputDecoration(labelText: t(context, 'status')),
+              items: [
+                DropdownMenuItem(value: 0, child: Text(t(context, 'active'))),
+                DropdownMenuItem(value: 1, child: Text(t(context, 'disabled'))),
+                DropdownMenuItem(value: 2, child: Text(t(context, 'locked'))),
               ],
               onChanged: (v) => setState(() => status = v ?? 0),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               initialValue: roleName,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: InputDecoration(labelText: t(context, 'role_name')),
               items: _availableRoles
                   .map((role) => DropdownMenuItem(
                         value: role.name,
@@ -270,7 +270,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Search'),
+          child: Text(t(context, 'cancel')),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(
@@ -281,7 +281,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
               roleName,
             ),
           ),
-          child: const Text('Search'),
+          child: Text(t(context, 'save')),
         ),
       ],
     );
@@ -295,4 +295,3 @@ class _UserEditResult {
   final int status;
   final String role;
 }
-

@@ -57,7 +57,7 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('\u4fdd\u5b58\u89d2\u8272\u5931\u8d25: $e')),
+        SnackBar(content: Text('${t(context, 'save_role_failed')}$e')),
       );
     }
   }
@@ -71,7 +71,7 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('\u5220\u9664\u89d2\u8272\u5931\u8d25: $e')),
+        SnackBar(content: Text('${t(context, 'delete_role_failed')}$e')),
       );
     }
   }
@@ -84,11 +84,11 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
         children: [
           Row(
             children: [
-              const Text('Permission Roles'),
+              Text(t(context, 'permission_roles')),
               const Spacer(),
               ElevatedButton(
                 onPressed: widget.isSuperAdmin ? () => _openRoleDialog() : null,
-                child: const Text('Create Role'),
+                child: Text(t(context, 'create_role')),
               ),
             ],
           ),
@@ -97,7 +97,7 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
             child: loading
                 ? const Center(child: CircularProgressIndicator())
                 : roles.isEmpty
-                    ? const Center(child: Text('No roles'))
+                    ? Center(child: Text(t(context, 'no_roles')))
                     : ListView.separated(
                         itemCount: roles.length,
                         separatorBuilder: (context, index) => const Divider(height: 1),
@@ -189,7 +189,7 @@ class _RoleFormDialogState extends State<_RoleFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.role == null ? '\u521b\u5efa\u89d2\u8272' : '\u7f16\u8f91\u89d2\u8272'),
+      title: Text(widget.role == null ? t(context, 'create_role') : t(context, 'edit_role')),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -197,40 +197,40 @@ class _RoleFormDialogState extends State<_RoleFormDialog> {
             children: [
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Role Name'),
+                decoration: InputDecoration(labelText: t(context, 'role_name')),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: displayCtrl,
-                decoration: const InputDecoration(labelText: 'Role Name'),
+                decoration: InputDecoration(labelText: t(context, 'display_name')),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: descriptionCtrl,
-                decoration: const InputDecoration(labelText: 'Role Name'),
+                decoration: InputDecoration(labelText: t(context, 'description')),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: mimeCtrl,
-                decoration: const InputDecoration(labelText: 'Role Name'),
+                decoration: InputDecoration(labelText: t(context, 'allowed_mime_types')),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: singleCtrl,
-                decoration: const InputDecoration(labelText: 'Role Name'),
+                decoration: InputDecoration(labelText: t(context, 'max_single_upload')),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: totalCtrl,
-                decoration: const InputDecoration(labelText: 'Role Name'),
+                decoration: InputDecoration(labelText: t(context, 'max_total_upload')),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 8),
               CheckboxListTile(
                 value: canUpload,
                 onChanged: (value) => setState(() => canUpload = value ?? false),
-                title: const Text('Upload Permission'),
+                title: Text(t(context, 'upload_permission')),
               ),
             ],
           ),
@@ -239,7 +239,7 @@ class _RoleFormDialogState extends State<_RoleFormDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Create Role'),
+          child: Text(t(context, 'cancel')),
         ),
         FilledButton(
           onPressed: () {
@@ -258,7 +258,7 @@ class _RoleFormDialogState extends State<_RoleFormDialog> {
             );
             Navigator.pop(context, request);
           },
-          child: const Text('Create Role'),
+          child: Text(t(context, 'save')),
         ),
       ],
     );

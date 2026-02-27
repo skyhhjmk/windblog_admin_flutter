@@ -90,9 +90,9 @@ class _PostsPageState extends State<PostsPage> {
                 width: 240,
                 child: TextField(
                   controller: keywordCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Search by title or slug',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    hintText: t(context, 'search_hint'),
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                 ),
@@ -103,12 +103,12 @@ class _PostsPageState extends State<PostsPage> {
                   page = 1;
                   load();
                 },
-                child: const Text('Search'),
+                child: Text(t(context, 'search')),
               ),
               const Spacer(),
               FilledButton(
                 onPressed: () => createOrEdit(),
-                child: const Text('Search'),
+                child: Text(t(context, 'create')),
               ),
             ],
           ),
@@ -123,14 +123,14 @@ class _PostsPageState extends State<PostsPage> {
                   return ListTile(
                     title: Text(it.zhTitle.isEmpty ? it.slug : it.zhTitle),
                     subtitle: Text(
-                      'slug: ${it.slug} | \u72b6\u6001: ${it.statusText} | \u6e32\u67d3: ${it.renderTypeText} | v${it.version}',
+                      'slug: ${it.slug} | ${t(context, 'status_text')}: ${it.statusText} | ${t(context, 'render_text')}: ${it.renderTypeText} | ${t(context, 'version_text')}${it.version}',
                     ),
                     trailing: Wrap(
                       spacing: 8,
                       children: [
                         TextButton(
                           onPressed: () => createOrEdit(item: it),
-                          child: const Text('Search'),
+                          child: Text(t(context, 'edit')),
                         ),
                         TextButton(
                           onPressed: () async {
@@ -141,7 +141,7 @@ class _PostsPageState extends State<PostsPage> {
                               widget.onAuthError();
                             }
                           },
-                          child: const Text('Search'),
+                          child: Text(t(context, 'publish')),
                         ),
                         TextButton(
                           onPressed: () async {
@@ -152,7 +152,7 @@ class _PostsPageState extends State<PostsPage> {
                               widget.onAuthError();
                             }
                           },
-                          child: const Text('Search'),
+                          child: Text(t(context, 'delete')),
                         ),
                       ],
                     ),
@@ -164,23 +164,23 @@ class _PostsPageState extends State<PostsPage> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Text('\u603b\u6570: $total'),
+              Text('${t(context, 'total')}: $total'),
               const Spacer(),
               IconButton(
                 onPressed: page <= 1
                     ? null
                     : () {
-                        page--;
+                        setState(() => page--);
                         load();
                       },
                 icon: const Icon(Icons.chevron_left),
               ),
-              Text('\u7b2c $page \u9875'),
+              Text('${t(context, 'page')} $page ${t(context, 'page')}'),
               IconButton(
                 onPressed: page * 10 >= total
                     ? null
                     : () {
-                        page++;
+                        setState(() => page++);
                         load();
                       },
                 icon: const Icon(Icons.chevron_right),
@@ -212,6 +212,7 @@ class _PostDialogState extends State<PostDialog> {
   int status = 0;
   int visibility = 0;
   int renderType = 0;
+  int editorType = 0;
 
   @override
   void initState() {
@@ -226,6 +227,7 @@ class _PostDialogState extends State<PostDialog> {
     status = d?.status ?? 0;
     visibility = d?.visibility ?? 0;
     renderType = d?.renderType ?? 0;
+    editorType = d?.editorType ?? 0;
   }
 
   @override
@@ -248,7 +250,7 @@ class _PostDialogState extends State<PostDialog> {
               FilledButton.icon(
                 onPressed: _uploadMedia,
                 icon: const Icon(Icons.photo_library_outlined),
-                label: const Text('Upload Media'),
+                label: Text(t(context, 'upload_media')),
               ),
             ],
           ),
@@ -260,8 +262,59 @@ class _PostDialogState extends State<PostDialog> {
                 border: Border.all(color: Colors.grey.shade300),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: _buildMarkdownEditor(),
+              child: _buildEditor(),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditor() {
+    if (editorType == 5) {
+      return _buildQuillEditor();
+    } else if (editorType == 6) {
+      return _buildMarkdownPlusEditor();
+    }
+    return _buildMarkdownEditor();
+  }
+
+  Widget _buildQuillEditor() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.edit, size: 48, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            'Flutter Quill Editor',
+            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Coming Soon',
+            style: TextStyle(color: Colors.grey.shade400),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMarkdownPlusEditor() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.code, size: 48, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            'Flutter Markdown Plus Editor',
+            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Coming Soon',
+            style: TextStyle(color: Colors.grey.shade400),
           ),
         ],
       ),
@@ -270,18 +323,18 @@ class _PostDialogState extends State<PostDialog> {
 
   Widget _buildMarkdownEditor() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
           flex: 1,
           child: TextField(
             controller: contentCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Markdown Content',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: t(context, 'markdown_content'),
+              border: const OutlineInputBorder(),
             ),
             minLines: 12,
             maxLines: null,
-            expands: true,
           ),
         ),
         const SizedBox(width: 12),
@@ -292,11 +345,31 @@ class _PostDialogState extends State<PostDialog> {
             child: Container(
               padding: const EdgeInsets.all(8),
               color: Colors.grey.shade50,
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: contentCtrl,
-                builder: (context, value, child) {
-                  return MarkdownBody(data: value.text);
-                },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: contentCtrl,
+                      builder: (context, value, child) {
+                        if (value.text.trim().isEmpty) {
+                          return Center(
+                            child: Text(
+                              t(context, 'markdown_content'),
+                              style: TextStyle(color: Colors.grey.shade400),
+                            ),
+                          );
+                        }
+                        return SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: MarkdownBody(data: value.text),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -322,9 +395,28 @@ class _PostDialogState extends State<PostDialog> {
         bytes: bytes,
         mimeType: mimeType,
       );
+      _insertMedia(media.fileName, media.url);
+      if (!mounted) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${t(context, 'media_inserted')}${media.fileName}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${t(context, 'upload_failed')}$e')),
+        );
+      }
+    }
+  }
+
+  void _insertMedia(String fileName, String url) {
+    final insertText = '![$fileName]($url)\n';
+    if (editorType == 0 || editorType == 6) {
       final currentText = contentCtrl.text;
       final selection = contentCtrl.selection;
-      final insertText = '![${media.fileName}](${media.url})\n';
       final newText = currentText.replaceRange(
         selection.baseOffset,
         selection.extentOffset,
@@ -334,26 +426,26 @@ class _PostDialogState extends State<PostDialog> {
       contentCtrl.selection = TextSelection.collapsed(
         offset: selection.baseOffset + insertText.length,
       );
-      if (!mounted) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\u5df2\u63d2\u5165\u5a92\u4f53: ${media.fileName}')),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\u4e0a\u4f20\u5a92\u4f53\u5931\u8d25: $e')),
-        );
-      }
+    } else if (editorType == 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Flutter Quill editor media upload coming soon')),
+      );
     }
+  }
+
+  String _getContent() {
+    if (editorType == 0 || editorType == 6) {
+      return contentCtrl.text;
+    } else if (editorType == 5) {
+      return '';
+    }
+    return contentCtrl.text;
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.detail == null ? '\u65b0\u5efa\u6587\u7ae0' : '\u7f16\u8f91\u6587\u7ae0'),
+      title: Text(widget.detail == null ? t(context, 'new_post') : t(context, 'edit_post')),
       content: SizedBox(
         width: 680,
         child: SingleChildScrollView(
@@ -361,17 +453,17 @@ class _PostDialogState extends State<PostDialog> {
             children: [
               TextField(
                 controller: slugCtrl,
-                decoration: const InputDecoration(labelText: 'Status'),
+                decoration: InputDecoration(labelText: t(context, 'slug')),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: titleCtrl,
-                decoration: const InputDecoration(labelText: 'Status'),
+                decoration: InputDecoration(labelText: t(context, 'title')),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: summaryCtrl,
-                decoration: const InputDecoration(labelText: 'Status'),
+                decoration: InputDecoration(labelText: t(context, 'summary')),
                 minLines: 2,
                 maxLines: 3,
               ),
@@ -383,44 +475,63 @@ class _PostDialogState extends State<PostDialog> {
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       initialValue: status,
-                      decoration: const InputDecoration(labelText: 'Status'),
-                      items: const [
-                        DropdownMenuItem(value: 0, child: Text('Draft')),
-                        DropdownMenuItem(value: 1, child: Text('Published')),
-                        DropdownMenuItem(value: 2, child: Text('Archived')),
+                      decoration: InputDecoration(labelText: t(context, 'status')),
+                      items: [
+                        DropdownMenuItem(value: 0, child: Text(t(context, 'draft'))),
+                        DropdownMenuItem(value: 1, child: Text(t(context, 'published'))),
+                        DropdownMenuItem(value: 2, child: Text(t(context, 'archived'))),
                       ],
-                      onChanged: (v) => status = v ?? 0,
+                      onChanged: (v) => setState(() => status = v ?? 0),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       initialValue: visibility,
-                      decoration: const InputDecoration(labelText: 'Status'),
-                      items: const [
-                        DropdownMenuItem(value: 0, child: Text('Public')),
-                        DropdownMenuItem(value: 1, child: Text('Private')),
-                        DropdownMenuItem(value: 2, child: Text('Protected')),
+                      decoration: InputDecoration(labelText: t(context, 'visibility')),
+                      items: [
+                        DropdownMenuItem(value: 0, child: Text(t(context, 'public'))),
+                        DropdownMenuItem(value: 1, child: Text(t(context, 'private'))),
+                        DropdownMenuItem(value: 2, child: Text(t(context, 'protected'))),
                       ],
-                      onChanged: (v) => visibility = v ?? 0,
+                      onChanged: (v) => setState(() => visibility = v ?? 0),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                initialValue: renderType,
-                decoration: const InputDecoration(labelText: 'Status'),
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('Markdown')),
-                  DropdownMenuItem(value: 1, child: Text('HTML')),
-                  DropdownMenuItem(value: 2, child: Text('Vditor')),
-                  DropdownMenuItem(value: 3, child: Text('V Builder')),
-                  DropdownMenuItem(value: 4, child: Text('Gutenberg')),
-                  DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
-                  DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: renderType,
+                      decoration: InputDecoration(labelText: t(context, 'render_type')),
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text('Markdown')),
+                        DropdownMenuItem(value: 1, child: Text('HTML')),
+                        DropdownMenuItem(value: 2, child: Text('Vditor')),
+                        DropdownMenuItem(value: 3, child: Text('V Builder')),
+                        DropdownMenuItem(value: 4, child: Text('Gutenberg')),
+                        DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
+                        DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
+                      ],
+                      onChanged: (v) => setState(() => renderType = v ?? 0),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: editorType,
+                      decoration: const InputDecoration(labelText: 'Editor Type'),
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text('Markdown')),
+                        DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
+                        DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
+                      ],
+                      onChanged: (v) => setState(() => editorType = v ?? 0),
+                    ),
+                  ),
                 ],
-                onChanged: (v) => renderType = v ?? 0,
               ),
             ],
           ),
@@ -429,11 +540,11 @@ class _PostDialogState extends State<PostDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Search'),
+          child: Text(t(context, 'cancel')),
         ),
         FilledButton(
           onPressed: () {
-            final finalContent = contentCtrl.text.trim();
+            final finalContent = _getContent().trim();
             if (slugCtrl.text.trim().isEmpty ||
                 titleCtrl.text.trim().isEmpty ||
                 finalContent.isEmpty) {
@@ -450,15 +561,14 @@ class _PostDialogState extends State<PostDialog> {
                 status: status,
                 visibility: visibility,
                 renderType: renderType,
-                editorType: 0,
+                editorType: editorType,
                 version: 0,
               ),
             );
           },
-          child: const Text('Search'),
+          child: Text(t(context, 'save')),
         ),
       ],
     );
   }
 }
-

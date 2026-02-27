@@ -64,15 +64,15 @@ class _OverviewPageState extends State<OverviewPage> {
           spacing: 10,
           runSpacing: 10,
           children: [
-            card('Users', map['users'] ?? 0),
-            card('Posts', map['posts'] ?? 0),
-            card('Comments', map['comments'] ?? 0),
-            card('Tags', map['tags'] ?? 0),
-            card('Categories', map['categories'] ?? 0),
+            card(t(context, 'users_count'), map['users'] ?? 0),
+            card(t(context, 'posts_count'), map['posts'] ?? 0),
+            card(t(context, 'comments_count'), map['comments'] ?? 0),
+            card(t(context, 'tags_count'), map['tags'] ?? 0),
+            card(t(context, 'categories_count'), map['categories'] ?? 0),
           ],
         ),
         const SizedBox(height: 12),
-        Text('\u7ba1\u7406\u63a5\u53e3\u6587\u6863: ${widget.api.baseUrl}/api/admin/docs'),
+        Text('${t(context, 'api_docs')}${widget.api.baseUrl}/api/admin/docs'),
       ],
     );
   }

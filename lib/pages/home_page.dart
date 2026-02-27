@@ -28,36 +28,36 @@ class _HomePageState extends State<HomePage> {
           NavigationRail(
             selectedIndex: tab,
             onDestinationSelected: (v) => setState(() => tab = v),
-            destinations: const [
+            destinations: [
               NavigationRailDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: Text('Overview'),
+                icon: const Icon(Icons.dashboard_outlined),
+                selectedIcon: const Icon(Icons.dashboard),
+                label: Text(t(context, 'overview')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.article_outlined),
-                selectedIcon: Icon(Icons.article),
-                label: Text('Overview'),
+                icon: const Icon(Icons.article_outlined),
+                selectedIcon: const Icon(Icons.article),
+                label: Text(t(context, 'posts')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.photo_library_outlined),
-                selectedIcon: Icon(Icons.photo_library),
-                label: Text('Overview'),
+                icon: const Icon(Icons.photo_library_outlined),
+                selectedIcon: const Icon(Icons.photo_library),
+                label: Text(t(context, 'media')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.people_outline),
-                selectedIcon: Icon(Icons.people),
-                label: Text('Overview'),
+                icon: const Icon(Icons.people_outlined),
+                selectedIcon: const Icon(Icons.people),
+                label: Text(t(context, 'users')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.security_outlined),
-                selectedIcon: Icon(Icons.security),
-                label: Text('Overview'),
+                icon: const Icon(Icons.security_outlined),
+                selectedIcon: const Icon(Icons.security),
+                label: Text(t(context, 'permissions')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.memory_outlined),
-                selectedIcon: Icon(Icons.memory),
-                label: Text('Overview'),
+                icon: const Icon(Icons.memory_outlined),
+                selectedIcon: const Icon(Icons.memory),
+                label: Text(t(context, 'ai_providers')),
               ),
             ],
           ),
@@ -75,12 +75,12 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Text(
                         switch (tab) {
-                          0 => 'Overview',
-                          1 => 'Posts',
-                          2 => 'Media',
-                          3 => 'Users',
-                          4 => 'Permissions',
-                          _ => 'AI Providers',
+                          0 => t(context, 'overview'),
+                          1 => t(context, 'posts'),
+                          2 => t(context, 'media'),
+                          3 => t(context, 'users'),
+                          4 => t(context, 'permissions'),
+                          _ => t(context, 'ai_providers'),
                         },
                       ),
                       const Spacer(),
@@ -88,7 +88,7 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(width: 8),
                       OutlinedButton(
                         onPressed: widget.onLogout,
-                        child: const Text('Logout'),
+                        child: Text(t(context, 'logout')),
                       ),
                     ],
                   ),
