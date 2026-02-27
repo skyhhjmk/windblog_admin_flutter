@@ -208,6 +208,7 @@ class _PostDialogState extends State<PostDialog> {
   late final TextEditingController titleCtrl;
   late final TextEditingController summaryCtrl;
   late final TextEditingController contentCtrl;
+  late final QuillController quillController;
 
   int status = 0;
   int visibility = 0;
@@ -224,6 +225,24 @@ class _PostDialogState extends State<PostDialog> {
     contentCtrl = TextEditingController(
       text: d?.contentMarkdown['zh-cn'] ?? '',
     );
+
+    Document document;
+    final quillContent = d?.contentMarkdown['zh-cn'] ?? '';
+    if (quillContent.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(quillContent);
+        document = Document.fromJson(decoded);
+      } catch (_) {
+        document = Document()..insert(0, quillContent);
+      }
+    } else {
+      document = Document();
+    }
+    quillController = QuillController(
+      document: document,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+
     status = d?.status ?? 0;
     visibility = d?.visibility ?? 0;
     renderType = d?.renderType ?? 0;
@@ -236,6 +255,7 @@ class _PostDialogState extends State<PostDialog> {
     titleCtrl.dispose();
     summaryCtrl.dispose();
     contentCtrl.dispose();
+    quillController.dispose();
     super.dispose();
   }
 
@@ -280,23 +300,81 @@ class _PostDialogState extends State<PostDialog> {
   }
 
   Widget _buildQuillEditor() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.edit, size: 48, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            'Flutter Quill Editor',
-            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+    final textCtrl = TextEditingController(text: quillController.document.toPlainText());
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(4),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Coming Soon',
-            style: TextStyle(color: Colors.grey.shade400),
+          child: Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.format_bold),
+                onPressed: () {
+                  final selection = quillController.selection;
+                  quillController.formatText(
+                    selection.baseOffset,
+                    selection.extentOffset - selection.baseOffset,
+                    Attribute.bold,
+                  );
+                },
+                tooltip: 'Bold',
+              ),
+              IconButton(
+                icon: const Icon(Icons.format_italic),
+                onPressed: () {
+                  final selection = quillController.selection;
+                  quillController.formatText(
+                    selection.baseOffset,
+                    selection.extentOffset - selection.baseOffset,
+                    Attribute.italic,
+                  );
+                },
+                tooltip: 'Italic',
+              ),
+              IconButton(
+                icon: const Icon(Icons.format_underlined),
+                onPressed: () {
+                  final selection = quillController.selection;
+                  quillController.formatText(
+                    selection.baseOffset,
+                    selection.extentOffset - selection.baseOffset,
+                    Attribute.underline,
+                  );
+                },
+                tooltip: 'Underline',
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: TextField(
+              controller: textCtrl,
+              maxLines: null,
+              expands: true,
+              decoration: const InputDecoration(
+                hintText: '开始编辑...',
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(12),
+              ),
+              onChanged: (text) {
+                quillController.document = Document()..insert(0, text);
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -413,8 +491,12 @@ class _PostDialogState extends State<PostDialog> {
   }
 
   void _insertMedia(String fileName, String url) {
-    final insertText = '![$fileName]($url)\n';
-    if (editorType == 0 || editorType == 6) {
+    if (editorType == 5) {
+      final index = quillController.selection.baseOffset;
+      quillController.document.insert(index, BlockEmbed.image(url));
+      quillController.moveCursorToPosition(index + 1);
+    } else if (editorType == 0 || editorType == 6) {
+      final insertText = '![$fileName]($url)\n';
       final currentText = contentCtrl.text;
       final selection = contentCtrl.selection;
       final newText = currentText.replaceRange(
@@ -426,18 +508,14 @@ class _PostDialogState extends State<PostDialog> {
       contentCtrl.selection = TextSelection.collapsed(
         offset: selection.baseOffset + insertText.length,
       );
-    } else if (editorType == 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Flutter Quill editor media upload coming soon')),
-      );
     }
   }
 
   String _getContent() {
-    if (editorType == 0 || editorType == 6) {
+    if (editorType == 5) {
+      return jsonEncode(quillController.document.toDelta().toJson());
+    } else if (editorType == 0 || editorType == 6) {
       return contentCtrl.text;
-    } else if (editorType == 5) {
-      return '';
     }
     return contentCtrl.text;
   }
