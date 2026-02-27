@@ -300,79 +300,16 @@ class _PostDialogState extends State<PostDialog> {
   }
 
   Widget _buildQuillEditor() {
-    final textCtrl = TextEditingController(text: quillController.document.toPlainText());
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.format_bold),
-                onPressed: () {
-                  final selection = quillController.selection;
-                  quillController.formatText(
-                    selection.baseOffset,
-                    selection.extentOffset - selection.baseOffset,
-                    Attribute.bold,
-                  );
-                },
-                tooltip: 'Bold',
-              ),
-              IconButton(
-                icon: const Icon(Icons.format_italic),
-                onPressed: () {
-                  final selection = quillController.selection;
-                  quillController.formatText(
-                    selection.baseOffset,
-                    selection.extentOffset - selection.baseOffset,
-                    Attribute.italic,
-                  );
-                },
-                tooltip: 'Italic',
-              ),
-              IconButton(
-                icon: const Icon(Icons.format_underlined),
-                onPressed: () {
-                  final selection = quillController.selection;
-                  quillController.formatText(
-                    selection.baseOffset,
-                    selection.extentOffset - selection.baseOffset,
-                    Attribute.underline,
-                  );
-                },
-                tooltip: 'Underline',
-              ),
-            ],
-          ),
+        QuillSimpleToolbar(
+          controller: quillController,
+          config: const QuillSimpleToolbarConfig(),
         ),
         const SizedBox(height: 8),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: TextField(
-              controller: textCtrl,
-              maxLines: null,
-              expands: true,
-              decoration: const InputDecoration(
-                hintText: '开始编辑...',
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.all(12),
-              ),
-              onChanged: (text) {
-                quillController.document = Document()..insert(0, text);
-              },
-            ),
-          ),
+        QuillEditor.basic(
+          controller: quillController,
+          config: const QuillEditorConfig(),
         ),
       ],
     );
