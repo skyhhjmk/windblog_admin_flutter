@@ -20,6 +20,10 @@ part 'components/progressive_image.dart';
 part 'pages/user_management_page.dart';
 part 'pages/permission_management_page.dart';
 
+part 'pages/categories_page.dart';
+
+part 'pages/tags_page.dart';
+
 
 String _resolveMimeType(PlatformFile file) {
   final candidate = file.path ?? file.name;

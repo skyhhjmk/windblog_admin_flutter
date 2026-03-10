@@ -40,6 +40,16 @@ class _HomePageState extends State<HomePage> {
                 label: Text(t(context, 'posts')),
               ),
               NavigationRailDestination(
+                icon: const Icon(Icons.folder_outlined),
+                selectedIcon: const Icon(Icons.folder),
+                label: Text(t(context, 'categories')),
+              ),
+              NavigationRailDestination(
+                icon: const Icon(Icons.label_outlined),
+                selectedIcon: const Icon(Icons.label),
+                label: Text(t(context, 'tags')),
+              ),
+              NavigationRailDestination(
                 icon: const Icon(Icons.photo_library_outlined),
                 selectedIcon: const Icon(Icons.photo_library),
                 label: Text(t(context, 'media')),
@@ -77,9 +87,11 @@ class _HomePageState extends State<HomePage> {
                         switch (tab) {
                           0 => t(context, 'overview'),
                           1 => t(context, 'posts'),
-                          2 => t(context, 'media'),
-                          3 => t(context, 'users'),
-                          4 => t(context, 'permissions'),
+                          2 => t(context, 'categories'),
+                          3 => t(context, 'tags'),
+                          4 => t(context, 'media'),
+                          5 => t(context, 'users'),
+                          6 => t(context, 'permissions'),
                           _ => t(context, 'ai_providers'),
                         },
                       ),
@@ -108,13 +120,17 @@ class _HomePageState extends State<HomePage> {
     return switch (index) {
       0 => OverviewPage(api: widget.api, onAuthError: widget.onLogout),
       1 => PostsPage(api: widget.api, onAuthError: widget.onLogout),
-      2 => MediaLibraryPage(api: widget.api, onAuthError: widget.onLogout),
-      3 => UserManagementPage(
+      2 => CategoriesPage(api: widget.api, onAuthError: widget.onLogout),
+      3 => TagsPage(api: widget.api, onAuthError: widget.onLogout),
+      4 => MediaLibraryPage(api: widget.api, onAuthError: widget.onLogout),
+      5 =>
+          UserManagementPage(
           api: widget.api,
           onAuthError: widget.onLogout,
           isSuperAdmin: isSuperAdmin,
         ),
-      4 => PermissionManagementPage(
+      6 =>
+          PermissionManagementPage(
           api: widget.api,
           isSuperAdmin: isSuperAdmin,
           onAuthError: widget.onLogout,

@@ -112,5 +112,22 @@
   "page_number": "第 %d 页 / 共 %d 条",
   "status_text": "状态",
   "render_text": "渲染",
-  "version_text": "v"
+  "version_text": "v",
+  "categories": "分类",
+  "tags": "标签",
+  "create_category": "创建分类",
+  "edit_category": "编辑分类",
+  "create_tag": "创建标签",
+  "edit_tag": "编辑标签",
+  "no_categories": "暂无分类",
+  "no_tags": "暂无标签",
+  "name": "名称",
+  "parent_category": "父分类",
+  "no_parent": "无父分类",
+  "confirm_delete": "确认删除",
+  "confirm_delete_category": "确定要删除分类 \"%s\" 吗？",
+  "confirm_delete_tag": "确定要删除标签 \"%s\" 吗？",
+  "category": "分类",
+  "select_category": "选择分类",
+  "select_tags": "选择标签"
 }

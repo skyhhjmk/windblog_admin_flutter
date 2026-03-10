@@ -203,6 +203,47 @@ class AdminApiClient {
     await _delete('/api/admin/permissions/roles/$name');
   }
 
+  Future<List<CategoryItem>> listCategories() async {
+    final res = await _get('/api/admin/categories');
+    final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
+    return list.map((e) => CategoryItem.fromMap(_map(e))).toList();
+  }
+
+  Future<CategoryItem> createCategory(CategoryCreateRequest request) async {
+    final res = await _post('/api/admin/categories', body: request.toJson());
+    return CategoryItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<CategoryItem> updateCategory(int id,
+      CategoryUpdateRequest request) async {
+    final res = await _put('/api/admin/categories/$id', body: request.toJson());
+    return CategoryItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> deleteCategory(int id) async {
+    await _delete('/api/admin/categories/$id');
+  }
+
+  Future<List<TagItem>> listTags() async {
+    final res = await _get('/api/admin/tags');
+    final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
+    return list.map((e) => TagItem.fromMap(_map(e))).toList();
+  }
+
+  Future<TagItem> createTag(TagCreateRequest request) async {
+    final res = await _post('/api/admin/tags', body: request.toJson());
+    return TagItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<TagItem> updateTag(int id, TagUpdateRequest request) async {
+    final res = await _put('/api/admin/tags/$id', body: request.toJson());
+    return TagItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> deleteTag(int id) async {
+    await _delete('/api/admin/tags/$id');
+  }
+
   Future<http.Response> _get(String path, {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.get(uri, headers: _headers(true));

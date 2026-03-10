@@ -215,6 +215,11 @@ class _PostDialogState extends State<PostDialog> {
   int renderType = 0;
   int editorType = 0;
 
+  int? categoryId;
+  List<int> tagIds = [];
+  List<CategoryItem> _categories = [];
+  List<TagItem> _tags = [];
+
   @override
   void initState() {
     super.initState();
@@ -247,6 +252,28 @@ class _PostDialogState extends State<PostDialog> {
     visibility = d?.visibility ?? 0;
     renderType = d?.renderType ?? 0;
     editorType = d?.editorType ?? 0;
+    categoryId = d?.categoryId;
+    tagIds = d?.tagIds ?? [];
+
+    _loadCategoriesAndTags();
+  }
+
+  Future<void> _loadCategoriesAndTags() async {
+    try {
+      final cats = await widget.api.listCategories();
+      final tags = await widget.api.listTags();
+      if (mounted) {
+        setState(() {
+          _categories = cats;
+          _tags = tags;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('加载分类和标签失败：$e')),
+      );
+    }
   }
 
   @override
@@ -261,7 +288,7 @@ class _PostDialogState extends State<PostDialog> {
 
   Widget _buildEditorPane() {
     return SizedBox(
-      height: 420,
+      height: 480,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -497,6 +524,70 @@ class _PostDialogState extends State<PostDialog> {
               Row(
                 children: [
                   Expanded(
+                    child: DropdownButtonFormField<int?>(
+                      value: categoryId,
+                      decoration: InputDecoration(
+                          labelText: t(context, 'category')),
+                      items: [
+                        DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text(t(context, 'select_category')),
+                        ),
+                        ..._categories.map((cat) =>
+                            DropdownMenuItem<int?>(
+                              value: cat.id,
+                              child: Text(cat.displayName),
+                            )),
+                      ],
+                      onChanged: (v) => setState(() => categoryId = v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: null,
+                      decoration: InputDecoration(
+                          labelText: t(context, 'tags')),
+                      hint: Text(tagIds.isEmpty
+                          ? t(context, 'select_tags')
+                          : '${tagIds.length} tags'),
+                      items: [
+                        ..._tags.map((tag) =>
+                            DropdownMenuItem<int>(
+                              value: tag.id,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    tagIds.contains(tag.id)
+                                        ? Icons.check_box
+                                        : Icons.check_box_outline_blank,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(tag.displayName),
+                                ],
+                              ),
+                            )),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() {
+                            if (tagIds.contains(v)) {
+                              tagIds.remove(v);
+                            } else {
+                              tagIds.add(v);
+                            }
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
                     child: DropdownButtonFormField<int>(
                       initialValue: status,
                       decoration: InputDecoration(labelText: t(context, 'status')),
@@ -587,6 +678,8 @@ class _PostDialogState extends State<PostDialog> {
                 renderType: renderType,
                 editorType: editorType,
                 version: 0,
+                categoryId: categoryId,
+                tagIds: tagIds,
               ),
             );
           },

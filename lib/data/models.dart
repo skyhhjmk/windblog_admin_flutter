@@ -44,7 +44,11 @@ class PostItem {
 
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
-  String get statusText => status == 1 ? 'Published' : (status == 2 ? 'Draft' : 'Unknown');
+
+  String get statusText =>
+      status == 0 ? 'Draft' : (status == 1 ? 'Published' : (status == 2
+          ? 'Archived'
+          : 'Unknown'));
   String get renderTypeText => postRenderTypeText(renderType);
 
   factory PostItem.fromMap(Map<String, dynamic> map) {
@@ -71,6 +75,8 @@ class PostDetail {
     required this.renderType,
     required this.editorType,
     required this.version,
+    this.categoryId,
+    this.tagIds = const [],
   });
 
   final int id;
@@ -83,6 +89,8 @@ class PostDetail {
   final int renderType;
   final int editorType;
   final int version;
+  final int? categoryId;
+  final List<int> tagIds;
 
   factory PostDetail.fromMap(Map<String, dynamic> map) {
     return PostDetail(
@@ -96,6 +104,11 @@ class PostDetail {
       renderType: toInt(map['renderType']) ?? 0,
       editorType: toInt(map['editorType']) ?? 0,
       version: toInt(map['version']) ?? 0,
+      categoryId: toInt(map['categoryId']),
+      tagIds: (asDynamicList(map['tagIds']) ?? [])
+          .map((e) => toInt(e) ?? 0)
+          .where((id) => id > 0)
+          .toList(),
     );
   }
 }
@@ -112,6 +125,8 @@ class PostEditRequest {
     required this.renderType,
     required this.editorType,
     required this.version,
+    this.categoryId,
+    this.tagIds = const [],
   });
 
   final String slug;
@@ -124,6 +139,8 @@ class PostEditRequest {
   final int renderType;
   final int editorType;
   final int version;
+  final int? categoryId;
+  final List<int> tagIds;
 
   Map<String, dynamic> toCreateBody() {
     return {
@@ -136,6 +153,8 @@ class PostEditRequest {
       'visibility': visibility,
       'renderType': renderType,
       'editorType': editorType,
+      'categoryId': categoryId,
+      'tagIds': tagIds,
     };
   }
 
@@ -151,10 +170,12 @@ class PostEditRequest {
       'renderType': renderType,
       'editorType': editorType,
       'version': version,
+      'categoryId': categoryId,
+      'tagIds': tagIds,
     };
   }
 
-  PostEditRequest copyWith({int? version}) {
+  PostEditRequest copyWith({int? version, int? categoryId, List<int>? tagIds}) {
     return PostEditRequest(
       slug: slug,
       title: title,
@@ -166,6 +187,8 @@ class PostEditRequest {
       renderType: renderType,
       editorType: editorType,
       version: version ?? this.version,
+      categoryId: categoryId ?? this.categoryId,
+      tagIds: tagIds ?? this.tagIds,
     );
   }
 }
@@ -596,6 +619,178 @@ class MediaScanResult {
       referencesCreated: toInt(map['referencesCreated']) ?? 0,
       unreferenced: toInt(map['unreferenced']) ?? 0,
     );
+  }
+}
+
+class CategoryItem {
+  CategoryItem({
+    required this.id,
+    this.parentId,
+    required this.slug,
+    required this.name,
+    this.description,
+    required this.path,
+    required this.createdAt,
+  });
+
+  final int id;
+  final int? parentId;
+  final String slug;
+  final Map<String, String> name;
+  final Map<String, String>? description;
+  final String path;
+  final DateTime createdAt;
+
+  String get zhName => name['zh-cn'] ?? (name.isEmpty ? '' : name.values.first);
+
+  String get displayName => zhName.isEmpty ? slug : zhName;
+
+  factory CategoryItem.fromMap(Map<String, dynamic> map) {
+    return CategoryItem(
+      id: toInt(map['id']) ?? 0,
+      parentId: toInt(map['parentId']),
+      slug: map['slug']?.toString() ?? '',
+      name: toStringMap(map['name']),
+      description: map['description'] != null
+          ? toStringMap(map['description'])
+          : null,
+      path: map['path']?.toString() ?? '',
+      createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
+    );
+  }
+}
+
+class CategoryCreateRequest {
+  CategoryCreateRequest({
+    this.parentId,
+    required this.slug,
+    required this.name,
+    this.description,
+  });
+
+  final int? parentId;
+  final String slug;
+  final Map<String, String> name;
+  final Map<String, String>? description;
+
+  Map<String, dynamic> toJson() {
+    final payload = <String, dynamic>{
+      'slug': slug,
+      'name': name,
+    };
+    if (parentId != null) {
+      payload['parentId'] = parentId;
+    }
+    if (description != null) {
+      payload['description'] = description;
+    }
+    return payload;
+  }
+}
+
+class CategoryUpdateRequest {
+  CategoryUpdateRequest({
+    this.parentId,
+    required this.slug,
+    required this.name,
+    this.description,
+  });
+
+  final int? parentId;
+  final String slug;
+  final Map<String, String> name;
+  final Map<String, String>? description;
+
+  Map<String, dynamic> toJson() {
+    final payload = <String, dynamic>{
+      'slug': slug,
+      'name': name,
+    };
+    if (parentId != null) {
+      payload['parentId'] = parentId;
+    }
+    if (description != null) {
+      payload['description'] = description;
+    }
+    return payload;
+  }
+}
+
+class TagItem {
+  TagItem({
+    required this.id,
+    required this.slug,
+    required this.name,
+    this.description,
+    required this.createdAt,
+  });
+
+  final int id;
+  final String slug;
+  final Map<String, String> name;
+  final Map<String, String>? description;
+  final DateTime createdAt;
+
+  String get zhName => name['zh-cn'] ?? (name.isEmpty ? '' : name.values.first);
+
+  String get displayName => zhName.isEmpty ? slug : zhName;
+
+  factory TagItem.fromMap(Map<String, dynamic> map) {
+    return TagItem(
+      id: toInt(map['id']) ?? 0,
+      slug: map['slug']?.toString() ?? '',
+      name: toStringMap(map['name']),
+      description: map['description'] != null
+          ? toStringMap(map['description'])
+          : null,
+      createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
+    );
+  }
+}
+
+class TagCreateRequest {
+  TagCreateRequest({
+    required this.slug,
+    required this.name,
+    this.description,
+  });
+
+  final String slug;
+  final Map<String, String> name;
+  final Map<String, String>? description;
+
+  Map<String, dynamic> toJson() {
+    final payload = <String, dynamic>{
+      'slug': slug,
+      'name': name,
+    };
+    if (description != null) {
+      payload['description'] = description;
+    }
+    return payload;
+  }
+}
+
+class TagUpdateRequest {
+  TagUpdateRequest({
+    required this.slug,
+    required this.name,
+    this.description,
+  });
+
+  final String slug;
+  final Map<String, String> name;
+  final Map<String, String>? description;
+
+  Map<String, dynamic> toJson() {
+    final payload = <String, dynamic>{
+      'slug': slug,
+      'name': name,
+    };
+    if (description != null) {
+      payload['description'] = description;
+    }
+    return payload;
   }
 }
 
