@@ -86,6 +86,11 @@ class _UserManagementPageState extends State<UserManagementPage> {
         roleName: result.role,
       );
       await _loadUsers();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t(context, 'update_success'))),
+        );
+      }
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
@@ -218,6 +223,10 @@ class _UserEditDialogState extends State<_UserEditDialog> {
     emailCtrl = TextEditingController(text: widget.user.email);
     status = widget.user.status;
     roleName = widget.user.roleName;
+    // 确保 status 值在有效范围内
+    if (status != 0 && status != 1 && status != 2) {
+      status = 1; // 默认为正常状态
+    }
   }
 
   @override
@@ -244,11 +253,11 @@ class _UserEditDialogState extends State<_UserEditDialog> {
               initialValue: status,
               decoration: InputDecoration(labelText: t(context, 'status')),
               items: [
-                DropdownMenuItem(value: 0, child: Text(t(context, 'active'))),
-                DropdownMenuItem(value: 1, child: Text(t(context, 'disabled'))),
+                DropdownMenuItem(value: 1, child: Text(t(context, 'active'))),
+                DropdownMenuItem(value: 0, child: Text(t(context, 'disabled'))),
                 DropdownMenuItem(value: 2, child: Text(t(context, 'locked'))),
               ],
-              onChanged: (v) => setState(() => status = v ?? 0),
+              onChanged: (v) => setState(() => status = v ?? 1),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(

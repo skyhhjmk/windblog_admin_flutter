@@ -306,10 +306,18 @@ class _PostDialogState extends State<PostDialog> {
           controller: quillController,
           config: const QuillSimpleToolbarConfig(),
         ),
-        const SizedBox(height: 8),
-        QuillEditor.basic(
-          controller: quillController,
-          config: const QuillEditorConfig(),
+        const Divider(height: 1, thickness: 1),
+        Expanded(
+          child: MouseRegion(
+            cursor: SystemMouseCursors.text,
+            child: Container(
+              color: Colors.white,
+              child: QuillEditor.basic(
+                controller: quillController,
+                config: const QuillEditorConfig(),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -450,7 +458,8 @@ class _PostDialogState extends State<PostDialog> {
 
   String _getContent() {
     if (editorType == 5) {
-      return jsonEncode(quillController.document.toDelta().toJson());
+      final content = jsonEncode(quillController.document.toDelta().toJson());
+      return content;
     } else if (editorType == 0 || editorType == 6) {
       return contentCtrl.text;
     }

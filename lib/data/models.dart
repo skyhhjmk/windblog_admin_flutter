@@ -321,16 +321,37 @@ class UserListItem {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  String get statusText => status == 1 ? 'Published' : (status == 2 ? 'Draft' : 'Unknown');
+  String get statusText => userStatusText(status);
 
   factory UserListItem.fromMap(Map<String, dynamic> map) {
+    final statusValue = map['status'];
+    int statusInt = 0;
+
+    // 更详细地处理 status 值的各种可能类型
+    if (statusValue != null) {
+      if (statusValue is int) {
+        statusInt = statusValue;
+      } else if (statusValue is num) {
+        statusInt = statusValue.toInt();
+      } else if (statusValue is String) {
+        statusInt = int.tryParse(statusValue) ?? 0;
+      } else {
+        // 尝试将其转换为字符串再解析
+        try {
+          statusInt = int.tryParse(statusValue.toString()) ?? 0;
+        } catch (e) {
+          statusInt = 0;
+        }
+      }
+    }
+    
     return UserListItem(
       id: toInt(map['id']) ?? 0,
       username: map['username']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
       avatar: map['avatar']?.toString() ?? 'https://ui-avatars.com/api/?name=User',
       roleName: map['roleName']?.toString() ?? '',
-      status: toInt(map['status']) ?? 0,
+      status: statusInt,
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
       updatedAt: parseDate(map['updatedAt']) ?? DateTime.now(),
     );
@@ -338,13 +359,15 @@ class UserListItem {
 }
 
 String userStatusText(int status) {
-  switch (status) {
-    case 1:
-      return 'Active';
-    case 2:
-      return 'Disabled';
-    default:
-      return 'Unknown';
+  // 使用 if-else 而不是 switch，确保正确匹配 int 值
+  if (status == 1) {
+    return 'Active';
+  } else if (status == 0) {
+    return 'Disabled';
+  } else if (status == 2) {
+    return 'Locked';
+  } else {
+    return 'Unknown ($status)';
   }
 }
 

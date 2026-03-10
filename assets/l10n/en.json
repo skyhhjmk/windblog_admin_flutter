@@ -73,6 +73,7 @@
   "locked": "Locked",
   "load_failed": "Load failed: ",
   "update_failed": "Update failed: ",
+  "update_success": "Update success",
   "save_failed": "Save failed: ",
   "permission_roles": "Permission Roles",
   "create_role": "Create Role",
