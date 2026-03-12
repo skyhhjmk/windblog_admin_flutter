@@ -161,15 +161,52 @@ class AdminApiClient {
   Future<UserListItem> updateUser(
     int id, {
     String? email,
+        String? avatar,
+        String? nickname,
+        String? phone,
     int? status,
     String? roleName,
   }) async {
     final payload = <String, dynamic>{};
     if (email != null) payload['email'] = email;
+    if (avatar != null) payload['avatar'] = avatar;
+    if (nickname != null) payload['nickname'] = nickname;
+    if (phone != null) payload['phone'] = phone;
     if (status != null) payload['status'] = status;
     if (roleName != null) payload['roleName'] = roleName;
     final res = await _put('/api/admin/users/$id', body: payload);
     return UserListItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  // ==================== 钱包管理 API ====================
+
+  Future<WalletInfo> getUserWallet(int userId) async {
+    final res = await _get('/api/admin/users/$userId/wallet');
+    return WalletInfo.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<WalletTransactionHistory> getUserWalletTransactions({
+    required int userId,
+    required int page,
+    required int pageSize,
+  }) async {
+    final res = await _get(
+        '/api/admin/users/$userId/wallet/transactions', query: {
+      'page': '$page',
+      'pageSize': '$pageSize',
+    });
+    return WalletTransactionHistory.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<WalletInfo> adjustUserWallet(int userId, {
+    required int newBalance,
+    String? description,
+  }) async {
+    final res = await _post('/api/admin/users/$userId/wallet/adjust', body: {
+      'newBalance': newBalance,
+      'description': description ?? '管理员手动调整',
+    });
+    return WalletInfo.fromMap(_map(jsonDecode(res.body)));
   }
 
   Future<List<PermissionRoleItem>> listRoles() async {

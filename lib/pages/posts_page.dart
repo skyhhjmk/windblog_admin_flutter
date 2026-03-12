@@ -525,7 +525,7 @@ class _PostDialogState extends State<PostDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int?>(
-                      value: categoryId,
+                      initialValue: categoryId,
                       decoration: InputDecoration(
                           labelText: t(context, 'category')),
                       items: [
@@ -545,7 +545,7 @@ class _PostDialogState extends State<PostDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: null,
+                      initialValue: null,
                       decoration: InputDecoration(
                           labelText: t(context, 'tags')),
                       hint: Text(tagIds.isEmpty

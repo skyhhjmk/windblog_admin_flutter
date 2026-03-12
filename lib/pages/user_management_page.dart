@@ -68,6 +68,22 @@ class _UserManagementPageState extends State<UserManagementPage> {
     if (mounted) setState(() => loadingRoles = false);
   }
 
+  void _openWallet(UserListItem user) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            UserWalletPage(
+              api: widget.api,
+              userId: user.id,
+              username: user.username,
+              onAuthError: widget.onAuthError,
+              isSuperAdmin: widget.isSuperAdmin,
+            ),
+      ),
+    );
+  }
+
   Future<void> _editUser(UserListItem user) async {
     final result = await showDialog<_UserEditResult>(
       context: context,
@@ -82,6 +98,9 @@ class _UserManagementPageState extends State<UserManagementPage> {
       await widget.api.updateUser(
         user.id,
         email: result.email,
+        avatar: result.avatar,
+        nickname: result.nickname,
+        phone: result.phone,
         status: result.status,
         roleName: result.role,
       );
@@ -147,13 +166,69 @@ class _UserManagementPageState extends State<UserManagementPage> {
                           final user = users[index];
                           return ListTile(
                             leading: CircleAvatar(
-                              child: Text(user.username.isEmpty
-                                  ? '?'
-                                  : user.username[0].toUpperCase()),
+                              backgroundColor: Theme
+                                  .of(context)
+                                  .colorScheme
+                                  .primaryContainer,
+                              foregroundColor: Theme
+                                  .of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer,
+                              child: Text(
+                                user.username.isEmpty
+                                    ? '?'
+                                    : user.username[0].toUpperCase(),
+                              ),
                             ),
-                            title: Text(user.username),
-                            subtitle: Text('${user.email} · ${user.roleName}'),
-                            trailing: Text(user.statusText),
+                            title: Row(
+                              children: [
+                                Text(user.username),
+                                if (user.nickname != null &&
+                                    user.nickname!.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 8),
+                                    child: Text(
+                                      '(${user.nickname})',
+                                      style: TextStyle(
+                                        color: Theme
+                                            .of(context)
+                                            .hintColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${user.email} · ${user.roleName}'),
+                                if (user.pointsBalance != null)
+                                  Text(
+                                    '积分：${user.pointsBalance}',
+                                    style: TextStyle(
+                                      color: Theme
+                                          .of(context)
+                                          .colorScheme
+                                          .primary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(user.statusText),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons
+                                      .account_balance_wallet),
+                                  onPressed: () => _openWallet(user),
+                                  tooltip: '钱包',
+                                ),
+                              ],
+                            ),
                             onTap: () => _editUser(user),
                           );
                         },
@@ -199,6 +274,9 @@ class _UserEditDialog extends StatefulWidget {
 
 class _UserEditDialogState extends State<_UserEditDialog> {
   late final TextEditingController emailCtrl;
+  late final TextEditingController avatarCtrl;
+  late final TextEditingController nicknameCtrl;
+  late final TextEditingController phoneCtrl;
   late int status;
   late String roleName;
 
@@ -221,6 +299,9 @@ class _UserEditDialogState extends State<_UserEditDialog> {
   void initState() {
     super.initState();
     emailCtrl = TextEditingController(text: widget.user.email);
+    avatarCtrl = TextEditingController(text: widget.user.avatar);
+    nicknameCtrl = TextEditingController(text: widget.user.nickname ?? '');
+    phoneCtrl = TextEditingController(text: widget.user.phone ?? '');
     status = widget.user.status;
     roleName = widget.user.roleName;
     // 确保 status 值在有效范围内
@@ -232,6 +313,9 @@ class _UserEditDialogState extends State<_UserEditDialog> {
   @override
   void dispose() {
     emailCtrl.dispose();
+    avatarCtrl.dispose();
+    nicknameCtrl.dispose();
+    phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -240,13 +324,28 @@ class _UserEditDialogState extends State<_UserEditDialog> {
     return AlertDialog(
       title: Text(t(context, 'edit_user')),
       content: SizedBox(
-        width: 400,
+        width: 450,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: emailCtrl,
               decoration: InputDecoration(labelText: t(context, 'email')),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: avatarCtrl,
+              decoration: InputDecoration(labelText: t(context, 'avatar')),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: nicknameCtrl,
+              decoration: InputDecoration(labelText: t(context, 'nickname')),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: phoneCtrl,
+              decoration: InputDecoration(labelText: t(context, 'phone')),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<int>(
@@ -286,6 +385,9 @@ class _UserEditDialogState extends State<_UserEditDialog> {
             context,
             _UserEditResult(
               emailCtrl.text.trim(),
+              avatarCtrl.text.trim(),
+              nicknameCtrl.text.trim(),
+              phoneCtrl.text.trim(),
               status,
               roleName,
             ),
@@ -298,9 +400,13 @@ class _UserEditDialogState extends State<_UserEditDialog> {
 }
 
 class _UserEditResult {
-  _UserEditResult(this.email, this.status, this.role);
+  _UserEditResult(this.email, this.avatar, this.nickname, this.phone,
+      this.status, this.role);
 
   final String email;
+  final String avatar;
+  final String nickname;
+  final String phone;
   final int status;
   final String role;
 }

@@ -329,20 +329,26 @@ class UserListItem {
     required this.username,
     required this.email,
     required this.avatar,
+    this.nickname,
+    this.phone,
     required this.roleName,
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.pointsBalance,
   });
 
   final int id;
   final String username;
   final String email;
   final String avatar;
+  final String? nickname;
+  final String? phone;
   final String roleName;
   final int status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int? pointsBalance;
 
   String get statusText => userStatusText(status);
 
@@ -373,10 +379,13 @@ class UserListItem {
       username: map['username']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
       avatar: map['avatar']?.toString() ?? 'https://ui-avatars.com/api/?name=User',
+      nickname: map['nickname']?.toString(),
+      phone: map['phone']?.toString(),
       roleName: map['roleName']?.toString() ?? '',
       status: statusInt,
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
       updatedAt: parseDate(map['updatedAt']) ?? DateTime.now(),
+      pointsBalance: toInt(map['pointsBalance']),
     );
   }
 }
@@ -871,4 +880,117 @@ List<dynamic>? asDynamicList(Object? value) {
     }
   }
   return null;
+}
+
+// ==================== 钱包相关模型 ====================
+
+class WalletInfo {
+  WalletInfo({
+    required this.id,
+    required this.userId,
+    required this.pointsBalance,
+    required this.version,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final int id;
+  final int userId;
+  final int pointsBalance;
+  final int version;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  factory WalletInfo.fromMap(Map<String, dynamic> map) {
+    return WalletInfo(
+      id: toInt(map['id']) ?? 0,
+      userId: toInt(map['userId']) ?? 0,
+      pointsBalance: toInt(map['pointsBalance']) ?? 0,
+      version: toInt(map['version']) ?? 0,
+      createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
+      updatedAt: parseDate(map['updatedAt']) ?? DateTime.now(),
+    );
+  }
+}
+
+class WalletTransactionItem {
+  WalletTransactionItem({
+    required this.id,
+    required this.walletId,
+    required this.userId,
+    required this.changeAmount,
+    required this.balanceAfter,
+    required this.bizType,
+    this.bizId,
+    this.description,
+    required this.createdAt,
+  });
+
+  final int id;
+  final int walletId;
+  final int userId;
+  final int changeAmount;
+  final int balanceAfter;
+  final String bizType;
+  final int? bizId;
+  final String? description;
+  final DateTime createdAt;
+
+  String get bizTypeText => _bizTypeText(bizType);
+
+  factory WalletTransactionItem.fromMap(Map<String, dynamic> map) {
+    return WalletTransactionItem(
+      id: toInt(map['id']) ?? 0,
+      walletId: toInt(map['walletId']) ?? 0,
+      userId: toInt(map['userId']) ?? 0,
+      changeAmount: toInt(map['changeAmount']) ?? 0,
+      balanceAfter: toInt(map['balanceAfter']) ?? 0,
+      bizType: map['bizType']?.toString() ?? '',
+      bizId: toInt(map['bizId']),
+      description: map['description']?.toString(),
+      createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
+    );
+  }
+}
+
+class WalletTransactionHistory {
+  WalletTransactionHistory({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.pageSize,
+  });
+
+  final List<WalletTransactionItem> items;
+  final int total;
+  final int page;
+  final int pageSize;
+
+  factory WalletTransactionHistory.fromMap(Map<String, dynamic> map) {
+    final list = (map['items'] as List<dynamic>?) ?? [];
+    return WalletTransactionHistory(
+      items: list.map((e) =>
+          WalletTransactionItem.fromMap(e as Map<String, dynamic>)).toList(),
+      total: toInt(map['total']) ?? 0,
+      page: toInt(map['page']) ?? 1,
+      pageSize: toInt(map['pageSize']) ?? list.length,
+    );
+  }
+}
+
+String _bizTypeText(String bizType) {
+  switch (bizType) {
+    case 'REGISTER':
+      return '注册奖励';
+    case 'REWARD':
+      return '奖励';
+    case 'PURCHASE':
+      return '消费';
+    case 'ADMIN_ADJUST':
+      return '管理员调整';
+    case 'REFUND':
+      return '退款';
+    default:
+      return bizType;
+  }
 }
