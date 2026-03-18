@@ -281,6 +281,31 @@ class AdminApiClient {
     await _delete('/api/admin/tags/$id');
   }
 
+  Future<PostListResult> listPostsByCategory({
+    required int categoryId,
+    int page = 1,
+    int pageSize = 10,
+    String? keyword,
+  }) async {
+    final query = {
+      'page': '$page',
+      'pageSize': '$pageSize',
+      'categoryId': '$categoryId',
+      if ((keyword?.isNotEmpty ?? false)) 'keyword': keyword!,
+    };
+    final res = await _get('/api/admin/posts', query: query);
+    final map = _map(jsonDecode(res.body));
+    final list = (map['items'] as List<dynamic>? ?? [])
+        .map((e) => PostItem.fromMap(_map(e)))
+        .toList();
+    return PostListResult(
+      items: list,
+      total: (map['total'] as num?)?.toInt() ?? 0,
+      page: (map['page'] as num?)?.toInt() ?? 1,
+      pageSize: (map['pageSize'] as num?)?.toInt() ?? pageSize,
+    );
+  }
+
   Future<http.Response> _get(String path, {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.get(uri, headers: _headers(true));

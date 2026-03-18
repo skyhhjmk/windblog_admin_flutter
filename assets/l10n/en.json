@@ -126,5 +126,9 @@
   "delete_failed": "Delete failed: ",
   "category": "Category",
   "select_category": "Select Category",
-  "select_tags": "Select Tags"
+  "select_tags": "Select Tags",
+  "list_view": "List View",
+  "tree_view": "Tree View",
+  "load_more": "Load More",
+  "articles": "Articles"
 }

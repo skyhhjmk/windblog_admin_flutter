@@ -157,7 +157,27 @@ class _CategoriesPageState extends State<CategoriesPage> {
             children.isEmpty ? Icons.folder_outlined : Icons.folder,
             color: children.isEmpty ? Colors.grey : Colors.amber,
           ),
-          title: Text(category.displayName),
+          title: Row(
+            children: [
+              Text(category.displayName),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${category.postCount}',
+                  style: TextStyle(
+                    color: Colors.blue.shade700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
           subtitle: Text('${category.slug} · ${category.path}'),
           trailing: Wrap(
             spacing: 8,
@@ -288,7 +308,7 @@ class _CategoryEditDialogState extends State<_CategoryEditDialog> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<int?>(
-              initialValue: parentId,
+              value: parentId,
               decoration: InputDecoration(
                   labelText: t(context, 'parent_category')),
               items: [

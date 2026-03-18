@@ -16,10 +16,136 @@ class _PostsPageState extends State<PostsPage> {
   int page = 1;
   int total = 0;
 
+  bool _isTreeView = false;
+  final Map<int, CategoryTreeNode> _categoryTreeCache = {};
+  List<CategoryItem> _allCategories = [];
+  bool _isTreeLoading = false;
+
   @override
   void initState() {
     super.initState();
+    _loadAllCategories();
     load();
+  }
+
+  Future<void> _loadAllCategories() async {
+    try {
+      final cats = await widget.api.listCategories();
+      if (mounted) {
+        setState(() {
+          _allCategories = cats;
+          _buildCategoryTree();
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('加载分类失败：$e')),
+      );
+    }
+  }
+
+  void _buildCategoryTree() {
+    _categoryTreeCache.clear();
+
+    // 首先创建所有节点
+    for (final category in _allCategories) {
+      if (!_categoryTreeCache.containsKey(category.id)) {
+        _categoryTreeCache[category.id] =
+            CategoryTreeNode.fromCategory(category);
+      }
+    }
+
+    // 然后构建父子关系
+    for (final category in _allCategories) {
+      if (category.parentId == null) {
+        continue; // 根节点已创建
+      }
+
+      final parentNode = _categoryTreeCache[category.parentId];
+      final childNode = _categoryTreeCache[category.id];
+
+      if (parentNode != null && childNode != null) {
+        // 将子节点添加到父节点的 children 列表中
+        final updatedChildren = List<CategoryTreeNode>.from(parentNode.children)
+          ..add(childNode);
+        _categoryTreeCache[category.parentId!] =
+            parentNode.copyWith(children: updatedChildren);
+      }
+    }
+  }
+
+  Future<void> _loadCategoryPosts(int categoryId) async {
+    final node = _categoryTreeCache[categoryId];
+    if (node == null) return;
+
+    if (node.isLoading) return;
+
+    setState(() {
+      _categoryTreeCache[categoryId] = node.copyWith(isLoading: true);
+    });
+
+    try {
+      final res = await widget.api.listPostsByCategory(
+        categoryId: categoryId,
+        page: 1, // 总是从第一页开始
+        pageSize: 10,
+        keyword: keywordCtrl.text
+            .trim()
+            .isEmpty ? null : keywordCtrl.text.trim(),
+      );
+
+      if (mounted) {
+        setState(() {
+          _categoryTreeCache[categoryId] = node.copyWith(
+            posts: res.items,
+            total: res.total,
+            page: 1,
+            isLoading: false,
+          );
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _categoryTreeCache[categoryId] = node.copyWith(isLoading: false);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载文章失败：$e')));
+    }
+  }
+
+  Future<void> _toggleCategory(int categoryId) async {
+    final node = _categoryTreeCache[categoryId];
+    if (node == null) return;
+
+    final willExpand = !node.isExpanded;
+
+    setState(() {
+      _categoryTreeCache[categoryId] = node.copyWith(
+        isExpanded: willExpand,
+      );
+    });
+
+    // 展开时如果还没有加载过文章，则加载
+    if (willExpand && node.posts.isEmpty && !node.isLoading) {
+      await _loadCategoryPosts(categoryId);
+    }
+  }
+
+  void _clearCategoryPostsCache() {
+    final keys = _categoryTreeCache.keys.toList();
+    for (final key in keys) {
+      final node = _categoryTreeCache[key];
+      if (node != null) {
+        _categoryTreeCache[key] = node.copyWith(
+          posts: [],
+          page: 1,
+          total: 0,
+          isExpanded: false,
+        );
+      }
+    }
   }
 
   @override
@@ -78,6 +204,254 @@ class _PostsPageState extends State<PostsPage> {
     }
   }
 
+  Widget _buildListView() {
+    return Card(
+      child: ListView.separated(
+        itemCount: items.length,
+        separatorBuilder: (_, index) => const Divider(height: 1),
+        itemBuilder: (_, i) => _buildPostTile(items[i]),
+      ),
+    );
+  }
+
+  Widget _buildPostTile(PostItem it, {double indent = 16}) {
+    return Padding(
+      padding: EdgeInsets.only(left: indent),
+      child: ListTile(
+        contentPadding: const EdgeInsets.only(right: 16),
+        leading: Icon(
+          Icons.description_outlined,
+          color: Colors.grey.shade500,
+          size: 20,
+        ),
+        title: Text(
+          it.zhTitle.isEmpty ? it.slug : it.zhTitle,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        subtitle: Text(
+          'slug: ${it.slug} | ${t(context, 'status_text')}: ${it.statusText}',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade500,
+          ),
+        ),
+        trailing: Wrap(
+          spacing: 4,
+          children: [
+            TextButton(
+              onPressed: () => createOrEdit(item: it),
+              child: Text(
+                  t(context, 'edit'), style: const TextStyle(fontSize: 12)),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await widget.api.publishPost(it.id);
+                  await load();
+                } on UnauthorizedException {
+                  widget.onAuthError();
+                }
+              },
+              child: Text(
+                  t(context, 'publish'), style: const TextStyle(fontSize: 12)),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await widget.api.deletePost(it.id);
+                  await load();
+                } on UnauthorizedException {
+                  widget.onAuthError();
+                }
+              },
+              child: Text(
+                  t(context, 'delete'), style: const TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<CategoryTreeNode> _getRootCategories() {
+    return _categoryTreeCache.values
+        .where((node) => node.category.parentId == null)
+        .toList();
+  }
+
+  Widget _buildCategoryNode(int categoryId, {int depth = 0}) {
+    final node = _categoryTreeCache[categoryId];
+    if (node == null) return const SizedBox.shrink();
+
+    final hasChildren = node.children.isNotEmpty;
+    final indent = depth * 24.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: Colors.amber.withValues(alpha: 0.5),
+                width: 3,
+              ),
+            ),
+          ),
+          child: ListTile(
+            contentPadding: EdgeInsets.only(
+              left: 12 + indent,
+              right: 16,
+            ),
+            leading: node.isLoading
+                ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : Icon(
+              node.isExpanded ? Icons.folder_open : Icons.folder,
+              color: hasChildren ? Colors.amber : Colors.grey,
+            ),
+            title: Row(
+              children: [
+                Text(
+                  node.category.displayName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${node.category.postCount}',
+                    style: TextStyle(
+                      color: Colors.blue.shade700,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            subtitle: Text(
+              node.category.slug,
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: 12,
+              ),
+            ),
+            onTap: () => _toggleCategory(categoryId),
+            trailing: hasChildren
+                ? IconButton(
+              icon: Icon(
+                node.isExpanded
+                    ? Icons.keyboard_arrow_down
+                    : Icons.keyboard_arrow_right,
+              ),
+              onPressed: () => _toggleCategory(categoryId),
+            )
+                : null,
+          ),
+        ),
+        // 只在当前分类展开时显示子分类
+        if (node.isExpanded && hasChildren) ...[
+          ...node.children.map((child) =>
+              _buildCategoryNode(child.category.id, depth: depth + 1)),
+        ],
+        // 只在当前分类展开时显示文章
+        if (node.isExpanded && node.posts.isNotEmpty) ...[
+          Padding(
+            padding: EdgeInsets.only(left: 24 + indent),
+            child: Row(
+              children: [
+                Container(
+                  width: 1,
+                  height: 20,
+                  color: Colors.grey.shade300,
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.article_outlined, size: 16,
+                    color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(
+                  t(context, 'articles'),
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...node.posts.map((post) =>
+              _buildPostTile(post, indent: 24 + indent)),
+        ],
+        // 显示加载更多按钮（仅当有更多文章时）
+        if (node.isExpanded && node.posts.isNotEmpty &&
+            node.category.postCount > node.posts.length)
+          Padding(
+            padding: EdgeInsets.only(left: 48 + indent),
+            child: TextButton(
+              onPressed: () async {
+                final nextPage = node.page + 1;
+                final res = await widget.api.listPostsByCategory(
+                  categoryId: categoryId,
+                  page: nextPage,
+                  pageSize: 10,
+                  keyword: keywordCtrl.text
+                      .trim()
+                      .isEmpty
+                      ? null
+                      : keywordCtrl.text.trim(),
+                );
+                if (mounted) {
+                  setState(() {
+                    _categoryTreeCache[categoryId] = node.copyWith(
+                      posts: [...node.posts, ...res.items],
+                      page: nextPage,
+                    );
+                  });
+                }
+              },
+              child: Text(t(context, 'load_more')),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTreeView() {
+    if (_isTreeLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_categoryTreeCache.isEmpty) {
+      return Center(child: Text(t(context, 'no_categories')));
+    }
+
+    return Card(
+      child: ListView.builder(
+        itemCount: _getRootCategories().length,
+        itemBuilder: (_, index) {
+          final root = _getRootCategories()[index];
+          return _buildCategoryNode(root.category.id, depth: 0);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -101,9 +475,25 @@ class _PostsPageState extends State<PostsPage> {
               FilledButton(
                 onPressed: () {
                   page = 1;
+                  if (_isTreeView) {
+                    _clearCategoryPostsCache();
+                  }
                   load();
                 },
                 child: Text(t(context, 'search')),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                icon: Icon(_isTreeView ? Icons.view_list : Icons.account_tree),
+                onPressed: () {
+                  setState(() {
+                    _isTreeView = !_isTreeView;
+                  });
+                  if (!_isTreeView) {
+                    load();
+                  }
+                },
+                tooltip: _isTreeView ? '列表视图' : '树状视图',
               ),
               const Spacer(),
               FilledButton(
@@ -114,52 +504,7 @@ class _PostsPageState extends State<PostsPage> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: Card(
-              child: ListView.separated(
-                itemCount: items.length,
-                separatorBuilder: (_, index) => const Divider(height: 1),
-                itemBuilder: (_, i) {
-                  final it = items[i];
-                  return ListTile(
-                    title: Text(it.zhTitle.isEmpty ? it.slug : it.zhTitle),
-                    subtitle: Text(
-                      'slug: ${it.slug} | ${t(context, 'status_text')}: ${it.statusText} | ${t(context, 'render_text')}: ${it.renderTypeText} | ${t(context, 'version_text')}${it.version}',
-                    ),
-                    trailing: Wrap(
-                      spacing: 8,
-                      children: [
-                        TextButton(
-                          onPressed: () => createOrEdit(item: it),
-                          child: Text(t(context, 'edit')),
-                        ),
-                        TextButton(
-                          onPressed: () async {
-                            try {
-                              await widget.api.publishPost(it.id);
-                              await load();
-                            } on UnauthorizedException {
-                              widget.onAuthError();
-                            }
-                          },
-                          child: Text(t(context, 'publish')),
-                        ),
-                        TextButton(
-                          onPressed: () async {
-                            try {
-                              await widget.api.deletePost(it.id);
-                              await load();
-                            } on UnauthorizedException {
-                              widget.onAuthError();
-                            }
-                          },
-                          child: Text(t(context, 'delete')),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
+            child: _isTreeView ? _buildTreeView() : _buildListView(),
           ),
           const SizedBox(height: 8),
           Row(
@@ -264,7 +609,12 @@ class _PostDialogState extends State<PostDialog> {
       final tags = await widget.api.listTags();
       if (mounted) {
         setState(() {
-          _categories = cats;
+          // 去重：确保每个 ID 只有一个分类
+          final uniqueCatsMap = <int, CategoryItem>{};
+          for (final cat in cats) {
+            uniqueCatsMap[cat.id] = cat;
+          }
+          _categories = uniqueCatsMap.values.toList();
           _tags = tags;
         });
       }
@@ -525,7 +875,9 @@ class _PostDialogState extends State<PostDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int?>(
-                      initialValue: categoryId,
+                      value: _categories.any((c) => c.id == categoryId)
+                          ? categoryId
+                          : null,
                       decoration: InputDecoration(
                           labelText: t(context, 'category')),
                       items: [
@@ -545,7 +897,7 @@ class _PostDialogState extends State<PostDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      initialValue: null,
+                      value: null,
                       decoration: InputDecoration(
                           labelText: t(context, 'tags')),
                       hint: Text(tagIds.isEmpty
@@ -589,7 +941,7 @@ class _PostDialogState extends State<PostDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      initialValue: status,
+                      value: status,
                       decoration: InputDecoration(labelText: t(context, 'status')),
                       items: [
                         DropdownMenuItem(value: 0, child: Text(t(context, 'draft'))),
@@ -602,7 +954,7 @@ class _PostDialogState extends State<PostDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      initialValue: visibility,
+                      value: visibility,
                       decoration: InputDecoration(labelText: t(context, 'visibility')),
                       items: [
                         DropdownMenuItem(value: 0, child: Text(t(context, 'public'))),
@@ -619,7 +971,7 @@ class _PostDialogState extends State<PostDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      initialValue: renderType,
+                      value: renderType,
                       decoration: InputDecoration(labelText: t(context, 'render_type')),
                       items: const [
                         DropdownMenuItem(value: 0, child: Text('Markdown')),
@@ -636,7 +988,7 @@ class _PostDialogState extends State<PostDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      initialValue: editorType,
+                      value: editorType,
                       decoration: const InputDecoration(labelText: 'Editor Type'),
                       items: const [
                         DropdownMenuItem(value: 0, child: Text('Markdown')),

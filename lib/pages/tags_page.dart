@@ -149,7 +149,28 @@ class _TagsPageState extends State<TagsPage> {
                   final tag = tags[index];
                   return ListTile(
                     leading: const Icon(Icons.label, color: Colors.blue),
-                    title: Text(tag.displayName),
+                    title: Row(
+                      children: [
+                        Text(tag.displayName),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${tag.postCount}',
+                            style: TextStyle(
+                              color: Colors.green.shade700,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     subtitle: Text(tag.slug),
                     trailing: Wrap(
                       spacing: 8,

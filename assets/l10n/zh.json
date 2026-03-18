@@ -129,5 +129,9 @@
   "confirm_delete_tag": "确定要删除标签 \"%s\" 吗？",
   "category": "分类",
   "select_category": "选择分类",
-  "select_tags": "选择标签"
+  "select_tags": "选择标签",
+  "list_view": "列表视图",
+  "tree_view": "树状视图",
+  "load_more": "加载更多",
+  "articles": "文章"
 }

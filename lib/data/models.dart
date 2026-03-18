@@ -640,6 +640,7 @@ class CategoryItem {
     this.description,
     required this.path,
     required this.createdAt,
+    this.postCount = 0,
   });
 
   final int id;
@@ -649,6 +650,7 @@ class CategoryItem {
   final Map<String, String>? description;
   final String path;
   final DateTime createdAt;
+  final int postCount;
 
   String get zhName => name['zh-cn'] ?? (name.isEmpty ? '' : name.values.first);
 
@@ -665,6 +667,7 @@ class CategoryItem {
           : null,
       path: map['path']?.toString() ?? '',
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
+      postCount: toInt(map['postCount']) ?? 0,
     );
   }
 }
@@ -732,6 +735,7 @@ class TagItem {
     required this.name,
     this.description,
     required this.createdAt,
+    this.postCount = 0,
   });
 
   final int id;
@@ -739,6 +743,7 @@ class TagItem {
   final Map<String, String> name;
   final Map<String, String>? description;
   final DateTime createdAt;
+  final int postCount;
 
   String get zhName => name['zh-cn'] ?? (name.isEmpty ? '' : name.values.first);
 
@@ -753,6 +758,7 @@ class TagItem {
           ? toStringMap(map['description'])
           : null,
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
+      postCount: toInt(map['postCount']) ?? 0,
     );
   }
 }
@@ -800,6 +806,57 @@ class TagUpdateRequest {
       payload['description'] = description;
     }
     return payload;
+  }
+}
+
+class CategoryTreeNode {
+  CategoryTreeNode({
+    required this.category,
+    required this.children,
+    required this.posts,
+    this.isLoading = false,
+    this.isExpanded = false,
+    this.page = 1,
+    this.total = 0,
+  });
+
+  final CategoryItem category;
+  final List<CategoryTreeNode> children;
+  final List<PostItem> posts;
+  final bool isLoading;
+  final bool isExpanded;
+  final int page;
+  final int total;
+
+  CategoryTreeNode copyWith({
+    List<CategoryTreeNode>? children,
+    List<PostItem>? posts,
+    bool? isLoading,
+    bool? isExpanded,
+    int? page,
+    int? total,
+  }) {
+    return CategoryTreeNode(
+      category: category,
+      children: children ?? this.children,
+      posts: posts ?? this.posts,
+      isLoading: isLoading ?? this.isLoading,
+      isExpanded: isExpanded ?? this.isExpanded,
+      page: page ?? this.page,
+      total: total ?? this.total,
+    );
+  }
+
+  factory CategoryTreeNode.fromCategory(CategoryItem category) {
+    return CategoryTreeNode(
+      category: category,
+      children: [],
+      posts: [],
+      isLoading: false,
+      isExpanded: false,
+      page: 1,
+      total: 0,
+    );
   }
 }
 
