@@ -1,5 +1,27 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
+Color _generateColorFromSlug(String slug) {
+  int hash = 0;
+  for (int i = 0; i < slug.length; i++) {
+    hash = slug.codeUnitAt(i) + ((hash << 5) - hash);
+  }
+  final colors = [
+    const Color(0xFF5C6BC0),
+    const Color(0xFF26A69A),
+    const Color(0xFFEF5350),
+    const Color(0xFFFF7043),
+    const Color(0xFF66BB6A),
+    const Color(0xFFAB47BC),
+    const Color(0xFF42A5F5),
+    const Color(0xFFFFCA28),
+    const Color(0xFFEC407A),
+    const Color(0xFF7E57C2),
+    const Color(0xFF29B6F6),
+    const Color(0xFF9CCC65),
+  ];
+  return colors[hash.abs() % colors.length].withValues(alpha: 0.8);
+}
+
 class PostsPage extends StatefulWidget {
   const PostsPage({super.key, required this.api, required this.onAuthError});
 
@@ -29,16 +51,19 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Future<void> _loadAllCategories() async {
+    if (!mounted) return;
+    setState(() => _isTreeLoading = true);
     try {
       final cats = await widget.api.listCategories();
-      if (mounted) {
-        setState(() {
-          _allCategories = cats;
-          _buildCategoryTree();
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _allCategories = cats;
+        _buildCategoryTree();
+        _isTreeLoading = false;
+      });
     } catch (e) {
       if (!mounted) return;
+      setState(() => _isTreeLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('加载分类失败：$e')),
       );
@@ -282,12 +307,14 @@ class _PostsPageState extends State<PostsPage> {
         .toList();
   }
 
-  Widget _buildCategoryNode(int categoryId, {int depth = 0}) {
+  Widget _buildCategoryNode(int categoryId,
+      {int depth = 0, required Color lineColor}) {
     final node = _categoryTreeCache[categoryId];
     if (node == null) return const SizedBox.shrink();
 
     final hasChildren = node.children.isNotEmpty;
     final indent = depth * 24.0;
+    final categoryColor = _generateColorFromSlug(node.category.slug);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +323,7 @@ class _PostsPageState extends State<PostsPage> {
           decoration: BoxDecoration(
             border: Border(
               left: BorderSide(
-                color: Colors.amber.withValues(alpha: 0.5),
+                color: categoryColor,
                 width: 3,
               ),
             ),
@@ -314,15 +341,18 @@ class _PostsPageState extends State<PostsPage> {
             )
                 : Icon(
               node.isExpanded ? Icons.folder_open : Icons.folder,
-              color: hasChildren ? Colors.amber : Colors.grey,
+              color: hasChildren ? categoryColor : Colors.grey,
             ),
             title: Row(
               children: [
-                Text(
-                  node.category.displayName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade800,
+                Flexible(
+                  child: Text(
+                    node.category.displayName,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade800,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -330,13 +360,13 @@ class _PostsPageState extends State<PostsPage> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: categoryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${node.category.postCount}',
                     style: TextStyle(
-                      color: Colors.blue.shade700,
+                      color: categoryColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -367,7 +397,8 @@ class _PostsPageState extends State<PostsPage> {
         // 只在当前分类展开时显示子分类
         if (node.isExpanded && hasChildren) ...[
           ...node.children.map((child) =>
-              _buildCategoryNode(child.category.id, depth: depth + 1)),
+              _buildCategoryNode(child.category.id, depth: depth + 1,
+                  lineColor: categoryColor)),
         ],
         // 只在当前分类展开时显示文章
         if (node.isExpanded && node.posts.isNotEmpty) ...[
@@ -378,7 +409,7 @@ class _PostsPageState extends State<PostsPage> {
                 Container(
                   width: 1,
                   height: 20,
-                  color: Colors.grey.shade300,
+                  color: lineColor.withValues(alpha: 0.4),
                 ),
                 const SizedBox(width: 8),
                 Icon(Icons.article_outlined, size: 16,
@@ -396,7 +427,8 @@ class _PostsPageState extends State<PostsPage> {
             ),
           ),
           ...node.posts.map((post) =>
-              _buildPostTile(post, indent: 24 + indent)),
+              _buildPostTileWithLine(
+                  post, indent: 24 + indent, lineColor: lineColor)),
         ],
         // 显示加载更多按钮（仅当有更多文章时）
         if (node.isExpanded && node.posts.isNotEmpty &&
@@ -432,6 +464,38 @@ class _PostsPageState extends State<PostsPage> {
     );
   }
 
+  Widget _buildPostTileWithLine(PostItem it,
+      {required double indent, required Color lineColor}) {
+    return Padding(
+      padding: EdgeInsets.only(left: indent),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 12,
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 1,
+                    color: lineColor.withValues(alpha: 0.3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _buildPostTile(it, indent: 0),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTreeView() {
     if (_isTreeLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -441,14 +505,33 @@ class _PostsPageState extends State<PostsPage> {
       return Center(child: Text(t(context, 'no_categories')));
     }
 
-    return Card(
-      child: ListView.builder(
-        itemCount: _getRootCategories().length,
-        itemBuilder: (_, index) {
-          final root = _getRootCategories()[index];
-          return _buildCategoryNode(root.category.id, depth: 0);
-        },
-      ),
+    final rootCategories = _getRootCategories();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          child: Scrollbar(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: constraints.maxWidth,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: rootCategories.map((root) {
+                    final rootColor = _generateColorFromSlug(root.category
+                        .slug);
+                    return _buildCategoryNode(root.category.id, depth: 0,
+                        lineColor: rootColor);
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -875,7 +958,7 @@ class _PostDialogState extends State<PostDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int?>(
-                      value: _categories.any((c) => c.id == categoryId)
+                      initialValue: _categories.any((c) => c.id == categoryId)
                           ? categoryId
                           : null,
                       decoration: InputDecoration(
@@ -897,7 +980,7 @@ class _PostDialogState extends State<PostDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: null,
+                      initialValue: null,
                       decoration: InputDecoration(
                           labelText: t(context, 'tags')),
                       hint: Text(tagIds.isEmpty
@@ -941,12 +1024,16 @@ class _PostDialogState extends State<PostDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: status,
-                      decoration: InputDecoration(labelText: t(context, 'status')),
+                      initialValue: status,
+                      decoration: InputDecoration(
+                          labelText: t(context, 'status')),
                       items: [
-                        DropdownMenuItem(value: 0, child: Text(t(context, 'draft'))),
-                        DropdownMenuItem(value: 1, child: Text(t(context, 'published'))),
-                        DropdownMenuItem(value: 2, child: Text(t(context, 'archived'))),
+                        DropdownMenuItem(value: 0, child: Text(t(
+                            context, 'draft'))),
+                        DropdownMenuItem(value: 1, child: Text(t(
+                            context, 'published'))),
+                        DropdownMenuItem(value: 2, child: Text(t(
+                            context, 'archived'))),
                       ],
                       onChanged: (v) => setState(() => status = v ?? 0),
                     ),
@@ -954,12 +1041,16 @@ class _PostDialogState extends State<PostDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: visibility,
-                      decoration: InputDecoration(labelText: t(context, 'visibility')),
+                      initialValue: visibility,
+                      decoration: InputDecoration(
+                          labelText: t(context, 'visibility')),
                       items: [
-                        DropdownMenuItem(value: 0, child: Text(t(context, 'public'))),
-                        DropdownMenuItem(value: 1, child: Text(t(context, 'private'))),
-                        DropdownMenuItem(value: 2, child: Text(t(context, 'protected'))),
+                        DropdownMenuItem(value: 0, child: Text(t(
+                            context, 'public'))),
+                        DropdownMenuItem(value: 1, child: Text(t(
+                            context, 'private'))),
+                        DropdownMenuItem(value: 2, child: Text(t(
+                            context, 'protected'))),
                       ],
                       onChanged: (v) => setState(() => visibility = v ?? 0),
                     ),
@@ -971,16 +1062,19 @@ class _PostDialogState extends State<PostDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: renderType,
-                      decoration: InputDecoration(labelText: t(context, 'render_type')),
+                      initialValue: renderType,
+                      decoration: InputDecoration(
+                          labelText: t(context, 'render_type')),
                       items: const [
                         DropdownMenuItem(value: 0, child: Text('Markdown')),
                         DropdownMenuItem(value: 1, child: Text('HTML')),
                         DropdownMenuItem(value: 2, child: Text('Vditor')),
                         DropdownMenuItem(value: 3, child: Text('V Builder')),
                         DropdownMenuItem(value: 4, child: Text('Gutenberg')),
-                        DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
-                        DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
+                        DropdownMenuItem(
+                            value: 5, child: Text('Flutter Quill')),
+                        DropdownMenuItem(
+                            value: 6, child: Text('Flutter Markdown Plus')),
                       ],
                       onChanged: (v) => setState(() => renderType = v ?? 0),
                     ),
@@ -988,12 +1082,15 @@ class _PostDialogState extends State<PostDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: editorType,
-                      decoration: const InputDecoration(labelText: 'Editor Type'),
+                      initialValue: editorType,
+                      decoration: const InputDecoration(
+                          labelText: 'Editor Type'),
                       items: const [
                         DropdownMenuItem(value: 0, child: Text('Markdown')),
-                        DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
-                        DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
+                        DropdownMenuItem(
+                            value: 5, child: Text('Flutter Quill')),
+                        DropdownMenuItem(
+                            value: 6, child: Text('Flutter Markdown Plus')),
                       ],
                       onChanged: (v) => setState(() => editorType = v ?? 0),
                     ),

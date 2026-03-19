@@ -308,7 +308,7 @@ class _CategoryEditDialogState extends State<_CategoryEditDialog> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<int?>(
-              value: parentId,
+              initialValue: parentId,
               decoration: InputDecoration(
                   labelText: t(context, 'parent_category')),
               items: [

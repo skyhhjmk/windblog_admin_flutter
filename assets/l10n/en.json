@@ -123,7 +123,6 @@
   "confirm_delete": "Confirm Delete",
   "confirm_delete_category": "Are you sure you want to delete category \"%s\"?",
   "confirm_delete_tag": "Are you sure you want to delete tag \"%s\"?",
-  "delete_failed": "Delete failed: ",
   "category": "Category",
   "select_category": "Select Category",
   "select_tags": "Select Tags",
