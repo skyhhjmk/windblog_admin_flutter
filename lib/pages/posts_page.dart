@@ -317,6 +317,7 @@ class _PostsPageState extends State<PostsPage> {
     final categoryColor = _generateColorFromSlug(node.category.slug);
 
     return Column(
+      key: ValueKey('category_$categoryId'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
@@ -395,41 +396,53 @@ class _PostsPageState extends State<PostsPage> {
           ),
         ),
         // 只在当前分类展开时显示子分类
-        if (node.isExpanded && hasChildren) ...[
-          ...node.children.map((child) =>
-              _buildCategoryNode(child.category.id, depth: depth + 1,
-                  lineColor: categoryColor)),
-        ],
+        if (node.isExpanded && hasChildren)
+          SizedBox(
+            key: ValueKey('children_$categoryId'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: node.children.map((child) =>
+                  _buildCategoryNode(child.category.id, depth: depth + 1,
+                      lineColor: categoryColor)).toList(),
+            ),
+          ),
         // 只在当前分类展开时显示文章
-        if (node.isExpanded && node.posts.isNotEmpty) ...[
-          Padding(
-            padding: EdgeInsets.only(left: 24 + indent),
-            child: Row(
+        if (node.isExpanded && node.posts.isNotEmpty)
+          SizedBox(
+            key: ValueKey('posts_$categoryId'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 1,
-                  height: 20,
-                  color: lineColor.withValues(alpha: 0.4),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.article_outlined, size: 16,
-                    color: Colors.grey.shade600),
-                const SizedBox(width: 4),
-                Text(
-                  t(context, 'articles'),
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                Padding(
+                  padding: EdgeInsets.only(left: 24 + indent),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 1,
+                        height: 20,
+                        color: lineColor.withValues(alpha: 0.4),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.article_outlined, size: 16,
+                          color: Colors.grey.shade600),
+                      const SizedBox(width: 4),
+                      Text(
+                        t(context, 'articles'),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                ...node.posts.map((post) =>
+                    _buildPostTileWithLine(
+                        post, indent: 24 + indent, lineColor: lineColor)),
               ],
             ),
           ),
-          ...node.posts.map((post) =>
-              _buildPostTileWithLine(
-                  post, indent: 24 + indent, lineColor: lineColor)),
-        ],
         // 显示加载更多按钮（仅当有更多文章时）
         if (node.isExpanded && node.posts.isNotEmpty &&
             node.category.postCount > node.posts.length)
@@ -461,37 +474,42 @@ class _PostsPageState extends State<PostsPage> {
             ),
           ),
       ],
+    )
+    ,
     );
   }
 
   Widget _buildPostTileWithLine(PostItem it,
       {required double indent, required Color lineColor}) {
-    return Padding(
-      padding: EdgeInsets.only(left: indent),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 12,
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 1,
-                    color: lineColor.withValues(alpha: 0.3),
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: EdgeInsets.only(left: indent),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 12,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 1,
+                      color: lineColor.withValues(alpha: 0.3),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: _buildPostTile(it, indent: 0),
-          ),
-        ],
+            const SizedBox(width: 4),
+            Expanded(
+              child: _buildPostTile(it, indent: 0),
+            ),
+          ],
+        ),
       ),
     );
   }
