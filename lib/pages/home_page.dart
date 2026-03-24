@@ -69,6 +69,11 @@ class _HomePageState extends State<HomePage> {
                 selectedIcon: const Icon(Icons.memory),
                 label: Text(t(context, 'ai_providers')),
               ),
+              NavigationRailDestination(
+                icon: const Icon(Icons.storage_outlined),
+                selectedIcon: const Icon(Icons.storage),
+                label: Text(t(context, 'database')),
+              ),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -86,13 +91,14 @@ class _HomePageState extends State<HomePage> {
                       Text(
                         switch (tab) {
                           0 => t(context, 'overview'),
-                          1 => t(context, 'posts'),
-                          2 => t(context, 'categories'),
-                          3 => t(context, 'tags'),
-                          4 => t(context, 'media'),
-                          5 => t(context, 'users'),
-                          6 => t(context, 'permissions'),
-                          _ => t(context, 'ai_providers'),
+                        1 => t(context, 'posts'),
+                        2 => t(context, 'categories'),
+                        3 => t(context, 'tags'),
+                        4 => t(context, 'media'),
+                        5 => t(context, 'users'),
+                        6 => t(context, 'permissions'),
+                        7 => t(context, 'ai_providers'),
+                        _ => t(context, 'database'),
                         },
                       ),
                       const Spacer(),
@@ -135,7 +141,8 @@ class _HomePageState extends State<HomePage> {
           isSuperAdmin: isSuperAdmin,
           onAuthError: widget.onLogout,
         ),
-      _ => AiProvidersPage(api: widget.api, onAuthError: widget.onLogout),
+      7 => AiProvidersPage(api: widget.api, onAuthError: widget.onLogout),
+      _ => DatabaseManagementPage(api: widget.api, onAuthError: widget.onLogout),
     };
   }
 }

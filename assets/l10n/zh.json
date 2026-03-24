@@ -133,5 +133,18 @@
   "list_view": "列表视图",
   "tree_view": "树状视图",
   "load_more": "加载更多",
-  "articles": "文章"
+  "articles": "文章",
+  "database": "数据库管理",
+  "migrate_database": "执行迁移",
+  "seed_database": "添加种子数据",
+  "migrating": "迁移中...",
+  "seeding": "添加中...",
+  "migrate_success": "数据库迁移成功",
+  "seed_success": "种子数据添加成功",
+  "migrate_failed": "数据库迁移失败：%s",
+  "seed_failed": "种子数据添加失败：%s",
+  "migrate_confirm": "确定要执行数据库迁移吗？这将应用所有待处理的迁移。",
+  "seed_confirm": "确定要添加种子数据吗？这将在数据库中插入初始数据。",
+  "database_operations": "数据库操作",
+  "database_description": "执行数据库迁移和种子数据管理"
 }

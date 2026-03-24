@@ -129,5 +129,18 @@
   "list_view": "List View",
   "tree_view": "Tree View",
   "load_more": "Load More",
-  "articles": "Articles"
+  "articles": "Articles",
+  "database": "Database",
+  "migrate_database": "Migrate Database",
+  "seed_database": "Seed Database",
+  "migrating": "Migrating...",
+  "seeding": "Seeding...",
+  "migrate_success": "Database migrated successfully",
+  "seed_success": "Database seeded successfully",
+  "migrate_failed": "Database migration failed: %s",
+  "seed_failed": "Database seeding failed: %s",
+  "migrate_confirm": "Are you sure you want to migrate the database? This will apply all pending migrations.",
+  "seed_confirm": "Are you sure you want to seed the database? This will insert initial data.",
+  "database_operations": "Database Operations",
+  "database_description": "Execute database migrations and manage seed data"
 }

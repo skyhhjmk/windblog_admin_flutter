@@ -281,6 +281,18 @@ class AdminApiClient {
     await _delete('/api/admin/tags/$id');
   }
 
+  Future<Map<String, dynamic>> databaseMigrate() async {
+    final res = await _post('/api/admin/database/migrate', body: {});
+    final map = _map(jsonDecode(res.body));
+    return map;
+  }
+
+  Future<Map<String, dynamic>> databaseSeed() async {
+    final res = await _post('/api/admin/database/seed', body: {});
+    final map = _map(jsonDecode(res.body));
+    return map;
+  }
+
   Future<PostListResult> listPostsByCategory({
     required int categoryId,
     int page = 1,
