@@ -98,6 +98,26 @@ class AdminApiClient {
 
   Future<void> deletePost(int id) async => _delete('/api/admin/posts/$id');
 
+  Future<List<PostRevisionItem>> listPostRevisions(int postId) async {
+    final res = await _get('/api/admin/posts/$postId/revisions');
+    final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
+    return list.map((e) => PostRevisionItem.fromMap(_map(e))).toList();
+  }
+
+  Future<PostDetail> getPostRevision(int postId, int revisionNumber) async {
+    final res = await _get(
+        '/api/admin/posts/$postId/revisions/$revisionNumber');
+    return PostDetail.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<PostDetail> activatePostRevision(int postId,
+      int revisionNumber) async {
+    final res = await _post(
+        '/api/admin/posts/$postId/revisions/$revisionNumber/activate',
+        body: const {});
+    return PostDetail.fromMap(_map(jsonDecode(res.body)));
+  }
+
   Future<MediaListResult> listMedia({
     int page = 1,
     int pageSize = 20,

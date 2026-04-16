@@ -74,9 +74,13 @@ class PostDetail {
     required this.visibility,
     required this.renderType,
     required this.editorType,
+    required this.currentRevisionNumber,
     required this.version,
     this.categoryId,
     this.tagIds = const [],
+    this.publishedAt,
+    this.createdAt,
+    this.updatedAt,
   });
 
   final int id;
@@ -88,9 +92,13 @@ class PostDetail {
   final int visibility;
   final int renderType;
   final int editorType;
+  final int currentRevisionNumber;
   final int version;
   final int? categoryId;
   final List<int> tagIds;
+  final DateTime? publishedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   factory PostDetail.fromMap(Map<String, dynamic> map) {
     return PostDetail(
@@ -103,12 +111,51 @@ class PostDetail {
       visibility: toInt(map['visibility']) ?? 0,
       renderType: toInt(map['renderType']) ?? 0,
       editorType: toInt(map['editorType']) ?? 0,
+      currentRevisionNumber: toInt(map['currentRevisionNumber']) ?? 0,
       version: toInt(map['version']) ?? 0,
       categoryId: toInt(map['categoryId']),
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
           .toList(),
+      publishedAt: parseDate(map['publishedAt']),
+      createdAt: parseDate(map['createdAt']),
+      updatedAt: parseDate(map['updatedAt']),
+    );
+  }
+}
+
+class PostRevisionItem {
+  PostRevisionItem({
+    required this.id,
+    required this.revisionNumber,
+    required this.title,
+    required this.editorType,
+    this.createdBy,
+    required this.createdByName,
+    required this.createdAt,
+  });
+
+  final int id;
+  final int revisionNumber;
+  final Map<String, String> title;
+  final int editorType;
+  final int? createdBy;
+  final String createdByName;
+  final DateTime createdAt;
+
+  String get zhTitle =>
+      title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
+
+  factory PostRevisionItem.fromMap(Map<String, dynamic> map) {
+    return PostRevisionItem(
+      id: toInt(map['id']) ?? 0,
+      revisionNumber: toInt(map['revisionNumber']) ?? 0,
+      title: toStringMap(map['title']),
+      editorType: toInt(map['editorType']) ?? 0,
+      createdBy: toInt(map['createdBy']),
+      createdByName: map['createdByName']?.toString() ?? '',
+      createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
     );
   }
 }

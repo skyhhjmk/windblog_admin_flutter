@@ -64,16 +64,17 @@ class _PostsPageState extends State<PostsPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isTreeLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('加载分类失败：$e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载分类失败：$e')),
+        );
+      }
     }
   }
 
   void _buildCategoryTree() {
     _categoryTreeCache.clear();
 
-    // 首先创建所有节点
     for (final category in _allCategories) {
       if (!_categoryTreeCache.containsKey(category.id)) {
         _categoryTreeCache[category.id] =
@@ -81,17 +82,15 @@ class _PostsPageState extends State<PostsPage> {
       }
     }
 
-    // 然后构建父子关系
     for (final category in _allCategories) {
       if (category.parentId == null) {
-        continue; // 根节点已创建
+        continue;
       }
 
       final parentNode = _categoryTreeCache[category.parentId];
       final childNode = _categoryTreeCache[category.id];
 
       if (parentNode != null && childNode != null) {
-        // 将子节点添加到父节点的 children 列表中
         final updatedChildren = List<CategoryTreeNode>.from(parentNode.children)
           ..add(childNode);
         _categoryTreeCache[category.parentId!] =
@@ -113,7 +112,7 @@ class _PostsPageState extends State<PostsPage> {
     try {
       final res = await widget.api.listPostsByCategory(
         categoryId: categoryId,
-        page: 1, // 总是从第一页开始
+        page: 1,
         pageSize: 10,
         keyword: keywordCtrl.text
             .trim()
@@ -135,8 +134,11 @@ class _PostsPageState extends State<PostsPage> {
       setState(() {
         _categoryTreeCache[categoryId] = node.copyWith(isLoading: false);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载文章失败：$e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载文章失败：$e')),
+        );
+      }
     }
   }
 
@@ -152,7 +154,6 @@ class _PostsPageState extends State<PostsPage> {
       );
     });
 
-    // 展开时如果还没有加载过文章，则加载
     if (willExpand && node.posts.isEmpty && !node.isLoading) {
       await _loadCategoryPosts(categoryId);
     }
@@ -195,7 +196,10 @@ class _PostsPageState extends State<PostsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$e')));
+      }
     }
   }
 
@@ -205,19 +209,27 @@ class _PostsPageState extends State<PostsPage> {
       detail = await widget.api.postDetail(item.id);
     }
     if (!mounted) return;
-    final req = await showDialog<PostEditRequest>(
-      context: context,
-      builder: (_) => PostDialog(detail: detail, api: widget.api),
+
+    final result = await Navigator.push<PostEditRequest?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            PostEditorPage(
+              detail: detail,
+              api: widget.api,
+            ),
+      ),
     );
-    if (req == null) return;
+
+    if (result == null) return;
 
     try {
       if (item == null) {
-        await widget.api.createPost(req);
+        await widget.api.createPost(result);
       } else {
         await widget.api.updatePost(
           item.id,
-          req.copyWith(version: detail!.version),
+          result.copyWith(version: detail!.version),
         );
       }
       await load();
@@ -225,7 +237,10 @@ class _PostsPageState extends State<PostsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$e')));
+      }
     }
   }
 
@@ -395,7 +410,6 @@ class _PostsPageState extends State<PostsPage> {
                 : null,
           ),
         ),
-        // 只在当前分类展开时显示子分类
         if (node.isExpanded && hasChildren)
           SizedBox(
             key: ValueKey('children_$categoryId'),
@@ -406,7 +420,6 @@ class _PostsPageState extends State<PostsPage> {
                       lineColor: categoryColor)).toList(),
             ),
           ),
-        // 只在当前分类展开时显示文章
         if (node.isExpanded && node.posts.isNotEmpty)
           SizedBox(
             key: ValueKey('posts_$categoryId'),
@@ -443,7 +456,6 @@ class _PostsPageState extends State<PostsPage> {
               ],
             ),
           ),
-        // 显示加载更多按钮（仅当有更多文章时）
         if (node.isExpanded && node.posts.isNotEmpty &&
             node.category.postCount > node.posts.length)
           Padding(
@@ -637,22 +649,27 @@ class _PostsPageState extends State<PostsPage> {
   }
 }
 
-class PostDialog extends StatefulWidget {
-  const PostDialog({super.key, this.detail, required this.api});
+class PostEditorPage extends StatefulWidget {
+  const PostEditorPage({super.key, PostDetail? detail, required this.api})
+      : _detail = detail;
 
-  final PostDetail? detail;
+  final PostDetail? _detail;
   final AdminApiClient api;
 
+  PostDetail? get detail => _detail;
+
   @override
-  State<PostDialog> createState() => _PostDialogState();
+  State<PostEditorPage> createState() => _PostEditorPageState();
 }
 
-class _PostDialogState extends State<PostDialog> {
+class _PostEditorPageState extends State<PostEditorPage>
+    with SingleTickerProviderStateMixin {
   late final TextEditingController slugCtrl;
   late final TextEditingController titleCtrl;
   late final TextEditingController summaryCtrl;
   late final TextEditingController contentCtrl;
   late final QuillController quillController;
+  late final TabController _sidebarTabController;
 
   int status = 0;
   int visibility = 0;
@@ -663,11 +680,30 @@ class _PostDialogState extends State<PostDialog> {
   List<int> tagIds = [];
   List<CategoryItem> _categories = [];
   List<TagItem> _tags = [];
+  List<PostRevisionItem> _revisions = [];
+  bool _isLoadingRevisions = false;
+
+  bool _isDirty = false;
+  bool _isSaving = false;
+
+  String? _initialSlug;
+  String? _initialTitle;
+  String? _initialSummary;
+  String? _initialContent;
+  int? _initialStatus;
+  int? _initialVisibility;
+  int? _initialRenderType;
+  int? _initialEditorType;
+  int? _initialCategoryId;
+  List<int>? _initialTagIds;
+
+  PostDetail? _currentDetail;
 
   @override
   void initState() {
     super.initState();
-    final d = widget.detail;
+    _currentDetail = widget.detail;
+    final d = _currentDetail;
     slugCtrl = TextEditingController(text: d?.slug ?? '');
     titleCtrl = TextEditingController(text: d?.title['zh-cn'] ?? '');
     summaryCtrl = TextEditingController(text: d?.summary['zh-cn'] ?? '');
@@ -699,7 +735,114 @@ class _PostDialogState extends State<PostDialog> {
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
 
+    _initialSlug = d?.slug;
+    _initialTitle = d?.title['zh-cn'];
+    _initialSummary = d?.summary['zh-cn'];
+    _initialContent = d?.contentMarkdown['zh-cn'];
+    _initialStatus = d?.status;
+    _initialVisibility = d?.visibility;
+    _initialRenderType = d?.renderType;
+    _initialEditorType = d?.editorType;
+    _initialCategoryId = d?.categoryId;
+    _initialTagIds = d?.tagIds != null ? List<int>.from(d!.tagIds) : null;
+
+    _sidebarTabController = TabController(length: 2, vsync: this);
+
     _loadCategoriesAndTags();
+    if (_currentDetail != null) {
+      _loadRevisions();
+    }
+
+    titleCtrl.addListener(_onTitleChanged);
+    slugCtrl.addListener(_markDirty);
+    summaryCtrl.addListener(_markDirty);
+    contentCtrl.addListener(_markDirty);
+    quillController.addListener(_markDirty);
+  }
+
+  void _onTitleChanged() {
+    if (widget.detail == null || _initialSlug == null ||
+        _initialSlug!.isEmpty) {
+      final newSlug = _generateSlug(titleCtrl.text);
+      if (slugCtrl.text != newSlug) {
+        slugCtrl.text = newSlug;
+      }
+    }
+    _markDirty();
+  }
+
+  String _generateSlug(String title) {
+    if (title.isEmpty) return '';
+    return title.toLowerCase().replaceAll(
+        RegExp(r'[^a-z0-9\u4e00-\u9fa5]+'), '-').replaceAll(
+        RegExp(r'^-+|-+$'), '');
+  }
+
+  void _markDirty() {
+    if (!_isDirty) {
+      setState(() {
+        _isDirty = true;
+      });
+    }
+  }
+
+  bool _checkIfDirty() {
+    final d = _currentDetail;
+    final currentSlug = slugCtrl.text.trim();
+    final currentTitle = titleCtrl.text.trim();
+    final currentSummary = summaryCtrl.text.trim();
+    final currentContent = _getContent().trim();
+
+    if (d == null) {
+      return currentSlug.isNotEmpty || currentTitle.isNotEmpty ||
+          currentSummary.isNotEmpty || currentContent.isNotEmpty ||
+          status != 0 || visibility != 0 || categoryId != null ||
+          tagIds.isNotEmpty;
+    }
+
+    return currentSlug != _initialSlug ||
+        currentTitle != _initialTitle ||
+        currentSummary != _initialSummary ||
+        currentContent != _initialContent ||
+        status != _initialStatus ||
+        visibility != _initialVisibility ||
+        renderType != _initialRenderType ||
+        editorType != _initialEditorType ||
+        categoryId != _initialCategoryId ||
+        !_listEquals(tagIds, _initialTagIds);
+  }
+
+  bool _listEquals(List<int>? a, List<int>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  Future<void> _loadRevisions() async {
+    if (_currentDetail == null) return;
+    setState(() => _isLoadingRevisions = true);
+    try {
+      final revisions = await widget.api.listPostRevisions(_currentDetail!.id);
+      if (mounted) {
+        setState(() {
+          _revisions = revisions;
+          _isLoadingRevisions = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingRevisions = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('加载版本列表失败：$e')),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _loadCategoriesAndTags() async {
@@ -708,7 +851,6 @@ class _PostDialogState extends State<PostDialog> {
       final tags = await widget.api.listTags();
       if (mounted) {
         setState(() {
-          // 去重：确保每个 ID 只有一个分类
           final uniqueCatsMap = <int, CategoryItem>{};
           for (final cat in cats) {
             uniqueCatsMap[cat.id] = cat;
@@ -719,9 +861,11 @@ class _PostDialogState extends State<PostDialog> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('加载分类和标签失败：$e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载分类和标签失败：$e')),
+        );
+      }
     }
   }
 
@@ -732,15 +876,377 @@ class _PostDialogState extends State<PostDialog> {
     summaryCtrl.dispose();
     contentCtrl.dispose();
     quillController.dispose();
+    _sidebarTabController.dispose();
     super.dispose();
   }
 
+  Future<void> _uploadMedia() async {
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      return;
+    }
+    final mimeType = _resolveMimeType(file);
+    try {
+      final media = await widget.api.uploadMedia(
+        fileName: file.name,
+        bytes: bytes,
+        mimeType: mimeType,
+      );
+      _insertMedia(media.fileName, media.url);
+      if (!mounted) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${t(context, 'media_inserted')}${media.fileName}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${t(context, 'upload_failed')}$e')),
+        );
+      }
+    }
+  }
+
+  void _insertMedia(String fileName, String url) {
+    if (editorType == 5) {
+      final index = quillController.selection.baseOffset;
+      quillController.document.insert(index, BlockEmbed.image(url));
+      quillController.moveCursorToPosition(index + 1);
+    } else if (editorType == 0 || editorType == 6) {
+      final insertText = '![$fileName]($url)\n';
+      final currentText = contentCtrl.text;
+      final selection = contentCtrl.selection;
+      final newText = currentText.replaceRange(
+        selection.baseOffset,
+        selection.extentOffset,
+        insertText,
+      );
+      contentCtrl.text = newText;
+      contentCtrl.selection = TextSelection.collapsed(
+        offset: selection.baseOffset + insertText.length,
+      );
+    }
+  }
+
+  String _getContent() {
+    if (editorType == 5) {
+      final content = jsonEncode(quillController.document.toDelta().toJson());
+      return content;
+    } else if (editorType == 0 || editorType == 6) {
+      return contentCtrl.text;
+    }
+    return contentCtrl.text;
+  }
+
+  Future<bool> _onWillPop() async {
+    if (_isSaving) return false;
+    final isDirty = _checkIfDirty();
+    if (!isDirty) return true;
+
+    final navigator = Navigator.of(context);
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('未保存的更改'),
+            content: const Text('您有未保存的更改，确定要离开吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => navigator.pop(true),
+                child: const Text('不保存'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final success = await _save();
+                  if (success) {
+                    navigator.pop(true);
+                  }
+                },
+                child: const Text('保存'),
+              ),
+            ],
+          ),
+    );
+    return result ?? false;
+  }
+
+  Future<bool> _save() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final finalContent = _getContent().trim();
+    if (slugCtrl.text
+        .trim()
+        .isEmpty ||
+        titleCtrl.text
+            .trim()
+            .isEmpty ||
+        finalContent.isEmpty) {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('请填写必填字段')),
+      );
+      return false;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final request = PostEditRequest(
+        slug: slugCtrl.text.trim(),
+        title: {'zh-cn': titleCtrl.text.trim()},
+        summary: {'zh-cn': summaryCtrl.text.trim()},
+        aiSummary: const {},
+        contentMarkdown: {'zh-cn': finalContent},
+        status: status,
+        visibility: visibility,
+        renderType: renderType,
+        editorType: editorType,
+        version: _currentDetail?.version ?? 0,
+        categoryId: categoryId,
+        tagIds: tagIds,
+      );
+
+      if (_currentDetail == null) {
+        await widget.api.createPost(request);
+      } else {
+        await widget.api.updatePost(
+          _currentDetail!.id,
+          request.copyWith(version: _currentDetail!.version),
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _isDirty = false;
+        });
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('保存成功')),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('保存失败：$e')),
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _switchToRevision(int revisionNumber) async {
+    if (_currentDetail == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('切换版本'),
+            content: Text(
+                '确定要切换到版本 $revisionNumber 吗？这将创建一个新版本。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final newDetail = await widget.api.activatePostRevision(
+        _currentDetail!.id,
+        revisionNumber,
+      );
+
+      if (mounted) {
+        setState(() {
+          _currentDetail = newDetail;
+
+          slugCtrl.text = newDetail.slug;
+          titleCtrl.text = newDetail.title['zh-cn'] ?? '';
+          summaryCtrl.text = newDetail.summary['zh-cn'] ?? '';
+          contentCtrl.text = newDetail.contentMarkdown['zh-cn'] ?? '';
+
+          status = newDetail.status;
+          visibility = newDetail.visibility;
+          renderType = newDetail.renderType;
+          editorType = newDetail.editorType;
+          categoryId = newDetail.categoryId;
+          tagIds = newDetail.tagIds;
+
+          _initialSlug = newDetail.slug;
+          _initialTitle = newDetail.title['zh-cn'];
+          _initialSummary = newDetail.summary['zh-cn'];
+          _initialContent = newDetail.contentMarkdown['zh-cn'];
+          _initialStatus = newDetail.status;
+          _initialVisibility = newDetail.visibility;
+          _initialRenderType = newDetail.renderType;
+          _initialEditorType = newDetail.editorType;
+          _initialCategoryId = newDetail.categoryId;
+          _initialTagIds = List<int>.from(newDetail.tagIds);
+
+          _isDirty = false;
+        });
+
+        await _loadRevisions();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('版本切换成功')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('版本切换失败：$e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final navigator = Navigator.of(context);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldPop = await _onWillPop();
+        if (shouldPop && mounted) {
+          navigator.pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_currentDetail == null ? t(context, 'new_post') : t(
+              context, 'edit_post')),
+          actions: [
+            if (_isDirty)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Chip(
+                  label: const Text('未保存', style: TextStyle(fontSize: 12)),
+                  backgroundColor: Colors.orange.shade100,
+                  labelStyle: TextStyle(color: Colors.orange.shade800),
+                ),
+              ),
+            TextButton(
+              onPressed: _isSaving ? null : () async {
+                final shouldPop = await _onWillPop();
+                if (shouldPop && mounted) {
+                  navigator.pop();
+                }
+              },
+              child: Text(t(context, 'cancel')),
+            ),
+            FilledButton(
+              onPressed: _isSaving
+                  ? null
+                  : () async {
+                final success = await _save();
+                if (success) {
+                  if (mounted) {
+                    navigator.pop(PostEditRequest(
+                      slug: slugCtrl.text.trim(),
+                      title: {'zh-cn': titleCtrl.text.trim()},
+                      summary: {'zh-cn': summaryCtrl.text.trim()},
+                      aiSummary: const {},
+                      contentMarkdown: {'zh-cn': _getContent().trim()},
+                      status: status,
+                      visibility: visibility,
+                      renderType: renderType,
+                      editorType: editorType,
+                      version: _currentDetail?.version ?? 0,
+                      categoryId: categoryId,
+                      tagIds: tagIds,
+                    ));
+                  }
+                }
+              },
+              child: _isSaving
+                  ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+                  : Text(t(context, 'save')),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: Row(
+          children: [
+            Expanded(
+              child: _buildEditorPane(),
+            ),
+            Container(
+              width: 320,
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(color: Colors.grey.shade300)),
+              ),
+              child: _buildSidebar(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEditorPane() {
-    return SizedBox(
-      height: 480,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          TextField(
+            controller: slugCtrl,
+            decoration: InputDecoration(
+              labelText: 'Slug',
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.autorenew),
+                onPressed: () {
+                  slugCtrl.text = _generateSlug(titleCtrl.text);
+                },
+                tooltip: '根据标题自动生成',
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: titleCtrl,
+            decoration: InputDecoration(
+              labelText: t(context, 'title'),
+            ),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: summaryCtrl,
+            decoration: InputDecoration(
+              labelText: t(context, 'summary'),
+            ),
+            minLines: 2,
+            maxLines: 3,
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               FilledButton.icon(
@@ -748,10 +1254,194 @@ class _PostDialogState extends State<PostDialog> {
                 icon: const Icon(Icons.photo_library_outlined),
                 label: Text(t(context, 'upload_media')),
               ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        // ignore: deprecated_member_use
+                        value: status,
+                        decoration: InputDecoration(
+                          labelText: t(context, 'status'),
+                          isDense: true,
+                        ),
+                        items: [
+                          DropdownMenuItem(value: 0, child: Text(t(
+                              context, 'draft'))),
+                          DropdownMenuItem(value: 1, child: Text(t(
+                              context, 'published'))),
+                          DropdownMenuItem(value: 2, child: Text(t(
+                              context, 'archived'))),
+                        ],
+                        onChanged: (v) =>
+                            setState(() {
+                              status = v ?? 0;
+                              _markDirty();
+                            }),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        // ignore: deprecated_member_use
+                        value: visibility,
+                        decoration: InputDecoration(
+                          labelText: t(context, 'visibility'),
+                          isDense: true,
+                        ),
+                        items: [
+                          DropdownMenuItem(value: 0, child: Text(t(
+                              context, 'public'))),
+                          DropdownMenuItem(value: 1, child: Text(t(
+                              context, 'private'))),
+                          DropdownMenuItem(value: 2, child: Text(t(
+                              context, 'protected'))),
+                        ],
+                        onChanged: (v) =>
+                            setState(() {
+                              visibility = v ?? 0;
+                              _markDirty();
+                            }),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          Expanded(
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int?>(
+                  // ignore: deprecated_member_use
+                  value: _categories.any((c) => c.id == categoryId)
+                      ? categoryId
+                      : null,
+                  decoration: InputDecoration(
+                    labelText: t(context, 'category'),
+                    isDense: true,
+                  ),
+                  items: [
+                    DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(t(context, 'select_category')),
+                    ),
+                    ..._categories.map((cat) =>
+                        DropdownMenuItem<int?>(
+                          value: cat.id,
+                          child: Text(cat.displayName),
+                        )),
+                  ],
+                  onChanged: (v) =>
+                      setState(() {
+                        categoryId = v;
+                        _markDirty();
+                      }),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  // ignore: deprecated_member_use
+                  value: null,
+                  decoration: InputDecoration(
+                    labelText: t(context, 'tags'),
+                    isDense: true,
+                  ),
+                  hint: Text(tagIds.isEmpty
+                      ? t(context, 'select_tags')
+                      : '${tagIds.length} tags'),
+                  items: [
+                    ..._tags.map((tag) =>
+                        DropdownMenuItem<int>(
+                          value: tag.id,
+                          child: Row(
+                            children: [
+                              Icon(
+                                tagIds.contains(tag.id)
+                                    ? Icons.check_box
+                                    : Icons.check_box_outline_blank,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(tag.displayName),
+                            ],
+                          ),
+                        )),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        if (tagIds.contains(v)) {
+                          tagIds.remove(v);
+                        } else {
+                          tagIds.add(v);
+                        }
+                        _markDirty();
+                      });
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  // ignore: deprecated_member_use
+                  value: renderType,
+                  decoration: InputDecoration(
+                    labelText: t(context, 'render_type'),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Markdown')),
+                    DropdownMenuItem(value: 1, child: Text('HTML')),
+                    DropdownMenuItem(value: 2, child: Text('Vditor')),
+                    DropdownMenuItem(value: 3, child: Text('V Builder')),
+                    DropdownMenuItem(value: 4, child: Text('Gutenberg')),
+                    DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
+                    DropdownMenuItem(
+                        value: 6, child: Text('Flutter Markdown Plus')),
+                  ],
+                  onChanged: (v) =>
+                      setState(() {
+                        renderType = v ?? 0;
+                        _markDirty();
+                      }),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  // ignore: deprecated_member_use
+                  value: editorType,
+                  decoration: const InputDecoration(
+                    labelText: 'Editor Type',
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Markdown')),
+                    DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
+                    DropdownMenuItem(
+                        value: 6, child: Text('Flutter Markdown Plus')),
+                  ],
+                  onChanged: (v) =>
+                      setState(() {
+                        editorType = v ?? 0;
+                        _markDirty();
+                      }),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 500,
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -830,13 +1520,15 @@ class _PostDialogState extends State<PostDialog> {
             controller: contentCtrl,
             decoration: InputDecoration(
               labelText: t(context, 'markdown_content'),
-              border: const OutlineInputBorder(),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.all(8),
             ),
-            minLines: 12,
+            minLines: null,
             maxLines: null,
+            expands: true,
           ),
         ),
-        const SizedBox(width: 12),
+        const VerticalDivider(width: 1),
         Expanded(
           flex: 1,
           child: ClipRRect(
@@ -851,7 +1543,9 @@ class _PostDialogState extends State<PostDialog> {
                     child: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: contentCtrl,
                       builder: (context, value, child) {
-                        if (value.text.trim().isEmpty) {
+                        if (value.text
+                            .trim()
+                            .isEmpty) {
                           return Center(
                             child: Text(
                               t(context, 'markdown_content'),
@@ -877,280 +1571,169 @@ class _PostDialogState extends State<PostDialog> {
     );
   }
 
-  Future<void> _uploadMedia() async {
-    final result = await FilePicker.platform.pickFiles(withData: true);
-    if (result == null || result.files.isEmpty) {
-      return;
-    }
-    final file = result.files.first;
-    final bytes = file.bytes;
-    if (bytes == null) {
-      return;
-    }
-    final mimeType = _resolveMimeType(file);
-    try {
-      final media = await widget.api.uploadMedia(
-        fileName: file.name,
-        bytes: bytes,
-        mimeType: mimeType,
-      );
-      _insertMedia(media.fileName, media.url);
-      if (!mounted) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'media_inserted')}${media.fileName}')),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'upload_failed')}$e')),
-        );
-      }
-    }
-  }
-
-  void _insertMedia(String fileName, String url) {
-    if (editorType == 5) {
-      final index = quillController.selection.baseOffset;
-      quillController.document.insert(index, BlockEmbed.image(url));
-      quillController.moveCursorToPosition(index + 1);
-    } else if (editorType == 0 || editorType == 6) {
-      final insertText = '![$fileName]($url)\n';
-      final currentText = contentCtrl.text;
-      final selection = contentCtrl.selection;
-      final newText = currentText.replaceRange(
-        selection.baseOffset,
-        selection.extentOffset,
-        insertText,
-      );
-      contentCtrl.text = newText;
-      contentCtrl.selection = TextSelection.collapsed(
-        offset: selection.baseOffset + insertText.length,
-      );
-    }
-  }
-
-  String _getContent() {
-    if (editorType == 5) {
-      final content = jsonEncode(quillController.document.toDelta().toJson());
-      return content;
-    } else if (editorType == 0 || editorType == 6) {
-      return contentCtrl.text;
-    }
-    return contentCtrl.text;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.detail == null ? t(context, 'new_post') : t(context, 'edit_post')),
-      content: SizedBox(
-        width: 680,
-        child: SingleChildScrollView(
-          child: Column(
+  Widget _buildSidebar() {
+    return Column(
+      children: [
+        TabBar(
+          controller: _sidebarTabController,
+          tabs: const [
+            Tab(text: '元数据'),
+            Tab(text: '版本修订'),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _sidebarTabController,
             children: [
-              TextField(
-                controller: slugCtrl,
-                decoration: InputDecoration(labelText: t(context, 'slug')),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: titleCtrl,
-                decoration: InputDecoration(labelText: t(context, 'title')),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: summaryCtrl,
-                decoration: InputDecoration(labelText: t(context, 'summary')),
-                minLines: 2,
-                maxLines: 3,
-              ),
-              const SizedBox(height: 8),
-              _buildEditorPane(),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<int?>(
-                      initialValue: _categories.any((c) => c.id == categoryId)
-                          ? categoryId
-                          : null,
-                      decoration: InputDecoration(
-                          labelText: t(context, 'category')),
-                      items: [
-                        DropdownMenuItem<int?>(
-                          value: null,
-                          child: Text(t(context, 'select_category')),
-                        ),
-                        ..._categories.map((cat) =>
-                            DropdownMenuItem<int?>(
-                              value: cat.id,
-                              child: Text(cat.displayName),
-                            )),
-                      ],
-                      onChanged: (v) => setState(() => categoryId = v),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: null,
-                      decoration: InputDecoration(
-                          labelText: t(context, 'tags')),
-                      hint: Text(tagIds.isEmpty
-                          ? t(context, 'select_tags')
-                          : '${tagIds.length} tags'),
-                      items: [
-                        ..._tags.map((tag) =>
-                            DropdownMenuItem<int>(
-                              value: tag.id,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    tagIds.contains(tag.id)
-                                        ? Icons.check_box
-                                        : Icons.check_box_outline_blank,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(tag.displayName),
-                                ],
-                              ),
-                            )),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() {
-                            if (tagIds.contains(v)) {
-                              tagIds.remove(v);
-                            } else {
-                              tagIds.add(v);
-                            }
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: status,
-                      decoration: InputDecoration(
-                          labelText: t(context, 'status')),
-                      items: [
-                        DropdownMenuItem(value: 0, child: Text(t(
-                            context, 'draft'))),
-                        DropdownMenuItem(value: 1, child: Text(t(
-                            context, 'published'))),
-                        DropdownMenuItem(value: 2, child: Text(t(
-                            context, 'archived'))),
-                      ],
-                      onChanged: (v) => setState(() => status = v ?? 0),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: visibility,
-                      decoration: InputDecoration(
-                          labelText: t(context, 'visibility')),
-                      items: [
-                        DropdownMenuItem(value: 0, child: Text(t(
-                            context, 'public'))),
-                        DropdownMenuItem(value: 1, child: Text(t(
-                            context, 'private'))),
-                        DropdownMenuItem(value: 2, child: Text(t(
-                            context, 'protected'))),
-                      ],
-                      onChanged: (v) => setState(() => visibility = v ?? 0),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: renderType,
-                      decoration: InputDecoration(
-                          labelText: t(context, 'render_type')),
-                      items: const [
-                        DropdownMenuItem(value: 0, child: Text('Markdown')),
-                        DropdownMenuItem(value: 1, child: Text('HTML')),
-                        DropdownMenuItem(value: 2, child: Text('Vditor')),
-                        DropdownMenuItem(value: 3, child: Text('V Builder')),
-                        DropdownMenuItem(value: 4, child: Text('Gutenberg')),
-                        DropdownMenuItem(
-                            value: 5, child: Text('Flutter Quill')),
-                        DropdownMenuItem(
-                            value: 6, child: Text('Flutter Markdown Plus')),
-                      ],
-                      onChanged: (v) => setState(() => renderType = v ?? 0),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: editorType,
-                      decoration: const InputDecoration(
-                          labelText: 'Editor Type'),
-                      items: const [
-                        DropdownMenuItem(value: 0, child: Text('Markdown')),
-                        DropdownMenuItem(
-                            value: 5, child: Text('Flutter Quill')),
-                        DropdownMenuItem(
-                            value: 6, child: Text('Flutter Markdown Plus')),
-                      ],
-                      onChanged: (v) => setState(() => editorType = v ?? 0),
-                    ),
-                  ),
-                ],
-              ),
+              _buildMetadataTab(),
+              _buildRevisionsTab(),
             ],
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(t(context, 'cancel')),
-        ),
-        FilledButton(
-          onPressed: () {
-            final finalContent = _getContent().trim();
-            if (slugCtrl.text.trim().isEmpty ||
-                titleCtrl.text.trim().isEmpty ||
-                finalContent.isEmpty) {
-              return;
-            }
-            Navigator.pop(
-              context,
-              PostEditRequest(
-                slug: slugCtrl.text.trim(),
-                title: {'zh-cn': titleCtrl.text.trim()},
-                summary: {'zh-cn': summaryCtrl.text.trim()},
-                aiSummary: const {},
-                contentMarkdown: {'zh-cn': finalContent},
-                status: status,
-                visibility: visibility,
-                renderType: renderType,
-                editorType: editorType,
-                version: 0,
-                categoryId: categoryId,
-                tagIds: tagIds,
-              ),
-            );
-          },
-          child: Text(t(context, 'save')),
-        ),
       ],
+    );
+  }
+
+  Widget _buildMetadataTab() {
+    final d = _currentDetail;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (d != null) ...[
+            MetadataItem('文章 ID', '${d.id}'),
+            MetadataItem('当前版本', '${d.currentRevisionNumber}'),
+            MetadataItem('数据版本', '${d.version}'),
+            const Divider(height: 24),
+            if (d.createdAt != null)
+              MetadataItem('创建时间', _formatDate(d.createdAt!)),
+            if (d.updatedAt != null)
+              MetadataItem('更新时间', _formatDate(d.updatedAt!)),
+            if (d.publishedAt != null)
+              MetadataItem('发布时间', _formatDate(d.publishedAt!)),
+          ] else
+            ...[
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text('保存后显示元数据'),
+                ),
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRevisionsTab() {
+    if (_currentDetail == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('保存后显示版本历史'),
+        ),
+      );
+    }
+
+    if (_isLoadingRevisions) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_revisions.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('暂无版本历史'),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: _revisions.length,
+      separatorBuilder: (context, index) => const Divider(height: 1),
+      itemBuilder: (context, i) {
+        final revision = _revisions[i];
+        final isCurrent = revision.revisionNumber ==
+            _currentDetail!.currentRevisionNumber;
+        return ListTile(
+          title: Text(
+            '版本 ${revision.revisionNumber}',
+            style: TextStyle(
+              fontWeight: isCurrent ? FontWeight.bold : null,
+            ),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                revision.zhTitle.isEmpty ? '无标题' : revision.zhTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${revision.createdByName} · ${_formatDate(
+                    revision.createdAt)}',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+          trailing: isCurrent
+              ? Chip(
+            label: const Text('当前', style: TextStyle(fontSize: 10)),
+            backgroundColor: Colors.green.shade100,
+            labelStyle: TextStyle(color: Colors.green.shade800),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+          )
+              : TextButton(
+            onPressed: () => _switchToRevision(revision.revisionNumber),
+            child: const Text('切换'),
+          ),
+          dense: true,
+        );
+      },
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day
+        .toString().padLeft(2, '0')} ${date.hour.toString().padLeft(
+        2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class MetadataItem extends StatelessWidget {
+  const MetadataItem(this.label, this.value, {super.key});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
