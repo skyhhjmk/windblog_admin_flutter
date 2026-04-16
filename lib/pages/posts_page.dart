@@ -474,8 +474,6 @@ class _PostsPageState extends State<PostsPage> {
             ),
           ),
       ],
-    )
-    ,
     );
   }
 

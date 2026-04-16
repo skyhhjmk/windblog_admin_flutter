@@ -58,7 +58,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
         lastMigrateTime = DateTime.now();
       });
 
-      if (!success && context.mounted) {
+      if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(lastMigrateResult!)),
         );
@@ -70,7 +70,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
         lastMigrateResult = t(context, 'migrate_failed').replaceAll('%s', '$e');
         lastMigrateTime = DateTime.now();
       });
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(lastMigrateResult!)),
         );
@@ -116,7 +116,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
         lastSeedTime = DateTime.now();
       });
 
-      if (!success && context.mounted) {
+      if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(lastSeedResult!)),
         );
@@ -128,7 +128,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
         lastSeedResult = t(context, 'seed_failed').replaceAll('%s', '$e');
         lastSeedTime = DateTime.now();
       });
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(lastSeedResult!)),
         );
