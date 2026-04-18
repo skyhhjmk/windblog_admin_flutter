@@ -210,7 +210,7 @@ class _PostsPageState extends State<PostsPage> {
     }
     if (!mounted) return;
 
-    final result = await Navigator.push<PostEditRequest?>(
+    await Navigator.push<PostEditRequest?>(
       context,
       MaterialPageRoute(
         builder: (_) =>
@@ -221,27 +221,7 @@ class _PostsPageState extends State<PostsPage> {
       ),
     );
 
-    if (result == null) return;
-
-    try {
-      if (item == null) {
-        await widget.api.createPost(result);
-      } else {
-        await widget.api.updatePost(
-          item.id,
-          result.copyWith(version: detail!.version),
-        );
-      }
-      await load();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (e) {
-      if (!mounted) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$e')));
-      }
-    }
+    await load();
   }
 
   Widget _buildListView() {
@@ -1164,20 +1144,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                 final success = await _save();
                 if (success) {
                   if (mounted) {
-                    navigator.pop(PostEditRequest(
-                      slug: slugCtrl.text.trim(),
-                      title: {'zh-cn': titleCtrl.text.trim()},
-                      summary: {'zh-cn': summaryCtrl.text.trim()},
-                      aiSummary: const {},
-                      contentMarkdown: {'zh-cn': _getContent().trim()},
-                      status: status,
-                      visibility: visibility,
-                      renderType: renderType,
-                      editorType: editorType,
-                      version: _currentDetail?.version ?? 0,
-                      categoryId: categoryId,
-                      tagIds: tagIds,
-                    ));
+                    navigator.pop(null);
                   }
                 }
               },
