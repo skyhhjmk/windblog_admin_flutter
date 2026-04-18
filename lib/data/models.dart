@@ -32,15 +32,23 @@ class PostItem {
     required this.slug,
     required this.title,
     required this.status,
+    required this.visibility,
     required this.renderType,
+    required this.editorType,
     required this.version,
+    this.categoryId,
+    this.tagIds = const [],
   });
   final int id;
   final String slug;
   final Map<String, String> title;
   final int status;
+  final int visibility;
   final int renderType;
+  final int editorType;
   final int version;
+  final int? categoryId;
+  final List<int> tagIds;
 
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
@@ -51,14 +59,27 @@ class PostItem {
           : 'Unknown'));
   String get renderTypeText => postRenderTypeText(renderType);
 
+  String get visibilityText =>
+      visibility == 0 ? 'Public' : (visibility == 1 ? 'Private' : (visibility ==
+          2
+          ? 'Protected'
+          : 'Unknown'));
+
   factory PostItem.fromMap(Map<String, dynamic> map) {
     return PostItem(
       id: toInt(map['id']) ?? 0,
       slug: map['slug']?.toString() ?? '',
       title: toStringMap(map['title']),
       status: toInt(map['status']) ?? 0,
+      visibility: toInt(map['visibility']) ?? 0,
       renderType: toInt(map['renderType']) ?? 0,
+      editorType: toInt(map['editorType']) ?? 0,
       version: toInt(map['version']) ?? 0,
+      categoryId: toInt(map['categoryId']),
+      tagIds: (asDynamicList(map['tagIds']) ?? [])
+          .map((e) => toInt(e) ?? 0)
+          .where((id) => id > 0)
+          .toList(),
     );
   }
 }

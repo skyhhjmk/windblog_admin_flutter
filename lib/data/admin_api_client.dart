@@ -397,7 +397,7 @@ class AdminApiClient {
   void _check(http.Response res, {required bool authFailureAsSessionExpired}) {
     if (res.statusCode >= 200 && res.statusCode < 300) return;
 
-    String message = '\u8bf7\u6c42\u5931\u8d25(${res.statusCode})';
+    String message = '请求失败(${res.statusCode})';
     try {
       final map = _map(jsonDecode(res.body));
       final m = map['message']?.toString();
