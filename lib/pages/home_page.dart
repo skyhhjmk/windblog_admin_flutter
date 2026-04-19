@@ -74,6 +74,21 @@ class _HomePageState extends State<HomePage> {
                 selectedIcon: const Icon(Icons.storage),
                 label: Text(t(context, 'database')),
               ),
+              const NavigationRailDestination(
+                icon: Icon(Icons.comment_outlined),
+                selectedIcon: Icon(Icons.comment),
+                label: Text('评论'),
+              ),
+              const NavigationRailDestination(
+                icon: Icon(Icons.queue_outlined),
+                selectedIcon: Icon(Icons.queue),
+                label: Text('队列'),
+              ),
+              const NavigationRailDestination(
+                icon: Icon(Icons.monitor_heart_outlined),
+                selectedIcon: Icon(Icons.monitor_heart),
+                label: Text('监控'),
+              ),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -91,14 +106,17 @@ class _HomePageState extends State<HomePage> {
                       Text(
                         switch (tab) {
                           0 => t(context, 'overview'),
-                        1 => t(context, 'posts'),
-                        2 => t(context, 'categories'),
-                        3 => t(context, 'tags'),
-                        4 => t(context, 'media'),
-                        5 => t(context, 'users'),
-                        6 => t(context, 'permissions'),
-                        7 => t(context, 'ai_providers'),
-                        _ => t(context, 'database'),
+                          1 => t(context, 'posts'),
+                          2 => t(context, 'categories'),
+                          3 => t(context, 'tags'),
+                          4 => t(context, 'media'),
+                          5 => t(context, 'users'),
+                          6 => t(context, 'permissions'),
+                          7 => t(context, 'ai_providers'),
+                          8 => t(context, 'database'),
+                          9 => '评论管理',
+                          10 => '队列监控',
+                          _ => '系统监控',
                         },
                       ),
                       const Spacer(),
@@ -142,7 +160,11 @@ class _HomePageState extends State<HomePage> {
           onAuthError: widget.onLogout,
         ),
       7 => AiProvidersPage(api: widget.api, onAuthError: widget.onLogout),
-      _ => DatabaseManagementPage(api: widget.api, onAuthError: widget.onLogout),
+      8 =>
+          DatabaseManagementPage(api: widget.api, onAuthError: widget.onLogout),
+      9 => CommentsPage(api: widget.api, onAuthError: widget.onLogout),
+      10 => QueuesPage(api: widget.api, onAuthError: widget.onLogout),
+      _ => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
     };
   }
 }

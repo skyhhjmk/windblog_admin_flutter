@@ -313,6 +313,69 @@ class AdminApiClient {
     return map;
   }
 
+  // ==================== 评论管理 API ====================
+
+  Future<CommentListResult> listComments({
+    required int page,
+    required int pageSize,
+    String? status,
+    String? keyword,
+  }) async {
+    final query = <String, String>{
+      'page': '$page',
+      'pageSize': '$pageSize',
+    };
+    if (status != null && status.isNotEmpty) query['status'] = status;
+    if (keyword != null && keyword.isNotEmpty) query['keyword'] = keyword;
+    final res = await _get('/api/admin/comments', query: query);
+    return CommentListResult.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> updateComment(int id, {required int status}) async {
+    await _put('/api/admin/comments/$id', body: {'status': status});
+  }
+
+  Future<void> deleteComment(int id) async {
+    await _delete('/api/admin/comments/$id');
+  }
+
+  Future<void> auditComment(int id, {required bool approve}) async {
+    await _post('/api/admin/comments/$id/audit', body: {'approve': approve});
+  }
+
+  // ==================== 队列监控 API ====================
+
+  Future<List<QueueInfo>> listQueues() async {
+    final res = await _get('/api/admin/queues');
+    final map = _map(jsonDecode(res.body));
+    final list = (map['data'] as List<dynamic>? ?? []);
+    return list.map((e) => QueueInfo.fromMap(_map(e))).toList();
+  }
+
+  Future<QueueInfo> getQueueInfo(String queueName) async {
+    final res = await _get(
+        '/api/admin/queues/${Uri.encodeComponent(queueName)}');
+    final map = _map(jsonDecode(res.body));
+    return QueueInfo.fromMap(_map(map['data']));
+  }
+
+  Future<void> publishTestMessage(String queueName,
+      {int? postId, int? priority, String? content}) async {
+    final body = <String, dynamic>{};
+    if (postId != null) body['postId'] = postId;
+    if (priority != null) body['priority'] = priority;
+    if (content != null) body['content'] = content;
+    await _post('/api/admin/queues/${Uri.encodeComponent(queueName)}/publish',
+        body: body);
+  }
+
+  // ==================== 系统监控 API ====================
+
+  Future<SystemMonitorInfo> getSystemMonitor() async {
+    final res = await _get('/api/admin/system/monitor');
+    return SystemMonitorInfo.fromMap(_map(jsonDecode(res.body)));
+  }
+
   Future<PostListResult> listPostsByCategory({
     required int categoryId,
     int page = 1,

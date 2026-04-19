@@ -1119,3 +1119,329 @@ String _bizTypeText(String bizType) {
       return bizType;
   }
 }
+
+// ==================== 评论相关模型 ====================
+
+class CommentItem {
+  CommentItem({
+    required this.id,
+    required this.postId,
+    required this.postTitle,
+    required this.userId,
+    required this.userName,
+    required this.content,
+    required this.status,
+    required this.auditStatus,
+    required this.auditReason,
+    required this.createdAt,
+  });
+
+  final int id;
+  final int postId;
+  final String postTitle;
+  final int userId;
+  final String userName;
+  final String content;
+  final int status;
+  final int auditStatus;
+  final String? auditReason;
+  final DateTime createdAt;
+
+  String get statusText {
+    switch (status) {
+      case 0:
+        return '待审核';
+      case 1:
+        return '已通过';
+      case 2:
+        return '已驳回';
+      default:
+        return '未知';
+    }
+  }
+
+  String get auditStatusText {
+    switch (auditStatus) {
+      case 0:
+        return '未审核';
+      case 1:
+        return 'AI 审核中';
+      case 2:
+        return 'AI 审核通过';
+      case 3:
+        return 'AI 审核拒绝';
+      default:
+        return '未知';
+    }
+  }
+
+  factory CommentItem.fromMap(Map<String, dynamic> map) {
+    return CommentItem(
+      id: toInt(map['id']) ?? 0,
+      postId: toInt(map['postId']) ?? 0,
+      postTitle: map['postTitle']?.toString() ?? '',
+      userId: toInt(map['userId']) ?? 0,
+      userName: map['userName']?.toString() ?? '',
+      content: map['content']?.toString() ?? '',
+      status: toInt(map['status']) ?? 0,
+      auditStatus: toInt(map['auditStatus']) ?? 0,
+      auditReason: map['auditReason']?.toString(),
+      createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
+    );
+  }
+}
+
+class CommentListResult {
+  CommentListResult({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.pageSize,
+  });
+
+  final List<CommentItem> items;
+  final int total;
+  final int page;
+  final int pageSize;
+
+  factory CommentListResult.fromMap(Map<String, dynamic> map) {
+    final list = (map['items'] as List<dynamic>?) ?? [];
+    return CommentListResult(
+      items: list
+          .map((e) => CommentItem.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      total: toInt(map['total']) ?? 0,
+      page: toInt(map['page']) ?? 1,
+      pageSize: toInt(map['pageSize']) ?? list.length,
+    );
+  }
+}
+
+// ==================== 队列相关模型 ====================
+
+class QueueInfo {
+  QueueInfo({
+    required this.name,
+    required this.messageCount,
+    required this.consumerCount,
+    required this.deadLetterQueue,
+    this.deadLetterMessageCount = 0,
+  });
+
+  final String name;
+  final int messageCount;
+  final int consumerCount;
+  final String deadLetterQueue;
+  final int deadLetterMessageCount;
+
+  factory QueueInfo.fromMap(Map<String, dynamic> map) {
+    return QueueInfo(
+      name: map['name']?.toString() ?? '',
+      messageCount: toInt(map['messageCount']) ?? 0,
+      consumerCount: toInt(map['consumerCount']) ?? 0,
+      deadLetterQueue: map['deadLetterQueue']?.toString() ?? '',
+      deadLetterMessageCount: toInt(map['deadLetterMessageCount']) ?? 0,
+    );
+  }
+}
+
+// ==================== 系统监控相关模型 ====================
+
+class SystemMonitorInfo {
+  SystemMonitorInfo({
+    required this.jvm,
+    required this.system,
+    required this.application,
+    required this.health,
+  });
+
+  final JvmInfo jvm;
+  final SystemInfo system;
+  final ApplicationInfo application;
+  final HealthInfo health;
+
+  factory SystemMonitorInfo.fromMap(Map<String, dynamic> map) {
+    return SystemMonitorInfo(
+      jvm: JvmInfo.fromMap(_map(map['jvm'])),
+      system: SystemInfo.fromMap(_map(map['system'])),
+      application: ApplicationInfo.fromMap(_map(map['application'])),
+      health: HealthInfo.fromMap(_map(map['health'])),
+    );
+  }
+
+  static Map<String, dynamic> _map(Map<String, dynamic>? map) {
+    return map ?? {};
+  }
+}
+
+class JvmInfo {
+  JvmInfo({
+    required this.memoryUsed,
+    required this.memoryMax,
+    required this.memoryCommitted,
+    required this.threadCount,
+    required this.peakThreadCount,
+    required this.uptime,
+  });
+
+  final int memoryUsed;
+  final int memoryMax;
+  final int memoryCommitted;
+  final int threadCount;
+  final int peakThreadCount;
+  final int uptime;
+
+  String get memoryUsedText => _formatBytes(memoryUsed);
+
+  String get memoryMaxText => _formatBytes(memoryMax);
+
+  String get memoryCommittedText => _formatBytes(memoryCommitted);
+
+  String get uptimeText => _formatDuration(uptime);
+
+  double get memoryUsagePercent {
+    if (memoryMax == 0) return 0;
+    return (memoryUsed / memoryMax * 100);
+  }
+
+  static String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+    return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
+  }
+
+  static String _formatDuration(int millis) {
+    final seconds = millis ~/ 1000;
+    final minutes = seconds ~/ 60;
+    final hours = minutes ~/ 60;
+    final days = hours ~/ 24;
+    if (days > 0) return '${days}d ${hours % 24}h';
+    if (hours > 0) return '${hours}h ${minutes % 60}m';
+    if (minutes > 0) return '${minutes}m ${seconds % 60}s';
+    return '${seconds}s';
+  }
+
+  factory JvmInfo.fromMap(Map<String, dynamic> map) {
+    return JvmInfo(
+      memoryUsed: toInt(map['memoryUsed']) ?? 0,
+      memoryMax: toInt(map['memoryMax']) ?? 0,
+      memoryCommitted: toInt(map['memoryCommitted']) ?? 0,
+      threadCount: toInt(map['threadCount']) ?? 0,
+      peakThreadCount: toInt(map['peakThreadCount']) ?? 0,
+      uptime: toInt(map['uptime']) ?? 0,
+    );
+  }
+}
+
+class SystemInfo {
+  SystemInfo({
+    required this.cpuCount,
+    required this.systemLoadAverage,
+    required this.osName,
+    required this.osVersion,
+    required this.osArch,
+  });
+
+  final int cpuCount;
+  final double systemLoadAverage;
+  final String osName;
+  final String osVersion;
+  final String osArch;
+
+  String get loadText {
+    if (systemLoadAverage < 0) return 'N/A';
+    return systemLoadAverage.toStringAsFixed(2);
+  }
+
+  factory SystemInfo.fromMap(Map<String, dynamic> map) {
+    return SystemInfo(
+      cpuCount: toInt(map['cpuCount']) ?? 0,
+      systemLoadAverage: (map['systemLoadAverage'] is num)
+          ? (map['systemLoadAverage'] as num).toDouble()
+          : double.tryParse(map['systemLoadAverage']?.toString() ?? '') ?? -1,
+      osName: map['osName']?.toString() ?? '',
+      osVersion: map['osVersion']?.toString() ?? '',
+      osArch: map['osArch']?.toString() ?? '',
+    );
+  }
+}
+
+class ApplicationInfo {
+  ApplicationInfo({
+    required this.name,
+    required this.version,
+    required this.startTime,
+    required this.uptime,
+  });
+
+  final String name;
+  final String version;
+  final String startTime;
+  final int uptime;
+
+  String get uptimeText {
+    final seconds = uptime ~/ 1000;
+    final minutes = seconds ~/ 60;
+    final hours = minutes ~/ 60;
+    final days = hours ~/ 24;
+    if (days > 0) return '${days}d ${hours % 24}h';
+    if (hours > 0) return '${hours}h ${minutes % 60}m';
+    if (minutes > 0) return '${minutes}m ${seconds % 60}s';
+    return '${seconds}s';
+  }
+
+  factory ApplicationInfo.fromMap(Map<String, dynamic> map) {
+    return ApplicationInfo(
+      name: map['name']?.toString() ?? '',
+      version: map['version']?.toString() ?? '',
+      startTime: map['startTime']?.toString() ?? '',
+      uptime: toInt(map['uptime']) ?? 0,
+    );
+  }
+}
+
+class HealthInfo {
+  HealthInfo({
+    required this.status,
+    required this.components,
+  });
+
+  final String status;
+  final Map<String, HealthComponent> components;
+
+  bool get isHealthy => status.toUpperCase() == 'UP';
+
+  factory HealthInfo.fromMap(Map<String, dynamic> map) {
+    final comps = <String, HealthComponent>{};
+    final raw = map['components'] as Map<String, dynamic>? ?? {};
+    for (final entry in raw.entries) {
+      comps[entry.key] =
+          HealthComponent.fromMap(entry.value as Map<String, dynamic>);
+    }
+    return HealthInfo(
+      status: map['status']?.toString() ?? 'UNKNOWN',
+      components: comps,
+    );
+  }
+}
+
+class HealthComponent {
+  HealthComponent({
+    required this.status,
+    this.details,
+  });
+
+  final String status;
+  final Map<String, dynamic>? details;
+
+  bool get isHealthy => status.toUpperCase() == 'UP';
+
+  factory HealthComponent.fromMap(Map<String, dynamic> map) {
+    return HealthComponent(
+      status: map['status']?.toString() ?? 'UNKNOWN',
+      details: map['details'] as Map<String, dynamic>?,
+    );
+  }
+}

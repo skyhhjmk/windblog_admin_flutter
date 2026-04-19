@@ -24,6 +24,11 @@ part 'pages/categories_page.dart';
 part 'pages/tags_page.dart';
 part 'pages/database_management_page.dart';
 
+part 'pages/comments_page.dart';
+
+part 'pages/queues_page.dart';
+
+part 'pages/system_monitor_page.dart';
 
 String _resolveMimeType(PlatformFile file) {
   final candidate = file.path ?? file.name;
