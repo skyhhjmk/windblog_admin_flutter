@@ -1531,6 +1531,11 @@ class AuditLogItem {
     this.performedById,
     this.performedByUsername,
     this.createdAt,
+    this.createdAtFormatted,
+    this.durationMs,
+    this.inputTokens,
+    this.outputTokens,
+    this.totalTokens,
   });
 
   final int id;
@@ -1542,6 +1547,11 @@ class AuditLogItem {
   final int? performedById;
   final String? performedByUsername;
   final DateTime? createdAt;
+  final String? createdAtFormatted;
+  final int? durationMs;
+  final int? inputTokens;
+  final int? outputTokens;
+  final int? totalTokens;
 
   factory AuditLogItem.fromMap(Map<String, dynamic> map) {
     return AuditLogItem(
@@ -1557,6 +1567,11 @@ class AuditLogItem {
       performedByUsername: map['performedByUsername']?.toString(),
       createdAt: map['createdAt'] != null ? DateTime.tryParse(
           map['createdAt'].toString()) : null,
+      createdAtFormatted: map['createdAtFormatted']?.toString(),
+      durationMs: toInt(map['durationMs']),
+      inputTokens: toInt(map['inputTokens']),
+      outputTokens: toInt(map['outputTokens']),
+      totalTokens: toInt(map['totalTokens']),
     );
   }
 }

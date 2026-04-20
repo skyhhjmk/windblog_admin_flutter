@@ -95,7 +95,17 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
                     _buildDetailRow('操作 (action)', item.action),
                     _buildDetailRow(
                         '操作人', item.performedByUsername ?? '系统/未知'),
-                    _buildDetailRow('时间', item.createdAt?.toString() ?? ''),
+                    _buildDetailRow('时间',
+                        item.createdAtFormatted ?? item.createdAt?.toString() ??
+                            ''),
+                    if (item.durationMs != null)
+                      _buildDetailRow('操作耗时', '${item.durationMs} 毫秒'),
+                    if (item.inputTokens != null)
+                      _buildDetailRow('输入 Tokens', '${item.inputTokens}'),
+                    if (item.outputTokens != null)
+                      _buildDetailRow('输出 Tokens', '${item.outputTokens}'),
+                    if (item.totalTokens != null)
+                      _buildDetailRow('总 Tokens', '${item.totalTokens}'),
                     const Divider(),
                     const Text('变更前 (oldValue):',
                         style: TextStyle(fontWeight: FontWeight.bold)),
@@ -230,7 +240,8 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
                             .entityId}'),
                         subtitle: Text(
                           '操作人: ${item.performedByUsername ??
-                              '系统'} | 时间: ${item.createdAt}',
+                              '系统'} | 时间: ${item.createdAtFormatted ??
+                              item.createdAt}',
                         ),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => _showDetail(item),
