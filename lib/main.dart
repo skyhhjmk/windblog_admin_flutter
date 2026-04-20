@@ -24,6 +24,8 @@ part 'pages/categories_page.dart';
 part 'pages/tags_page.dart';
 part 'pages/database_management_page.dart';
 
+part 'pages/audit_logs_page.dart';
+
 part 'pages/comments_page.dart';
 
 part 'pages/queues_page.dart';

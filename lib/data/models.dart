@@ -35,6 +35,7 @@ class PostItem {
     required this.visibility,
     required this.renderType,
     required this.editorType,
+    required this.aiSummaryStatus,
     required this.version,
     this.categoryId,
     this.tagIds = const [],
@@ -46,6 +47,7 @@ class PostItem {
   final int visibility;
   final int renderType;
   final int editorType;
+  final int aiSummaryStatus;
   final int version;
   final int? categoryId;
   final List<int> tagIds;
@@ -74,6 +76,7 @@ class PostItem {
       visibility: toInt(map['visibility']) ?? 0,
       renderType: toInt(map['renderType']) ?? 0,
       editorType: toInt(map['editorType']) ?? 0,
+      aiSummaryStatus: toInt(map['aiSummaryStatus']) ?? 0,
       version: toInt(map['version']) ?? 0,
       categoryId: toInt(map['categoryId']),
       tagIds: (asDynamicList(map['tagIds']) ?? [])
@@ -90,11 +93,13 @@ class PostDetail {
     required this.slug,
     required this.title,
     required this.summary,
+    required this.aiSummary,
     required this.contentMarkdown,
     required this.status,
     required this.visibility,
     required this.renderType,
     required this.editorType,
+    required this.aiSummaryStatus,
     required this.currentRevisionNumber,
     required this.version,
     this.categoryId,
@@ -108,11 +113,13 @@ class PostDetail {
   final String slug;
   final Map<String, String> title;
   final Map<String, String> summary;
+  final Map<String, String> aiSummary;
   final Map<String, String> contentMarkdown;
   final int status;
   final int visibility;
   final int renderType;
   final int editorType;
+  final int aiSummaryStatus;
   final int currentRevisionNumber;
   final int version;
   final int? categoryId;
@@ -127,11 +134,13 @@ class PostDetail {
       slug: map['slug']?.toString() ?? '',
       title: toStringMap(map['title']),
       summary: toStringMap(map['summary']),
+      aiSummary: toStringMap(map['aiSummary']),
       contentMarkdown: toStringMap(map['contentMarkdown']),
       status: toInt(map['status']) ?? 0,
       visibility: toInt(map['visibility']) ?? 0,
       renderType: toInt(map['renderType']) ?? 0,
       editorType: toInt(map['editorType']) ?? 0,
+      aiSummaryStatus: toInt(map['aiSummaryStatus']) ?? 0,
       currentRevisionNumber: toInt(map['currentRevisionNumber']) ?? 0,
       version: toInt(map['version']) ?? 0,
       categoryId: toInt(map['categoryId']),
@@ -192,6 +201,7 @@ class PostEditRequest {
     required this.visibility,
     required this.renderType,
     required this.editorType,
+    required this.aiSummaryStatus,
     required this.version,
     this.categoryId,
     this.tagIds = const [],
@@ -206,6 +216,7 @@ class PostEditRequest {
   final int visibility;
   final int renderType;
   final int editorType;
+  final int aiSummaryStatus;
   final int version;
   final int? categoryId;
   final List<int> tagIds;
@@ -221,6 +232,7 @@ class PostEditRequest {
       'visibility': visibility,
       'renderType': renderType,
       'editorType': editorType,
+      'aiSummaryStatus': aiSummaryStatus,
       'categoryId': categoryId,
       'tagIds': tagIds,
     };
@@ -237,6 +249,7 @@ class PostEditRequest {
       'visibility': visibility,
       'renderType': renderType,
       'editorType': editorType,
+      'aiSummaryStatus': aiSummaryStatus,
       'version': version,
       'categoryId': categoryId,
       'tagIds': tagIds,
@@ -254,6 +267,7 @@ class PostEditRequest {
       visibility: visibility,
       renderType: renderType,
       editorType: editorType,
+      aiSummaryStatus: aiSummaryStatus,
       version: version ?? this.version,
       categoryId: categoryId ?? this.categoryId,
       tagIds: tagIds ?? this.tagIds,
@@ -266,13 +280,17 @@ String postRenderTypeText(int renderType) {
     case 0:
       return 'Markdown';
     case 1:
-      return 'Active';
+      return 'HTML';
     case 2:
-      return 'Disabled';
+      return 'Vditor';
     case 3:
       return 'V Builder';
     case 4:
       return 'Gutenberg';
+    case 5:
+      return 'Quill';
+    case 6:
+      return 'Markdown+';
     default:
       return 'Unknown';
   }
@@ -1307,8 +1325,9 @@ class JvmInfo {
   static String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
+    if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
   }
 
@@ -1442,6 +1461,73 @@ class HealthComponent {
     return HealthComponent(
       status: map['status']?.toString() ?? 'UNKNOWN',
       details: map['details'] as Map<String, dynamic>?,
+    );
+  }
+}
+
+class AuditLogItem {
+  AuditLogItem({
+    required this.id,
+    required this.entityType,
+    required this.entityId,
+    required this.action,
+    required this.oldValue,
+    required this.newValue,
+    this.performedById,
+    this.performedByUsername,
+    this.createdAt,
+  });
+
+  final int id;
+  final String entityType;
+  final int entityId;
+  final String action;
+  final Map<String, dynamic> oldValue;
+  final Map<String, dynamic> newValue;
+  final int? performedById;
+  final String? performedByUsername;
+  final DateTime? createdAt;
+
+  factory AuditLogItem.fromMap(Map<String, dynamic> map) {
+    return AuditLogItem(
+      id: toInt(map['id']) ?? 0,
+      entityType: map['entityType']?.toString() ?? '',
+      entityId: toInt(map['entityId']) ?? 0,
+      action: map['action']?.toString() ?? '',
+      oldValue: (map['oldValue'] is Map) ? Map<String, dynamic>.from(
+          map['oldValue'] as Map) : {},
+      newValue: (map['newValue'] is Map) ? Map<String, dynamic>.from(
+          map['newValue'] as Map) : {},
+      performedById: toInt(map['performedById']),
+      performedByUsername: map['performedByUsername']?.toString(),
+      createdAt: map['createdAt'] != null ? DateTime.tryParse(
+          map['createdAt'].toString()) : null,
+    );
+  }
+}
+
+class PaginatedAuditLogResult {
+  PaginatedAuditLogResult({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.pageSize,
+  });
+
+  final List<AuditLogItem> items;
+  final int total;
+  final int page;
+  final int pageSize;
+
+  factory PaginatedAuditLogResult.fromMap(Map<String, dynamic> map) {
+    return PaginatedAuditLogResult(
+      items: (map['items'] as List?)
+          ?.map((e) => AuditLogItem.fromMap(e as Map<String, dynamic>))
+          .toList() ??
+          [],
+      total: toInt(map['total']) ?? 0,
+      page: toInt(map['page']) ?? 1,
+      pageSize: toInt(map['pageSize']) ?? 10,
     );
   }
 }

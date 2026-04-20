@@ -251,12 +251,49 @@ class _PostsPageState extends State<PostsPage> {
             color: Colors.grey.shade700,
           ),
         ),
-        subtitle: Text(
-          'slug: ${it.slug} | ${t(context, 'status_text')}: ${it.statusText}',
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade500,
-          ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'slug: ${it.slug} | ${t(context, 'status_text')}: ${it
+                  .statusText}',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade500,
+              ),
+            ),
+            if (it.aiSummaryStatus != 2)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 0.5),
+                      decoration: BoxDecoration(
+                        color: it.aiSummaryStatus == 0
+                            ? Colors.blue.shade50
+                            : Colors.green.shade50,
+                        border: Border.all(
+                            color: it.aiSummaryStatus == 0 ? Colors.blue
+                                .shade200 : Colors.green.shade200),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Text(
+                        it.aiSummaryStatus == 0 ? 'AI: 自动' : 'AI: 手动/锁定',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: it.aiSummaryStatus == 0
+                              ? Colors.blue.shade700
+                              : Colors.green.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
         trailing: Wrap(
           spacing: 4,
@@ -655,6 +692,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   int visibility = 0;
   int renderType = 0;
   int editorType = 0;
+  int aiSummaryStatus = 0;
+  Map<String, String> aiSummary = {};
 
   int? categoryId;
   List<int> tagIds = [];
@@ -674,6 +713,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   int? _initialVisibility;
   int? _initialRenderType;
   int? _initialEditorType;
+  int? _initialAiSummaryStatus;
   int? _initialCategoryId;
   List<int>? _initialTagIds;
 
@@ -712,6 +752,10 @@ class _PostEditorPageState extends State<PostEditorPage>
     visibility = d?.visibility ?? 0;
     renderType = d?.renderType ?? 0;
     editorType = d?.editorType ?? 0;
+    aiSummaryStatus = d?.aiSummaryStatus ?? 0;
+    // 这里暂时不从 detail 里取 aiSummary，因为 detail 里没有聚合所有语言的，但在编辑器里我们需要能够编辑
+    // 实际上我们在 PostDetail 里有 aiSummary 字段（虽然我刚才没在 viewed_file 里看到，但我查看 Post.java 时看到了）
+    // 让我们确认一下 PostDetail 是否有 aiSummary
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
 
@@ -723,10 +767,11 @@ class _PostEditorPageState extends State<PostEditorPage>
     _initialVisibility = d?.visibility;
     _initialRenderType = d?.renderType;
     _initialEditorType = d?.editorType;
+    _initialAiSummaryStatus = d?.aiSummaryStatus;
     _initialCategoryId = d?.categoryId;
     _initialTagIds = d?.tagIds != null ? List<int>.from(d!.tagIds) : null;
 
-    _sidebarTabController = TabController(length: 2, vsync: this);
+    _sidebarTabController = TabController(length: 3, vsync: this);
 
     _loadCategoriesAndTags();
     if (_currentDetail != null) {
@@ -788,6 +833,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         visibility != _initialVisibility ||
         renderType != _initialRenderType ||
         editorType != _initialEditorType ||
+        aiSummaryStatus != _initialAiSummaryStatus ||
         categoryId != _initialCategoryId ||
         !_listEquals(tagIds, _initialTagIds);
   }
@@ -989,6 +1035,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         visibility: visibility,
         renderType: renderType,
         editorType: editorType,
+        aiSummaryStatus: aiSummaryStatus,
         version: _currentDetail?.version ?? 0,
         categoryId: categoryId,
         tagIds: tagIds,
@@ -1079,6 +1126,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           _initialVisibility = newDetail.visibility;
           _initialRenderType = newDetail.renderType;
           _initialEditorType = newDetail.editorType;
+          _initialAiSummaryStatus = newDetail.aiSummaryStatus;
           _initialCategoryId = newDetail.categoryId;
           _initialTagIds = List<int>.from(newDetail.tagIds);
 
@@ -1546,6 +1594,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           tabs: const [
             Tab(text: '元数据'),
             Tab(text: '版本修订'),
+            Tab(text: 'AI 摘要'),
           ],
         ),
         Expanded(
@@ -1554,10 +1603,139 @@ class _PostEditorPageState extends State<PostEditorPage>
             children: [
               _buildMetadataTab(),
               _buildRevisionsTab(),
+              _buildAiSummaryTab(),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAiSummaryTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'AI 摘要设置',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(
+                value: 0,
+                label: Text('自动'),
+                icon: Icon(Icons.auto_awesome, size: 16),
+              ),
+              ButtonSegment(
+                value: 1,
+                label: Text('锁定'),
+                icon: Icon(Icons.lock_outline, size: 16),
+              ),
+              ButtonSegment(
+                value: 2,
+                label: Text('禁用'),
+                icon: Icon(Icons.block, size: 16),
+              ),
+            ],
+            selected: {aiSummaryStatus},
+            onSelectionChanged: (Set<int> newSelection) {
+              setState(() {
+                aiSummaryStatus = newSelection.first;
+                _markDirty();
+              });
+            },
+          ),
+          const SizedBox(height: 24),
+          if (aiSummaryStatus != 2) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '摘要内容 (ZH-CN)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    if (_currentDetail == null) return;
+                    try {
+                      await widget.api.triggerAiSummary(_currentDetail!.id);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text(
+                              '已成功触发 AI 摘要任务'), backgroundColor: Colors
+                              .green),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('触发失败: $e'),
+                              backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.refresh, size: 14),
+                  label: const Text('触发生成', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_currentDetail?.aiSummary['zh-cn'] != null &&
+                _currentDetail!.aiSummary['zh-cn']!.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  border: Border.all(color: Colors.blue.shade100),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _currentDetail!.aiSummary['zh-cn']!,
+                  style: const TextStyle(
+                      fontSize: 13, height: 1.5, fontStyle: FontStyle.italic),
+                ),
+              )
+            else
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('暂无摘要内容',
+                      style: TextStyle(color: Colors.grey, fontSize: 13)),
+                ),
+              ),
+            const SizedBox(height: 16),
+            const Text(
+              '说明：自动模式下更新文章会重新生成摘要。手动锁定后将保留已有内容。禁用后在前台不显示摘要板块。',
+              style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.5),
+            ),
+          ] else
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  children: [
+                    Icon(Icons.visibility_off_outlined, size: 48,
+                        color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text('AI 摘要已禁用', style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

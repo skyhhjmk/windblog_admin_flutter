@@ -26,6 +26,7 @@ class _HomePageState extends State<HomePage> {
       body: Row(
         children: [
           NavigationRail(
+            extended: true,
             selectedIndex: tab,
             onDestinationSelected: (v) => setState(() => tab = v),
             destinations: [
@@ -89,6 +90,11 @@ class _HomePageState extends State<HomePage> {
                 selectedIcon: Icon(Icons.monitor_heart),
                 label: Text('监控'),
               ),
+              const NavigationRailDestination(
+                icon: Icon(Icons.history_outlined),
+                selectedIcon: Icon(Icons.history),
+                label: Text('系统日志'),
+              ),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -116,7 +122,8 @@ class _HomePageState extends State<HomePage> {
                           8 => t(context, 'database'),
                           9 => '评论管理',
                           10 => '队列监控',
-                          _ => '系统监控',
+                          11 => '系统监控',
+                          _ => '系统日志',
                         },
                       ),
                       const Spacer(),
@@ -164,7 +171,8 @@ class _HomePageState extends State<HomePage> {
           DatabaseManagementPage(api: widget.api, onAuthError: widget.onLogout),
       9 => CommentsPage(api: widget.api, onAuthError: widget.onLogout),
       10 => QueuesPage(api: widget.api, onAuthError: widget.onLogout),
-      _ => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
+      11 => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
+      _ => AuditLogsPage(api: widget.api, onAuthError: widget.onLogout),
     };
   }
 }

@@ -98,6 +98,9 @@ class AdminApiClient {
 
   Future<void> deletePost(int id) async => _delete('/api/admin/posts/$id');
 
+  Future<void> triggerAiSummary(int id) async =>
+      _post('/api/admin/posts/$id/ai-summary/trigger', body: const {});
+
   Future<List<PostRevisionItem>> listPostRevisions(int postId) async {
     final res = await _get('/api/admin/posts/$postId/revisions');
     final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
@@ -374,6 +377,24 @@ class AdminApiClient {
   Future<SystemMonitorInfo> getSystemMonitor() async {
     final res = await _get('/api/admin/system/monitor');
     return SystemMonitorInfo.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  // ==================== 审计日志 API ====================
+
+  Future<PaginatedAuditLogResult> listAuditLogs({
+    int page = 1,
+    int pageSize = 20,
+    String? entityType,
+    String? action,
+  }) async {
+    final query = {
+      'page': '$page',
+      'pageSize': '$pageSize',
+      if (entityType != null && entityType.isNotEmpty) 'entityType': entityType,
+      if (action != null && action.isNotEmpty) 'action': action,
+    };
+    final res = await _get('/api/admin/audit-logs', query: query);
+    return PaginatedAuditLogResult.fromMap(_map(jsonDecode(res.body)));
   }
 
   Future<PostListResult> listPostsByCategory({
