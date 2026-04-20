@@ -366,7 +366,7 @@ class _AiProvidersPageState extends State<AiProvidersPage> {
       case 'OPENAI':
         return 'https://api.openai.com/v1';
       case 'CHATGLM':
-        return 'https://open.bigmodel.cn/api/paas/v4';
+        return '留空默认使用官方接口，私有部署可填写';
       case 'OLLAMA':
         return 'http://127.0.0.1:11434/v1';
       default:
@@ -379,7 +379,7 @@ class _AiProvidersPageState extends State<AiProvidersPage> {
       case 'OPENAI':
         return 'gpt-4o-mini';
       case 'CHATGLM':
-        return 'glm-4-flash';
+        return 'glm-4-flash-250414';
       case 'OLLAMA':
         return 'qwen2.5:7b';
       default:

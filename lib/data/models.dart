@@ -1280,15 +1280,20 @@ class SystemMonitorInfo {
 
   factory SystemMonitorInfo.fromMap(Map<String, dynamic> map) {
     return SystemMonitorInfo(
-      jvm: JvmInfo.fromMap(_map(map['jvm'])),
-      system: SystemInfo.fromMap(_map(map['system'])),
-      application: ApplicationInfo.fromMap(_map(map['application'])),
-      health: HealthInfo.fromMap(_map(map['health'])),
+      jvm: JvmInfo.fromMap(_toMap(map['jvm'])),
+      system: SystemInfo.fromMap(_toMap(map['system'])),
+      application: ApplicationInfo.fromMap(_toMap(map['application'])),
+      health: HealthInfo.fromMap(_toMap(map['health'])),
     );
   }
 
-  static Map<String, dynamic> _map(Map<String, dynamic>? map) {
-    return map ?? {};
+  // 安全地把任意类型转为 Map<String, dynamic>，防止类型转换崩溃
+  static Map<String, dynamic> _toMap(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((k, v) => MapEntry('$k', v));
+    }
+    return {};
   }
 }
 
@@ -1434,10 +1439,15 @@ class HealthInfo {
 
   factory HealthInfo.fromMap(Map<String, dynamic> map) {
     final comps = <String, HealthComponent>{};
-    final raw = map['components'] as Map<String, dynamic>? ?? {};
-    for (final entry in raw.entries) {
-      comps[entry.key] =
-          HealthComponent.fromMap(entry.value as Map<String, dynamic>);
+    final rawComponents = map['components'];
+    if (rawComponents is Map) {
+      for (final entry in rawComponents.entries) {
+        final componentValue = entry.value;
+        if (componentValue is Map) {
+          final componentMap = componentValue.map((k, v) => MapEntry('$k', v));
+          comps[entry.key.toString()] = HealthComponent.fromMap(componentMap);
+        }
+      }
     }
     return HealthInfo(
       status: map['status']?.toString() ?? 'UNKNOWN',
