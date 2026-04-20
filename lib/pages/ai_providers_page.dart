@@ -28,6 +28,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
   String _testReasoning = '';
   String _testOutput = '';
   bool _testing = false;
+  bool _testStream = true;
 
   @override
   void initState() {
@@ -57,9 +58,13 @@ class _AiProvidersPageState extends State<AiProvidersPage>
           if (_selectedTestConfig == null && _configs.isNotEmpty) {
             _selectedTestConfig = _configs.first;
           } else if (_selectedTestConfig != null) {
-            final exists = _configs.any((c) => c.id == _selectedTestConfig!.id);
-            if (!exists)
+            final idx = _configs.indexWhere((c) =>
+            c.id == _selectedTestConfig!.id);
+            if (idx != -1) {
+              _selectedTestConfig = _configs[idx];
+            } else {
               _selectedTestConfig = _configs.isNotEmpty ? _configs.first : null;
+            }
           }
         });
       }
@@ -262,6 +267,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         _selectedTestConfig!.id,
         prompt: _testPromptCtrl.text.trim(),
         systemPrompt: _systemPromptCtrl.text.trim(),
+        stream: _testStream,
       );
 
       await for (final line in stream) {
@@ -279,7 +285,11 @@ class _AiProvidersPageState extends State<AiProvidersPage>
             }
           });
         } catch (e) {
-          // Ignore parse errors from partial chunking just in case
+          if (mounted) {
+            setState(() {
+              _testOutput += '\n[数据解析失败]: $e\n原始数据: $line';
+            });
+          }
         }
       }
     } catch (e) {
@@ -424,6 +434,14 @@ class _AiProvidersPageState extends State<AiProvidersPage>
               labelText: 'User Prompt (输入提示词)',
               border: OutlineInputBorder(),
             ),
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            title: const Text('流式输出 (Streaming)'),
+            subtitle: const Text(
+                '开启后实时显示生成内容，关闭则等待完成后一次性显示'),
+            value: _testStream,
+            onChanged: (val) => setState(() => _testStream = val),
           ),
           const SizedBox(height: 12),
           Align(

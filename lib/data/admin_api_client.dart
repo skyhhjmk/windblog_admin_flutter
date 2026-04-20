@@ -70,7 +70,7 @@ class AdminApiClient {
   }
 
   Stream<String> testAiStream(int id,
-      {required String prompt, String? systemPrompt}) async* {
+      {required String prompt, String? systemPrompt, bool stream = true}) async* {
     if (token == null || token!.isEmpty) throw UnauthorizedException(
         'Session expired');
     final uri = Uri.parse('$baseUrl/api/admin/ai/test/$id');
@@ -80,6 +80,7 @@ class AdminApiClient {
     request.body = jsonEncode({
       'prompt': prompt,
       'systemPrompt': systemPrompt,
+      'stream': stream,
     });
     final client = http.Client();
     final response = await client.send(request);
@@ -90,11 +91,13 @@ class AdminApiClient {
     }
     await for (final line in response.stream.transform(utf8.decoder).transform(
         const LineSplitter())) {
-      if (line.startsWith('data: ')) {
-        yield line.substring(6).trim();
-      } else if (line.isNotEmpty && !line.startsWith(':')) {
-        // Handle cases where the data might not have the prefix if it's a simple stream
-        yield line.trim();
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || trimmed.startsWith(':')) continue;
+
+      if (trimmed.startsWith('data:')) {
+        yield trimmed.substring(5).trim();
+      } else {
+        yield trimmed;
       }
     }
     client.close();
