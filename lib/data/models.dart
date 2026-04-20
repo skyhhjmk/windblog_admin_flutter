@@ -304,45 +304,66 @@ Map<String, String> toStringMap(Object? value) {
 
 class AiProviderConfig {
   AiProviderConfig({
+    required this.id,
+    required this.type,
+    required this.name,
     required this.provider,
     required this.enabled,
     this.endpoint,
     this.model,
     this.apiKey,
+    this.config,
     this.updatedAt,
   });
 
+  final int id;
+  final String type;
+  final String name;
   final String provider;
   final bool enabled;
   final String? endpoint;
   final String? model;
   final String? apiKey;
+  final String? config;
   final DateTime? updatedAt;
 
   AiProviderConfig copyWith({
+    int? id,
+    String? type,
+    String? name,
+    String? provider,
     bool? enabled,
     String? endpoint,
     String? model,
     String? apiKey,
+    String? config,
     DateTime? updatedAt,
   }) {
     return AiProviderConfig(
-      provider: provider,
+      id: id ?? this.id,
+      type: type ?? this.type,
+      name: name ?? this.name,
+      provider: provider ?? this.provider,
       enabled: enabled ?? this.enabled,
       endpoint: endpoint ?? this.endpoint,
       model: model ?? this.model,
       apiKey: apiKey ?? this.apiKey,
+      config: config ?? this.config,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   factory AiProviderConfig.fromMap(Map<String, dynamic> map) {
     return AiProviderConfig(
+      id: toInt(map['id']) ?? 0,
+      type: map['type']?.toString() ?? 'PROVIDER',
+      name: map['name']?.toString() ?? '',
       provider: map['provider']?.toString() ?? '',
       enabled: toBool(map['enabled']) ?? false,
       endpoint: map['endpoint']?.toString(),
       model: map['model']?.toString(),
       apiKey: map['apiKey']?.toString(),
+      config: map['config']?.toString(),
       updatedAt: map['updatedAt'] != null
           ? DateTime.tryParse(map['updatedAt'].toString())
           : null,
@@ -352,19 +373,30 @@ class AiProviderConfig {
 
 class AiProviderConfigUpdateRequest {
   AiProviderConfigUpdateRequest({
+    required this.type,
+    required this.name,
+    required this.provider,
     required this.enabled,
     this.endpoint,
     this.model,
     this.apiKey,
+    this.config,
   });
 
+  final String type;
+  final String name;
+  final String provider;
   final bool enabled;
   final String? endpoint;
   final String? model;
   final String? apiKey;
+  final String? config;
 
   Map<String, dynamic> toJson() {
     final payload = <String, dynamic>{
+      'type': type,
+      'name': name,
+      'provider': provider,
       'enabled': enabled,
     };
     if (endpoint != null) {
@@ -375,6 +407,9 @@ class AiProviderConfigUpdateRequest {
     }
     if (apiKey != null) {
       payload['apiKey'] = apiKey;
+    }
+    if (config != null) {
+      payload['config'] = config;
     }
     return payload;
   }

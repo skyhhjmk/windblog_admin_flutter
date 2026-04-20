@@ -14,431 +14,473 @@ class AiProvidersPage extends StatefulWidget {
   State<AiProvidersPage> createState() => _AiProvidersPageState();
 }
 
-class _AiProvidersPageState extends State<AiProvidersPage> {
-  final List<_ProviderForm> forms = [];
-  bool loading = true;
-  String? error;
+class _AiProvidersPageState extends State<AiProvidersPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  bool _loading = true;
+  String? _error;
+  List<AiProviderConfig> _configs = [];
 
-  // 已知的三个提供商，确保没有配置时也能显示
-  static const List<String> knownProviders = ['OPENAI', 'CHATGLM', 'OLLAMA'];
+  // 测试相关
+  AiProviderConfig? _selectedTestConfig;
+  final _systemPromptCtrl = TextEditingController();
+  final _testPromptCtrl = TextEditingController();
+  String _testReasoning = '';
+  String _testOutput = '';
+  bool _testing = false;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _load();
   }
 
   @override
   void dispose() {
-    for (final form in forms) {
-      form.dispose();
-    }
+    _tabController.dispose();
+    _systemPromptCtrl.dispose();
+    _testPromptCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     setState(() {
-      loading = true;
-      error = null;
+      _loading = true;
+      _error = null;
     });
     try {
-      final configs = await widget.api.listAiProviders();
-
-      // 确保三个提供商都显示，即使数据库里没有现有记录
-      final configsByProvider = <String, AiProviderConfig>{};
-      for (final config in configs) {
-        configsByProvider[config.provider.toUpperCase()] = config;
+      final list = await widget.api.listAiProviders();
+      if (mounted) {
+        setState(() {
+          _configs = list;
+          if (_selectedTestConfig == null && _configs.isNotEmpty) {
+            _selectedTestConfig = _configs.first;
+          } else if (_selectedTestConfig != null) {
+            final exists = _configs.any((c) => c.id == _selectedTestConfig!.id);
+            if (!exists)
+              _selectedTestConfig = _configs.isNotEmpty ? _configs.first : null;
+          }
+        });
       }
-
-      final allForms = <_ProviderForm>[];
-      for (final providerName in knownProviders) {
-        if (configsByProvider.containsKey(providerName)) {
-          allForms.add(
-              _ProviderForm.fromConfig(configsByProvider[providerName]!));
-        } else {
-          // 提供商在数据库中不存在，创建一个空的表单
-          allForms.add(_ProviderForm.empty(providerName));
-        }
-      }
-
-      setState(() {
-        for (final form in forms) {
-          form.dispose();
-        }
-        forms
-          ..clear()
-          ..addAll(allForms);
-      });
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        error = '$e';
-      });
+      if (mounted) setState(() => _error = '$e');
     } finally {
-      if (mounted) {
-        setState(() {
-          loading = false;
-        });
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _save(_ProviderForm form) async {
-    if (form.saving) return;
-    if (!mounted) return;
-    setState(() => form.saving = true);
+  Future<void> _saveConfig(int? id, AiProviderConfigUpdateRequest req) async {
     try {
-      final updated = await widget.api.updateAiProvider(
-        form.provider,
-        AiProviderConfigUpdateRequest(
-          enabled: form.enabled,
-          endpoint: form.endpointCtrl.text.trim(),
-          model: form.modelCtrl.text.trim(),
-          apiKey: form.apiKeyCtrl.text.trim(),
-        ),
-      );
-      if (!mounted) return;
-      setState(() {
-        form.enabled = updated.enabled;
-        form.endpointCtrl.text = updated.endpoint ?? '';
-        form.modelCtrl.text = updated.model ?? '';
-        // API Key 保存后不回填，避免明文展示
-        form.updatedAt = updated.updatedAt;
-      });
+      if (id == null || id == 0) {
+        await widget.api.createAiProvider(req);
+      } else {
+        await widget.api.updateAiProvider(id, req);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('保存成功'), backgroundColor: Colors.green),
       );
+      _load();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败：$e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('失败：$e'), backgroundColor: Colors.red),
       );
-    } finally {
-      if (mounted) {
-        setState(() => form.saving = false);
+    }
+  }
+
+  Future<void> _deleteConfig(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('删除确认'),
+            content: const Text('确定要删除这个配置吗？'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消')),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('删除'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed == true) {
+      try {
+        await widget.api.deleteAiProvider(id);
+        _load();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败：$e'), backgroundColor: Colors.red),
+        );
       }
+    }
+  }
+
+  void _showConfigDialog(AiProviderConfig? existing, String type) {
+    var name = existing?.name ?? '';
+    var provider = existing?.provider ?? '';
+    var endpoint = existing?.endpoint ?? '';
+    var model = existing?.model ?? '';
+    var apiKey = existing?.apiKey ?? '';
+    var configText = existing?.config ?? '';
+    var enabled = existing?.enabled ?? true;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(existing == null ? '添加${type == "PROVIDER"
+                  ? "提供商"
+                  : "轮询组"}' : '编辑配置'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                          labelText: '名称 (标识这个配置)'),
+                      controller: TextEditingController(text: name)
+                        ..selection = TextSelection.collapsed(offset: name
+                            .length),
+                      onChanged: (v) => name = v,
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      title: const Text('是否启用'),
+                      value: enabled,
+                      onChanged: (v) => setState(() => enabled = v),
+                    ),
+                    if (type == 'PROVIDER') ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: '提供商 (供应商类型)',
+                          hintText: '例如: OPENAI, CHATGLM (OpenAI V4), OLLAMA',
+                        ),
+                        controller: TextEditingController(text: provider)
+                          ..selection = TextSelection.collapsed(
+                              offset: provider.length),
+                        onChanged: (v) => provider = v,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'API Endpoint (接口地址)',
+                          hintText: 'ChatGLM: https://open.bigmodel.cn/api/paas/v4/',
+                        ),
+                        controller: TextEditingController(text: endpoint)
+                          ..selection = TextSelection.collapsed(
+                              offset: endpoint.length),
+                        onChanged: (v) => endpoint = v,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: const InputDecoration(
+                            labelText: '模型名称'),
+                        controller: TextEditingController(text: model)
+                          ..selection = TextSelection.collapsed(
+                              offset: model.length),
+                        onChanged: (v) => model = v,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: const InputDecoration(
+                            labelText: 'API Key (留空不修改)'),
+                        controller: TextEditingController(text: ''),
+                        onChanged: (v) => apiKey = v,
+                      ),
+                    ],
+                    if (type == 'POLLING_GROUP') ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: const InputDecoration(
+                            labelText: 'JSON 配置 (algorithm, nodes)',
+                            hintText: '{"algorithm":"WEIGHTED_ROUND_ROBIN","nodes":[{"id":1,"weight":5}]}'),
+                        controller: TextEditingController(text: configText)
+                          ..selection = TextSelection.collapsed(
+                              offset: configText.length),
+                        onChanged: (v) => configText = v,
+                        maxLines: 4,
+                      ),
+                    ]
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context),
+                    child: const Text('取消')),
+                FilledButton(
+                  onPressed: () {
+                    final req = AiProviderConfigUpdateRequest(
+                      type: type,
+                      name: name,
+                      provider: provider,
+                      enabled: enabled,
+                      endpoint: endpoint,
+                      model: model,
+                      apiKey: apiKey,
+                      config: configText,
+                    );
+                    _saveConfig(existing?.id, req);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _runTest() async {
+    if (_selectedTestConfig == null) return;
+    if (_testPromptCtrl.text
+        .trim()
+        .isEmpty) return;
+
+    setState(() {
+      _testing = true;
+      _testReasoning = '';
+      _testOutput = '';
+    });
+
+    try {
+      final stream = widget.api.testAiStream(
+        _selectedTestConfig!.id,
+        prompt: _testPromptCtrl.text.trim(),
+        systemPrompt: _systemPromptCtrl.text.trim(),
+      );
+
+      await for (final line in stream) {
+        if (!mounted) break;
+        try {
+          final decoded = jsonDecode(line);
+          final String type = decoded['type'] ?? 'content';
+          final String content = decoded['content'] ?? '';
+
+          setState(() {
+            if (type == 'reasoning') {
+              _testReasoning += content;
+            } else {
+              _testOutput += content;
+            }
+          });
+        } catch (e) {
+          // Ignore parse errors from partial chunking just in case
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _testOutput += '\n\n[测试出错]: $e';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _testing = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
-            const SizedBox(height: 16),
-            Text('加载失败：$error'),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: _load, child: const Text('重试')),
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: '提供商配置'),
+            Tab(text: '轮询组配置'),
+            Tab(text: '接口测试'),
           ],
         ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: forms.length,
-      itemBuilder: (context, index) {
-        final form = forms[index];
-        return _buildProviderCard(form);
-      },
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(child: Text('错误: $_error'))
+              : TabBarView(
+            controller: _tabController,
+            children: [
+              _buildConfigsList('PROVIDER'),
+              _buildConfigsList('POLLING_GROUP'),
+              _buildTestTab(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildProviderCard(_ProviderForm form) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _buildProviderIcon(form.provider),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _providerDisplayName(form.provider),
-                      style: Theme
-                          .of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      _providerDescription(form.provider),
-                      style: Theme
-                          .of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
-                      children: [
-                        Text(form.enabled ? '已启用' : '已禁用',
-                          style: TextStyle(
-                            color: form.enabled ? Colors.green : Colors.grey,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Switch(
-                          value: form.enabled,
-                          onChanged: (value) =>
-                              setState(() => form.enabled = value),
-                        ),
-                      ],
-                    ),
-                    if (form.updatedAt != null)
-                      Text(
-                        '最后更新：${_formatDateTime(form.updatedAt!)}',
-                        style: Theme
-                            .of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            TextField(
-              controller: form.endpointCtrl,
-              decoration: InputDecoration(
-                labelText: 'API Endpoint（接口地址）',
-                border: const OutlineInputBorder(),
-                hintText: _endpointHint(form.provider),
-                prefixIcon: const Icon(Icons.link),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: form.modelCtrl,
-              decoration: InputDecoration(
-                labelText: '模型名称',
-                border: const OutlineInputBorder(),
-                hintText: _modelHint(form.provider),
-                prefixIcon: const Icon(Icons.smart_toy_outlined),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: form.apiKeyCtrl,
-              obscureText: !form.showApiKey,
-              decoration: InputDecoration(
-                labelText: 'API Key',
-                border: const OutlineInputBorder(),
-                hintText: '输入 API Key（留空则不更改）',
-                prefixIcon: const Icon(Icons.vpn_key_outlined),
-                suffixIcon: IconButton(
-                  icon: Icon(form.showApiKey ? Icons.visibility_off : Icons
-                      .visibility),
-                  onPressed: () =>
-                      setState(() => form.showApiKey = !form.showApiKey),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FilledButton.tonal(
-                  onPressed: form.saving ? null : () => _save(form),
-                  child: Row(
+  Widget _buildConfigsList(String type) {
+    final list = _configs.where((c) => c.type == type).toList();
+    return Stack(
+      children: [
+        if (list.isEmpty)
+          const Center(child: Text('没有数据'))
+        else
+          ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: list.length,
+            itemBuilder: (context, index) {
+              final config = list[index];
+              return Card(
+                elevation: 2,
+                margin: const EdgeInsets.only(bottom: 16),
+                child: ListTile(
+                  title: Text('${config.name} (ID: ${config.id})',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(
+                      '状态: ${config.enabled ? '启用' : '禁用'}\n'
+                          '${type == 'PROVIDER'
+                          ? '提供商: ${config.provider}\n端点: ${config
+                          .endpoint ?? '默认'}\n模型: ${config.model}'
+                          : '组配置 JSON: ${config.config}'}'
+                  ),
+                  isThreeLine: true,
+                  trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (form.saving) ...[
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        const SizedBox(width: 8),
-                      ] else
-                        const Icon(Icons.save_outlined, size: 16),
-                      const SizedBox(width: 6),
-                      Text(form.saving ? '保存中...' : '保存设置'),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () => _showConfigDialog(config, type),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteConfig(config.id),
+                      ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ],
+              );
+            },
+          ),
+        Positioned(
+          bottom: 24,
+          right: 24,
+          child: FloatingActionButton(
+            heroTag: 'fab_$type',
+            onPressed: () => _showConfigDialog(null, type),
+            child: const Icon(Icons.add),
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildTestTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Text('选择配置测试: ',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+              if (_configs.isEmpty)
+                const Text('没有配置')
+              else
+                DropdownButton<AiProviderConfig>(
+                  value: _selectedTestConfig,
+                  items: _configs.map((c) =>
+                      DropdownMenuItem(
+                        value: c,
+                        child: Text('${c.name} (${c.type == "PROVIDER"
+                            ? c.provider
+                            : "POLLING"})'),
+                      )).toList(),
+                  onChanged: (val) {
+                    setState(() => _selectedTestConfig = val);
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _systemPromptCtrl,
+            decoration: const InputDecoration(
+              labelText: 'System Prompt (系统提示词可选)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _testPromptCtrl,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'User Prompt (输入提示词)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: _testing ? null : _runTest,
+              icon: _testing ? const SizedBox(width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2)) : const Icon(
+                  Icons.send),
+              label: Text(_testing ? '测试中...' : '发送请求'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+              '响应结果:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey.shade50,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_testReasoning.isNotEmpty) ...[
+                      Text('深度思考:', style: TextStyle(
+                          fontWeight: FontWeight.bold, color: Colors.indigo
+                          .shade400)),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.only(top: 4, bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          border: Border(left: BorderSide(
+                              color: Colors.indigo.shade200, width: 4)),
+                        ),
+                        child: SelectableText(
+                            _testReasoning, style: const TextStyle(
+                            color: Colors.black87)),
+                      ),
+                    ],
+                    SelectableText(_testOutput.isEmpty && !_testing
+                        ? '等待请求结果...'
+                        : _testOutput),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
-  }
-
-  Widget _buildProviderIcon(String provider) {
-    final color = _providerColor(provider);
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Icon(_providerIcon(provider), color: color, size: 22),
-    );
-  }
-
-  Color _providerColor(String provider) {
-    switch (provider.toUpperCase()) {
-      case 'OPENAI':
-        return const Color(0xFF10A37F);
-      case 'CHATGLM':
-        return const Color(0xFF5B5EA6);
-      case 'OLLAMA':
-        return const Color(0xFFE07B39);
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _providerIcon(String provider) {
-    switch (provider.toUpperCase()) {
-      case 'OPENAI':
-        return Icons.auto_awesome;
-      case 'CHATGLM':
-        return Icons.chat_bubble_outline;
-      case 'OLLAMA':
-        return Icons.computer;
-      default:
-        return Icons.smart_toy;
-    }
-  }
-
-  String _providerDisplayName(String provider) {
-    switch (provider.toUpperCase()) {
-      case 'OPENAI':
-        return 'OpenAI 兼容接口';
-      case 'CHATGLM':
-        return 'ChatGLM（智谱AI）';
-      case 'OLLAMA':
-        return 'Ollama（本地模型）';
-      default:
-        return provider;
-    }
-  }
-
-  String _providerDescription(String provider) {
-    switch (provider.toUpperCase()) {
-      case 'OPENAI':
-        return '支持 OpenAI / Azure / 通义千问等兼容接口';
-      case 'CHATGLM':
-        return '智谱 AI 官方 GLM 系列模型';
-      case 'OLLAMA':
-        return '本地部署的开源模型（如 llama、qwen）';
-      default:
-        return '';
-    }
-  }
-
-  String _endpointHint(String provider) {
-    switch (provider.toUpperCase()) {
-      case 'OPENAI':
-        return 'https://api.openai.com/v1';
-      case 'CHATGLM':
-        return '留空默认使用官方接口，私有部署可填写';
-      case 'OLLAMA':
-        return 'http://127.0.0.1:11434/v1';
-      default:
-        return 'https://...';
-    }
-  }
-
-  String _modelHint(String provider) {
-    switch (provider.toUpperCase()) {
-      case 'OPENAI':
-        return 'gpt-4o-mini';
-      case 'CHATGLM':
-        return 'glm-4-flash-250414';
-      case 'OLLAMA':
-        return 'qwen2.5:7b';
-      default:
-        return '';
-    }
-  }
-
-  String _formatDateTime(DateTime dt) {
-    final local = dt.toLocal();
-    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day
-        .toString().padLeft(2, '0')} '
-        '${local.hour.toString().padLeft(2, '0')}:${local.minute
-        .toString()
-        .padLeft(2, '0')}';
-  }
-}
-
-class _ProviderForm {
-  _ProviderForm({
-    required this.provider,
-    required this.endpointCtrl,
-    required this.modelCtrl,
-    required this.apiKeyCtrl,
-    this.enabled = false,
-    this.updatedAt,
-  });
-
-  factory _ProviderForm.fromConfig(AiProviderConfig config) {
-    return _ProviderForm(
-      provider: config.provider,
-      endpointCtrl: TextEditingController(text: config.endpoint ?? ''),
-      modelCtrl: TextEditingController(text: config.model ?? ''),
-      apiKeyCtrl: TextEditingController(text: ''),
-      enabled: config.enabled,
-      updatedAt: config.updatedAt,
-    );
-  }
-
-  factory _ProviderForm.empty(String providerName) {
-    return _ProviderForm(
-      provider: providerName,
-      endpointCtrl: TextEditingController(),
-      modelCtrl: TextEditingController(),
-      apiKeyCtrl: TextEditingController(),
-    );
-  }
-
-  final String provider;
-  final TextEditingController endpointCtrl;
-  final TextEditingController modelCtrl;
-  final TextEditingController apiKeyCtrl;
-  bool enabled;
-  bool saving = false;
-  bool showApiKey = false;
-  DateTime? updatedAt;
-
-  void dispose() {
-    endpointCtrl.dispose();
-    modelCtrl.dispose();
-    apiKeyCtrl.dispose();
   }
 }

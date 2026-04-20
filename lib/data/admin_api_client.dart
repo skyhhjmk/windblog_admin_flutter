@@ -51,12 +51,53 @@ class AdminApiClient {
     return list.map((e) => AiProviderConfig.fromMap(_map(e))).toList();
   }
 
-  Future<AiProviderConfig> updateAiProvider(
-    String provider,
+  Future<AiProviderConfig> createAiProvider(
+      AiProviderConfigUpdateRequest request,) async {
+    final res = await _post('/api/admin/ai/providers', body: request.toJson());
+    return AiProviderConfig.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<AiProviderConfig> updateAiProvider(int id,
     AiProviderConfigUpdateRequest request,
   ) async {
-    final res = await _put('/api/admin/ai/providers/$provider', body: request.toJson());
+    final res = await _put(
+        '/api/admin/ai/providers/$id', body: request.toJson());
     return AiProviderConfig.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> deleteAiProvider(int id) async {
+    await _delete('/api/admin/ai/providers/$id');
+  }
+
+  Stream<String> testAiStream(int id,
+      {required String prompt, String? systemPrompt}) async* {
+    if (token == null || token!.isEmpty) throw UnauthorizedException(
+        'Session expired');
+    final uri = Uri.parse('$baseUrl/api/admin/ai/test/$id');
+    final request = http.Request('POST', uri);
+    request.headers['Authorization'] = 'Bearer $token';
+    request.headers['Content-Type'] = 'application/json';
+    request.body = jsonEncode({
+      'prompt': prompt,
+      'systemPrompt': systemPrompt,
+    });
+    final client = http.Client();
+    final response = await client.send(request);
+    if (response.statusCode >= 400) {
+      final body = await response.stream.bytesToString();
+      client.close();
+      throw Exception('测试失败: $body');
+    }
+    await for (final line in response.stream.transform(utf8.decoder).transform(
+        const LineSplitter())) {
+      if (line.startsWith('data: ')) {
+        yield line.substring(6).trim();
+      } else if (line.isNotEmpty && !line.startsWith(':')) {
+        // Handle cases where the data might not have the prefix if it's a simple stream
+        yield line.trim();
+      }
+    }
+    client.close();
   }
 
   Future<PostListResult> listPosts({
