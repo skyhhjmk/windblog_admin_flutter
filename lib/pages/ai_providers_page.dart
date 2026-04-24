@@ -254,7 +254,9 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     if (_selectedTestConfig == null) return;
     if (_testPromptCtrl.text
         .trim()
-        .isEmpty) return;
+        .isEmpty) {
+      return;
+    }
 
     setState(() {
       _testing = true;

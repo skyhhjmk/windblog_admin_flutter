@@ -71,8 +71,10 @@ class AdminApiClient {
 
   Stream<String> testAiStream(int id,
       {required String prompt, String? systemPrompt, bool stream = true}) async* {
-    if (token == null || token!.isEmpty) throw UnauthorizedException(
+    if (token == null || token!.isEmpty) {
+      throw UnauthorizedException(
         'Session expired');
+    }
     final uri = Uri.parse('$baseUrl/api/admin/ai/test/$id');
     final request = http.Request('POST', uri);
     request.headers['Authorization'] = 'Bearer $token';

@@ -3,12 +3,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter_quill/flutter_quill.dart';
 import 'package:mime/mime.dart';
 
 import 'data/admin_api_client.dart';
 import 'data/models.dart';
 import 'l10n/app_localizations.dart';
+import 'components/tutorial_editor.dart';
 
 part 'pages/login_page.dart';
 part 'pages/home_page.dart';
@@ -60,7 +60,6 @@ class WindblogAdminApp extends StatelessWidget {
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
-        FlutterQuillLocalizations.delegate,
       ],
       supportedLocales: const [
         Locale('en', ''),

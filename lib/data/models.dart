@@ -95,6 +95,8 @@ class PostDetail {
     required this.summary,
     required this.aiSummary,
     required this.contentMarkdown,
+    this.contentBlocks,
+    this.tutorialLevelDefs,
     required this.status,
     required this.visibility,
     required this.renderType,
@@ -115,6 +117,8 @@ class PostDetail {
   final Map<String, String> summary;
   final Map<String, String> aiSummary;
   final Map<String, String> contentMarkdown;
+  final Map<String, List<TutorialBlock>>? contentBlocks;
+  final List<TutorialLevelDef>? tutorialLevelDefs;
   final int status;
   final int visibility;
   final int renderType;
@@ -136,6 +140,8 @@ class PostDetail {
       summary: toStringMap(map['summary']),
       aiSummary: toStringMap(map['aiSummary']),
       contentMarkdown: toStringMap(map['contentMarkdown']),
+      contentBlocks: _parseContentBlocks(map['contentBlocks']),
+      tutorialLevelDefs: _parseTutorialLevelDefs(map['tutorialLevelDefs']),
       status: toInt(map['status']) ?? 0,
       visibility: toInt(map['visibility']) ?? 0,
       renderType: toInt(map['renderType']) ?? 0,
@@ -197,6 +203,8 @@ class PostEditRequest {
     required this.summary,
     required this.aiSummary,
     required this.contentMarkdown,
+    this.contentBlocks,
+    this.tutorialLevelDefs,
     required this.status,
     required this.visibility,
     required this.renderType,
@@ -212,6 +220,8 @@ class PostEditRequest {
   final Map<String, String> summary;
   final Map<String, String> aiSummary;
   final Map<String, String> contentMarkdown;
+  final Map<String, List<TutorialBlock>>? contentBlocks;
+  final List<TutorialLevelDef>? tutorialLevelDefs;
   final int status;
   final int visibility;
   final int renderType;
@@ -228,6 +238,8 @@ class PostEditRequest {
       'summary': summary,
       'aiSummary': aiSummary,
       'contentMarkdown': contentMarkdown,
+      if (contentBlocks != null) 'contentBlocks': _blocksToJson(contentBlocks!),
+      if (tutorialLevelDefs != null) 'tutorialLevelDefs': tutorialLevelDefs!.map((e) => e.toJson()).toList(),
       'status': status,
       'visibility': visibility,
       'renderType': renderType,
@@ -245,6 +257,8 @@ class PostEditRequest {
       'summary': summary,
       'aiSummary': aiSummary,
       'contentMarkdown': contentMarkdown,
+      if (contentBlocks != null) 'contentBlocks': _blocksToJson(contentBlocks!),
+      if (tutorialLevelDefs != null) 'tutorialLevelDefs': tutorialLevelDefs!.map((e) => e.toJson()).toList(),
       'status': status,
       'visibility': visibility,
       'renderType': renderType,
@@ -278,22 +292,104 @@ class PostEditRequest {
 String postRenderTypeText(int renderType) {
   switch (renderType) {
     case 0:
-      return 'Markdown';
+      return 'Markdown (Retired)';
     case 1:
-      return 'HTML';
+      return 'HTML (Retired)';
     case 2:
-      return 'Vditor';
+      return 'Vditor (Retired)';
     case 3:
-      return 'V Builder';
+      return 'V Builder (Retired)';
     case 4:
-      return 'Gutenberg';
+      return 'Gutenberg (Retired)';
     case 5:
-      return 'Quill';
+      return 'Quill (Retired)';
     case 6:
       return 'Markdown+';
+    case 7:
+      return 'Tutorial Block';
     default:
       return 'Unknown';
   }
+}
+
+class TutorialBlock {
+  TutorialBlock({
+    required this.type,
+    this.level,
+    this.data,
+    this.children,
+  });
+
+  final String type;
+  final int? level;
+  final Map<String, dynamic>? data;
+  final List<TutorialBlock>? children;
+
+  factory TutorialBlock.fromMap(Map<String, dynamic> map) {
+    return TutorialBlock(
+      type: map['type']?.toString() ?? 'p',
+      level: toInt(map['level']),
+      data: map['data'] as Map<String, dynamic>?,
+      children: (asDynamicList(map['children']))
+          ?.map((e) => TutorialBlock.fromMap(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type,
+      if (level != null) 'level': level,
+      if (data != null) 'data': data,
+      if (children != null) 'children': children!.map((e) => e.toJson()).toList(),
+    };
+  }
+}
+
+class TutorialLevelDef {
+  TutorialLevelDef({
+    required this.level,
+    required this.name,
+    this.color,
+  });
+
+  final int level;
+  final String name;
+  final String? color;
+
+  factory TutorialLevelDef.fromMap(Map<String, dynamic> map) {
+    return TutorialLevelDef(
+      level: toInt(map['level']) ?? 0,
+      name: map['name']?.toString() ?? '',
+      color: map['color']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'level': level,
+      'name': name,
+      if (color != null) 'color': color,
+    };
+  }
+}
+
+Map<String, List<TutorialBlock>>? _parseContentBlocks(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value.map((k, v) {
+      final list = asDynamicList(v)?.map((e) => TutorialBlock.fromMap(e as Map<String, dynamic>)).toList() ?? [];
+      return MapEntry(k, list);
+    });
+  }
+  return null;
+}
+
+List<TutorialLevelDef>? _parseTutorialLevelDefs(dynamic value) {
+  return asDynamicList(value)?.map((e) => TutorialLevelDef.fromMap(e as Map<String, dynamic>)).toList();
+}
+
+Map<String, dynamic> _blocksToJson(Map<String, List<TutorialBlock>> blocks) {
+  return blocks.map((k, v) => MapEntry(k, v.map((e) => e.toJson()).toList()));
 }
 
 Map<String, String> toStringMap(Object? value) {

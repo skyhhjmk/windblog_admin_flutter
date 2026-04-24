@@ -685,7 +685,6 @@ class _PostEditorPageState extends State<PostEditorPage>
   late final TextEditingController titleCtrl;
   late final TextEditingController summaryCtrl;
   late final TextEditingController contentCtrl;
-  late final QuillController quillController;
   late final TabController _sidebarTabController;
 
   int status = 0;
@@ -694,6 +693,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   int editorType = 0;
   int aiSummaryStatus = 0;
   Map<String, String> aiSummary = {};
+  Map<String, List<TutorialBlock>>? contentBlocks;
+  List<TutorialLevelDef>? tutorialLevelDefs;
 
   int? categoryId;
   List<int> tagIds = [];
@@ -731,31 +732,13 @@ class _PostEditorPageState extends State<PostEditorPage>
       text: d?.contentMarkdown['zh-cn'] ?? '',
     );
 
-    Document document;
-    final quillContent = d?.contentMarkdown['zh-cn'] ?? '';
-    if (quillContent.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(quillContent);
-        document = Document.fromJson(decoded);
-      } catch (_) {
-        document = Document()..insert(0, quillContent);
-      }
-    } else {
-      document = Document();
-    }
-    quillController = QuillController(
-      document: document,
-      selection: const TextSelection.collapsed(offset: 0),
-    );
-
     status = d?.status ?? 0;
     visibility = d?.visibility ?? 0;
     renderType = d?.renderType ?? 0;
     editorType = d?.editorType ?? 0;
     aiSummaryStatus = d?.aiSummaryStatus ?? 0;
-    // 这里暂时不从 detail 里取 aiSummary，因为 detail 里没有聚合所有语言的，但在编辑器里我们需要能够编辑
-    // 实际上我们在 PostDetail 里有 aiSummary 字段（虽然我刚才没在 viewed_file 里看到，但我查看 Post.java 时看到了）
-    // 让我们确认一下 PostDetail 是否有 aiSummary
+    contentBlocks = d?.contentBlocks;
+    tutorialLevelDefs = d?.tutorialLevelDefs;
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
 
@@ -782,7 +765,6 @@ class _PostEditorPageState extends State<PostEditorPage>
     slugCtrl.addListener(_markDirty);
     summaryCtrl.addListener(_markDirty);
     contentCtrl.addListener(_markDirty);
-    quillController.addListener(_markDirty);
   }
 
   void _onTitleChanged() {
@@ -901,7 +883,6 @@ class _PostEditorPageState extends State<PostEditorPage>
     titleCtrl.dispose();
     summaryCtrl.dispose();
     contentCtrl.dispose();
-    quillController.dispose();
     _sidebarTabController.dispose();
     super.dispose();
   }
@@ -941,11 +922,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   void _insertMedia(String fileName, String url) {
-    if (editorType == 5) {
-      final index = quillController.selection.baseOffset;
-      quillController.document.insert(index, BlockEmbed.image(url));
-      quillController.moveCursorToPosition(index + 1);
-    } else if (editorType == 0 || editorType == 6) {
+    if (editorType == 0 || editorType == 6) {
       final insertText = '![$fileName]($url)\n';
       final currentText = contentCtrl.text;
       final selection = contentCtrl.selection;
@@ -962,10 +939,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   String _getContent() {
-    if (editorType == 5) {
-      final content = jsonEncode(quillController.document.toDelta().toJson());
-      return content;
-    } else if (editorType == 0 || editorType == 6) {
+    if (editorType == 0 || editorType == 6) {
       return contentCtrl.text;
     }
     return contentCtrl.text;
@@ -1031,6 +1005,8 @@ class _PostEditorPageState extends State<PostEditorPage>
         summary: {'zh-cn': summaryCtrl.text.trim()},
         aiSummary: const {},
         contentMarkdown: {'zh-cn': finalContent},
+        contentBlocks: contentBlocks,
+        tutorialLevelDefs: tutorialLevelDefs,
         status: status,
         visibility: visibility,
         renderType: renderType,
@@ -1358,7 +1334,7 @@ class _PostEditorPageState extends State<PostEditorPage>
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<int>(
+                child: DropdownButtonFormField<int?>(
                   // ignore: deprecated_member_use
                   value: null,
                   decoration: InputDecoration(
@@ -1413,15 +1389,12 @@ class _PostEditorPageState extends State<PostEditorPage>
                     labelText: t(context, 'render_type'),
                     isDense: true,
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('Markdown')),
-                    DropdownMenuItem(value: 1, child: Text('HTML')),
-                    DropdownMenuItem(value: 2, child: Text('Vditor')),
-                    DropdownMenuItem(value: 3, child: Text('V Builder')),
-                    DropdownMenuItem(value: 4, child: Text('Gutenberg')),
-                    DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
-                    DropdownMenuItem(
-                        value: 6, child: Text('Flutter Markdown Plus')),
+                  items: [
+                    // Only show 6 and 7, and the current value if it's retired
+                    if (renderType < 6)
+                       DropdownMenuItem(value: renderType, child: Text(postRenderTypeText(renderType))),
+                    const DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
+                    const DropdownMenuItem(value: 7, child: Text('Tutorial Block (AppFlowy)')),
                   ],
                   onChanged: (v) =>
                       setState(() {
@@ -1439,11 +1412,11 @@ class _PostEditorPageState extends State<PostEditorPage>
                     labelText: 'Editor Type',
                     isDense: true,
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('Markdown')),
-                    DropdownMenuItem(value: 5, child: Text('Flutter Quill')),
-                    DropdownMenuItem(
-                        value: 6, child: Text('Flutter Markdown Plus')),
+                  items: [
+                    if (editorType < 6)
+                      DropdownMenuItem(value: editorType, child: Text(postRenderTypeText(editorType))),
+                    const DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
+                    const DropdownMenuItem(value: 7, child: Text('Tutorial Block (AppFlowy)')),
                   ],
                   onChanged: (v) =>
                       setState(() {
@@ -1472,35 +1445,24 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Widget _buildEditor() {
-    if (editorType == 5) {
-      return _buildQuillEditor();
+    if (editorType == 7) {
+      return _buildAppFlowyEditor();
     } else if (editorType == 6) {
       return _buildMarkdownPlusEditor();
     }
     return _buildMarkdownEditor();
   }
 
-  Widget _buildQuillEditor() {
-    return Column(
-      children: [
-        QuillSimpleToolbar(
-          controller: quillController,
-          config: const QuillSimpleToolbarConfig(),
-        ),
-        const Divider(height: 1, thickness: 1),
-        Expanded(
-          child: MouseRegion(
-            cursor: SystemMouseCursors.text,
-            child: Container(
-              color: Colors.white,
-              child: QuillEditor.basic(
-                controller: quillController,
-                config: const QuillEditorConfig(),
-              ),
-            ),
-          ),
-        ),
-      ],
+  Widget _buildAppFlowyEditor() {
+    return TutorialEditor(
+      initialBlocks: contentBlocks,
+      levels: tutorialLevelDefs,
+      onChanged: (blocks) {
+        setState(() {
+          contentBlocks = blocks;
+          _markDirty();
+        });
+      },
     );
   }
 
