@@ -84,6 +84,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
       } else {
         await widget.api.updateAiProvider(id, req);
       }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('保存成功'), backgroundColor: Colors.green),

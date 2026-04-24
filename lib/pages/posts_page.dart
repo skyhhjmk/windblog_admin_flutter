@@ -742,6 +742,13 @@ class _PostEditorPageState extends State<PostEditorPage>
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
 
+    // 确保如果编辑器类型是 7，并且没有内容块，我们初始化空的或带初始内容的
+    if (editorType == 7 && contentBlocks == null) {
+      contentBlocks = {
+        'zh-cn': []
+      };
+    }
+
     _initialSlug = d?.slug;
     _initialTitle = d?.title['zh-cn'];
     _initialSummary = d?.summary['zh-cn'];
@@ -800,9 +807,19 @@ class _PostEditorPageState extends State<PostEditorPage>
     final currentSummary = summaryCtrl.text.trim();
     final currentContent = _getContent().trim();
 
+    bool isContentDirty = false;
+    if (editorType == 7) {
+      // 检查 contentBlocks 是否变化
+      final initialBlocks = d?.contentBlocks;
+      isContentDirty = !_deepEquals(contentBlocks, initialBlocks);
+    } else {
+      isContentDirty = currentContent != _initialContent;
+    }
+
     if (d == null) {
       return currentSlug.isNotEmpty || currentTitle.isNotEmpty ||
           currentSummary.isNotEmpty || currentContent.isNotEmpty ||
+          (editorType == 7 && contentBlocks != null && contentBlocks!.isNotEmpty) ||
           status != 0 || visibility != 0 || categoryId != null ||
           tagIds.isNotEmpty;
     }
@@ -810,7 +827,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     return currentSlug != _initialSlug ||
         currentTitle != _initialTitle ||
         currentSummary != _initialSummary ||
-        currentContent != _initialContent ||
+        isContentDirty ||
         status != _initialStatus ||
         visibility != _initialVisibility ||
         renderType != _initialRenderType ||
@@ -818,6 +835,42 @@ class _PostEditorPageState extends State<PostEditorPage>
         aiSummaryStatus != _initialAiSummaryStatus ||
         categoryId != _initialCategoryId ||
         !_listEquals(tagIds, _initialTagIds);
+  }
+
+  bool _deepEquals(Map<String, List<TutorialBlock>>? a, Map<String, List<TutorialBlock>>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (a.length != b.length) return false;
+
+    // 使用 JSON 编码来比较，确保完全比较所有内容
+    try {
+      final encodeA = _encodeContentBlocks(a);
+      final encodeB = _encodeContentBlocks(b);
+      return encodeA == encodeB;
+    } catch (e) {
+      // 如果编码失败，使用简单比较
+      for (final key in a.keys) {
+        if (!b.containsKey(key)) return false;
+        final listA = a[key]!;
+        final listB = b[key]!;
+        if (listA.length != listB.length) return false;
+        for (int i = 0; i < listA.length; i++) {
+          if (listA[i].type != listB[i].type) return false;
+        }
+      }
+      return true;
+    }
+  }
+
+  String _encodeContentBlocks(Map<String, List<TutorialBlock>> blocks) {
+    final buffer = StringBuffer();
+    for (final entry in blocks.entries) {
+      buffer.write('${entry.key}:');
+      for (final block in entry.value) {
+        buffer.write('|type=${block.type}|lvl=${block.level}|');
+      }
+    }
+    return buffer.toString();
   }
 
   bool _listEquals(List<int>? a, List<int>? b) {
@@ -942,7 +995,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     if (editorType == 0 || editorType == 6) {
       return contentCtrl.text;
     }
-    return contentCtrl.text;
+    // editorType == 7 (AppFlowy) 返回空字符串
+    // 因为 contentBlocks 会被单独处理
+    return '';
   }
 
   Future<bool> _onWillPop() async {
@@ -984,13 +1039,9 @@ class _PostEditorPageState extends State<PostEditorPage>
   Future<bool> _save() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final finalContent = _getContent().trim();
-    if (slugCtrl.text
-        .trim()
-        .isEmpty ||
-        titleCtrl.text
-            .trim()
-            .isEmpty ||
-        finalContent.isEmpty) {
+    
+    if (slugCtrl.text.trim().isEmpty ||
+        titleCtrl.text.trim().isEmpty) {
       scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('请填写必填字段')),
       );
@@ -1428,11 +1479,12 @@ class _PostEditorPageState extends State<PostEditorPage>
             ],
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            height: 500,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 500, maxHeight: 800),
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
+                color: Colors.white,
                 border: Border.all(color: Colors.grey.shade300),
                 borderRadius: BorderRadius.circular(6),
               ),
