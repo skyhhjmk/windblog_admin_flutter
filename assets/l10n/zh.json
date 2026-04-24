@@ -196,5 +196,16 @@
   "approve": "通过",
   "reject": "驳回",
   "article": "文章",
-  "delete_failed": "删除失败: "
+  "delete_failed": "删除失败: ",
+  "save_success": "保存成功",
+  "confirm_ok": "确定",
+  "error_occurred": "发生错误: ",
+  "unsaved_changes": "未保存的更改",
+  "unsaved_changes_desc": "您有未保存的更改，确定要离开吗？",
+  "dont_save": "不保存",
+  "unsaved": "未保存",
+  "high": "高",
+  "medium": "中",
+  "low": "低",
+  "no_data": "暂无数据"
 }

@@ -621,7 +621,7 @@ class _PostsPageState extends State<PostsPage> {
                     load();
                   }
                 },
-                tooltip: _isTreeView ? '列表视图' : '树状视图',
+                tooltip: _isTreeView ? t(context, 'list_view') : t(context, 'tree_view'),
               ),
               const Spacer(),
               FilledButton(
@@ -981,16 +981,16 @@ class _PostEditorPageState extends State<PostEditorPage>
       context: context,
       builder: (context) =>
           AlertDialog(
-            title: const Text('未保存的更改'),
-            content: const Text('您有未保存的更改，确定要离开吗？'),
+            title: Text(t(context, 'unsaved_changes')),
+            content: Text(t(context, 'unsaved_changes_desc')),
             actions: [
               TextButton(
                 onPressed: () => navigator.pop(false),
-                child: const Text('取消'),
+                child: Text(t(context, 'cancel')),
               ),
               TextButton(
                 onPressed: () => navigator.pop(true),
-                child: const Text('不保存'),
+                child: Text(t(context, 'dont_save')),
               ),
               FilledButton(
                 onPressed: () async {
@@ -999,7 +999,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                     navigator.pop(true);
                   }
                 },
-                child: const Text('保存'),
+                child: Text(t(context, 'save')),
               ),
             ],
           ),
@@ -1056,7 +1056,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           _isDirty = false;
         });
         scaffoldMessenger.showSnackBar(
-          const SnackBar(content: Text('保存成功')),
+          SnackBar(content: Text(t(context, 'save_success'))),
         );
       }
       return true;
@@ -1171,7 +1171,7 @@ class _PostEditorPageState extends State<PostEditorPage>
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Chip(
-                  label: const Text('未保存', style: TextStyle(fontSize: 12)),
+                  label: Text(t(context, 'unsaved'), style: const TextStyle(fontSize: 12)),
                   backgroundColor: Colors.orange.shade100,
                   labelStyle: TextStyle(color: Colors.orange.shade800),
                 ),
