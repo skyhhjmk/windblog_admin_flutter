@@ -8,7 +8,6 @@ import 'package:mime/mime.dart';
 import 'data/admin_api_client.dart';
 import 'data/models.dart';
 import 'l10n/app_localizations.dart';
-import 'components/tutorial_editor.dart';
 
 part 'pages/login_page.dart';
 part 'pages/home_page.dart';

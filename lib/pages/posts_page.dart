@@ -693,8 +693,6 @@ class _PostEditorPageState extends State<PostEditorPage>
   int editorType = 0;
   int aiSummaryStatus = 0;
   Map<String, String> aiSummary = {};
-  Map<String, List<TutorialBlock>>? contentBlocks;
-  List<TutorialLevelDef>? tutorialLevelDefs;
 
   int? categoryId;
   List<int> tagIds = [];
@@ -737,17 +735,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     renderType = d?.renderType ?? 0;
     editorType = d?.editorType ?? 0;
     aiSummaryStatus = d?.aiSummaryStatus ?? 0;
-    contentBlocks = d?.contentBlocks;
-    tutorialLevelDefs = d?.tutorialLevelDefs;
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
-
-    // 确保如果编辑器类型是 7，并且没有内容块，我们初始化空的或带初始内容的
-    if (editorType == 7 && contentBlocks == null) {
-      contentBlocks = {
-        'zh-cn': []
-      };
-    }
 
     _initialSlug = d?.slug;
     _initialTitle = d?.title['zh-cn'];
@@ -805,21 +794,11 @@ class _PostEditorPageState extends State<PostEditorPage>
     final currentSlug = slugCtrl.text.trim();
     final currentTitle = titleCtrl.text.trim();
     final currentSummary = summaryCtrl.text.trim();
-    final currentContent = _getContent().trim();
-
-    bool isContentDirty = false;
-    if (editorType == 7) {
-      // 检查 contentBlocks 是否变化
-      final initialBlocks = d?.contentBlocks;
-      isContentDirty = !_deepEquals(contentBlocks, initialBlocks);
-    } else {
-      isContentDirty = currentContent != _initialContent;
-    }
+    final currentContent = contentCtrl.text.trim();
 
     if (d == null) {
       return currentSlug.isNotEmpty || currentTitle.isNotEmpty ||
           currentSummary.isNotEmpty || currentContent.isNotEmpty ||
-          (editorType == 7 && contentBlocks != null && contentBlocks!.isNotEmpty) ||
           status != 0 || visibility != 0 || categoryId != null ||
           tagIds.isNotEmpty;
     }
@@ -827,7 +806,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     return currentSlug != _initialSlug ||
         currentTitle != _initialTitle ||
         currentSummary != _initialSummary ||
-        isContentDirty ||
+        currentContent != _initialContent ||
         status != _initialStatus ||
         visibility != _initialVisibility ||
         renderType != _initialRenderType ||
@@ -835,42 +814,6 @@ class _PostEditorPageState extends State<PostEditorPage>
         aiSummaryStatus != _initialAiSummaryStatus ||
         categoryId != _initialCategoryId ||
         !_listEquals(tagIds, _initialTagIds);
-  }
-
-  bool _deepEquals(Map<String, List<TutorialBlock>>? a, Map<String, List<TutorialBlock>>? b) {
-    if (a == null && b == null) return true;
-    if (a == null || b == null) return false;
-    if (a.length != b.length) return false;
-
-    // 使用 JSON 编码来比较，确保完全比较所有内容
-    try {
-      final encodeA = _encodeContentBlocks(a);
-      final encodeB = _encodeContentBlocks(b);
-      return encodeA == encodeB;
-    } catch (e) {
-      // 如果编码失败，使用简单比较
-      for (final key in a.keys) {
-        if (!b.containsKey(key)) return false;
-        final listA = a[key]!;
-        final listB = b[key]!;
-        if (listA.length != listB.length) return false;
-        for (int i = 0; i < listA.length; i++) {
-          if (listA[i].type != listB[i].type) return false;
-        }
-      }
-      return true;
-    }
-  }
-
-  String _encodeContentBlocks(Map<String, List<TutorialBlock>> blocks) {
-    final buffer = StringBuffer();
-    for (final entry in blocks.entries) {
-      buffer.write('${entry.key}:');
-      for (final block in entry.value) {
-        buffer.write('|type=${block.type}|lvl=${block.level}|');
-      }
-    }
-    return buffer.toString();
   }
 
   bool _listEquals(List<int>? a, List<int>? b) {
@@ -975,29 +918,18 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   void _insertMedia(String fileName, String url) {
-    if (editorType == 0 || editorType == 6) {
-      final insertText = '![$fileName]($url)\n';
-      final currentText = contentCtrl.text;
-      final selection = contentCtrl.selection;
-      final newText = currentText.replaceRange(
-        selection.baseOffset,
-        selection.extentOffset,
-        insertText,
-      );
-      contentCtrl.text = newText;
-      contentCtrl.selection = TextSelection.collapsed(
-        offset: selection.baseOffset + insertText.length,
-      );
-    }
-  }
-
-  String _getContent() {
-    if (editorType == 0 || editorType == 6) {
-      return contentCtrl.text;
-    }
-    // editorType == 7 (AppFlowy) 返回空字符串
-    // 因为 contentBlocks 会被单独处理
-    return '';
+    final insertText = '![$fileName]($url)\n';
+    final currentText = contentCtrl.text;
+    final selection = contentCtrl.selection;
+    final newText = currentText.replaceRange(
+      selection.baseOffset,
+      selection.extentOffset,
+      insertText,
+    );
+    contentCtrl.text = newText;
+    contentCtrl.selection = TextSelection.collapsed(
+      offset: selection.baseOffset + insertText.length,
+    );
   }
 
   Future<bool> _onWillPop() async {
@@ -1038,8 +970,8 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   Future<bool> _save() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final finalContent = _getContent().trim();
-    
+    final finalContent = contentCtrl.text.trim();
+
     if (slugCtrl.text.trim().isEmpty ||
         titleCtrl.text.trim().isEmpty) {
       scaffoldMessenger.showSnackBar(
@@ -1056,8 +988,6 @@ class _PostEditorPageState extends State<PostEditorPage>
         summary: {'zh-cn': summaryCtrl.text.trim()},
         aiSummary: const {},
         contentMarkdown: {'zh-cn': finalContent},
-        contentBlocks: contentBlocks,
-        tutorialLevelDefs: tutorialLevelDefs,
         status: status,
         visibility: visibility,
         renderType: renderType,
@@ -1441,11 +1371,11 @@ class _PostEditorPageState extends State<PostEditorPage>
                     isDense: true,
                   ),
                   items: [
-                    // Only show 6 and 7, and the current value if it's retired
-                    if (renderType < 6)
-                       DropdownMenuItem(value: renderType, child: Text(postRenderTypeText(renderType))),
-                    const DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
-                    const DropdownMenuItem(value: 7, child: Text('Tutorial Block (AppFlowy)')),
+                    const DropdownMenuItem(value: 0, child: Text('Markdown')),
+                    const DropdownMenuItem(value: 1, child: Text('HTML')),
+                    const DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
+                    if (renderType == 7)
+                      const DropdownMenuItem(value: 7, child: Text('Tutorial Block (Deprecated)')),
                   ],
                   onChanged: (v) =>
                       setState(() {
@@ -1464,10 +1394,11 @@ class _PostEditorPageState extends State<PostEditorPage>
                     isDense: true,
                   ),
                   items: [
-                    if (editorType < 6)
-                      DropdownMenuItem(value: editorType, child: Text(postRenderTypeText(editorType))),
-                    const DropdownMenuItem(value: 6, child: Text('Flutter Markdown Plus')),
-                    const DropdownMenuItem(value: 7, child: Text('Tutorial Block (AppFlowy)')),
+                    const DropdownMenuItem(value: 0, child: Text('Markdown')),
+                    const DropdownMenuItem(value: 1, child: Text('HTML')),
+                    const DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
+                    if (editorType == 7)
+                      const DropdownMenuItem(value: 7, child: Text('Tutorial Block (Deprecated)')),
                   ],
                   onChanged: (v) =>
                       setState(() {
@@ -1497,46 +1428,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Widget _buildEditor() {
-    if (editorType == 7) {
-      return _buildAppFlowyEditor();
-    } else if (editorType == 6) {
-      return _buildMarkdownPlusEditor();
-    }
     return _buildMarkdownEditor();
-  }
-
-  Widget _buildAppFlowyEditor() {
-    return TutorialEditor(
-      initialBlocks: contentBlocks,
-      levels: tutorialLevelDefs,
-      onChanged: (blocks) {
-        setState(() {
-          contentBlocks = blocks;
-          _markDirty();
-        });
-      },
-    );
-  }
-
-  Widget _buildMarkdownPlusEditor() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.code, size: 48, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            'Flutter Markdown Plus Editor',
-            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Coming Soon',
-            style: TextStyle(color: Colors.grey.shade400),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildMarkdownEditor() {
