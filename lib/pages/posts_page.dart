@@ -1432,63 +1432,11 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Widget _buildMarkdownEditor() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          flex: 1,
-          child: TextField(
-            controller: contentCtrl,
-            decoration: InputDecoration(
-              labelText: t(context, 'markdown_content'),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(8),
-            ),
-            minLines: null,
-            maxLines: null,
-            expands: true,
-          ),
-        ),
-        const VerticalDivider(width: 1),
-        Expanded(
-          flex: 1,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.grey.shade50,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: contentCtrl,
-                      builder: (context, value, child) {
-                        if (value.text
-                            .trim()
-                            .isEmpty) {
-                          return Center(
-                            child: Text(
-                              t(context, 'markdown_content'),
-                              style: TextStyle(color: Colors.grey.shade400),
-                            ),
-                          );
-                        }
-                        return SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: MarkdownBody(data: value.text),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+    return MarkdownPlusEditor(
+      controller: contentCtrl,
+      api: widget.api,
+      isBlockMode: renderType == 6,
+      onChanged: _markDirty,
     );
   }
 

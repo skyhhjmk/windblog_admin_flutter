@@ -16,6 +16,8 @@ part 'pages/posts_page.dart';
 part 'pages/ai_providers_page.dart';
 part 'pages/media_library_page.dart';
 part 'components/progressive_image.dart';
+part 'components/media_library_picker.dart';
+part 'components/markdown_plus_editor.dart';
 part 'pages/user_management_page.dart';
 part 'pages/permission_management_page.dart';
 part 'pages/user_wallet_page.dart';
