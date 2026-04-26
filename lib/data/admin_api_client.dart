@@ -330,6 +330,10 @@ class AdminApiClient {
     await _delete('/api/admin/categories/$id');
   }
 
+  Future<void> reScanCategories() async {
+    await _post('/api/admin/categories/re-scan', body: const {});
+  }
+
   Future<List<TagItem>> listTags() async {
     final res = await _get('/api/admin/tags');
     final list = (jsonDecode(res.body) as List<dynamic>? ?? []);

@@ -123,6 +123,29 @@ class _CategoriesPageState extends State<CategoriesPage> {
     }
   }
 
+  Future<void> _reScanCategories() async {
+    setState(() => loading = true);
+    try {
+      await widget.api.reScanCategories();
+      await _loadCategories();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t(context, 're_scan_success'))),
+        );
+      }
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${t(context, 're_scan_failed')}$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
   List<CategoryItem> _buildTree(List<CategoryItem> flatList) {
     final Map<int, CategoryItem> map = {};
     final List<CategoryItem> roots = [];
@@ -216,6 +239,16 @@ class _CategoriesPageState extends State<CategoriesPage> {
               FilledButton(
                 onPressed: _loadCategories,
                 child: Text(t(context, 'refresh')),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _reScanCategories,
+                icon: const Icon(Icons.search, size: 18),
+                label: Text(t(context, 're_scan_table')),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.orange.shade700,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ],
           ),

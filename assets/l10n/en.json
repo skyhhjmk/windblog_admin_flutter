@@ -206,5 +206,8 @@
   "high": "High",
   "medium": "Medium",
   "low": "Low",
-  "no_data": "No data"
+  "no_data": "No data",
+  "re_scan_table": "Re-scan Table",
+  "re_scan_success": "Re-scan successful",
+  "re_scan_failed": "Re-scan failed: "
 }

@@ -207,5 +207,8 @@
   "high": "高",
   "medium": "中",
   "low": "低",
-  "no_data": "暂无数据"
+  "no_data": "暂无数据",
+  "re_scan_table": "重新扫描全表",
+  "re_scan_success": "重新扫描成功",
+  "re_scan_failed": "重新扫描失败: "
 }
