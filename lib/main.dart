@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:mime/mime.dart';
 
 import 'data/admin_api_client.dart';
@@ -17,6 +18,7 @@ part 'pages/ai_providers_page.dart';
 part 'pages/media_library_page.dart';
 part 'components/progressive_image.dart';
 part 'components/media_library_picker.dart';
+part 'components/markdown_protocol.dart';
 part 'components/markdown_plus_editor.dart';
 part 'pages/user_management_page.dart';
 part 'pages/permission_management_page.dart';

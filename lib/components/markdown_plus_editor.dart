@@ -32,12 +32,20 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   void initState() {
     super.initState();
     widget.controller.addListener(_updateOutline);
+    widget.controller.addListener(_onTextChanged);
     _updateOutline();
+  }
+
+  void _onTextChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_updateOutline);
+    widget.controller.removeListener(_onTextChanged);
     _focusNode.dispose();
     _editorScrollController.dispose();
     _previewScrollController.dispose();
@@ -159,6 +167,31 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                       child: MarkdownBody(
                         data: widget.controller.text,
                         selectable: true,
+                        extensionSet: md.ExtensionSet(
+                          [
+                            const md.FencedCodeBlockSyntax(),
+                            const md.TableSyntax(),
+                            const RegionBlockSyntax(),
+                            const CalloutSyntax(), // Important: Custom block syntax
+                            const ColumnBlockSyntax(),
+                          ],
+                          [
+                            md.EmojiSyntax(),
+                            HighlightSyntax(),
+                            KeyboardSyntax(),
+                            ProgressSyntax(),
+                            StatusBadgeSyntax(),
+                          ],
+                        ),
+                        builders: {
+                          'region': RegionElementBuilder(),
+                          'mdplus-callout': CalloutElementBuilder(), // Changed from 'callout'
+                          'column': ColumnElementBuilder(),
+                          'mark': HighlightElementBuilder(),
+                          'kbd': KeyboardElementBuilder(),
+                          'progress': ProgressElementBuilder(),
+                          'badge': StatusBadgeElementBuilder(),
+                        },
                       ),
                     ),
                   ),
