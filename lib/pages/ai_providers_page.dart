@@ -86,8 +86,8 @@ class _AiProvidersPageState extends State<AiProvidersPage>
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('保存成功'), backgroundColor: Colors.green),
+        SnackBar(
+            content: Text(t(context, 'save_success')), backgroundColor: Colors.green),
       );
       _load();
     } on UnauthorizedException {
@@ -95,7 +95,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('失败：$e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('${t(context, 'save_failed')}$e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -105,15 +105,15 @@ class _AiProvidersPageState extends State<AiProvidersPage>
       context: context,
       builder: (context) =>
           AlertDialog(
-            title: const Text('删除确认'),
-            content: const Text('确定要删除这个配置吗？'),
+            title: Text(t(context, 'ai_delete_confirm_title')),
+            content: Text(t(context, 'ai_delete_confirm_desc')),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context, false),
-                  child: const Text('取消')),
+                  child: Text(t(context, 'cancel'))),
               FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('删除'),
+                child: Text(t(context, 'delete')),
               ),
             ],
           ),
@@ -125,7 +125,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败：$e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('${t(context, 'delete_failed')}$e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -146,16 +146,16 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: Text(existing == null ? '添加${type == "PROVIDER"
-                  ? "提供商"
-                  : "轮询组"}' : '编辑配置'),
+              title: Text(existing == null ? (type == "PROVIDER"
+                  ? t(context, 'ai_add_provider')
+                  : t(context, 'ai_add_polling_group')) : t(context, 'ai_edit_config')),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(
-                      decoration: const InputDecoration(
-                          labelText: '名称 (标识这个配置)'),
+                      decoration: InputDecoration(
+                          labelText: t(context, 'ai_config_name')),
                       controller: TextEditingController(text: name)
                         ..selection = TextSelection.collapsed(offset: name
                             .length),
@@ -163,16 +163,16 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     ),
                     const SizedBox(height: 12),
                     SwitchListTile(
-                      title: const Text('是否启用'),
+                      title: Text(t(context, 'ai_is_enabled')),
                       value: enabled,
                       onChanged: (v) => setState(() => enabled = v),
                     ),
                     if (type == 'PROVIDER') ...[
                       const SizedBox(height: 12),
                       TextField(
-                        decoration: const InputDecoration(
-                          labelText: '提供商 (供应商类型)',
-                          hintText: '例如: OPENAI, CHATGLM (OpenAI V4), OLLAMA',
+                        decoration: InputDecoration(
+                          labelText: t(context, 'ai_provider_type'),
+                          hintText: t(context, 'ai_provider_type_hint'),
                         ),
                         controller: TextEditingController(text: provider)
                           ..selection = TextSelection.collapsed(
@@ -181,9 +181,9 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                       ),
                       const SizedBox(height: 12),
                       TextField(
-                        decoration: const InputDecoration(
-                          labelText: 'API Endpoint (接口地址)',
-                          hintText: 'ChatGLM: https://open.bigmodel.cn/api/paas/v4/',
+                        decoration: InputDecoration(
+                          labelText: t(context, 'api_base_url'),
+                          hintText: t(context, 'ai_endpoint_hint_long'),
                         ),
                         controller: TextEditingController(text: endpoint)
                           ..selection = TextSelection.collapsed(
@@ -192,8 +192,8 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                       ),
                       const SizedBox(height: 12),
                       TextField(
-                        decoration: const InputDecoration(
-                            labelText: '模型名称'),
+                        decoration: InputDecoration(
+                            labelText: t(context, 'ai_model_name')),
                         controller: TextEditingController(text: model)
                           ..selection = TextSelection.collapsed(
                               offset: model.length),
@@ -201,8 +201,8 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                       ),
                       const SizedBox(height: 12),
                       TextField(
-                        decoration: const InputDecoration(
-                            labelText: 'API Key (留空不修改)'),
+                        decoration: InputDecoration(
+                            labelText: t(context, 'ai_api_key_modify_hint')),
                         controller: TextEditingController(text: ''),
                         onChanged: (v) => apiKey = v,
                       ),
@@ -210,9 +210,9 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     if (type == 'POLLING_GROUP') ...[
                       const SizedBox(height: 12),
                       TextField(
-                        decoration: const InputDecoration(
-                            labelText: 'JSON 配置 (algorithm, nodes)',
-                            hintText: '{"algorithm":"WEIGHTED_ROUND_ROBIN","nodes":[{"id":1,"weight":5}]}'),
+                        decoration: InputDecoration(
+                            labelText: t(context, 'ai_json_config'),
+                            hintText: t(context, 'ai_json_config_hint')),
                         controller: TextEditingController(text: configText)
                           ..selection = TextSelection.collapsed(
                               offset: configText.length),
@@ -225,7 +225,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
               ),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context),
-                    child: const Text('取消')),
+                    child: Text(t(context, 'cancel'))),
                 FilledButton(
                   onPressed: () {
                     final req = AiProviderConfigUpdateRequest(
@@ -241,7 +241,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     _saveConfig(existing?.id, req);
                     Navigator.pop(context);
                   },
-                  child: const Text('保存'),
+                  child: Text(t(context, 'save')),
                 ),
               ],
             );
@@ -290,7 +290,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         } catch (e) {
           if (mounted) {
             setState(() {
-              _testOutput += '\n[数据解析失败]: $e\n原始数据: $line';
+              _testOutput += '\n[${t(context, 'ai_data_parse_failed')}]: $e\n${t(context, 'ai_raw_data')}: $line';
             });
           }
         }
@@ -298,7 +298,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     } catch (e) {
       if (mounted) {
         setState(() {
-          _testOutput += '\n\n[测试出错]: $e';
+          _testOutput += '\n\n[${t(context, 'ai_test_error')}]: $e';
         });
       }
     } finally {
@@ -312,10 +312,10 @@ class _AiProvidersPageState extends State<AiProvidersPage>
       children: [
         TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: '提供商配置'),
-            Tab(text: '轮询组配置'),
-            Tab(text: '接口测试'),
+          tabs: [
+            Tab(text: t(context, 'ai_providers_config')),
+            Tab(text: t(context, 'ai_polling_groups')),
+            Tab(text: t(context, 'ai_test_api')),
           ],
         ),
         Expanded(
@@ -341,7 +341,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     return Stack(
       children: [
         if (list.isEmpty)
-          const Center(child: Text('没有数据'))
+          Center(child: Text(t(context, 'no_data')))
         else
           ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -355,11 +355,11 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   title: Text('${config.name} (ID: ${config.id})',
                       style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text(
-                      '状态: ${config.enabled ? '启用' : '禁用'}\n'
+                      '${t(context, 'status')}: ${config.enabled ? t(context, 'enabled') : t(context, 'disabled')}\n'
                           '${type == 'PROVIDER'
-                          ? '提供商: ${config.provider}\n端点: ${config
-                          .endpoint ?? '默认'}\n模型: ${config.model}'
-                          : '组配置 JSON: ${config.config}'}'
+                          ? '${t(context, 'ai_provider_type')}: ${config.provider}\n${t(context, 'api_base_url')}: ${config
+                          .endpoint ?? t(context, 'no_parent')}\n${t(context, 'ai_model_name')}: ${config.model}'
+                          : '${t(context, 'ai_json_config')}: ${config.config}'}'
                   ),
                   isThreeLine: true,
                   trailing: Row(
@@ -400,11 +400,11 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         children: [
           Row(
             children: [
-              const Text('选择配置测试: ',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(t(context, 'ai_test_select_config'),
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(width: 8),
               if (_configs.isEmpty)
-                const Text('没有配置')
+                Text(t(context, 'ai_no_configs'))
               else
                 DropdownButton<AiProviderConfig>(
                   value: _selectedTestConfig,
@@ -424,25 +424,24 @@ class _AiProvidersPageState extends State<AiProvidersPage>
           const SizedBox(height: 16),
           TextField(
             controller: _systemPromptCtrl,
-            decoration: const InputDecoration(
-              labelText: 'System Prompt (系统提示词可选)',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: t(context, 'ai_system_prompt'),
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _testPromptCtrl,
             maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'User Prompt (输入提示词)',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: t(context, 'ai_user_prompt'),
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           SwitchListTile(
-            title: const Text('流式输出 (Streaming)'),
-            subtitle: const Text(
-                '开启后实时显示生成内容，关闭则等待完成后一次性显示'),
+            title: Text(t(context, 'ai_streaming')),
+            subtitle: Text(t(context, 'ai_streaming_hint')),
             value: _testStream,
             onChanged: (val) => setState(() => _testStream = val),
           ),
@@ -456,12 +455,12 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   child: CircularProgressIndicator(
                       color: Colors.white, strokeWidth: 2)) : const Icon(
                   Icons.send),
-              label: Text(_testing ? '测试中...' : '发送请求'),
+              label: Text(_testing ? t(context, 'ai_testing') : t(context, 'ai_send_request')),
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-              '响应结果:', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+              t(context, 'ai_response_result'), style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Expanded(
             child: Container(
@@ -476,7 +475,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (_testReasoning.isNotEmpty) ...[
-                      Text('深度思考:', style: TextStyle(
+                      Text(t(context, 'ai_deep_thinking'), style: TextStyle(
                           fontWeight: FontWeight.bold, color: Colors.indigo
                           .shade400)),
                       Container(
@@ -493,7 +492,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                       ),
                     ],
                     SelectableText(_testOutput.isEmpty && !_testing
-                        ? '等待请求结果...'
+                        ? t(context, 'ai_waiting_result')
                         : _testOutput),
                   ],
                 ),

@@ -42,10 +42,12 @@ class _PostsPageState extends State<PostsPage> {
   final Map<int, CategoryTreeNode> _categoryTreeCache = {};
   List<CategoryItem> _allCategories = [];
   bool _isTreeLoading = false;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    _loading = true;
     _loadAllCategories();
     load();
   }
@@ -181,6 +183,7 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Future<void> load() async {
+    setState(() => _loading = true);
     try {
       final res = await widget.api.listPosts(
         page: page,
@@ -191,15 +194,15 @@ class _PostsPageState extends State<PostsPage> {
       );
       items = res.items;
       total = res.total;
-      if (mounted) setState(() {});
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
-      if (!mounted) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('$e')));
       }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -632,7 +635,11 @@ class _PostsPageState extends State<PostsPage> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: _isTreeView ? _buildTreeView() : _buildListView(),
+            child: _loading && items.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : _isTreeView
+                    ? _buildTreeView()
+                    : _buildListView(),
           ),
           const SizedBox(height: 8),
           Row(
@@ -884,7 +891,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Future<void> _uploadMedia() async {
-    final result = await FilePicker.platform.pickFiles(withData: true);
+    final result = await FilePicker.pickFiles(withData: true);
     if (result == null || result.files.isEmpty) {
       return;
     }

@@ -16,7 +16,7 @@ class CommentsPage extends StatefulWidget {
 
 class _CommentsPageState extends State<CommentsPage> {
   List<CommentItem> comments = [];
-  bool loading = false;
+  bool loading = true;
   int currentPage = 1;
   int totalPages = 1;
   int totalItems = 0;
@@ -341,7 +341,7 @@ class _CommentsPageState extends State<CommentsPage> {
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
-                                              'AI审核原因: ${comment
+                                              '${t(context, 'ai_audit_reason')}: ${comment
                                                   .auditReason}',
                                               style: TextStyle(
                                                 color: Colors.red.shade700,

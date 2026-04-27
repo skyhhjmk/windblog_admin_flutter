@@ -22,7 +22,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
 
   List<AuditLogItem> _logs = [];
   int _total = 0;
-  bool _loading = false;
+  bool _loading = true;
 
   final _entityTypeCtrl = TextEditingController();
   final _actionCtrl = TextEditingController();
@@ -58,7 +58,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败：$e')),
+          SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
     } finally {
@@ -82,33 +82,33 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
       context: context,
       builder: (context) =>
           AlertDialog(
-            title: const Text('审计日志详细信息'),
+            title: Text(t(context, 'audit_log_details')),
             content: SizedBox(
               width: 600,
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDetailRow('日志 ID', '${item.id}'),
-                    _buildDetailRow('实体类型 (entityType)', item.entityType),
-                    _buildDetailRow('实体 ID (entityId)', '${item.entityId}'),
-                    _buildDetailRow('操作 (action)', item.action),
+                    _buildDetailRow(t(context, 'log_id'), '${item.id}'),
+                    _buildDetailRow(t(context, 'entity_type'), item.entityType),
+                    _buildDetailRow(t(context, 'entity_id'), '${item.entityId}'),
+                    _buildDetailRow(t(context, 'action'), item.action),
                     _buildDetailRow(
-                        '操作人', item.performedByUsername ?? '系统/未知'),
-                    _buildDetailRow('时间',
+                        t(context, 'operator'), item.performedByUsername ?? t(context, 'system_unknown')),
+                    _buildDetailRow(t(context, 'time'),
                         item.createdAtFormatted ?? item.createdAt?.toString() ??
                             ''),
                     if (item.durationMs != null)
-                      _buildDetailRow('操作耗时', '${item.durationMs} 毫秒'),
+                      _buildDetailRow(t(context, 'duration'), '${item.durationMs} ${t(context, 'milliseconds')}'),
                     if (item.inputTokens != null)
-                      _buildDetailRow('输入 Tokens', '${item.inputTokens}'),
+                      _buildDetailRow(t(context, 'input_tokens'), '${item.inputTokens}'),
                     if (item.outputTokens != null)
-                      _buildDetailRow('输出 Tokens', '${item.outputTokens}'),
+                      _buildDetailRow(t(context, 'output_tokens'), '${item.outputTokens}'),
                     if (item.totalTokens != null)
-                      _buildDetailRow('总 Tokens', '${item.totalTokens}'),
+                      _buildDetailRow(t(context, 'total_tokens'), '${item.totalTokens}'),
                     const Divider(),
-                    const Text('变更前 (oldValue):',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${t(context, 'old_value')}:',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -125,8 +125,8 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text('变更后 (newValue):',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${t(context, 'new_value')}:',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -149,7 +149,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('关闭'),
+                child: Text(t(context, 'close')),
               ),
             ],
           ),
@@ -181,16 +181,16 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Text('审计日志',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(t(context, 'audit_logs'),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const Spacer(),
               SizedBox(
                 width: 200,
                 child: TextField(
                   controller: _entityTypeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '实体类型 (如 post)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: t(context, 'entity_type_hint'),
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                   onSubmitted: (_) => _onSearch(),
@@ -201,9 +201,9 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
                 width: 200,
                 child: TextField(
                   controller: _actionCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '操作 (如 ai_summary_generated)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: t(context, 'action_hint'),
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                   onSubmitted: (_) => _onSearch(),
@@ -213,7 +213,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
               FilledButton.icon(
                 onPressed: _onSearch,
                 icon: const Icon(Icons.search),
-                label: const Text('搜索'),
+                label: Text(t(context, 'search')),
               ),
             ],
           ),
@@ -239,8 +239,8 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
                         title: Text('${item.action} - ${item.entityType} #${item
                             .entityId}'),
                         subtitle: Text(
-                          '操作人: ${item.performedByUsername ??
-                              '系统'} | 时间: ${item.createdAtFormatted ??
+                          '${t(context, 'operator')}: ${item.performedByUsername ??
+                              t(context, 'system_unknown')} | ${t(context, 'time')}: ${item.createdAtFormatted ??
                               item.createdAt}',
                         ),
                         trailing: const Icon(Icons.chevron_right),
@@ -264,7 +264,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
   Widget _buildPagination() {
     return Row(
       children: [
-        Text('每页 $_pageSize 条，共 $_total 条'),
+        Text(t(context, 'page_of').replaceAll('%d', '$_pageSize').replaceFirst('%d', '$_total')),
         const Spacer(),
         IconButton(
           onPressed: _page <= 1

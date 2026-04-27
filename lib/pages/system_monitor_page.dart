@@ -16,7 +16,7 @@ class SystemMonitorPage extends StatefulWidget {
 
 class _SystemMonitorPageState extends State<SystemMonitorPage> {
   SystemMonitorInfo? monitorInfo;
-  bool loading = false;
+  bool loading = true;
   String? error;
   DateTime? lastUpdate;
 
@@ -90,8 +90,8 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
               )
             else
               if (monitorInfo == null)
-                const Expanded(
-                  child: Center(child: Text('No data')),
+                Expanded(
+                  child: Center(child: Text(t(context, 'no_data'))),
                 )
               else
                 Expanded(

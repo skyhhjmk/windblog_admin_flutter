@@ -16,7 +16,7 @@ class QueuesPage extends StatefulWidget {
 
 class _QueuesPageState extends State<QueuesPage> {
   List<QueueInfo> queues = [];
-  bool loading = false;
+  bool loading = true;
   String? error;
 
   @override
@@ -365,11 +365,18 @@ class _PublishMessageDialog extends StatefulWidget {
 }
 
 class _PublishMessageDialogState extends State<_PublishMessageDialog> {
-  final _postIdCtrl = TextEditingController(text: '1');
-  final _contentCtrl = TextEditingController(
-    text: '这是一篇测试文章的摘要内容，用于测试消息队列功能。',
-  );
+  late final TextEditingController _postIdCtrl;
+  late final TextEditingController _contentCtrl;
   int _priority = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _postIdCtrl = TextEditingController(text: '1');
+    _contentCtrl = TextEditingController(
+      text: t(context, 'publish_test_message_default_content'),
+    );
+  }
 
   @override
   void dispose() {
@@ -389,38 +396,38 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '发送到队列: ${widget.queueName}',
+              '${t(context, 'send_to_queue')}: ${widget.queueName}',
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _postIdCtrl,
-              decoration: const InputDecoration(
-                labelText: '文章 ID (postId)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: t(context, 'article_id_label'),
+                border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _contentCtrl,
-              decoration: const InputDecoration(
-                labelText: '文章内容摘要',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: t(context, 'article_summary_label'),
+                border: const OutlineInputBorder(),
               ),
               maxLines: 3,
             ),
             const SizedBox(height: 12),
-            Text('优先级', style: Theme
+            Text(t(context, 'priority'), style: Theme
                 .of(context)
                 .textTheme
                 .bodySmall),
             const SizedBox(height: 4),
             SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 0, label: Text('高')),
-                ButtonSegment(value: 1, label: Text('中')),
-                ButtonSegment(value: 2, label: Text('低')),
+              segments: [
+                ButtonSegment(value: 0, label: Text(t(context, 'high'))),
+                ButtonSegment(value: 1, label: Text(t(context, 'medium'))),
+                ButtonSegment(value: 2, label: Text(t(context, 'low'))),
               ],
               selected: {_priority},
               onSelectionChanged: (selected) {
@@ -440,7 +447,7 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
             final postId = int.tryParse(_postIdCtrl.text);
             if (postId == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请输入有效的文章 ID')),
+                SnackBar(content: Text(t(context, 'invalid_post_id'))),
               );
               return;
             }

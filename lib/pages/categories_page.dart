@@ -16,7 +16,7 @@ class CategoriesPage extends StatefulWidget {
 
 class _CategoriesPageState extends State<CategoriesPage> {
   List<CategoryItem> categories = [];
-  bool loading = false;
+  bool loading = true;
 
   @override
   void initState() {

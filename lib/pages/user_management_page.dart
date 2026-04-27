@@ -19,7 +19,7 @@ class UserManagementPage extends StatefulWidget {
 class _UserManagementPageState extends State<UserManagementPage> {
   final keywordCtrl = TextEditingController();
   PageResult<UserListItem>? pageResult;
-  bool loading = false;
+  bool loading = true;
   bool loadingRoles = true;
   List<PermissionRoleItem> roles = [];
   int page = 1;
@@ -205,7 +205,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                 Text('${user.email} · ${user.roleName}'),
                                 if (user.pointsBalance != null)
                                   Text(
-                                    '积分：${user.pointsBalance}',
+                                    '${t(context, 'points')}：${user.pointsBalance}',
                                     style: TextStyle(
                                       color: Theme
                                           .of(context)
@@ -225,7 +225,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                   icon: const Icon(Icons
                                       .account_balance_wallet),
                                   onPressed: () => _openWallet(user),
-                                  tooltip: '钱包',
+                                  tooltip: t(context, 'wallet'),
                                 ),
                               ],
                             ),
