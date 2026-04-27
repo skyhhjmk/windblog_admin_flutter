@@ -36,6 +36,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   
   List<String> _outline = [];
   int _lastSyncedLine = -1;
+  int _activeHighlightIndex = -1;
+  Timer? _highlightTimer;
 
   @override
   void initState() {
@@ -91,6 +93,36 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
     );
+
+    // Identify and highlight the current block
+    _highlightCurrentBlock();
+  }
+
+  void _highlightCurrentBlock() {
+    final text = widget.controller.text;
+    final blocks = _splitMarkdownBlocks(text);
+    int targetIndex = -1;
+
+    for (int i = 0; i < blocks.length; i++) {
+      final block = blocks[i];
+      final nextStart = (i + 1 < blocks.length)
+          ? blocks[i + 1].startLine
+          : 1000000;
+      if (_lastSyncedLine >= block.startLine && _lastSyncedLine < nextStart) {
+        targetIndex = i;
+        break;
+      }
+    }
+
+    if (targetIndex != -1 && targetIndex != _activeHighlightIndex) {
+      _highlightTimer?.cancel();
+      setState(() => _activeHighlightIndex = targetIndex);
+      _highlightTimer = Timer(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          setState(() => _activeHighlightIndex = -1);
+        }
+      });
+    }
   }
 
   void _onTextChanged() {
@@ -123,6 +155,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     _previewScrollController.dispose();
     if (kIsWeb) {
       SystemChannels.platform.invokeMethod('BrowserContextMenu.enable');
+      _highlightTimer?.cancel();
       _contextMenuSubscription?.cancel();
     }
     super.dispose();
@@ -370,10 +403,13 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: List.generate(blocks.length, (index) {
         final block = blocks[index];
+
+        final isHighlighted = _activeHighlightIndex == index;
         
         return MarkdownBlockWrapper(
           key: ValueKey('block-$index-${block.content.hashCode}'),
           block: block,
+          isHighlighted: isHighlighted,
           onJumpToSource: () => _jumpToEditorLine(block.startLine),
           onCopyHtml: (styled) => _copyBlockAsHtml(block.content, styled),
           onCopyMarkdown: () => _copyBlockAsMarkdown(block.content),
@@ -550,6 +586,7 @@ class MarkdownBlock {
 
 class MarkdownBlockWrapper extends StatefulWidget {
   final MarkdownBlock block;
+  final bool isHighlighted;
   final VoidCallback onJumpToSource;
   final Function(bool) onCopyHtml;
   final VoidCallback onCopyMarkdown;
@@ -557,6 +594,7 @@ class MarkdownBlockWrapper extends StatefulWidget {
   const MarkdownBlockWrapper({
     super.key,
     required this.block,
+    required this.isHighlighted,
     required this.onJumpToSource,
     required this.onCopyHtml,
     required this.onCopyMarkdown,
@@ -566,27 +604,74 @@ class MarkdownBlockWrapper extends StatefulWidget {
   State<MarkdownBlockWrapper> createState() => _MarkdownBlockWrapperState();
 }
 
-class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper> {
+class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  late AnimationController _flashController;
+  late Animation<Color?> _flashAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _flashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _flashAnimation = ColorTween(
+      begin: Colors.transparent,
+      end: Colors.blue.withAlpha(80),
+    ).animate(
+        CurvedAnimation(parent: _flashController, curve: Curves.easeInOut));
+
+    if (widget.isHighlighted) {
+      _flashController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(MarkdownBlockWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isHighlighted && !oldWidget.isHighlighted) {
+      _flashController.repeat(reverse: true);
+    } else if (!widget.isHighlighted && oldWidget.isHighlighted) {
+      _flashController.stop();
+      _flashController.animateTo(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _flashController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final color = _isHovered ? Colors.blue.withAlpha(15) : Colors.transparent;
-    
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: AnimatedBuilder(
+          animation: _flashAnimation,
+          builder: (context, child) {
+            final hoverColor = _isHovered ? Colors.blue.withAlpha(15) : Colors
+                .transparent;
+            final color = widget.isHighlighted
+                ? _flashAnimation.value
+                : hoverColor;
+
+            return Container(
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              margin: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: child,
+            );
+          },
           child: MarkdownBody(
             data: widget.block.content,
             selectable: false,
