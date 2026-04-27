@@ -7,12 +7,14 @@ class MarkdownPlusEditor extends StatefulWidget {
     required this.api,
     this.isBlockMode = false,
     this.onChanged,
+    this.scrollController,
   });
 
   final TextEditingController controller;
   final AdminApiClient api;
   final bool isBlockMode;
   final VoidCallback? onChanged;
+  final ScrollController? scrollController;
 
   @override
   State<MarkdownPlusEditor> createState() => _MarkdownPlusEditorState();
@@ -23,17 +25,65 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   bool isFullScreen = false;
   bool isOutlineVisible = false;
   final FocusNode _focusNode = FocusNode();
-  final ScrollController _editorScrollController = ScrollController();
+  ScrollController? _internalScrollController;
   final ScrollController _previewScrollController = ScrollController();
+
+  ScrollController get _editorScrollController =>
+      widget.scrollController ?? _internalScrollController!;
   
   List<String> _outline = [];
+  int _lastSyncedLine = -1;
 
   @override
   void initState() {
     super.initState();
+    if (widget.scrollController == null) {
+      _internalScrollController = ScrollController();
+    }
     widget.controller.addListener(_updateOutline);
     widget.controller.addListener(_onTextChanged);
+    widget.controller.addListener(_onSelectionChanged);
     _updateOutline();
+  }
+
+  void _onSelectionChanged() {
+    if (!isPreviewVisible || !mounted) return;
+    
+    final selection = widget.controller.selection;
+    if (!selection.isValid) return;
+    
+    final text = widget.controller.text;
+    if (selection.baseOffset > text.length) return;
+    
+    final textBefore = text.substring(0, selection.baseOffset);
+    final currentLine = textBefore.split('\n').length;
+    
+    if (currentLine != _lastSyncedLine) {
+      _lastSyncedLine = currentLine;
+      _syncPreview();
+    }
+  }
+
+  void _syncPreview() {
+    if (!_previewScrollController.hasClients) return;
+    
+    final text = widget.controller.text;
+    final lines = text.split('\n');
+    final totalLines = lines.length;
+    if (totalLines <= 1) return;
+    
+    // Calculate ratio based on cursor line
+    double ratio = (_lastSyncedLine - 1) / (totalLines - 1);
+    // Clamp ratio between 0 and 1
+    ratio = ratio.clamp(0.0, 1.0);
+    
+    final target = ratio * _previewScrollController.position.maxScrollExtent;
+    
+    _previewScrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _onTextChanged() {
@@ -43,11 +93,26 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   }
 
   @override
+  void didUpdateWidget(MarkdownPlusEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.scrollController != oldWidget.scrollController) {
+      if (oldWidget.scrollController == null && _internalScrollController != null) {
+        _internalScrollController!.dispose();
+        _internalScrollController = null;
+      }
+      if (widget.scrollController == null) {
+        _internalScrollController = ScrollController();
+      }
+    }
+  }
+
+  @override
   void dispose() {
     widget.controller.removeListener(_updateOutline);
     widget.controller.removeListener(_onTextChanged);
+    widget.controller.removeListener(_onSelectionChanged);
+    _internalScrollController?.dispose();
     _focusNode.dispose();
-    _editorScrollController.dispose();
     _previewScrollController.dispose();
     super.dispose();
   }
@@ -136,23 +201,31 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
               if (isOutlineVisible || widget.isBlockMode) const VerticalDivider(width: 1),
               Expanded(
                 flex: 1,
-                child: TextField(
-                  controller: widget.controller,
-                  focusNode: _focusNode,
-                  maxLines: null,
-                  expands: true,
-                  scrollController: _editorScrollController,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.all(16),
-                    hintText: '开始你的创作...',
+                child: Container(
+                  color: Colors.white,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1000),
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: _focusNode,
+                        maxLines: null,
+                        expands: true,
+                        scrollController: _editorScrollController,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                          hintText: '开始你的创作...',
+                        ),
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 15,
+                          height: 1.6,
+                        ),
+                        onChanged: (_) => widget.onChanged?.call(),
+                      ),
+                    ),
                   ),
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                  onChanged: (_) => widget.onChanged?.call(),
                 ),
               ),
               if (isPreviewVisible) const VerticalDivider(width: 1),
@@ -163,35 +236,42 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                     color: Colors.grey.shade50,
                     child: SingleChildScrollView(
                       controller: _previewScrollController,
-                      padding: const EdgeInsets.all(24),
-                      child: MarkdownBody(
-                        data: widget.controller.text,
-                        selectable: true,
-                        extensionSet: md.ExtensionSet(
-                          [
-                            const md.FencedCodeBlockSyntax(),
-                            const md.TableSyntax(),
-                            const RegionBlockSyntax(),
-                            const CalloutSyntax(), // Important: Custom block syntax
-                            const ColumnBlockSyntax(),
-                          ],
-                          [
-                            md.EmojiSyntax(),
-                            HighlightSyntax(),
-                            KeyboardSyntax(),
-                            ProgressSyntax(),
-                            StatusBadgeSyntax(),
-                          ],
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1000),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+                            child: MarkdownBody(
+                              data: widget.controller.text,
+                              selectable: true,
+                              extensionSet: md.ExtensionSet(
+                                [
+                                  const md.FencedCodeBlockSyntax(),
+                                  const md.TableSyntax(),
+                                  const RegionBlockSyntax(),
+                                  const CalloutSyntax(), // Important: Custom block syntax
+                                  const ColumnBlockSyntax(),
+                                ],
+                                [
+                                  md.EmojiSyntax(),
+                                  HighlightSyntax(),
+                                  KeyboardSyntax(),
+                                  ProgressSyntax(),
+                                  StatusBadgeSyntax(),
+                                ],
+                              ),
+                              builders: {
+                                'region': RegionElementBuilder(),
+                                'mdplus-callout': CalloutElementBuilder(), // Changed from 'callout'
+                                'column': ColumnElementBuilder(),
+                                'mark': HighlightElementBuilder(),
+                                'kbd': KeyboardElementBuilder(),
+                                'progress': ProgressElementBuilder(),
+                                'badge': StatusBadgeElementBuilder(),
+                              },
+                            ),
+                          ),
                         ),
-                        builders: {
-                          'region': RegionElementBuilder(),
-                          'mdplus-callout': CalloutElementBuilder(), // Changed from 'callout'
-                          'column': ColumnElementBuilder(),
-                          'mark': HighlightElementBuilder(),
-                          'kbd': KeyboardElementBuilder(),
-                          'progress': ProgressElementBuilder(),
-                          'badge': StatusBadgeElementBuilder(),
-                        },
                       ),
                     ),
                   ),

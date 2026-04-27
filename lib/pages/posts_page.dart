@@ -693,6 +693,9 @@ class _PostEditorPageState extends State<PostEditorPage>
   late final TextEditingController summaryCtrl;
   late final TextEditingController contentCtrl;
   late final TabController _sidebarTabController;
+  final ScrollController _contentScrollController = ScrollController();
+
+
 
   int status = 0;
   int visibility = 0;
@@ -728,6 +731,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   @override
   void initState() {
     super.initState();
+    _contentScrollController.addListener(_onScroll);
     _currentDetail = widget.detail;
     final d = _currentDetail;
     slugCtrl = TextEditingController(text: d?.slug ?? '');
@@ -765,9 +769,11 @@ class _PostEditorPageState extends State<PostEditorPage>
     }
 
     titleCtrl.addListener(_onTitleChanged);
-    slugCtrl.addListener(_markDirty);
-    summaryCtrl.addListener(_markDirty);
     contentCtrl.addListener(_markDirty);
+  }
+
+  void _onScroll() {
+    // No longer hiding title on scroll
   }
 
   void _onTitleChanged() {
@@ -882,6 +888,8 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   @override
   void dispose() {
+    _contentScrollController.removeListener(_onScroll);
+    _contentScrollController.dispose();
     slugCtrl.dispose();
     titleCtrl.dispose();
     summaryCtrl.dispose();
@@ -1306,260 +1314,67 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Widget _buildEditorPane() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: slugCtrl,
-            decoration: InputDecoration(
-              labelText: 'Slug',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.autorenew),
-                onPressed: () {
-                  slugCtrl.text = _generateSlug(titleCtrl.text);
-                },
-                tooltip: '根据标题自动生成',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: TextField(
+                controller: titleCtrl,
+                decoration: InputDecoration(
+                  hintText: t(context, 'title'),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: titleCtrl,
-            decoration: InputDecoration(
-              labelText: t(context, 'title'),
-            ),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: summaryCtrl,
-            decoration: InputDecoration(
-              labelText: t(context, 'summary'),
-            ),
-            minLines: 2,
-            maxLines: 3,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              FilledButton.icon(
-                onPressed: _uploadMedia,
-                icon: const Icon(Icons.photo_library_outlined),
-                label: Text(t(context, 'upload_media')),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<int>(
-                        // ignore: deprecated_member_use
-                        value: status,
-                        decoration: InputDecoration(
-                          labelText: t(context, 'status'),
-                          isDense: true,
-                        ),
-                        items: [
-                          DropdownMenuItem(value: 0, child: Text(t(
-                              context, 'draft'))),
-                          DropdownMenuItem(value: 1, child: Text(t(
-                              context, 'published'))),
-                          DropdownMenuItem(value: 2, child: Text(t(
-                              context, 'archived'))),
-                        ],
-                        onChanged: (v) =>
-                            setState(() {
-                              status = v ?? 0;
-                              _markDirty();
-                            }),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<int>(
-                        // ignore: deprecated_member_use
-                        value: visibility,
-                        decoration: InputDecoration(
-                          labelText: t(context, 'visibility'),
-                          isDense: true,
-                        ),
-                        items: [
-                          DropdownMenuItem(value: 0, child: Text(t(
-                              context, 'public'))),
-                          DropdownMenuItem(value: 1, child: Text(t(
-                              context, 'private'))),
-                          DropdownMenuItem(value: 2, child: Text(t(
-                              context, 'protected'))),
-                        ],
-                        onChanged: (v) =>
-                            setState(() {
-                              visibility = v ?? 0;
-                              _markDirty();
-                            }),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<int?>(
-                  // ignore: deprecated_member_use
-                  value: _categories.any((c) => c.id == categoryId)
-                      ? categoryId
-                      : null,
-                  decoration: InputDecoration(
-                    labelText: t(context, 'category'),
-                    isDense: true,
+                    ],
                   ),
-                  items: [
-                    DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text(t(context, 'select_category')),
-                    ),
-                    ..._categories.map((cat) =>
-                        DropdownMenuItem<int?>(
-                          value: cat.id,
-                          child: Text(cat.displayName),
-                        )),
-                  ],
-                  onChanged: (v) =>
-                      setState(() {
-                        categoryId = v;
-                        _markDirty();
-                      }),
+                  child: _buildEditor(),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<int?>(
-                  // ignore: deprecated_member_use
-                  value: null,
-                  decoration: InputDecoration(
-                    labelText: t(context, 'tags'),
-                    isDense: true,
-                  ),
-                  hint: Text(tagIds.isEmpty
-                      ? t(context, 'select_tags')
-                      : '${tagIds.length} tags'),
-                  items: [
-                    ..._tags.map((tag) =>
-                        DropdownMenuItem<int>(
-                          value: tag.id,
-                          child: Row(
-                            children: [
-                              Icon(
-                                tagIds.contains(tag.id)
-                                    ? Icons.check_box
-                                    : Icons.check_box_outline_blank,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(tag.displayName),
-                            ],
-                          ),
-                        )),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) {
-                      setState(() {
-                        if (tagIds.contains(v)) {
-                          tagIds.remove(v);
-                        } else {
-                          tagIds.add(v);
-                        }
-                        _markDirty();
-                      });
-                    }
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<int>(
-                  // ignore: deprecated_member_use
-                  value: renderType,
-                  decoration: InputDecoration(
-                    labelText: t(context, 'render_type'),
-                    isDense: true,
-                  ),
-                  items: [
-                    const DropdownMenuItem(value: 0, child: Text('Markdown')),
-                    const DropdownMenuItem(value: 1, child: Text('HTML')),
-                    const DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
-                    if (renderType == 7)
-                      const DropdownMenuItem(value: 7, child: Text('Tutorial Block (Deprecated)')),
-                  ],
-                  onChanged: (v) =>
-                      setState(() {
-                        renderType = v ?? 0;
-                        _markDirty();
-                      }),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<int>(
-                  // ignore: deprecated_member_use
-                  value: editorType,
-                  decoration: const InputDecoration(
-                    labelText: 'Editor Type',
-                    isDense: true,
-                  ),
-                  items: [
-                    const DropdownMenuItem(value: 0, child: Text('Markdown')),
-                    const DropdownMenuItem(value: 1, child: Text('HTML')),
-                    const DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
-                    if (editorType == 7)
-                      const DropdownMenuItem(value: 7, child: Text('Tutorial Block (Deprecated)')),
-                  ],
-                  onChanged: (v) =>
-                      setState(() {
-                        editorType = v ?? 0;
-                        _markDirty();
-                      }),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 500, maxHeight: 800),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: _buildEditor(),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildEditor() {
-    return _buildMarkdownEditor();
-  }
-
-  Widget _buildMarkdownEditor() {
     return MarkdownPlusEditor(
       controller: contentCtrl,
       api: widget.api,
       isBlockMode: renderType == 6,
       onChanged: _markDirty,
+      scrollController: _contentScrollController,
     );
   }
 
@@ -1569,7 +1384,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         TabBar(
           controller: _sidebarTabController,
           tabs: const [
-            Tab(text: '元数据'),
+            Tab(text: '基本信息'),
             Tab(text: '版本修订'),
             Tab(text: 'AI 摘要'),
           ],
@@ -1578,7 +1393,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           child: TabBarView(
             controller: _sidebarTabController,
             children: [
-              _buildMetadataTab(),
+              _buildBasicInfoTab(),
               _buildRevisionsTab(),
               _buildAiSummaryTab(),
             ],
@@ -1716,33 +1531,159 @@ class _PostEditorPageState extends State<PostEditorPage>
     );
   }
 
-  Widget _buildMetadataTab() {
+  Widget _buildBasicInfoTab() {
     final d = _currentDetail;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          TextField(
+            controller: slugCtrl,
+            decoration: InputDecoration(
+              labelText: 'Slug',
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.autorenew),
+                onPressed: () {
+                  slugCtrl.text = _generateSlug(titleCtrl.text);
+                },
+                tooltip: '根据标题自动生成',
+              ),
+            ),
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: summaryCtrl,
+            decoration: InputDecoration(
+              labelText: t(context, 'summary'),
+            ),
+            minLines: 3,
+            maxLines: 5,
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int?>(
+            // ignore: deprecated_member_use
+            initialValue: _categories.any((c) => c.id == categoryId) ? categoryId : null,
+            decoration: InputDecoration(
+              labelText: t(context, 'category'),
+              isDense: true,
+            ),
+            items: [
+              DropdownMenuItem<int?>(
+                value: null,
+                child: Text(t(context, 'select_category')),
+              ),
+              ..._categories.map((cat) => DropdownMenuItem<int?>(
+                    value: cat.id,
+                    child: Text(cat.displayName),
+                  )),
+            ],
+            onChanged: (v) => setState(() {
+              categoryId = v;
+              _markDirty();
+            }),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int?>(
+            // ignore: deprecated_member_use
+            initialValue: null,
+            decoration: InputDecoration(
+              labelText: t(context, 'tags'),
+              isDense: true,
+            ),
+            hint: Text(tagIds.isEmpty ? t(context, 'select_tags') : '${tagIds.length} tags'),
+            items: [
+              ..._tags.map((tag) => DropdownMenuItem<int>(
+                    value: tag.id,
+                    child: Row(
+                      children: [
+                        Icon(
+                          tagIds.contains(tag.id) ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(tag.displayName),
+                      ],
+                    ),
+                  )),
+            ],
+            onChanged: (v) {
+              if (v != null) {
+                setState(() {
+                  if (tagIds.contains(v)) {
+                    tagIds.remove(v);
+                  } else {
+                    tagIds.add(v);
+                  }
+                  _markDirty();
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int>(
+            // ignore: deprecated_member_use
+            initialValue: renderType,
+            decoration: InputDecoration(
+              labelText: t(context, 'render_type'),
+              isDense: true,
+            ),
+            items: [
+              const DropdownMenuItem(value: 0, child: Text('Markdown')),
+              const DropdownMenuItem(value: 1, child: Text('HTML')),
+              const DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
+            ],
+            onChanged: (v) => setState(() {
+              renderType = v ?? 0;
+              _markDirty();
+            }),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int>(
+            // ignore: deprecated_member_use
+            initialValue: editorType,
+            decoration: const InputDecoration(
+              labelText: 'Editor Type',
+              isDense: true,
+            ),
+            items: [
+              const DropdownMenuItem(value: 0, child: Text('Markdown')),
+              const DropdownMenuItem(value: 1, child: Text('HTML')),
+              const DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
+            ],
+            onChanged: (v) => setState(() {
+              editorType = v ?? 0;
+              _markDirty();
+            }),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _uploadMedia,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(t(context, 'upload_media')),
+            ),
+          ),
+          const Divider(height: 32),
           if (d != null) ...[
             MetadataItem('文章 ID', '${d.id}'),
             MetadataItem('当前版本', '${d.currentRevisionNumber}'),
             MetadataItem('数据版本', '${d.version}'),
             const Divider(height: 24),
-            if (d.createdAt != null)
-              MetadataItem('创建时间', _formatDate(d.createdAt!)),
-            if (d.updatedAt != null)
-              MetadataItem('更新时间', _formatDate(d.updatedAt!)),
-            if (d.publishedAt != null)
-              MetadataItem('发布时间', _formatDate(d.publishedAt!)),
-          ] else
-            ...[
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('保存后显示元数据'),
-                ),
+            if (d.createdAt != null) MetadataItem('创建时间', _formatDate(d.createdAt!)),
+            if (d.updatedAt != null) MetadataItem('更新时间', _formatDate(d.updatedAt!)),
+            if (d.publishedAt != null) MetadataItem('发布时间', _formatDate(d.publishedAt!)),
+          ] else ...[
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Text('保存后显示系统信息'),
               ),
-            ],
+            ),
+          ],
         ],
       ),
     );
