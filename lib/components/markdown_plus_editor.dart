@@ -38,6 +38,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   int _lastSyncedLine = -1;
   int _activeHighlightIndex = -1;
   Timer? _highlightTimer;
+  String _lastText = '';
+  bool _isPointerDown = false;
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     if (widget.scrollController == null) {
       _internalScrollController = ScrollController();
     }
+    _lastText = widget.controller.text;
     widget.controller.addListener(_updateOutline);
     widget.controller.addListener(_onTextChanged);
     widget.controller.addListener(_onSelectionChanged);
@@ -57,11 +60,14 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
   void _onSelectionChanged() {
     if (!isPreviewVisible || !mounted) return;
+
+    final text = widget.controller.text;
+    final isTextEdit = text != _lastText;
+    _lastText = text;
     
     final selection = widget.controller.selection;
     if (!selection.isValid) return;
     
-    final text = widget.controller.text;
     if (selection.baseOffset > text.length) return;
     
     final textBefore = text.substring(0, selection.baseOffset);
@@ -69,11 +75,39 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     
     if (currentLine != _lastSyncedLine) {
       _lastSyncedLine = currentLine;
-      _syncPreview();
+      _syncPreview(shouldHighlight: _isPointerDown && !isTextEdit);
+      _autoScrollEditor(currentLine);
     }
   }
 
-  void _syncPreview() {
+  void _autoScrollEditor(int currentLine) {
+    if (!_editorScrollController.hasClients) return;
+
+    const double lineHeight = 24.0;
+    const double topPadding = 24.0;
+    final cursorY = topPadding + (currentLine - 1) * lineHeight;
+
+    final offset = _editorScrollController.offset;
+    final viewport = _editorScrollController.position.viewportDimension;
+    final bottomBoundary = offset + viewport * 0.8; // 1/5th from bottom
+
+    if (cursorY > bottomBoundary) {
+      final targetOffset = cursorY - viewport * 0.8;
+      // Use microtask to avoid fighting TextField's internal scroll
+      Future.microtask(() {
+        if (mounted && _editorScrollController.hasClients) {
+          _editorScrollController.animateTo(
+            targetOffset.clamp(
+                0.0, _editorScrollController.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
+  }
+
+  void _syncPreview({bool shouldHighlight = true}) {
     if (!_previewScrollController.hasClients) return;
     
     final text = widget.controller.text;
@@ -94,8 +128,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       curve: Curves.easeOutCubic,
     );
 
-    // Identify and highlight the current block
-    _highlightCurrentBlock();
+    // Identify and highlight the current block only if it was a navigation action
+    if (shouldHighlight) {
+      _highlightCurrentBlock();
+    }
   }
 
   void _highlightCurrentBlock() {
@@ -250,12 +286,20 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1000),
-                      child: TextField(
-                        controller: widget.controller,
-                        focusNode: _focusNode,
-                        maxLines: null,
-                        expands: true,
-                        scrollController: _editorScrollController,
+                      child: Listener(
+                        onPointerDown: (_) => _isPointerDown = true,
+                        onPointerUp: (_) =>
+                            Future.delayed(const Duration(
+                                milliseconds: 100), () {
+                              if (mounted) _isPointerDown = false;
+                            }),
+                        onPointerCancel: (_) => _isPointerDown = false,
+                        child: TextField(
+                          controller: widget.controller,
+                          focusNode: _focusNode,
+                          maxLines: null,
+                          expands: true,
+                          scrollController: _editorScrollController,
                         decoration: const InputDecoration(
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -272,6 +316,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                   ),
                 ),
               ),
+              ),
               if (isPreviewVisible) const VerticalDivider(width: 1),
               if (isPreviewVisible)
                 Expanded(
@@ -285,7 +330,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 1000),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+                              padding: const EdgeInsets.fromLTRB(
+                                  48, 32, 48, 300),
+                              // Added bottom padding for preview
                               child: _buildPreviewBlocks(),
                             ),
                           ),
