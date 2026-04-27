@@ -1252,6 +1252,8 @@ class _PostEditorPageState extends State<PostEditorPage>
       },
       child: Scaffold(
         appBar: AppBar(
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           title: Text(_currentDetail == null ? t(context, 'new_post') : t(
               context, 'edit_post')),
           actions: [

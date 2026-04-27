@@ -27,6 +27,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   final FocusNode _focusNode = FocusNode();
   ScrollController? _internalScrollController;
   final ScrollController _previewScrollController = ScrollController();
+  dynamic _contextMenuSubscription;
+  
+
 
   ScrollController get _editorScrollController =>
       widget.scrollController ?? _internalScrollController!;
@@ -44,6 +47,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     widget.controller.addListener(_onTextChanged);
     widget.controller.addListener(_onSelectionChanged);
     _updateOutline();
+    if (kIsWeb) {
+      SystemChannels.platform.invokeMethod('BrowserContextMenu.disable');
+      _contextMenuSubscription = html.window.document.onContextMenu.listen((event) => event.preventDefault());
+    }
   }
 
   void _onSelectionChanged() {
@@ -114,6 +121,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     _internalScrollController?.dispose();
     _focusNode.dispose();
     _previewScrollController.dispose();
+    if (kIsWeb) {
+      SystemChannels.platform.invokeMethod('BrowserContextMenu.enable');
+      _contextMenuSubscription?.cancel();
+    }
     super.dispose();
   }
 
@@ -234,41 +245,15 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                   flex: 1,
                   child: Container(
                     color: Colors.grey.shade50,
-                    child: SingleChildScrollView(
-                      controller: _previewScrollController,
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1000),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
-                            child: MarkdownBody(
-                              data: widget.controller.text,
-                              selectable: true,
-                              extensionSet: md.ExtensionSet(
-                                [
-                                  const md.FencedCodeBlockSyntax(),
-                                  const md.TableSyntax(),
-                                  const RegionBlockSyntax(),
-                                  const CalloutSyntax(), // Important: Custom block syntax
-                                  const ColumnBlockSyntax(),
-                                ],
-                                [
-                                  md.EmojiSyntax(),
-                                  HighlightSyntax(),
-                                  KeyboardSyntax(),
-                                  ProgressSyntax(),
-                                  StatusBadgeSyntax(),
-                                ],
-                              ),
-                              builders: {
-                                'region': RegionElementBuilder(),
-                                'mdplus-callout': CalloutElementBuilder(), // Changed from 'callout'
-                                'column': ColumnElementBuilder(),
-                                'mark': HighlightElementBuilder(),
-                                'kbd': KeyboardElementBuilder(),
-                                'progress': ProgressElementBuilder(),
-                                'badge': StatusBadgeElementBuilder(),
-                              },
+                    child: SelectionArea(
+                      child: SingleChildScrollView(
+                        controller: _previewScrollController,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1000),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+                              child: _buildPreviewBlocks(),
                             ),
                           ),
                         ),
@@ -377,6 +362,135 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     );
   }
 
+  Widget _buildPreviewBlocks() {
+    final text = widget.controller.text;
+    final blocks = _splitMarkdownBlocks(text);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: List.generate(blocks.length, (index) {
+        final block = blocks[index];
+        
+        return MarkdownBlockWrapper(
+          key: ValueKey('block-$index-${block.content.hashCode}'),
+          block: block,
+          onJumpToSource: () => _jumpToEditorLine(block.startLine),
+          onCopyHtml: (styled) => _copyBlockAsHtml(block.content, styled),
+          onCopyMarkdown: () => _copyBlockAsMarkdown(block.content),
+        );
+      }),
+    );
+  }
+
+  List<MarkdownBlock> _splitMarkdownBlocks(String text) {
+    final lines = text.split('\n');
+    final blocks = <MarkdownBlock>[];
+    
+    if (lines.isEmpty) return [];
+    
+    List<String> currentBlockLines = [];
+    int blockStartLine = 1;
+    bool inCodeBlock = false;
+    
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final trimmed = line.trim();
+      
+      // Handle code block boundaries
+      if (trimmed.startsWith('```')) {
+        if (!inCodeBlock && currentBlockLines.isNotEmpty) {
+          blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+          currentBlockLines = [];
+          blockStartLine = i + 1;
+        }
+        inCodeBlock = !inCodeBlock;
+        currentBlockLines.add(line);
+        if (!inCodeBlock) {
+          blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+          currentBlockLines = [];
+          blockStartLine = i + 2;
+        }
+        continue;
+      }
+      
+      if (inCodeBlock) {
+        currentBlockLines.add(line);
+        continue;
+      }
+      
+      // Handle block starters
+      final isBlockStarter = trimmed.startsWith('#') || 
+                            trimmed.startsWith('- ') || 
+                            trimmed.startsWith('* ') || 
+                            trimmed.startsWith('> ') || 
+                            trimmed.startsWith('|') ||
+                            RegExp(r'^\d+\. ').hasMatch(trimmed);
+                            
+      if (isBlockStarter && currentBlockLines.isNotEmpty && trimmed.isNotEmpty) {
+          blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+          currentBlockLines = [line];
+          blockStartLine = i + 1;
+          continue;
+      }
+
+      if (trimmed.isEmpty) {
+        if (currentBlockLines.isNotEmpty) {
+          blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+          currentBlockLines = [];
+        }
+        blockStartLine = i + 2;
+      } else {
+        if (currentBlockLines.isEmpty) blockStartLine = i + 1;
+        currentBlockLines.add(line);
+      }
+    }
+    
+    if (currentBlockLines.isNotEmpty) {
+      blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+    }
+    
+    return blocks;
+  }
+
+  void _jumpToEditorLine(int line) {
+    if (!_focusNode.hasFocus) _focusNode.requestFocus();
+    
+    const double lineHeight = 24.0; // font size 15 * 1.6 height
+    final targetOffset = (line - 1) * lineHeight;
+    
+    _editorScrollController.animateTo(
+      targetOffset.clamp(0.0, _editorScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+    
+    final text = widget.controller.text;
+    final lines = text.split('\n');
+    int offset = 0;
+    for (int i = 0; i < line - 1 && i < lines.length; i++) {
+      offset += lines[i].length + 1;
+    }
+    
+    widget.controller.selection = TextSelection.collapsed(offset: offset);
+  }
+
+  void _copyBlockAsHtml(String markdown, bool styled) {
+    final htmlContent = md.markdownToHtml(markdown);
+    final finalHtml = styled ? '<div style="font-family: sans-serif; line-height: 1.6;">$htmlContent</div>' : htmlContent;
+    
+    Clipboard.setData(ClipboardData(text: finalHtml));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(styled ? '已复制带样式 HTML' : '已复制原始 HTML')),
+    );
+  }
+
+  void _copyBlockAsMarkdown(String markdown) {
+    Clipboard.setData(ClipboardData(text: markdown));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已复制 Markdown 源码')),
+    );
+  }
+
   Widget _buildOutlineSidebar() {
     return Container(
       width: 200,
@@ -424,6 +538,141 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class MarkdownBlock {
+  final int startLine;
+  final String content;
+  MarkdownBlock(this.startLine, this.content);
+}
+
+class MarkdownBlockWrapper extends StatefulWidget {
+  final MarkdownBlock block;
+  final VoidCallback onJumpToSource;
+  final Function(bool) onCopyHtml;
+  final VoidCallback onCopyMarkdown;
+
+  const MarkdownBlockWrapper({
+    super.key,
+    required this.block,
+    required this.onJumpToSource,
+    required this.onCopyHtml,
+    required this.onCopyMarkdown,
+  });
+
+  @override
+  State<MarkdownBlockWrapper> createState() => _MarkdownBlockWrapperState();
+}
+
+class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _isHovered ? Colors.blue.withAlpha(15) : Colors.transparent;
+    
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: MarkdownBody(
+            data: widget.block.content,
+            selectable: false,
+            extensionSet: md.ExtensionSet(
+              [
+                const md.FencedCodeBlockSyntax(),
+                const md.TableSyntax(),
+                const RegionBlockSyntax(),
+                const CalloutSyntax(),
+                const ColumnBlockSyntax(),
+              ],
+              [
+                md.EmojiSyntax(),
+                HighlightSyntax(),
+                KeyboardSyntax(),
+                ProgressSyntax(),
+                StatusBadgeSyntax(),
+              ],
+            ),
+            builders: {
+              'region': RegionElementBuilder(),
+              'mdplus-callout': CalloutElementBuilder(),
+              'column': ColumnElementBuilder(),
+              'mark': HighlightElementBuilder(),
+              'kbd': KeyboardElementBuilder(),
+              'progress': ProgressElementBuilder(),
+              'badge': StatusBadgeElementBuilder(),
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showContextMenu(BuildContext context, Offset position) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<dynamic>>[
+        PopupMenuItem(
+          onTap: widget.onJumpToSource,
+          child: const Row(
+            children: [
+              Icon(Icons.code, size: 18, color: Colors.blue),
+              SizedBox(width: 12),
+              Text('跳转到源码行'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          onTap: () => widget.onCopyHtml(false),
+          child: const Row(
+            children: [
+              Icon(Icons.html, size: 18),
+              SizedBox(width: 12),
+              Text('复制为 HTML'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () => widget.onCopyHtml(true),
+          child: const Row(
+            children: [
+              Icon(Icons.style, size: 18),
+              SizedBox(width: 12),
+              Text('复制为带样式 HTML'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: widget.onCopyMarkdown,
+          child: const Row(
+            children: [
+              Icon(Icons.article_outlined, size: 18),
+              SizedBox(width: 12),
+              Text('复制为 Markdown 源码'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
