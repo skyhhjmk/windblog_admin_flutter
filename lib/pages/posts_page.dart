@@ -1107,6 +1107,122 @@ class _PostEditorPageState extends State<PostEditorPage>
     }
   }
 
+  Future<void> _showDiff(int revisionNumber) async {
+    if (_currentDetail == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final revisionDetail = await widget.api.getPostRevision(
+        _currentDetail!.id,
+        revisionNumber,
+      );
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        final currentTitle = titleCtrl.text;
+        final currentSummary = summaryCtrl.text;
+        final currentContent = contentCtrl.text;
+
+        final revTitle = revisionDetail.title['zh-cn'] ?? '';
+        final revSummary = revisionDetail.summary['zh-cn'] ?? '';
+        final revContent = revisionDetail.contentMarkdown['zh-cn'] ?? '';
+
+        showDialog(
+          context: context,
+          builder: (context) {
+            final screenSize = MediaQuery.of(context).size;
+            return AlertDialog(
+              title: Text('版本 $revisionNumber 对比'),
+              content: SizedBox(
+                width: screenSize.width * 0.8,
+                height: screenSize.height * 0.8,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.amber.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '提示：红色删除线部分来自版本 $revisionNumber，绿色背景部分为当前编辑器中的内容。',
+                              style: const TextStyle(fontSize: 12, color: Colors.black87),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DiffViewer(
+                              title: '标题对比',
+                              oldText: revTitle,
+                              newText: currentTitle,
+                            ),
+                            const SizedBox(height: 24),
+                            DiffViewer(
+                              title: '摘要对比',
+                              oldText: revSummary,
+                              newText: currentSummary,
+                            ),
+                            const SizedBox(height: 24),
+                            DiffViewer(
+                              title: '正文对比',
+                              oldText: revContent,
+                              newText: currentContent,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('关闭'),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _switchToRevision(revisionNumber);
+                  },
+                  icon: const Icon(Icons.history_edu, size: 18),
+                  label: const Text('切换到此版本'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载版本详情失败：$e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final navigator = Navigator.of(context);
@@ -1686,10 +1802,19 @@ class _PostEditorPageState extends State<PostEditorPage>
             labelStyle: TextStyle(color: Colors.green.shade800),
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
           )
-              : TextButton(
-            onPressed: () => _switchToRevision(revision.revisionNumber),
-            child: const Text('切换'),
-          ),
+              : Wrap(
+                spacing: 4,
+                children: [
+                  TextButton(
+                    onPressed: () => _showDiff(revision.revisionNumber),
+                    child: const Text('对比'),
+                  ),
+                  TextButton(
+                    onPressed: () => _switchToRevision(revision.revisionNumber),
+                    child: const Text('切换'),
+                  ),
+                ],
+              ),
           dense: true,
         );
       },

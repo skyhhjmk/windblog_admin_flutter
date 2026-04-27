@@ -5,6 +5,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:mime/mime.dart';
+import 'package:diff_match_patch/diff_match_patch.dart' as diff_match_patch;
+
 
 import 'data/admin_api_client.dart';
 import 'data/models.dart';
@@ -34,6 +36,8 @@ part 'pages/comments_page.dart';
 part 'pages/queues_page.dart';
 
 part 'pages/system_monitor_page.dart';
+part 'components/diff_viewer.dart';
+
 
 String _resolveMimeType(PlatformFile file) {
   final candidate = file.path ?? file.name;
