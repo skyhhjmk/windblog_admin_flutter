@@ -1,50 +1,27 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
-/// Custom Block Syntax for Semantic Regions (::: type)
-class RegionBlockSyntax extends md.BlockSyntax {
+/// Custom Container Syntax (::: `<name>`)
+class CustomContainerSyntax extends md.BlockSyntax {
   @override
-  RegExp get pattern => RegExp(r'^:::\s*(\w+)\s*$');
+  RegExp get pattern => RegExp(r'^:::\s+([a-zA-Z0-9_-]+)$');
 
-  const RegionBlockSyntax();
+  const CustomContainerSyntax();
 
   @override
   md.Node? parse(md.BlockParser parser) {
     final match = pattern.firstMatch(parser.current.content);
     if (match == null) return null;
-    
-    final type = match.group(1)!;
+
+    final name = match.group(1)!.trim();
     final childLines = <String>[];
+
     parser.advance();
-    
+
+    bool foundEnd = false;
     while (!parser.isDone) {
-      if (RegExp(r'^:::\s*$').hasMatch(parser.current.content)) {
-        parser.advance();
-        break;
-      }
-      childLines.add(parser.current.content);
-      parser.advance();
-    }
-    
-    return md.Element('region', [
-      md.Text(childLines.join('\n'))
-    ])..attributes['type'] = type;
-  }
-}
-
-/// Column Layout Syntax (::: column)
-class ColumnBlockSyntax extends md.BlockSyntax {
-  @override
-  RegExp get pattern => RegExp(r'^:::\s*column\s*$');
-
-  const ColumnBlockSyntax();
-
-  @override
-  md.Node? parse(md.BlockParser parser) {
-    parser.advance();
-    final childLines = <String>[];
-    
-    while (!parser.isDone) {
-      if (RegExp(r'^:::\s*$').hasMatch(parser.current.content)) {
+      final line = parser.current.content.trim();
+      if (line == '::: /$name') {
+        foundEnd = true;
         parser.advance();
         break;
       }
@@ -52,10 +29,14 @@ class ColumnBlockSyntax extends md.BlockSyntax {
       parser.advance();
     }
 
-    final content = childLines.join('\n');
-    final columns = content.split('|');
-    
-    return md.Element('column', columns.map((col) => md.Element.text('col-item', col.trim())).toList());
+    if (!foundEnd) {
+      return md.Element(
+          'error-block', [md.Text('解析错误：缺少闭合标签 ::: /$name')])
+        ..attributes['name'] = name;
+    }
+
+    return md.Element('custom-container', [md.Text(childLines.join('\n'))])
+      ..attributes['name'] = name;
   }
 }
 
@@ -130,49 +111,34 @@ class StatusBadgeSyntax extends md.InlineSyntax {
 }
 
 /// Element Builders
-class RegionElementBuilder extends MarkdownElementBuilder {
+class BlockquoteBuilder extends MarkdownElementBuilder {
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    final type = element.attributes['type'] ?? 'info';
-    final content = element.textContent;
-    Color color = _getColor(type);
-    IconData icon = _getIcon(type);
+    const color = Colors.green;
+    const icon = Icons.check_circle_outline;
 
+    // We don't have access to the pre-rendered children in visitElementAfter if we just use the text.
+    // Standard blockquote has its own children parsed, but MarkdownElementBuilder is limited.
+    // If we return a widget here, flutter_markdown uses it instead of standard blockquote.
+    // We will just use textContent like the old RegionElementBuilder did.
     return Container(
-      width: double.infinity, // Force full width
+      width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.05),
-        border: Border(left: BorderSide(color: color, width: 4)),
+        border: const Border(left: BorderSide(color: color, width: 4)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
+          const Icon(icon, color: color, size: 20),
           const SizedBox(width: 12),
-          Expanded(child: Text(content, style: const TextStyle(fontSize: 14, height: 1.5))),
+          Expanded(child: Text(element.textContent,
+              style: const TextStyle(fontSize: 14, height: 1.5))),
         ],
       ),
     );
-  }
-
-  Color _getColor(String type) {
-    switch (type) {
-      case 'tip': return Colors.green;
-      case 'warning': return Colors.orange;
-      case 'error': case 'danger': return Colors.red;
-      default: return Colors.blue;
-    }
-  }
-
-  IconData _getIcon(String type) {
-    switch (type) {
-      case 'tip': return Icons.check_circle_outline;
-      case 'warning': return Icons.warning_amber_rounded;
-      case 'error': case 'danger': return Icons.error_outline;
-      default: return Icons.info_outline;
-    }
   }
 }
 
@@ -301,32 +267,68 @@ class HighlightElementBuilder extends MarkdownElementBuilder {
   }
 }
 
-class ColumnElementBuilder extends MarkdownElementBuilder {
+class ErrorBlockBuilder extends MarkdownElementBuilder {
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 16),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.1),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(4),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: element.children?.map((child) {
-              return Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: Border.all(color: Colors.grey.shade200),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    child.textContent,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              );
-            }).toList() ??
-            [],
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade700, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            element.textContent,
+            style: TextStyle(color: Colors.red.shade700,
+                fontWeight: FontWeight.bold,
+                fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CustomContainerBuilder extends MarkdownElementBuilder {
+  @override
+  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    // We just render the inner text using MarkdownBody to support all Markdown syntax inside.
+    return SizedBox(
+      width: double.infinity,
+      child: MarkdownBody(
+        data: element.textContent,
+        selectable: false,
+        extensionSet: md.ExtensionSet(
+          [
+            const md.FencedCodeBlockSyntax(),
+            const md.TableSyntax(),
+            const CustomContainerSyntax(),
+            const CalloutSyntax(),
+          ],
+          [
+            md.EmojiSyntax(),
+            HighlightSyntax(),
+            KeyboardSyntax(),
+            ProgressSyntax(),
+            StatusBadgeSyntax(),
+          ],
+        ),
+        builders: {
+          'blockquote': BlockquoteBuilder(),
+          'mdplus-callout': CalloutElementBuilder(),
+          'mark': HighlightElementBuilder(),
+          'kbd': KeyboardElementBuilder(),
+          'progress': ProgressElementBuilder(),
+          'badge': StatusBadgeElementBuilder(),
+          'error-block': ErrorBlockBuilder(),
+          'custom-container': CustomContainerBuilder(),
+        },
       ),
     );
   }

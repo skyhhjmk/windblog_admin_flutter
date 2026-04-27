@@ -35,6 +35,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       widget.scrollController ?? _internalScrollController!;
   
   List<String> _outline = [];
+  Map<String, int> _blockStats = {};
   int _lastSyncedLine = -1;
   int _activeHighlightIndex = -1;
   Timer? _highlightTimer;
@@ -201,14 +202,38 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     final text = widget.controller.text;
     final lines = text.split('\n');
     final newOutline = <String>[];
-    for (final line in lines) {
+    final newStats = <String, int>{};
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
       if (line.startsWith('#')) {
         newOutline.add(line);
+      } else if (line.startsWith('::: ') && !line.startsWith('::: /')) {
+        final name = line.substring(4).trim();
+        if (name.isNotEmpty) {
+          bool found = false;
+          for (int j = i + 1; j < lines.length; j++) {
+            if (lines[j].trim() == '::: /$name') {
+              found = true;
+              break;
+            }
+          }
+          if (found) {
+            newStats[name] = (newStats[name] ?? 0) + 1;
+          } else {
+            newStats['错误块 (Error)'] = (newStats['错误块 (Error)'] ?? 0) + 1;
+          }
+        }
       }
     }
-    if (!listEquals(_outline, newOutline)) {
+
+    bool outlineChanged = !listEquals(_outline, newOutline);
+    bool statsChanged = !mapEquals(_blockStats, newStats);
+
+    if (outlineChanged || statsChanged) {
       setState(() {
         _outline = newOutline;
+        _blockStats = newStats;
       });
     }
   }
@@ -474,6 +499,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     List<String> currentBlockLines = [];
     int blockStartLine = 1;
     bool inCodeBlock = false;
+    bool inCustomBlock = false;
+    String customBlockName = '';
     
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
@@ -497,6 +524,39 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       }
       
       if (inCodeBlock) {
+        currentBlockLines.add(line);
+        continue;
+      }
+
+      // Handle custom block boundaries
+      if (trimmed.startsWith('::: ')) {
+        if (!inCustomBlock && !trimmed.startsWith('::: /')) {
+          final name = trimmed.substring(4).trim();
+          if (name.isNotEmpty) {
+            if (currentBlockLines.isNotEmpty) {
+              blocks.add(
+                  MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+              currentBlockLines = [];
+            }
+            inCustomBlock = true;
+            customBlockName = name;
+            blockStartLine = i + 1;
+            currentBlockLines.add(line);
+            continue;
+          }
+        } else if (inCustomBlock && trimmed == '::: /$customBlockName') {
+          currentBlockLines.add(line);
+          blocks.add(
+              MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+          currentBlockLines = [];
+          blockStartLine = i + 2;
+          inCustomBlock = false;
+          customBlockName = '';
+          continue;
+        }
+      }
+
+      if (inCustomBlock) {
         currentBlockLines.add(line);
         continue;
       }
@@ -619,6 +679,51 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
               },
             ),
           ),
+          if (_blockStats.isNotEmpty) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                '块统计 (Block Stats)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12).copyWith(
+                  bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: _blockStats.entries.map((e) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(e.key, style: TextStyle(
+                            fontSize: 13, color: Colors.grey.shade800)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text('${e.value}', style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.blue.shade700,
+                              fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -726,9 +831,8 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
               [
                 const md.FencedCodeBlockSyntax(),
                 const md.TableSyntax(),
-                const RegionBlockSyntax(),
+                const CustomContainerSyntax(),
                 const CalloutSyntax(),
-                const ColumnBlockSyntax(),
               ],
               [
                 md.EmojiSyntax(),
@@ -739,13 +843,14 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
               ],
             ),
             builders: {
-              'region': RegionElementBuilder(),
+              'blockquote': BlockquoteBuilder(),
               'mdplus-callout': CalloutElementBuilder(),
-              'column': ColumnElementBuilder(),
               'mark': HighlightElementBuilder(),
               'kbd': KeyboardElementBuilder(),
               'progress': ProgressElementBuilder(),
               'badge': StatusBadgeElementBuilder(),
+              'error-block': ErrorBlockBuilder(),
+              'custom-container': CustomContainerBuilder(),
             },
           ),
         ),
