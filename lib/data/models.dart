@@ -1087,6 +1087,140 @@ class CategoryTreeNode {
   }
 }
 
+class SystemSetting {
+  SystemSetting({
+    required this.id,
+    required this.configKey,
+    required this.configValue,
+    required this.configType,
+    required this.groupName,
+    required this.uiSchema,
+    this.description,
+    required this.version,
+    required this.isFrozen,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  final int id;
+  final String configKey;
+  final dynamic configValue;
+  final String configType;
+  final String groupName;
+  final UISchema uiSchema;
+  final String? description;
+  final int version;
+  final bool isFrozen;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  factory SystemSetting.fromMap(Map<String, dynamic> map) {
+    return SystemSetting(
+      id: toInt(map['id']) ?? 0,
+      configKey: map['configKey']?.toString() ?? '',
+      configValue: map['configValue'],
+      configType: map['configType']?.toString() ?? 'string',
+      groupName: map['groupName']?.toString() ?? 'general',
+      uiSchema: UISchema.fromMap(
+          map['uiSchema'] is Map ? Map<String, dynamic>.from(
+              map['uiSchema'] as Map) : {}),
+      description: map['description']?.toString(),
+      version: toInt(map['version']) ?? 1,
+      isFrozen: toBool(map['isFrozen']) ?? false,
+      createdAt: parseDate(map['createdAt']),
+      updatedAt: parseDate(map['updatedAt']),
+    );
+  }
+}
+
+class UISchema {
+  UISchema({
+    required this.type,
+    required this.fields,
+  });
+
+  final String type;
+  final List<UISchemaField> fields;
+
+  factory UISchema.fromMap(Map<String, dynamic> map) {
+    return UISchema(
+      type: map['type']?.toString() ?? 'object',
+      fields: (asDynamicList(map['fields']) ?? [])
+          .map((e) =>
+          UISchemaField.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+    );
+  }
+}
+
+class UISchemaField {
+  UISchemaField({
+    required this.key,
+    required this.label,
+    required this.widget,
+    this.required = false,
+    this.options,
+    this.validation,
+  });
+
+  final String key;
+  final String label;
+  final String widget;
+  final bool required;
+  final List<Map<String, dynamic>>? options;
+  final Map<String, dynamic>? validation;
+
+  factory UISchemaField.fromMap(Map<String, dynamic> map) {
+    return UISchemaField(
+      key: map['key']?.toString() ?? '',
+      label: map['label']?.toString() ?? '',
+      widget: map['widget']?.toString() ?? 'input',
+      required: toBool(map['required']) ?? false,
+      options: (asDynamicList(map['options']))
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
+      validation: map['validation'] is Map ? Map<String, dynamic>.from(
+          map['validation'] as Map) : null,
+    );
+  }
+}
+
+class SystemSettingHistory {
+  SystemSettingHistory({
+    required this.id,
+    required this.settingId,
+    required this.configKey,
+    required this.configValue,
+    required this.version,
+    this.operatorId,
+    this.changeReason,
+    this.createdAt,
+  });
+
+  final int id;
+  final int settingId;
+  final String configKey;
+  final dynamic configValue;
+  final int version;
+  final int? operatorId;
+  final String? changeReason;
+  final DateTime? createdAt;
+
+  factory SystemSettingHistory.fromMap(Map<String, dynamic> map) {
+    return SystemSettingHistory(
+      id: toInt(map['id']) ?? 0,
+      settingId: toInt(map['settingId']) ?? 0,
+      configKey: map['configKey']?.toString() ?? '',
+      configValue: map['configValue'],
+      version: toInt(map['version']) ?? 0,
+      operatorId: toInt(map['operatorId']),
+      changeReason: map['changeReason']?.toString(),
+      createdAt: parseDate(map['createdAt']),
+    );
+  }
+}
+
+
 int? toInt(Object? value) {
   if (value == null) {
     return null;

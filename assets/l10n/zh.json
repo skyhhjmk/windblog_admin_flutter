@@ -273,5 +273,15 @@
   "invalid_post_id": "请输入有效的文章 ID",
   "ai_audit_reason": "AI 审核原因",
   "points": "积分",
-  "wallet": "钱包"
+  "wallet": "钱包",
+  "system_settings": "系统设置",
+  "config_frozen_msg": "配置处于验证锁定期，无法修改。请在下方确认或回滚。",
+  "confirm_and_unfreeze": "确认并解除锁定",
+  "rollback_and_cancel": "放弃变更并回滚",
+  "config_save_success_verifying": "配置已保存，进入验证期",
+  "config_confirmed": "配置已确认",
+  "config_rolled_back": "已执行回滚",
+  "save_config": "保存配置",
+  "config_version": "版本",
+  "add_tag": "添加标签"
 }

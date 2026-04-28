@@ -447,6 +447,44 @@ class AdminApiClient {
     return PaginatedAuditLogResult.fromMap(_map(jsonDecode(res.body)));
   }
 
+  // ==================== 系统设置 API ====================
+
+  Future<List<SystemSetting>> listSystemSettings({String? group}) async {
+    final query = {
+      if (group != null && group.isNotEmpty) 'group': group,
+    };
+    final res = await _get('/api/admin/settings', query: query);
+    final map = _map(jsonDecode(res.body));
+    final list = (map['data'] as List<dynamic>? ?? []);
+    return list.map((e) => SystemSetting.fromMap(_map(e))).toList();
+  }
+
+  Future<SystemSetting> updateSystemSetting(String key, dynamic value,
+      {String? reason}) async {
+    final res = await _put('/api/admin/settings/$key', body: {
+      'configValue': value,
+      'reason': reason,
+    });
+    final map = _map(jsonDecode(res.body));
+    return SystemSetting.fromMap(_map(map['data']));
+  }
+
+  Future<void> confirmSystemSetting(String key) async {
+    await _post('/api/admin/settings/$key/confirm', body: const {});
+  }
+
+  Future<void> rollbackSystemSetting(String key) async {
+    await _post('/api/admin/settings/$key/rollback', body: const {});
+  }
+
+  Future<List<SystemSettingHistory>> listSystemSettingHistory(
+      String key) async {
+    final res = await _get('/api/admin/settings/$key/history');
+    final map = _map(jsonDecode(res.body));
+    final list = (map['data'] as List<dynamic>? ?? []);
+    return list.map((e) => SystemSettingHistory.fromMap(_map(e))).toList();
+  }
+
   Future<PostListResult> listPostsByCategory({
     required int categoryId,
     int page = 1,

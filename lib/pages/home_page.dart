@@ -95,6 +95,11 @@ class _HomePageState extends State<HomePage> {
                 selectedIcon: const Icon(Icons.history),
                 label: Text(t(context, 'system_logs')),
               ),
+              NavigationRailDestination(
+                icon: const Icon(Icons.settings_outlined),
+                selectedIcon: const Icon(Icons.settings),
+                label: Text(t(context, 'system_settings')),
+              ),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -123,7 +128,8 @@ class _HomePageState extends State<HomePage> {
                           9 => t(context, 'comments'),
                           10 => t(context, 'queue_monitoring'),
                           11 => t(context, 'system_monitoring'),
-                          _ => t(context, 'system_logs'),
+                          12 => t(context, 'system_logs'),
+                          _ => t(context, 'system_settings'),
                         },
                       ),
                       const Spacer(),
@@ -172,7 +178,8 @@ class _HomePageState extends State<HomePage> {
       9 => CommentsPage(api: widget.api, onAuthError: widget.onLogout),
       10 => QueuesPage(api: widget.api, onAuthError: widget.onLogout),
       11 => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
-      _ => AuditLogsPage(api: widget.api, onAuthError: widget.onLogout),
+      12 => AuditLogsPage(api: widget.api, onAuthError: widget.onLogout),
+      _ => SystemSettingsPage(api: widget.api, onAuthError: widget.onLogout),
     };
   }
 }
