@@ -141,6 +141,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         Card(

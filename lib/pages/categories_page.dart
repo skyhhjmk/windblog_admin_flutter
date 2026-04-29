@@ -260,6 +260,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 ? Center(child: Text(t(context, 'no_categories')))
                 : Card(
               child: ListView(
+                physics: const BouncingScrollPhysics(),
                 children: rootCategories
                     .map((cat) => _buildCategoryTree(cat, 0))
                     .toList(),

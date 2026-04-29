@@ -485,6 +485,19 @@ class AdminApiClient {
     return list.map((e) => SystemSettingHistory.fromMap(_map(e))).toList();
   }
 
+  Future<SystemSetting> getSystemSetting(String key) async {
+    final res = await _get('/api/admin/settings/$key');
+    final map = _map(jsonDecode(res.body));
+    return SystemSetting.fromMap(_map(map['data']));
+  }
+
+  Future<void> applyAuditSettingValue(String key, dynamic value) async {
+    await _post('/api/admin/settings/apply-audit-value', body: {
+      'key': key,
+      'value': value,
+    });
+  }
+
   Future<PostListResult> listPostsByCategory({
     required int categoryId,
     int page = 1,

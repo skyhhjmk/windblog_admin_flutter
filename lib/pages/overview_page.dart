@@ -58,6 +58,7 @@ class _OverviewPageState extends State<OverviewPage> {
     }
 
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         Wrap(

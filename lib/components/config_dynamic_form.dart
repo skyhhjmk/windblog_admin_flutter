@@ -147,6 +147,12 @@ class _TagInputState extends State<_TagInput> {
     _tags = List<String>.from(widget.initialValue);
   }
 
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
   void _add(String val) {
     val = val.trim();
     if (val.isNotEmpty && !_tags.contains(val)) {

@@ -143,6 +143,7 @@ class _TagsPageState extends State<TagsPage> {
                 ? Center(child: Text(t(context, 'no_tags')))
                 : Card(
               child: ListView.separated(
+                physics: const BouncingScrollPhysics(),
                 itemCount: tags.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {

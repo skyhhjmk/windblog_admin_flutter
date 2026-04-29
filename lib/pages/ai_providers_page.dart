@@ -150,6 +150,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   ? t(context, 'ai_add_provider')
                   : t(context, 'ai_add_polling_group')) : t(context, 'ai_edit_config')),
               content: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -344,6 +345,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
           Center(child: Text(t(context, 'no_data')))
         else
           ListView.builder(
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.all(16),
             itemCount: list.length,
             itemBuilder: (context, index) {
@@ -471,6 +473,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                 color: Colors.grey.shade50,
               ),
               child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

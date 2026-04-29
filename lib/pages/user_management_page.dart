@@ -160,6 +160,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                 : users.isEmpty
                     ? Center(child: Text(t(context, 'no_users')))
                     : ListView.separated(
+              physics: const BouncingScrollPhysics(),
                         itemCount: users.length,
                         separatorBuilder: (context, index) => const Divider(height: 1),
                         itemBuilder: (context, index) {
@@ -237,7 +238,11 @@ class _UserManagementPageState extends State<UserManagementPage> {
           if (pageResult != null)
             Row(
               children: [
-                Text(t(context, 'page_of').replaceAll('%d', page.toString()).replaceFirst('%d', pageResult!.total.toString())),
+                Text(t(context, 'page_of')
+                    .replaceFirst('%d', page.toString())
+                    .replaceFirst('%d',
+                    ((pageResult!.total / pageResult!.pageSize).ceil())
+                        .toString())),
                 const Spacer(),
                 IconButton(
                   onPressed: page <= 1 ? null : () => setState(() => page--),

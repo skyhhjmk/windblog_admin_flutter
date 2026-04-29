@@ -1,5 +1,55 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
+// Regex for markdown image syntax: ![alt](url)
+final _imageRegExp = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
+
+class MarkdownSyntaxController extends TextEditingController {
+  MarkdownSyntaxController({super.text});
+
+  @override
+  TextSpan buildTextSpan(
+      {required BuildContext context, TextStyle? style, required bool withComposing}) {
+    final List<InlineSpan> spans = [];
+    int lastMatchEnd = 0;
+
+    for (final match in _imageRegExp.allMatches(text)) {
+      if (match.start > lastMatchEnd) {
+        spans.add(TextSpan(
+            text: text.substring(lastMatchEnd, match.start), style: style));
+      }
+
+      spans.add(TextSpan(
+        text: match.group(0),
+        // Style only — no recognizer attached here
+        style: style?.copyWith(
+          color: Colors.blue.shade600,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.blue.shade400,
+        ),
+      ));
+
+      lastMatchEnd = match.end;
+    }
+
+    if (lastMatchEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastMatchEnd), style: style));
+    }
+
+    return TextSpan(style: style, children: spans);
+  }
+
+  /// Returns the image URL if [offset] (character offset in text) falls
+  /// inside a `![alt](url)` match, otherwise null.
+  String? imageUrlAtOffset(int offset) {
+    for (final match in _imageRegExp.allMatches(text)) {
+      if (offset >= match.start && offset <= match.end) {
+        return match.group(2);
+      }
+    }
+    return null;
+  }
+}
+
 class MarkdownPlusEditor extends StatefulWidget {
   const MarkdownPlusEditor({
     super.key,
@@ -28,6 +78,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   ScrollController? _internalScrollController;
   final ScrollController _previewScrollController = ScrollController();
   dynamic _contextMenuSubscription;
+  dynamic _pasteSubscription;
   
 
 
@@ -56,6 +107,210 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     if (kIsWeb) {
       SystemChannels.platform.invokeMethod('BrowserContextMenu.disable');
       _contextMenuSubscription = html.window.document.onContextMenu.listen((event) => event.preventDefault());
+      _pasteSubscription = html.document.onPaste.listen(_handlePaste);
+    }
+  }
+
+  void _checkImageTap() {
+    if (widget.controller is! MarkdownSyntaxController) return;
+    final ctrl = widget.controller as MarkdownSyntaxController;
+    final offset = ctrl.selection.baseOffset;
+    if (offset < 0) return;
+
+    // Only trigger if selection is collapsed (a simple tap, not a range selection)
+    if (ctrl.selection.baseOffset != ctrl.selection.extentOffset) return;
+
+    final url = ctrl.imageUrlAtOffset(offset);
+    if (url != null && url.isNotEmpty) {
+      _handleImageTap(url);
+    }
+  }
+
+  Future<void> _handleImageTap(String url) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    MediaItem? foundItem;
+    try {
+      final res = await widget.api.listMedia(page: 1, pageSize: 200);
+      for (final item in res.items) {
+        if (item.url == url || item.previewUrl == url ||
+            item.thumbnailUrl == url) {
+          foundItem = item;
+          break;
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    Navigator.pop(context); // Close loading dialog
+
+    final item = foundItem;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) =>
+          AlertDialog(
+            title: Text(item?.fileName ?? '图片信息'),
+            content: SizedBox(
+              width: 640,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 320,
+                    color: Colors.black12,
+                    child: Image.network(
+                      item?.url ?? url,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                      const Center(child: Icon(Icons.broken_image)),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (item != null) ...[
+                    Row(
+                      children: [
+                        Expanded(child: Text('MIME 类型: ${item.mimeType}')),
+                        Text('大小: ${((item.size ?? 0) / 1024).toStringAsFixed(
+                            1)} KB'),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Text('引用统计: 共被 ${item.references.length} 篇文章引用',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    if (item.references.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 120),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.all(8),
+                          itemCount: item.references.length,
+                          itemBuilder: (context, index) {
+                            final ref = item.references[index];
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Text(
+                                  '• ${ref.postTitle} (${ref.postSlug})',
+                                  style: TextStyle(fontSize: 12,
+                                      color: Colors.grey.shade700)),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                  ],
+                  SelectableText('URL: $url', style: TextStyle(
+                      fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('关闭'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _handlePaste(dynamic event) async {
+    if (!kIsWeb || !_focusNode.hasFocus) return;
+
+    final html.ClipboardEvent clipboardEvent = event as html.ClipboardEvent;
+    final items = clipboardEvent.clipboardData?.items;
+    final length = items?.length ?? 0;
+    if (items == null || length == 0) return;
+
+    for (int i = 0; i < length; i++) {
+      final item = items[i];
+      if (item.type != null && item.type!.startsWith('image/')) {
+        final blob = item.getAsFile();
+        if (blob != null) {
+          clipboardEvent.preventDefault();
+          _uploadPastedImage(blob);
+          break; // Upload only the first image found
+        }
+      }
+    }
+  }
+
+  Future<void> _uploadPastedImage(html.File file) async {
+    final placeholder = '![上传中...]()';
+    _insertText(placeholder, '\n');
+
+    try {
+      final reader = html.FileReader();
+      reader.readAsArrayBuffer(file);
+      await reader.onLoadEnd.first;
+
+      final bytes = reader.result as Uint8List;
+      final fileName = file.name.isNotEmpty
+          ? file.name
+          : 'pasted_image_${DateTime
+          .now()
+          .millisecondsSinceEpoch}.png';
+
+      final uploaded = await widget.api.uploadMedia(
+        fileName: fileName,
+        bytes: bytes,
+        mimeType: file.type,
+      );
+
+      if (mounted) {
+        final text = widget.controller.text;
+        final newText = text.replaceFirst(
+            placeholder, '![${uploaded.fileName}](${uploaded.url})');
+        widget.controller.value = widget.controller.value.copyWith(
+          text: newText,
+          selection: TextSelection.collapsed(
+              offset: widget.controller.selection.baseOffset -
+                  placeholder.length +
+                  '![${uploaded.fileName}](${uploaded.url})'.length
+          ),
+        );
+        widget.onChanged?.call();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('图片上传失败: $e')));
+        final text = widget.controller.text;
+        final newText = text.replaceFirst(placeholder, '');
+        widget.controller.value = widget.controller.value.copyWith(
+          text: newText,
+          selection: TextSelection.collapsed(
+              offset: widget.controller.selection.baseOffset -
+                  placeholder.length - 1
+          ),
+        );
+        widget.onChanged?.call();
+      }
     }
   }
 
@@ -180,6 +435,15 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
         _internalScrollController = ScrollController();
       }
     }
+    if (widget.controller != oldWidget.controller) {
+      oldWidget.controller.removeListener(_updateOutline);
+      oldWidget.controller.removeListener(_onTextChanged);
+      oldWidget.controller.removeListener(_onSelectionChanged);
+      widget.controller.addListener(_updateOutline);
+      widget.controller.addListener(_onTextChanged);
+      widget.controller.addListener(_onSelectionChanged);
+      _updateOutline();
+    }
   }
 
   @override
@@ -190,10 +454,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     _internalScrollController?.dispose();
     _focusNode.dispose();
     _previewScrollController.dispose();
+    _highlightTimer?.cancel();
+    _contextMenuSubscription?.cancel();
+    _pasteSubscription?.cancel();
     if (kIsWeb) {
       SystemChannels.platform.invokeMethod('BrowserContextMenu.enable');
-      _highlightTimer?.cancel();
-      _contextMenuSubscription?.cancel();
     }
     super.dispose();
   }
@@ -325,21 +590,23 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                           maxLines: null,
                           expands: true,
                           scrollController: _editorScrollController,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                          hintText: '开始你的创作...',
+                          onTap: _checkImageTap,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 32, vertical: 24),
+                            hintText: '开始你的创作...',
+                          ),
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 15,
+                            height: 1.6,
+                          ),
+                          onChanged: (_) => widget.onChanged?.call(),
                         ),
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 15,
-                          height: 1.6,
-                        ),
-                        onChanged: (_) => widget.onChanged?.call(),
-                      ),
                     ),
                   ),
-                ),
+                  ),
               ),
               ),
               if (isPreviewVisible) const VerticalDivider(width: 1),

@@ -232,6 +232,7 @@ class _CommentsPageState extends State<CommentsPage> {
                 children: [
                   Expanded(
                     child: ListView.separated(
+                      physics: const BouncingScrollPhysics(),
                       itemCount: comments.length,
                       separatorBuilder: (context, index) =>
                       const Divider(height: 1),

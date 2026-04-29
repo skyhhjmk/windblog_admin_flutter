@@ -194,6 +194,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
         : unreferencedResult == null || unreferencedResult!.items.isEmpty
             ? Center(child: Text(t(context, 'no_unreferenced_media')))
             : ListView.separated(
+      physics: const BouncingScrollPhysics(),
                 itemCount: unreferencedResult!.items.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {
@@ -217,6 +218,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
       return Center(child: Text(t(context, 'no_media_found')));
     }
     return ListView.separated(
+      physics: const BouncingScrollPhysics(),
       itemCount: items.length,
       separatorBuilder: (context, index) => const Divider(height: 1),
       itemBuilder: (context, index) {

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:html' as html;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -54,6 +55,30 @@ String _resolveMimeType(PlatformFile file) {
   return lookupMimeType(candidate) ?? 'application/octet-stream';
 }
 
+class SmoothScrollBehavior extends MaterialScrollBehavior {
+  const SmoothScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices =>
+      {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+      };
+
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child,
+      ScrollableDetails details) {
+    return Scrollbar(
+      controller: details.controller,
+      thickness: 8.0,
+      radius: const Radius.circular(4.0),
+      interactive: true,
+      child: child,
+    );
+  }
+}
+
 void main() {
   runApp(const WindblogAdminApp());
 }
@@ -71,6 +96,7 @@ class WindblogAdminApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF5F7FB),
       ),
+      scrollBehavior: const SmoothScrollBehavior(),
       localizationsDelegates: [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,

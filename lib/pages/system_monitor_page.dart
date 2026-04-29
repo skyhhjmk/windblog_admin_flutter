@@ -96,6 +96,7 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
               else
                 Expanded(
                   child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
                     child: Column(
                       children: [
                         _buildHealthCard(),

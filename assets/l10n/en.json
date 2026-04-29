@@ -272,5 +272,18 @@
   "invalid_post_id": "Please enter a valid Article ID",
   "ai_audit_reason": "AI Audit Reason",
   "points": "Points",
-  "wallet": "Wallet"
+  "wallet": "Wallet",
+  "system_settings": "System Settings",
+  "config_frozen_msg": "Configuration is in verification lock and cannot be modified. Please confirm or rollback below.",
+  "confirm_and_unfreeze": "Confirm and Unfreeze",
+  "rollback_and_cancel": "Discard Changes and Rollback",
+  "config_save_success_verifying": "Configuration saved, entering verification period",
+  "config_confirmed": "Configuration confirmed",
+  "config_rolled_back": "Rollback executed",
+  "save_config": "Save Configuration",
+  "config_version": "Version",
+  "add_tag": "Add Tag",
+  "diff_view": "Diff View",
+  "current_value": "Current Online Value",
+  "confirm_action": "Confirm Action"
 }

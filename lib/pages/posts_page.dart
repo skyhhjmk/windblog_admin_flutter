@@ -230,6 +230,7 @@ class _PostsPageState extends State<PostsPage> {
   Widget _buildListView() {
     return Card(
       child: ListView.separated(
+        physics: const BouncingScrollPhysics(),
         itemCount: items.length,
         separatorBuilder: (_, index) => const Divider(height: 1),
         itemBuilder: (_, i) => _buildPostTile(items[i]),
@@ -561,6 +562,7 @@ class _PostsPageState extends State<PostsPage> {
           clipBehavior: Clip.antiAlias,
           child: Scrollbar(
             child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               scrollDirection: Axis.vertical,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
@@ -737,7 +739,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     slugCtrl = TextEditingController(text: d?.slug ?? '');
     titleCtrl = TextEditingController(text: d?.title['zh-cn'] ?? '');
     summaryCtrl = TextEditingController(text: d?.summary['zh-cn'] ?? '');
-    contentCtrl = TextEditingController(
+    contentCtrl = MarkdownSyntaxController(
       text: d?.contentMarkdown['zh-cn'] ?? '',
     );
 

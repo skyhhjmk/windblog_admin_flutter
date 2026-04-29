@@ -283,5 +283,8 @@
   "config_rolled_back": "已执行回滚",
   "save_config": "保存配置",
   "config_version": "版本",
-  "add_tag": "添加标签"
+  "add_tag": "添加标签",
+  "diff_view": "差异对比",
+  "current_value": "当前线上值",
+  "confirm_action": "确认操作"
 }
