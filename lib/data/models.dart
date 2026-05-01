@@ -38,6 +38,7 @@ class PostItem {
     required this.aiSummaryStatus,
     required this.version,
     this.categoryId,
+    this.userName,
     this.tagIds = const [],
   });
   final int id;
@@ -50,6 +51,7 @@ class PostItem {
   final int aiSummaryStatus;
   final int version;
   final int? categoryId;
+  final String? userName;
   final List<int> tagIds;
 
   String get zhTitle =>
@@ -79,6 +81,7 @@ class PostItem {
       aiSummaryStatus: toInt(map['aiSummaryStatus']) ?? 0,
       version: toInt(map['version']) ?? 0,
       categoryId: toInt(map['categoryId']),
+      userName: map['userName']?.toString(),
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
@@ -105,6 +108,7 @@ class PostDetail {
     required this.currentRevisionNumber,
     required this.version,
     this.categoryId,
+    this.userName,
     this.tagIds = const [],
     this.publishedAt,
     this.createdAt,
@@ -127,6 +131,7 @@ class PostDetail {
   final int currentRevisionNumber;
   final int version;
   final int? categoryId;
+  final String? userName;
   final List<int> tagIds;
   final DateTime? publishedAt;
   final DateTime? createdAt;
@@ -150,6 +155,7 @@ class PostDetail {
       currentRevisionNumber: toInt(map['currentRevisionNumber']) ?? 0,
       version: toInt(map['version']) ?? 0,
       categoryId: toInt(map['categoryId']),
+      userName: map['userName']?.toString(),
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)

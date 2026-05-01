@@ -1,6 +1,6 @@
+// ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter, unnecessary_cast
 import 'dart:async';
 import 'dart:html' as html;
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 /// Web implementation using dart:html.
@@ -16,11 +16,12 @@ void enableBrowserContextMenu() {
 StreamSubscription? listenToNativePaste(
     void Function(Uint8List bytes, String fileName, String mimeType) onImagePasted) {
   return html.document.onPaste.listen((event) {
-    final html.ClipboardEvent clipboardEvent = event as html.ClipboardEvent;
+    final clipboardEvent = event as html.ClipboardEvent;
     final items = clipboardEvent.clipboardData?.items;
     if (items == null) return;
 
-    for (int i = 0; i < items.length; i++) {
+    final count = items.length ?? 0;
+    for (int i = 0; i < count; i++) {
       final item = items[i];
       if (item.type != null && item.type!.startsWith('image/')) {
         final blob = item.getAsFile();

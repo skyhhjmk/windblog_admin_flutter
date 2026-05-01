@@ -307,7 +307,7 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
             children: [
               _buildDetailRow(t(context, 'log_id'), '${item.id}'),
               _buildDetailRow(t(context, 'entity_type'), item.entityType),
-              _buildDetailRow(t(context, 'entity_id'), '${item.entityId}'),
+              _buildDetailRow(t(context, 'entity_id'), item.entityId),
               _buildDetailRow(t(context, 'action'), item.action),
               _buildDetailRow(t(context, 'operator'),
                   item.performedByUsername ?? t(context, 'system_unknown')),

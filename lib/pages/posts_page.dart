@@ -259,8 +259,8 @@ class _PostsPageState extends State<PostsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'slug: ${it.slug} | ${t(context, 'status_text')}: ${it
-                  .statusText}',
+              'slug: ${it.slug} | Author: ${it.userName ?? 'Unknown'} | ${t(
+                  context, 'status_text')}: ${it.statusText}',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey.shade500,
@@ -1542,6 +1542,17 @@ class _PostEditorPageState extends State<PostEditorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (d != null) ...[
+            Text(
+              '作者: ${d.userName ?? 'Unknown'}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           TextField(
             controller: slugCtrl,
             decoration: InputDecoration(
