@@ -231,7 +231,10 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
   }
 
   Future<void> _loadCurrentSetting() async {
-    final key = widget.item.newValue['key'] ?? widget.item.oldValue['key'];
+    final newValue = widget.item.newValue;
+    final oldValue = widget.item.oldValue;
+    final key = (newValue is Map ? newValue['key'] : null) ??
+        (oldValue is Map ? oldValue['key'] : null);
     if (key == null) return;
 
     setState(() => _loadingCurrent = true);
@@ -246,7 +249,10 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
   }
 
   Future<void> _applyValue(dynamic value, String label) async {
-    final key = widget.item.newValue['key'] ?? widget.item.oldValue['key'];
+    final newValue = widget.item.newValue;
+    final oldValue = widget.item.oldValue;
+    final key = (newValue is Map ? newValue['key'] : null) ??
+        (oldValue is Map ? oldValue['key'] : null);
     if (key == null) return;
 
     final confirm = await showDialog<bool>(
@@ -342,7 +348,8 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
                                 .bold)),
                         const SizedBox(height: 8),
                         _buildJsonBox(item.oldValue),
-                        if (isSetting && item.oldValue.containsKey('value'))
+                        if (isSetting && item.oldValue is Map &&
+                            item.oldValue.containsKey('value'))
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: OutlinedButton.icon(
@@ -366,7 +373,8 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
                                 .bold)),
                         const SizedBox(height: 8),
                         _buildJsonBox(item.newValue),
-                        if (isSetting && item.newValue.containsKey('value'))
+                        if (isSetting && item.newValue is Map &&
+                            item.newValue.containsKey('value'))
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: OutlinedButton.icon(
