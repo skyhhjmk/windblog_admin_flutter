@@ -77,7 +77,6 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   final FocusNode _focusNode = FocusNode();
   ScrollController? _internalScrollController;
   final ScrollController _previewScrollController = ScrollController();
-  dynamic _contextMenuSubscription;
   dynamic _pasteSubscription;
   
 
@@ -105,9 +104,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     widget.controller.addListener(_onSelectionChanged);
     _updateOutline();
     if (kIsWeb) {
-      SystemChannels.platform.invokeMethod('BrowserContextMenu.disable');
-      _contextMenuSubscription = html.window.document.onContextMenu.listen((event) => event.preventDefault());
-      _pasteSubscription = html.document.onPaste.listen(_handlePaste);
+      web_helper.disableBrowserContextMenu();
+      _pasteSubscription =
+          web_helper.listenToNativePaste((bytes, fileName, mimeType) {
+            _uploadPastedImageBytes(bytes, fileName, mimeType);
+          });
     }
   }
 
@@ -239,47 +240,16 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     );
   }
 
-  Future<void> _handlePaste(dynamic event) async {
-    if (!kIsWeb || !_focusNode.hasFocus) return;
-
-    final html.ClipboardEvent clipboardEvent = event as html.ClipboardEvent;
-    final items = clipboardEvent.clipboardData?.items;
-    final length = items?.length ?? 0;
-    if (items == null || length == 0) return;
-
-    for (int i = 0; i < length; i++) {
-      final item = items[i];
-      if (item.type != null && item.type!.startsWith('image/')) {
-        final blob = item.getAsFile();
-        if (blob != null) {
-          clipboardEvent.preventDefault();
-          _uploadPastedImage(blob);
-          break; // Upload only the first image found
-        }
-      }
-    }
-  }
-
-  Future<void> _uploadPastedImage(html.File file) async {
+  Future<void> _uploadPastedImageBytes(Uint8List bytes, String fileName,
+      String mimeType) async {
     final placeholder = '![上传中...]()';
     _insertText(placeholder, '\n');
 
     try {
-      final reader = html.FileReader();
-      reader.readAsArrayBuffer(file);
-      await reader.onLoadEnd.first;
-
-      final bytes = reader.result as Uint8List;
-      final fileName = file.name.isNotEmpty
-          ? file.name
-          : 'pasted_image_${DateTime
-          .now()
-          .millisecondsSinceEpoch}.png';
-
       final uploaded = await widget.api.uploadMedia(
         fileName: fileName,
         bytes: bytes,
-        mimeType: file.type,
+        mimeType: mimeType,
       );
 
       if (mounted) {
@@ -455,10 +425,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     _focusNode.dispose();
     _previewScrollController.dispose();
     _highlightTimer?.cancel();
-    _contextMenuSubscription?.cancel();
     _pasteSubscription?.cancel();
     if (kIsWeb) {
-      SystemChannels.platform.invokeMethod('BrowserContextMenu.enable');
+      web_helper.enableBrowserContextMenu();
     }
     super.dispose();
   }

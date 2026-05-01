@@ -1756,55 +1756,46 @@ class AuditLogItem {
     required this.entityType,
     required this.entityId,
     required this.action,
-    required this.oldValue,
-    required this.newValue,
+    this.oldValue,
+    this.newValue,
+    this.extInfo,
     this.performedById,
     this.performedByUsername,
     this.createdAt,
     this.createdAtFormatted,
-    this.durationMs,
-    this.inputTokens,
-    this.outputTokens,
-    this.totalTokens,
   });
 
   final int id;
   final String entityType;
-  final int entityId;
+  final String entityId;
   final String action;
-  final Map<String, dynamic> oldValue;
-  final Map<String, dynamic> newValue;
+  final dynamic oldValue;
+  final dynamic newValue;
+  final Map<String, dynamic>? extInfo;
   final int? performedById;
   final String? performedByUsername;
   final DateTime? createdAt;
   final String? createdAtFormatted;
-  final int? durationMs;
-  final int? inputTokens;
-  final int? outputTokens;
-  final int? totalTokens;
 
   factory AuditLogItem.fromMap(Map<String, dynamic> map) {
     return AuditLogItem(
       id: toInt(map['id']) ?? 0,
       entityType: map['entityType']?.toString() ?? '',
-      entityId: toInt(map['entityId']) ?? 0,
+      entityId: map['entityId']?.toString() ?? '',
       action: map['action']?.toString() ?? '',
-      oldValue: (map['oldValue'] is Map) ? Map<String, dynamic>.from(
-          map['oldValue'] as Map) : {},
-      newValue: (map['newValue'] is Map) ? Map<String, dynamic>.from(
-          map['newValue'] as Map) : {},
+      oldValue: map['oldValue'],
+      newValue: map['newValue'],
+      extInfo: (map['extInfo'] is Map) ? Map<String, dynamic>.from(
+          map['extInfo'] as Map) : null,
       performedById: toInt(map['performedById']),
       performedByUsername: map['performedByUsername']?.toString(),
       createdAt: map['createdAt'] != null ? DateTime.tryParse(
           map['createdAt'].toString()) : null,
       createdAtFormatted: map['createdAtFormatted']?.toString(),
-      durationMs: toInt(map['durationMs']),
-      inputTokens: toInt(map['inputTokens']),
-      outputTokens: toInt(map['outputTokens']),
-      totalTokens: toInt(map['totalTokens']),
     );
   }
 }
+
 
 class PaginatedAuditLogResult {
   PaginatedAuditLogResult({

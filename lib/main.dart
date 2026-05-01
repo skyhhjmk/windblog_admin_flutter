@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
-import 'dart:html' as html;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -17,6 +15,7 @@ import 'package:diff_match_patch/diff_match_patch.dart' as diff_match_patch;
 import 'data/admin_api_client.dart';
 import 'data/models.dart';
 import 'l10n/app_localizations.dart';
+import 'components/web_stub.dart' if (dart.library.html) 'components/web_impl.dart' as web_helper;
 
 part 'pages/login_page.dart';
 part 'pages/home_page.dart';

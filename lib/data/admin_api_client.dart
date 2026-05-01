@@ -523,6 +523,7 @@ class AdminApiClient {
     );
   }
 
+
   Future<http.Response> _get(String path, {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.get(uri, headers: _headers(true));
