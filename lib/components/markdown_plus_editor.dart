@@ -526,6 +526,110 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     }
   }
 
+  Future<void> _pickStoreItem() async {
+    final item = await showDialog<StoreItem>(
+      context: context,
+      builder: (context) => _StoreItemPickerDialog(api: widget.api),
+    );
+
+    if (item != null) {
+      _insertText('\n[store-item id=${item.id}]\n');
+    }
+  }
+
+  Future<void> _insertHideContent(String type) async {
+    final priceStr = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final ctrl = TextEditingController(text: '0');
+        return AlertDialog(
+          title: Text(type == 'hide-text' ? '插入隐藏文本' : '插入付费附件'),
+          content: TextField(
+            controller: ctrl,
+            decoration: const InputDecoration(
+                labelText: '购买价格 (0表示跟随文章买断价格)',
+                suffixText: '积分'),
+            keyboardType: TextInputType.number,
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context),
+                child: const Text('取消')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+                child: const Text('确定')),
+          ],
+        );
+      },
+    );
+    if (priceStr == null) return;
+    final price = int.tryParse(priceStr) ?? 0;
+    final priceAttr = price > 0 ? ' price=$price' : '';
+    _insertText('\n[$type$priceAttr]\n隐藏内容写在这里\n[/$type]\n');
+  }
+
+  void _showSyntaxHints() {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('Markdown 扩展语法提示'),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHintItem('自定义容器',
+                        '::: info\n内容\n::: /info\n(支持 info, warning, danger, success, tip 等)'),
+                    _buildHintItem('提示框 (Callouts)',
+                        '>! 警告内容\n>i 信息内容\n>? 疑问内容\n>!! 危险内容'),
+                    _buildHintItem('文本高亮', '==被高亮的文字=='),
+                    _buildHintItem('键盘按键', '[[Ctrl]] + [[C]]'),
+                    _buildHintItem('进度条', '[% 85 %]'),
+                    _buildHintItem('状态标签',
+                        '[!! p | 已发布 ] (p: 成功, w: 警告, e: 错误)'),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('知道了'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildHintItem(String title, String syntax) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(
+              fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: SelectableText(
+              syntax,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget editor = Column(
@@ -673,6 +777,21 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
             onPressed: _pickImage,
           ),
           _ToolbarButton(
+            icon: Icons.storefront,
+            tooltip: '插入商店物品短代码',
+            onPressed: _pickStoreItem,
+          ),
+          _ToolbarButton(
+            icon: Icons.lock_outline,
+            tooltip: '插入隐藏文本区块',
+            onPressed: () => _insertHideContent('hide-text'),
+          ),
+          _ToolbarButton(
+            icon: Icons.attachment,
+            tooltip: '插入付费附件区块',
+            onPressed: () => _insertHideContent('hide-attachment'),
+          ),
+          _ToolbarButton(
             icon: Icons.code,
             tooltip: '代码块',
             onPressed: () => _insertText('```\n', '\n```'),
@@ -697,6 +816,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
             icon: isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
             tooltip: '全屏',
             onPressed: () => setState(() => isFullScreen = !isFullScreen),
+          ),
+          _ToolbarButton(
+            icon: Icons.help_outline,
+            tooltip: '语法提示',
+            onPressed: _showSyntaxHints,
           ),
         ],
       ),
@@ -737,6 +861,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     bool inCodeBlock = false;
     bool inCustomBlock = false;
     String customBlockName = '';
+    bool inHideBlock = false;
+    String hideBlockType = '';
     
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
@@ -794,6 +920,38 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
       if (inCustomBlock) {
         currentBlockLines.add(line);
+        continue;
+      }
+
+      // Handle hide block boundaries
+      if (trimmed.startsWith('[hide-') && !inHideBlock) {
+        final match = RegExp(
+            r'^\[(hide-text|hide-attachment)(?:\s+price\s*=\s*(\d+))?\]$',
+            caseSensitive: false).firstMatch(trimmed);
+        if (match != null) {
+          if (currentBlockLines.isNotEmpty) {
+            blocks.add(
+                MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+            currentBlockLines = [];
+          }
+          inHideBlock = true;
+          hideBlockType = match.group(1)!.toLowerCase();
+          blockStartLine = i + 1;
+          currentBlockLines.add(line);
+          continue;
+        }
+      }
+
+      if (inHideBlock) {
+        currentBlockLines.add(line);
+        if (trimmed.toLowerCase() == '[/$hideBlockType]') {
+          blocks.add(
+              MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+          currentBlockLines = [];
+          blockStartLine = i + 2;
+          inHideBlock = false;
+          hideBlockType = '';
+        }
         continue;
       }
       
@@ -1069,6 +1227,7 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                 const md.TableSyntax(),
                 const CustomContainerSyntax(),
                 const CalloutSyntax(),
+                const HideContentSyntax(),
               ],
               [
                 md.EmojiSyntax(),
@@ -1076,6 +1235,7 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                 KeyboardSyntax(),
                 ProgressSyntax(),
                 StatusBadgeSyntax(),
+                StoreItemSyntax(),
               ],
             ),
             builders: {
@@ -1087,6 +1247,8 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
               'badge': StatusBadgeElementBuilder(),
               'error-block': ErrorBlockBuilder(),
               'custom-container': CustomContainerBuilder(),
+              'gamification-hide': GamificationHideBuilder(),
+              'store-item': StoreItemBuilder(),
             },
           ),
         ),
@@ -1179,4 +1341,76 @@ bool listEquals<T>(List<T>? a, List<T>? b) {
     if (a[i] != b[i]) return false;
   }
   return true;
+}
+
+class _StoreItemPickerDialog extends StatefulWidget {
+  const _StoreItemPickerDialog({required this.api});
+
+  final AdminApiClient api;
+
+  @override
+  State<_StoreItemPickerDialog> createState() => _StoreItemPickerDialogState();
+}
+
+class _StoreItemPickerDialogState extends State<_StoreItemPickerDialog> {
+  List<StoreItem> items = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await widget.api.getStoreItems(page: 1, pageSize: 100);
+      if (mounted) {
+        setState(() {
+          items = res.items;
+          loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('加载失败: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('选择商店物品'),
+      content: SizedBox(
+        width: 600,
+        height: 400,
+        child: loading
+            ? const Center(child: CircularProgressIndicator())
+            : items.isEmpty
+            ? const Center(child: Text('无可用物品'))
+            : ListView.builder(
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return ListTile(
+              leading: const Icon(Icons.inventory_2),
+              title: Text(item.name),
+              subtitle: Text(
+                  '${item.price} 积分 | 类型: ${item.type ?? "未知"}'),
+              onTap: () => Navigator.pop(context, item),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+      ],
+    );
+  }
 }

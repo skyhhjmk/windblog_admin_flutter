@@ -50,6 +50,11 @@ class _HomePageState extends State<HomePage> {
                 selectedIcon: const Icon(Icons.label),
                 label: Text(t(context, 'tags')),
               ),
+              const NavigationRailDestination(
+                icon: Icon(Icons.storefront_outlined),
+                selectedIcon: Icon(Icons.storefront),
+                label: Text('商店物品'),
+              ),
               NavigationRailDestination(
                 icon: const Icon(Icons.photo_library_outlined),
                 selectedIcon: const Icon(Icons.photo_library),
@@ -120,15 +125,16 @@ class _HomePageState extends State<HomePage> {
                           1 => t(context, 'posts'),
                           2 => t(context, 'categories'),
                           3 => t(context, 'tags'),
-                          4 => t(context, 'media'),
-                          5 => t(context, 'users'),
-                          6 => t(context, 'permissions'),
-                          7 => t(context, 'ai_providers'),
-                          8 => t(context, 'database'),
-                          9 => t(context, 'comments'),
-                          10 => t(context, 'queue_monitoring'),
-                          11 => t(context, 'system_monitoring'),
-                          12 => t(context, 'system_logs'),
+                          4 => '商店物品',
+                          5 => t(context, 'media'),
+                          6 => t(context, 'users'),
+                          7 => t(context, 'permissions'),
+                          8 => t(context, 'ai_providers'),
+                          9 => t(context, 'database'),
+                          10 => t(context, 'comments'),
+                          11 => t(context, 'queue_monitoring'),
+                          12 => t(context, 'system_monitoring'),
+                          13 => t(context, 'system_logs'),
                           _ => t(context, 'system_settings'),
                         },
                       ),
@@ -159,26 +165,27 @@ class _HomePageState extends State<HomePage> {
       1 => PostsPage(api: widget.api, onAuthError: widget.onLogout),
       2 => CategoriesPage(api: widget.api, onAuthError: widget.onLogout),
       3 => TagsPage(api: widget.api, onAuthError: widget.onLogout),
-      4 => MediaLibraryPage(api: widget.api, onAuthError: widget.onLogout),
-      5 =>
+      4 => StoreItemsPage(api: widget.api, onAuthError: widget.onLogout),
+      5 => MediaLibraryPage(api: widget.api, onAuthError: widget.onLogout),
+      6 =>
           UserManagementPage(
           api: widget.api,
           onAuthError: widget.onLogout,
           isSuperAdmin: isSuperAdmin,
         ),
-      6 =>
+      7 =>
           PermissionManagementPage(
           api: widget.api,
           isSuperAdmin: isSuperAdmin,
           onAuthError: widget.onLogout,
         ),
-      7 => AiProvidersPage(api: widget.api, onAuthError: widget.onLogout),
-      8 =>
+      8 => AiProvidersPage(api: widget.api, onAuthError: widget.onLogout),
+      9 =>
           DatabaseManagementPage(api: widget.api, onAuthError: widget.onLogout),
-      9 => CommentsPage(api: widget.api, onAuthError: widget.onLogout),
-      10 => QueuesPage(api: widget.api, onAuthError: widget.onLogout),
-      11 => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
-      12 => AuditLogsPage(api: widget.api, onAuthError: widget.onLogout),
+      10 => CommentsPage(api: widget.api, onAuthError: widget.onLogout),
+      11 => QueuesPage(api: widget.api, onAuthError: widget.onLogout),
+      12 => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
+      13 => AuditLogsPage(api: widget.api, onAuthError: widget.onLogout),
       _ => SystemSettingsPage(api: widget.api, onAuthError: widget.onLogout),
     };
   }

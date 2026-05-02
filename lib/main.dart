@@ -32,6 +32,8 @@ part 'pages/permission_management_page.dart';
 part 'pages/user_wallet_page.dart';
 part 'pages/categories_page.dart';
 part 'pages/tags_page.dart';
+
+part 'pages/store_items_page.dart';
 part 'pages/database_management_page.dart';
 
 part 'pages/audit_logs_page.dart';
@@ -46,6 +48,8 @@ part 'pages/system_settings_page.dart';
 part 'components/diff_viewer.dart';
 
 part 'components/config_dynamic_form.dart';
+
+part 'components/html_syntax_editor.dart';
 
 
 String _resolveMimeType(PlatformFile file) {

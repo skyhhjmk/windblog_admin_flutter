@@ -110,6 +110,66 @@ class StatusBadgeSyntax extends md.InlineSyntax {
   }
 }
 
+/// [store-item id=X]
+class StoreItemSyntax extends md.InlineSyntax {
+  StoreItemSyntax() : super(r'\[store-item\s+id=(\d+)\]');
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    final el = md.Element.empty('store-item');
+    el.attributes['id'] = match.group(1)!;
+    parser.addNode(el);
+    return true;
+  }
+}
+
+/// [hide-text price=X] ... [/hide-text]
+class HideContentSyntax extends md.BlockSyntax {
+  @override
+  RegExp get pattern =>
+      RegExp(r'^\[(hide-text|hide-attachment)(?:\s+price\s*=\s*(\d+))?\]\s*$',
+          caseSensitive: false);
+
+  const HideContentSyntax();
+
+  @override
+  md.Node? parse(md.BlockParser parser) {
+    final match = pattern.firstMatch(parser.current.content);
+    if (match == null) return null;
+
+    final type = match.group(1)!.toLowerCase();
+    final price = match.group(2) ?? '0';
+    final childLines = <String>[];
+
+    // 移动到起始标签之后的一行
+    parser.advance();
+
+    bool foundEnd = false;
+    while (!parser.isDone) {
+      final lineContent = parser.current.content;
+      final trimmedLine = lineContent.trim();
+
+      // 检查是否是对应的结束标签
+      if (trimmedLine.toLowerCase() == '[/$type]') {
+        foundEnd = true;
+        parser.advance();
+        break;
+      }
+
+      childLines.add(lineContent);
+      parser.advance();
+    }
+
+    // 将捕获到的所有行合并，并包装成 gamification-hide 元素
+    final el = md.Element(
+        'gamification-hide', [md.Text(childLines.join('\n'))]);
+    el.attributes['type'] = type;
+    el.attributes['price'] = price;
+    el.attributes['foundEnd'] = foundEnd.toString();
+    return el;
+  }
+}
+
 /// Element Builders
 class BlockquoteBuilder extends MarkdownElementBuilder {
   @override
@@ -310,6 +370,7 @@ class CustomContainerBuilder extends MarkdownElementBuilder {
             const md.TableSyntax(),
             const CustomContainerSyntax(),
             const CalloutSyntax(),
+            const HideContentSyntax(),
           ],
           [
             md.EmojiSyntax(),
@@ -317,6 +378,7 @@ class CustomContainerBuilder extends MarkdownElementBuilder {
             KeyboardSyntax(),
             ProgressSyntax(),
             StatusBadgeSyntax(),
+            StoreItemSyntax(),
           ],
         ),
         builders: {
@@ -328,7 +390,122 @@ class CustomContainerBuilder extends MarkdownElementBuilder {
           'badge': StatusBadgeElementBuilder(),
           'error-block': ErrorBlockBuilder(),
           'custom-container': CustomContainerBuilder(),
+          'gamification-hide': GamificationHideBuilder(),
+          'store-item': StoreItemBuilder(),
         },
+      ),
+    );
+  }
+}
+
+class GamificationHideBuilder extends MarkdownElementBuilder {
+  @override
+  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    final type = element.attributes['type'] ?? 'hide-text';
+    final price = element.attributes['price'] ?? '0';
+    final isAttachment = type == 'hide-attachment';
+    final content = element.textContent;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.05),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.8),
+              borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(7), topRight: Radius.circular(7)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(isAttachment ? Icons.attach_file : Icons.lock_open,
+                    color: Colors.white, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  isAttachment ? '付费附件区块' : '付费隐藏内容',
+                  style: const TextStyle(color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold),
+                ),
+                if (price != '0') ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4)),
+                    child: Text('$price 积分', style: const TextStyle(
+                        color: Colors.white, fontSize: 10)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: MarkdownBody(
+              data: content
+                  .trim()
+                  .isEmpty ? '_该区块内容为空_' : content,
+              selectable: true,
+              softLineBreak: true,
+              // 启用软换行
+              extensionSet: md.ExtensionSet(
+                [
+                  const md.FencedCodeBlockSyntax(),
+                  const md.TableSyntax(),
+                ],
+                [
+                  md.EmojiSyntax(),
+                ],
+              ),
+              styleSheet: MarkdownStyleSheet(
+                p: TextStyle(
+                    color: Colors.grey.shade800, fontSize: 13, height: 1.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class StoreItemBuilder extends MarkdownElementBuilder {
+  @override
+  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    final id = element.attributes['id'] ?? '0';
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.05),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.shopping_bag_outlined, color: Colors.blue, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            '商店物品引用 (ID: $id)',
+            style: const TextStyle(
+                color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.arrow_forward_ios, color: Colors.blue, size: 10),
+        ],
       ),
     );
   }

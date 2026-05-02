@@ -110,6 +110,8 @@ class PostDetail {
     this.categoryId,
     this.userName,
     this.tagIds = const [],
+    this.pointsPrice,
+    this.freeLines,
     this.publishedAt,
     this.createdAt,
     this.updatedAt,
@@ -133,6 +135,8 @@ class PostDetail {
   final int? categoryId;
   final String? userName;
   final List<int> tagIds;
+  final int? pointsPrice;
+  final int? freeLines;
   final DateTime? publishedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -160,6 +164,8 @@ class PostDetail {
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
           .toList(),
+      pointsPrice: toInt(map['pointsPrice']),
+      freeLines: toInt(map['freeLines']),
       publishedAt: parseDate(map['publishedAt']),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
@@ -219,6 +225,8 @@ class PostEditRequest {
     required this.version,
     this.categoryId,
     this.tagIds = const [],
+    this.pointsPrice,
+    this.freeLines,
   });
 
   final String slug;
@@ -236,6 +244,8 @@ class PostEditRequest {
   final int version;
   final int? categoryId;
   final List<int> tagIds;
+  final int? pointsPrice;
+  final int? freeLines;
 
   Map<String, dynamic> toCreateBody() {
     return {
@@ -253,6 +263,8 @@ class PostEditRequest {
       'aiSummaryStatus': aiSummaryStatus,
       'categoryId': categoryId,
       'tagIds': tagIds,
+      if (pointsPrice != null) 'pointsPrice': pointsPrice,
+      if (freeLines != null) 'freeLines': freeLines,
     };
   }
 
@@ -273,6 +285,8 @@ class PostEditRequest {
       'version': version,
       'categoryId': categoryId,
       'tagIds': tagIds,
+      if (pointsPrice != null) 'pointsPrice': pointsPrice,
+      if (freeLines != null) 'freeLines': freeLines,
     };
   }
 
@@ -291,6 +305,8 @@ class PostEditRequest {
       version: version ?? this.version,
       categoryId: categoryId ?? this.categoryId,
       tagIds: tagIds ?? this.tagIds,
+      pointsPrice: pointsPrice,
+      freeLines: freeLines,
     );
   }
 }
@@ -298,9 +314,9 @@ class PostEditRequest {
 String postRenderTypeText(int renderType) {
   switch (renderType) {
     case 0:
-      return 'Markdown (Retired)';
+      return 'Markdown (旧版/Retired)';
     case 1:
-      return 'HTML (Retired)';
+      return 'HTML';
     case 2:
       return 'Vditor (Retired)';
     case 3:
@@ -1826,5 +1842,80 @@ class PaginatedAuditLogResult {
       page: toInt(map['page']) ?? 1,
       pageSize: toInt(map['pageSize']) ?? 10,
     );
+  }
+}
+
+class StoreItem {
+  StoreItem({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.price,
+    this.rarity,
+    this.type,
+    this.extraInfo,
+    required this.status,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  final int id;
+  final String name;
+  final String? description;
+  final int price;
+  final String? rarity;
+  final String? type;
+  final dynamic extraInfo;
+  final int status;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  factory StoreItem.fromMap(Map<String, dynamic> map) {
+    return StoreItem(
+      id: toInt(map['id']) ?? 0,
+      name: map['name']?.toString() ?? '',
+      description: map['description']?.toString(),
+      price: toInt(map['price']) ?? 0,
+      rarity: map['rarity']?.toString(),
+      type: map['type']?.toString(),
+      extraInfo: map['extraInfo'],
+      status: toInt(map['status']) ?? 1,
+      createdAt: map['createdAt'] != null ? DateTime.tryParse(
+          map['createdAt'].toString()) : null,
+      updatedAt: map['updatedAt'] != null ? DateTime.tryParse(
+          map['updatedAt'].toString()) : null,
+    );
+  }
+}
+
+class StoreItemRequest {
+  StoreItemRequest({
+    required this.name,
+    this.description,
+    required this.price,
+    this.rarity,
+    this.type,
+    this.extraInfo,
+    required this.status,
+  });
+
+  final String name;
+  final String? description;
+  final int price;
+  final String? rarity;
+  final String? type;
+  final dynamic extraInfo;
+  final int status;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      if (description != null) 'description': description,
+      'price': price,
+      if (rarity != null) 'rarity': rarity,
+      if (type != null) 'type': type,
+      if (extraInfo != null) 'extraInfo': extraInfo,
+      'status': status,
+    };
   }
 }

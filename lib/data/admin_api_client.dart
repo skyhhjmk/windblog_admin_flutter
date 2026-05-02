@@ -638,6 +638,46 @@ class AdminApiClient {
         : base.resolve(rawUrl);
     return resolved.toString();
   }
+
+  // Store Items API
+  Future<PageResult<StoreItem>> getStoreItems({
+    int page = 1,
+    int pageSize = 20,
+    String? name,
+    String? type,
+  }) async {
+    final queryParams = {
+      'page': page.toString(),
+      'pageSize': pageSize.toString(),
+    };
+    if (name != null && name.isNotEmpty) queryParams['name'] = name;
+    if (type != null && type.isNotEmpty) queryParams['type'] = type;
+
+    final res = await _get('/api/admin/store', query: queryParams);
+    return PageResult<StoreItem>.fromMap(
+      _map(jsonDecode(res.body)),
+          (m) => StoreItem.fromMap(m),
+    );
+  }
+
+  Future<StoreItem> getStoreItem(int id) async {
+    final res = await _get('/api/admin/store/$id');
+    return StoreItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<StoreItem> createStoreItem(StoreItemRequest request) async {
+    final res = await _post('/api/admin/store', body: request.toJson());
+    return StoreItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<StoreItem> updateStoreItem(int id, StoreItemRequest request) async {
+    final res = await _put('/api/admin/store/$id', body: request.toJson());
+    return StoreItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> deleteStoreItem(int id) async {
+    await _delete('/api/admin/store/$id');
+  }
 }
 
 class UnauthorizedException implements Exception {

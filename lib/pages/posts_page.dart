@@ -694,6 +694,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   late final TextEditingController titleCtrl;
   late final TextEditingController summaryCtrl;
   late final TextEditingController contentCtrl;
+  late final TextEditingController pointsPriceCtrl;
+  late final TextEditingController freeLinesCtrl;
   late final TabController _sidebarTabController;
   final ScrollController _contentScrollController = ScrollController();
 
@@ -739,15 +741,32 @@ class _PostEditorPageState extends State<PostEditorPage>
     slugCtrl = TextEditingController(text: d?.slug ?? '');
     titleCtrl = TextEditingController(text: d?.title['zh-cn'] ?? '');
     summaryCtrl = TextEditingController(text: d?.summary['zh-cn'] ?? '');
-    contentCtrl = MarkdownSyntaxController(
-      text: d?.contentMarkdown['zh-cn'] ?? '',
-    );
-
     status = d?.status ?? 0;
     visibility = d?.visibility ?? 0;
-    renderType = d?.renderType ?? 0;
-    editorType = d?.editorType ?? 0;
+    renderType = d?.renderType ?? 6;
+    editorType = d?.editorType ?? 6;
+
+    // 升级旧版 Markdown 为区块化 Markdown
+    if (renderType == 0) {
+      renderType = 6;
+    }
+    if (editorType == 0) {
+      editorType = 6;
+    }
+
+    if (renderType == 1) {
+      contentCtrl = HtmlSyntaxController(
+        text: d?.contentMarkdown['zh-cn'] ?? '',
+      );
+    } else {
+      contentCtrl = MarkdownSyntaxController(
+        text: d?.contentMarkdown['zh-cn'] ?? '',
+      );
+    }
     aiSummaryStatus = d?.aiSummaryStatus ?? 0;
+    pointsPriceCtrl =
+        TextEditingController(text: d?.pointsPrice?.toString() ?? '');
+    freeLinesCtrl = TextEditingController(text: d?.freeLines?.toString() ?? '');
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
 
@@ -772,6 +791,8 @@ class _PostEditorPageState extends State<PostEditorPage>
 
     titleCtrl.addListener(_onTitleChanged);
     contentCtrl.addListener(_markDirty);
+    pointsPriceCtrl.addListener(_markDirty);
+    freeLinesCtrl.addListener(_markDirty);
   }
 
   void _onScroll() {
@@ -1011,6 +1032,8 @@ class _PostEditorPageState extends State<PostEditorPage>
         editorType: editorType,
         aiSummaryStatus: aiSummaryStatus,
         version: _currentDetail?.version ?? 0,
+        pointsPrice: int.tryParse(pointsPriceCtrl.text.trim()),
+        freeLines: int.tryParse(freeLinesCtrl.text.trim()),
         categoryId: categoryId,
         tagIds: tagIds,
       );
@@ -1084,6 +1107,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           titleCtrl.text = newDetail.title['zh-cn'] ?? '';
           summaryCtrl.text = newDetail.summary['zh-cn'] ?? '';
           contentCtrl.text = newDetail.contentMarkdown['zh-cn'] ?? '';
+          pointsPriceCtrl.text = newDetail.pointsPrice?.toString() ?? '';
+          freeLinesCtrl.text = newDetail.freeLines?.toString() ?? '';
 
           status = newDetail.status;
           visibility = newDetail.visibility;
@@ -1373,6 +1398,12 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Widget _buildEditor() {
+    if (renderType == 1) {
+      return HtmlSyntaxEditor(
+        controller: contentCtrl,
+        onChanged: _markDirty,
+      );
+    }
     return MarkdownPlusEditor(
       controller: contentCtrl,
       api: widget.api,
@@ -1396,6 +1427,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         Expanded(
           child: TabBarView(
             controller: _sidebarTabController,
+            physics: const NeverScrollableScrollPhysics(),
             children: [
               _buildBasicInfoTab(),
               _buildRevisionsTab(),
@@ -1639,39 +1671,32 @@ class _PostEditorPageState extends State<PostEditorPage>
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<int>(
-            // ignore: deprecated_member_use
             initialValue: renderType,
-            decoration: InputDecoration(
-              labelText: t(context, 'render_type'),
-              isDense: true,
-            ),
-            items: [
-              const DropdownMenuItem(value: 0, child: Text('Markdown')),
-              const DropdownMenuItem(value: 1, child: Text('HTML')),
-              const DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
-            ],
-            onChanged: (v) => setState(() {
-              renderType = v ?? 0;
-              _markDirty();
-            }),
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<int>(
-            // ignore: deprecated_member_use
-            initialValue: editorType,
             decoration: const InputDecoration(
-              labelText: 'Editor Type',
+              labelText: '编辑器模式 (Editor Mode)',
               isDense: true,
             ),
-            items: [
-              const DropdownMenuItem(value: 0, child: Text('Markdown')),
-              const DropdownMenuItem(value: 1, child: Text('HTML')),
-              const DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
+            items: const [
+              DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
+              DropdownMenuItem(value: 1, child: Text('HTML')),
             ],
-            onChanged: (v) => setState(() {
-              editorType = v ?? 0;
-              _markDirty();
-            }),
+            onChanged: (v) {
+              if (v != null) {
+                setState(() {
+                  renderType = v;
+                  editorType = v;
+                  // 根据模式切换 Controller 类型以实现语法染色
+                  final currentText = contentCtrl.text;
+                  if (v == 1) {
+                    contentCtrl = HtmlSyntaxController(text: currentText);
+                  } else {
+                    contentCtrl = MarkdownSyntaxController(text: currentText);
+                  }
+                  contentCtrl.addListener(_markDirty);
+                  _markDirty();
+                });
+              }
+            },
           ),
           const SizedBox(height: 24),
           SizedBox(
@@ -1681,6 +1706,37 @@ class _PostEditorPageState extends State<PostEditorPage>
               icon: const Icon(Icons.photo_library_outlined),
               label: Text(t(context, 'upload_media')),
             ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '内容变现 (Monetization)',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: pointsPriceCtrl,
+            decoration: const InputDecoration(
+              labelText: '全文买断价格 (积分)',
+              prefixIcon: Icon(Icons.monetization_on_outlined, size: 18),
+              isDense: true,
+            ),
+            keyboardType: TextInputType.number,
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: freeLinesCtrl,
+            decoration: const InputDecoration(
+              labelText: '免费预览行数',
+              prefixIcon: Icon(Icons.visibility_outlined, size: 18),
+              isDense: true,
+            ),
+            keyboardType: TextInputType.number,
+            style: const TextStyle(fontSize: 13),
           ),
           const Divider(height: 32),
           if (d != null) ...[
