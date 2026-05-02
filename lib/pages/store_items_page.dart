@@ -410,7 +410,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: status,
+                      initialValue: status,
                       decoration: const InputDecoration(labelText: '状态'),
                       items: const [
                         DropdownMenuItem(value: 1, child: Text('上架')),
@@ -495,18 +495,24 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
             final Map<String, dynamic> extraInfo = {};
             if (downloadUrlCtrl.text
                 .trim()
-                .isNotEmpty)
+                .isNotEmpty) {
               extraInfo['download_url'] = downloadUrlCtrl.text.trim();
+            }
             if (extractCodeCtrl.text
                 .trim()
-                .isNotEmpty)
+                .isNotEmpty) {
               extraInfo['extract_code'] = extractCodeCtrl.text.trim();
+            }
             if (cdkCtrl.text
                 .trim()
-                .isNotEmpty) extraInfo['cdk'] = cdkCtrl.text.trim();
+                .isNotEmpty) {
+              extraInfo['cdk'] = cdkCtrl.text.trim();
+            }
             if (noticeCtrl.text
                 .trim()
-                .isNotEmpty) extraInfo['notice'] = noticeCtrl.text.trim();
+                .isNotEmpty) {
+              extraInfo['notice'] = noticeCtrl.text.trim();
+            }
 
             final request = StoreItemRequest(
               name: name,

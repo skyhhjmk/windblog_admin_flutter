@@ -102,6 +102,7 @@ class PostDetail {
     this.tutorialLevelDefs,
     required this.status,
     required this.visibility,
+    this.password,
     required this.renderType,
     required this.editorType,
     required this.aiSummaryStatus,
@@ -127,6 +128,7 @@ class PostDetail {
   final List<TutorialLevelDef>? tutorialLevelDefs;
   final int status;
   final int visibility;
+  final String? password;
   final int renderType;
   final int editorType;
   final int aiSummaryStatus;
@@ -153,6 +155,7 @@ class PostDetail {
       tutorialLevelDefs: _parseTutorialLevelDefs(map['tutorialLevelDefs']),
       status: toInt(map['status']) ?? 0,
       visibility: toInt(map['visibility']) ?? 0,
+      password: map['password']?.toString(),
       renderType: toInt(map['renderType']) ?? 0,
       editorType: toInt(map['editorType']) ?? 0,
       aiSummaryStatus: toInt(map['aiSummaryStatus']) ?? 0,
@@ -219,6 +222,7 @@ class PostEditRequest {
     this.tutorialLevelDefs,
     required this.status,
     required this.visibility,
+    this.password,
     required this.renderType,
     required this.editorType,
     required this.aiSummaryStatus,
@@ -238,6 +242,7 @@ class PostEditRequest {
   final List<TutorialLevelDef>? tutorialLevelDefs;
   final int status;
   final int visibility;
+  final String? password;
   final int renderType;
   final int editorType;
   final int aiSummaryStatus;
@@ -258,6 +263,7 @@ class PostEditRequest {
       if (tutorialLevelDefs != null) 'tutorialLevelDefs': tutorialLevelDefs!.map((e) => e.toJson()).toList(),
       'status': status,
       'visibility': visibility,
+      if (password != null) 'password': password,
       'renderType': renderType,
       'editorType': editorType,
       'aiSummaryStatus': aiSummaryStatus,
@@ -279,6 +285,7 @@ class PostEditRequest {
       if (tutorialLevelDefs != null) 'tutorialLevelDefs': tutorialLevelDefs!.map((e) => e.toJson()).toList(),
       'status': status,
       'visibility': visibility,
+      if (password != null) 'password': password,
       'renderType': renderType,
       'editorType': editorType,
       'aiSummaryStatus': aiSummaryStatus,
@@ -290,7 +297,12 @@ class PostEditRequest {
     };
   }
 
-  PostEditRequest copyWith({int? version, int? categoryId, List<int>? tagIds}) {
+  PostEditRequest copyWith({
+    int? version,
+    int? categoryId,
+    List<int>? tagIds,
+    String? password,
+  }) {
     return PostEditRequest(
       slug: slug,
       title: title,
@@ -299,6 +311,7 @@ class PostEditRequest {
       contentMarkdown: contentMarkdown,
       status: status,
       visibility: visibility,
+      password: password ?? this.password,
       renderType: renderType,
       editorType: editorType,
       aiSummaryStatus: aiSummaryStatus,

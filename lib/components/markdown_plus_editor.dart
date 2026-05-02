@@ -538,33 +538,57 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   }
 
   Future<void> _insertHideContent(String type) async {
-    final priceStr = await showDialog<String>(
+    final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) {
-        final ctrl = TextEditingController(text: '0');
+        final priceCtrl = TextEditingController(text: '0');
+        final showCtrl = TextEditingController();
         return AlertDialog(
           title: Text(type == 'hide-text' ? '插入隐藏文本' : '插入付费附件'),
-          content: TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(
-                labelText: '购买价格 (0表示跟随文章买断价格)',
-                suffixText: '积分'),
-            keyboardType: TextInputType.number,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: priceCtrl,
+                decoration: const InputDecoration(
+                    labelText: '购买价格 (0表示跟随文章买断价格)',
+                    suffixText: '积分'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: showCtrl,
+                decoration: const InputDecoration(
+                    labelText: '显示文本 (可选)',
+                    hintText: '例如：付费后解锁'),
+              ),
+            ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context),
                 child: const Text('取消')),
             TextButton(
-                onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+                onPressed: () =>
+                    Navigator.pop(context, {
+                      'price': priceCtrl.text.trim(),
+                      'show': showCtrl.text.trim(),
+                    }),
                 child: const Text('确定')),
           ],
         );
       },
     );
-    if (priceStr == null) return;
+    if (result == null) return;
+
+    final priceStr = result['price'] ?? '0';
+    final showText = result['show'] ?? '';
+    
     final price = int.tryParse(priceStr) ?? 0;
-    final priceAttr = price > 0 ? ' price=$price' : '';
-    _insertText('\n[$type$priceAttr]\n隐藏内容写在这里\n[/$type]\n');
+    String attributes = '';
+    if (price > 0) attributes += ' price=$price';
+    if (showText.isNotEmpty) attributes += ' show="$showText"';
+
+    _insertText('\n[$type$attributes]\n隐藏内容写在这里\n[/$type]\n');
   }
 
   void _showSyntaxHints() {
@@ -926,7 +950,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       // Handle hide block boundaries
       if (trimmed.startsWith('[hide-') && !inHideBlock) {
         final match = RegExp(
-            r'^\[(hide-text|hide-attachment)(?:\s+price\s*=\s*(\d+))?\]$',
+            r'^\[(hide-text|hide-attachment)(.*)\]$',
             caseSensitive: false).firstMatch(trimmed);
         if (match != null) {
           if (currentBlockLines.isNotEmpty) {

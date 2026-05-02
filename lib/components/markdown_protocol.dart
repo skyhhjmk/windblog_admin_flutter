@@ -127,7 +127,7 @@ class StoreItemSyntax extends md.InlineSyntax {
 class HideContentSyntax extends md.BlockSyntax {
   @override
   RegExp get pattern =>
-      RegExp(r'^\[(hide-text|hide-attachment)(?:\s+price\s*=\s*(\d+))?\]\s*$',
+      RegExp(r'^\[(hide-text|hide-attachment)(.*)\]\s*$',
           caseSensitive: false);
 
   const HideContentSyntax();
@@ -138,7 +138,24 @@ class HideContentSyntax extends md.BlockSyntax {
     if (match == null) return null;
 
     final type = match.group(1)!.toLowerCase();
-    final price = match.group(2) ?? '0';
+    final attrStr = match.group(2) ?? '';
+
+    // 提取属性
+    String price = '0';
+    final priceMatch = RegExp(
+        r'price\s*=\s*(?:"([^"]*)"|(\d+))', caseSensitive: false).firstMatch(
+        attrStr);
+    if (priceMatch != null) {
+      price = priceMatch.group(1) ?? priceMatch.group(2) ?? '0';
+    }
+
+    String? showText;
+    final showMatch = RegExp(r'show\s*=\s*"([^"]*)"', caseSensitive: false)
+        .firstMatch(attrStr);
+    if (showMatch != null) {
+      showText = showMatch.group(1);
+    }
+
     final childLines = <String>[];
 
     // 移动到起始标签之后的一行
@@ -165,6 +182,7 @@ class HideContentSyntax extends md.BlockSyntax {
         'gamification-hide', [md.Text(childLines.join('\n'))]);
     el.attributes['type'] = type;
     el.attributes['price'] = price;
+    if (showText != null) el.attributes['show'] = showText;
     el.attributes['foundEnd'] = foundEnd.toString();
     return el;
   }
@@ -403,6 +421,7 @@ class GamificationHideBuilder extends MarkdownElementBuilder {
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     final type = element.attributes['type'] ?? 'hide-text';
     final price = element.attributes['price'] ?? '0';
+    final showText = element.attributes['show'];
     final isAttachment = type == 'hide-attachment';
     final content = element.textContent;
 
@@ -431,7 +450,7 @@ class GamificationHideBuilder extends MarkdownElementBuilder {
                     color: Colors.white, size: 14),
                 const SizedBox(width: 6),
                 Text(
-                  isAttachment ? '付费附件区块' : '付费隐藏内容',
+                  showText ?? (isAttachment ? '付费附件区块' : '付费隐藏内容'),
                   style: const TextStyle(color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.bold),

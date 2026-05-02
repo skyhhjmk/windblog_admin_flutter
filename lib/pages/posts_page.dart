@@ -693,9 +693,10 @@ class _PostEditorPageState extends State<PostEditorPage>
   late final TextEditingController slugCtrl;
   late final TextEditingController titleCtrl;
   late final TextEditingController summaryCtrl;
-  late final TextEditingController contentCtrl;
+  late TextEditingController contentCtrl;
   late final TextEditingController pointsPriceCtrl;
   late final TextEditingController freeLinesCtrl;
+  late final TextEditingController passwordCtrl;
   late final TabController _sidebarTabController;
   final ScrollController _contentScrollController = ScrollController();
 
@@ -767,6 +768,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     pointsPriceCtrl =
         TextEditingController(text: d?.pointsPrice?.toString() ?? '');
     freeLinesCtrl = TextEditingController(text: d?.freeLines?.toString() ?? '');
+    passwordCtrl = TextEditingController(text: d?.password ?? '');
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
 
@@ -793,6 +795,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     contentCtrl.addListener(_markDirty);
     pointsPriceCtrl.addListener(_markDirty);
     freeLinesCtrl.addListener(_markDirty);
+    passwordCtrl.addListener(_markDirty);
   }
 
   void _onScroll() {
@@ -835,8 +838,10 @@ class _PostEditorPageState extends State<PostEditorPage>
     if (d == null) {
       return currentSlug.isNotEmpty || currentTitle.isNotEmpty ||
           currentSummary.isNotEmpty || currentContent.isNotEmpty ||
-          status != 0 || visibility != 0 || categoryId != null ||
-          tagIds.isNotEmpty;
+          status != 0 || visibility != 0 || passwordCtrl.text
+          .trim()
+          .isNotEmpty ||
+          categoryId != null || tagIds.isNotEmpty;
     }
 
     return currentSlug != _initialSlug ||
@@ -845,6 +850,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         currentContent != _initialContent ||
         status != _initialStatus ||
         visibility != _initialVisibility ||
+        passwordCtrl.text.trim() != (_currentDetail?.password ?? '') ||
         renderType != _initialRenderType ||
         editorType != _initialEditorType ||
         aiSummaryStatus != _initialAiSummaryStatus ||
@@ -917,6 +923,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     titleCtrl.dispose();
     summaryCtrl.dispose();
     contentCtrl.dispose();
+    passwordCtrl.dispose();
+    pointsPriceCtrl.dispose();
+    freeLinesCtrl.dispose();
     _sidebarTabController.dispose();
     super.dispose();
   }
@@ -1028,6 +1037,9 @@ class _PostEditorPageState extends State<PostEditorPage>
         contentMarkdown: {'zh-cn': finalContent},
         status: status,
         visibility: visibility,
+        password: passwordCtrl.text
+            .trim()
+            .isEmpty ? null : passwordCtrl.text.trim(),
         renderType: renderType,
         editorType: editorType,
         aiSummaryStatus: aiSummaryStatus,
@@ -1109,6 +1121,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           contentCtrl.text = newDetail.contentMarkdown['zh-cn'] ?? '';
           pointsPriceCtrl.text = newDetail.pointsPrice?.toString() ?? '';
           freeLinesCtrl.text = newDetail.freeLines?.toString() ?? '';
+          passwordCtrl.text = newDetail.password ?? '';
 
           status = newDetail.status;
           visibility = newDetail.visibility;
@@ -1698,6 +1711,37 @@ class _PostEditorPageState extends State<PostEditorPage>
               }
             },
           ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int>(
+            initialValue: visibility,
+            decoration: const InputDecoration(
+              labelText: '可见性 (Visibility)',
+              isDense: true,
+            ),
+            items: const [
+              DropdownMenuItem(value: 0, child: Text('公开 (Public)')),
+              DropdownMenuItem(value: 1, child: Text('私密 (Private)')),
+              DropdownMenuItem(
+                  value: 2, child: Text('密码保护 (Password Protected)')),
+            ],
+            onChanged: (v) =>
+                setState(() {
+                  visibility = v ?? 0;
+                  _markDirty();
+                }),
+          ),
+          if (visibility == 2) ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordCtrl,
+              decoration: const InputDecoration(
+                labelText: '访问密码',
+                prefixIcon: Icon(Icons.lock_outline, size: 18),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
