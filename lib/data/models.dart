@@ -1460,7 +1460,10 @@ class CommentItem {
     required this.content,
     required this.status,
     required this.auditStatus,
+    required this.auditType,
     required this.auditReason,
+    this.aiDurationMs,
+    this.aiTotalTokens,
     required this.createdAt,
   });
 
@@ -1472,7 +1475,10 @@ class CommentItem {
   final String content;
   final int status;
   final int auditStatus;
+  final int auditType;
   final String? auditReason;
+  final int? aiDurationMs;
+  final int? aiTotalTokens;
   final DateTime createdAt;
 
   String get statusText {
@@ -1489,15 +1495,22 @@ class CommentItem {
   }
 
   String get auditStatusText {
+    String prefix = '';
+    if (auditType == 1) {
+      prefix = 'AI ';
+    } else if (auditType == 2) {
+      prefix = '人工';
+    }
+
     switch (auditStatus) {
       case 0:
         return '未审核';
       case 1:
-        return 'AI 审核中';
+        return '$prefix审核中';
       case 2:
-        return 'AI 审核通过';
+        return '$prefix审核通过';
       case 3:
-        return 'AI 审核拒绝';
+        return '$prefix审核拒绝';
       default:
         return '未知';
     }
@@ -1513,7 +1526,10 @@ class CommentItem {
       content: map['content']?.toString() ?? '',
       status: toInt(map['status']) ?? 0,
       auditStatus: toInt(map['auditStatus']) ?? 0,
+      auditType: toInt(map['auditType']) ?? 0,
       auditReason: map['auditReason']?.toString(),
+      aiDurationMs: toInt(map['aiDurationMs']),
+      aiTotalTokens: toInt(map['aiTotalTokens']),
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
     );
   }

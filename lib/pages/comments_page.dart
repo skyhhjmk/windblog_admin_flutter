@@ -71,9 +71,9 @@ class _CommentsPageState extends State<CommentsPage> {
     }
   }
 
-  Future<void> _auditComment(CommentItem comment, bool approve) async {
+  Future<void> _auditComment(CommentItem comment) async {
     try {
-      await widget.api.auditComment(comment.id, approve: approve);
+      await widget.api.auditComment(comment.id);
       await _loadComments();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -238,168 +238,17 @@ class _CommentsPageState extends State<CommentsPage> {
                       const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final comment = comments[index];
-                        return ExpansionTile(
-                          leading: CircleAvatar(
-                            backgroundColor: _getStatusColor(comment.status)
-                                .withValues(alpha: 0.2),
-                            child: Icon(
-                              Icons.comment,
-                              color: _getStatusColor(comment.status),
-                            ),
-                          ),
-                          title: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  comment.userName,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: _getStatusColor(comment.status)
-                                      .withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  comment.statusText,
-                                  style: TextStyle(
-                                    color: _getStatusColor(comment.status),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: _getAuditStatusColor(
-                                      comment.auditStatus).withValues(
-                                      alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  comment.auditStatusText,
-                                  style: TextStyle(
-                                    color: _getAuditStatusColor(
-                                        comment.auditStatus),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Text(
-                                '${t(context, 'article')}: ${comment
-                                    .postTitle}',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _formatDate(comment.createdAt),
-                                style: TextStyle(
-                                  color: Colors.grey.shade500,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    comment.content,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  if (comment.auditReason != null &&
-                                      comment.auditReason!.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.shade50,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.warning,
-                                              color: Colors.red.shade700,
-                                              size: 16),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              '${t(context, 'ai_audit_reason')}: ${comment
-                                                  .auditReason}',
-                                              style: TextStyle(
-                                                color: Colors.red.shade700,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      if (comment.status == 0) ...[
-                                        FilledButton.tonal(
-                                          onPressed: () =>
-                                              _auditComment(comment, true),
-                                          child: Text(t(context, 'approve')),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        FilledButton.tonal(
-                                          onPressed: () =>
-                                              _auditComment(comment, false),
-                                          child: Text(t(context, 'reject')),
-                                        ),
-                                        const SizedBox(width: 8),
-                                      ],
-                                      if (comment.status != 1)
-                                        TextButton(
-                                          onPressed: () =>
-                                              _updateCommentStatus(comment, 1),
-                                          child: Text(t(context, 'approve')),
-                                        ),
-                                      if (comment.status != 2)
-                                        TextButton(
-                                          onPressed: () =>
-                                              _updateCommentStatus(comment, 2),
-                                          child: Text(t(context, 'reject')),
-                                        ),
-                                      const SizedBox(width: 8),
-                                      TextButton(
-                                        onPressed: () =>
-                                            _deleteComment(comment),
-                                        child: Text(
-                                          t(context, 'delete'),
-                                          style: const TextStyle(
-                                              color: Colors.red),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        return _CommentTile(
+                          comment: comment,
+                          statusColor: _getStatusColor(comment.status),
+                          auditStatusColor: _getAuditStatusColor(
+                              comment.auditStatus),
+                          dateText: _formatDate(comment.createdAt),
+                          onAudit: () => _auditComment(comment),
+                          onUpdateStatus: (status) =>
+                              _updateCommentStatus(comment, status),
+                          onDelete: () => _deleteComment(comment),
+                          t: (key) => t(context, key),
                         );
                       },
                     ),
@@ -454,5 +303,310 @@ class _CommentsPageState extends State<CommentsPage> {
         '${date.hour.toString().padLeft(2, '0')}:${date.minute
         .toString()
         .padLeft(2, '0')}';
+  }
+}
+
+class _CommentTile extends StatefulWidget {
+  final CommentItem comment;
+  final Color statusColor;
+  final Color auditStatusColor;
+  final String dateText;
+  final VoidCallback onAudit;
+  final Function(int) onUpdateStatus;
+  final VoidCallback onDelete;
+  final String Function(String) t;
+
+  const _CommentTile({
+    required this.comment,
+    required this.statusColor,
+    required this.auditStatusColor,
+    required this.dateText,
+    required this.onAudit,
+    required this.onUpdateStatus,
+    required this.onDelete,
+    required this.t,
+  });
+
+  @override
+  State<_CommentTile> createState() => _CommentTileState();
+}
+
+class _CommentTileState extends State<_CommentTile>
+    with SingleTickerProviderStateMixin {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final comment = widget.comment;
+    final t = widget.t;
+
+    return Column(
+      children: [
+        ListTile(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          leading: CircleAvatar(
+            backgroundColor: widget.statusColor.withValues(alpha: 0.2),
+            child: Icon(
+              Icons.comment,
+              color: widget.statusColor,
+            ),
+          ),
+          title: Row(
+            children: [
+              Text(
+                comment.userName,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 8),
+              // 当前状态标签
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: widget.statusColor.withValues(alpha: 0.1),
+                  border: Border.all(
+                      color: widget.statusColor.withValues(alpha: 0.3)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${t('status')}: ${comment.statusText}',
+                  style: TextStyle(
+                    color: widget.statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (comment.auditStatus != 0) ...[
+                const SizedBox(width: 8),
+                // AI 建议标签
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: widget.auditStatusColor.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.smart_toy_outlined, size: 10,
+                          color: widget.auditStatusColor),
+                      const SizedBox(width: 2),
+                      Text(
+                        'AI: ${comment.auditStatusText.replaceAll('AI ', '')}',
+                        style: TextStyle(
+                          color: widget.auditStatusColor,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 4),
+              Text(
+                '${t('article')}: ${comment.postTitle}',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.dateText,
+                style: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                comment.content,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.grey.shade700,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+          trailing: Icon(
+            _isExpanded ? Icons.expand_less : Icons.expand_more,
+            color: Colors.grey,
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          child: _isExpanded
+              ? Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader(Icons.text_fields, t('comment_content')),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Text(
+                    comment.content,
+                    style: const TextStyle(fontSize: 14, height: 1.5),
+                  ),
+                ),
+                if (comment.auditStatus != 0 || (comment.auditReason != null &&
+                    comment.auditReason!.isNotEmpty)) ...[
+                  const SizedBox(height: 16),
+                  _buildSectionHeader(
+                      Icons.analytics_outlined, t('audit_report')),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: comment.auditType == 1
+                          ? Colors.red.shade50
+                          : Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: comment.auditType == 1
+                            ? Colors.red.shade100
+                            : Colors.blue.shade100,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              comment.auditType == 1 ? Icons.smart_toy : Icons
+                                  .person,
+                              color: comment.auditType == 1 ? Colors.red
+                                  .shade700 : Colors.blue.shade700,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              comment.auditType == 1
+                                  ? t('ai_audit_suggestion')
+                                  : t('manual_audit_record'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: comment.auditType == 1 ? Colors.red
+                                    .shade700 : Colors.blue.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const Spacer(),
+                            if (comment.auditType == 1)
+                              Text(
+                                '${comment.aiDurationMs ?? 0}ms / ${comment
+                                    .aiTotalTokens ?? 0} tokens',
+                                style: TextStyle(
+                                  color: Colors.red.shade300,
+                                  fontSize: 11,
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (comment.auditReason != null &&
+                            comment.auditReason!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            comment.auditReason!,
+                            style: TextStyle(
+                              color: comment.auditType == 1 ? Colors.red
+                                  .shade800 : Colors.blue.shade800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _buildSectionHeader(Icons.touch_app, t('admin_actions')),
+                    const Spacer(),
+                    if (comment.status == 0) ...[
+                      FilledButton.icon(
+                        onPressed: widget.onAudit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.auto_awesome, size: 16),
+                        label: Text(t('ai_audit')),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    OutlinedButton.icon(
+                      onPressed: () => widget.onUpdateStatus(1),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: Text(t('approve')),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.green,
+                        side: const BorderSide(color: Colors.green),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => widget.onUpdateStatus(2),
+                      icon: const Icon(Icons.block, size: 16),
+                      label: Text(t('reject')),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      onPressed: widget.onDelete,
+                      icon: const Icon(Icons.delete_outline),
+                      color: Colors.red,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade600),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey.shade700,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
+    );
   }
 }

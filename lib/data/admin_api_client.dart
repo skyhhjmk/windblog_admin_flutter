@@ -392,8 +392,8 @@ class AdminApiClient {
     await _delete('/api/admin/comments/$id');
   }
 
-  Future<void> auditComment(int id, {required bool approve}) async {
-    await _post('/api/admin/comments/$id/audit', body: {'approve': approve});
+  Future<void> auditComment(int id) async {
+    await _post('/api/admin/comments/$id/audit', body: {});
   }
 
   // ==================== 队列监控 API ====================
