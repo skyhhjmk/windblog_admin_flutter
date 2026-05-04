@@ -336,6 +336,14 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
                     item.newValue),
               ),
 
+              if (item.extInfo != null && item.extInfo!.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                Text('Ext Info (AI Output/Performance):',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                _buildJsonBox(item.extInfo),
+              ],
+
               const SizedBox(height: 24),
               Row(
                 children: [

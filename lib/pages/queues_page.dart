@@ -52,6 +52,7 @@ class _QueuesPageState extends State<QueuesPage> {
       await widget.api.publishTestMessage(
         queue.name,
         postId: result['postId'] as int?,
+        commentId: result['commentId'] as int?,
         priority: result['priority'] as int?,
         content: result['content'] as String?,
       );
@@ -173,10 +174,25 @@ class _QueuesPageState extends State<QueuesPage> {
                                           color: _getQueueColor(queue),
                                         ),
                                       ),
-                                      title: Text(
-                                        queue.name,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w600),
+                                      title: Row(
+                                        children: [
+                                          Text(
+                                            queue.name,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                          if (queue.description.isNotEmpty) ...[
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '(${queue.description})',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                                fontWeight: FontWeight.normal,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                       subtitle: Column(
                                         crossAxisAlignment: CrossAxisAlignment
@@ -365,22 +381,32 @@ class _PublishMessageDialog extends StatefulWidget {
 }
 
 class _PublishMessageDialogState extends State<_PublishMessageDialog> {
-  late final TextEditingController _postIdCtrl;
+  late final TextEditingController _idCtrl;
   late final TextEditingController _contentCtrl;
   int _priority = 1;
+
+  bool get isAudit => widget.queueName.contains('audit');
 
   @override
   void initState() {
     super.initState();
-    _postIdCtrl = TextEditingController(text: '1');
-    _contentCtrl = TextEditingController(
-      text: t(context, 'publish_test_message_default_content'),
-    );
+    _idCtrl = TextEditingController(text: '1');
+    _contentCtrl = TextEditingController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_contentCtrl.text.isEmpty) {
+      _contentCtrl.text = isAudit
+          ? '这是一条用于测试 AI 审核的评论内容，包含一些敏感词如垃圾广告。'
+          : t(context, 'publish_test_message_default_content');
+    }
   }
 
   @override
   void dispose() {
-    _postIdCtrl.dispose();
+    _idCtrl.dispose();
     _contentCtrl.dispose();
     super.dispose();
   }
@@ -401,9 +427,10 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: _postIdCtrl,
+              controller: _idCtrl,
               decoration: InputDecoration(
-                labelText: t(context, 'article_id_label'),
+                labelText: isAudit ? '评论 ID (Comment ID)' : t(
+                    context, 'article_id_label'),
                 border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -412,28 +439,31 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
             TextField(
               controller: _contentCtrl,
               decoration: InputDecoration(
-                labelText: t(context, 'article_summary_label'),
+                labelText: isAudit ? '评论内容' : t(
+                    context, 'article_summary_label'),
                 border: const OutlineInputBorder(),
               ),
               maxLines: 3,
             ),
-            const SizedBox(height: 12),
-            Text(t(context, 'priority'), style: Theme
-                .of(context)
-                .textTheme
-                .bodySmall),
-            const SizedBox(height: 4),
-            SegmentedButton<int>(
-              segments: [
-                ButtonSegment(value: 0, label: Text(t(context, 'high'))),
-                ButtonSegment(value: 1, label: Text(t(context, 'medium'))),
-                ButtonSegment(value: 2, label: Text(t(context, 'low'))),
-              ],
-              selected: {_priority},
-              onSelectionChanged: (selected) {
-                setState(() => _priority = selected.first);
-              },
-            ),
+            if (!isAudit) ...[
+              const SizedBox(height: 12),
+              Text(t(context, 'priority'), style: Theme
+                  .of(context)
+                  .textTheme
+                  .bodySmall),
+              const SizedBox(height: 4),
+              SegmentedButton<int>(
+                segments: [
+                  ButtonSegment(value: 0, label: Text(t(context, 'high'))),
+                  ButtonSegment(value: 1, label: Text(t(context, 'medium'))),
+                  ButtonSegment(value: 2, label: Text(t(context, 'low'))),
+                ],
+                selected: {_priority},
+                onSelectionChanged: (selected) {
+                  setState(() => _priority = selected.first);
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -444,15 +474,17 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
         ),
         FilledButton(
           onPressed: () {
-            final postId = int.tryParse(_postIdCtrl.text);
-            if (postId == null) {
+            final id = int.tryParse(_idCtrl.text);
+            if (id == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(t(context, 'invalid_post_id'))),
+                SnackBar(content: Text(
+                    isAudit ? '无效的评论 ID' : t(context, 'invalid_post_id'))),
               );
               return;
             }
             Navigator.pop(context, {
-              'postId': postId,
+              if (isAudit) 'commentId': id else
+                'postId': id,
               'priority': _priority,
               'content': _contentCtrl.text,
             });

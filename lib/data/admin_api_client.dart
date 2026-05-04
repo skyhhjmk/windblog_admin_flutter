@@ -413,9 +413,10 @@ class AdminApiClient {
   }
 
   Future<void> publishTestMessage(String queueName,
-      {int? postId, int? priority, String? content}) async {
+      {int? postId, int? commentId, int? priority, String? content}) async {
     final body = <String, dynamic>{};
     if (postId != null) body['postId'] = postId;
+    if (commentId != null) body['commentId'] = commentId;
     if (priority != null) body['priority'] = priority;
     if (content != null) body['content'] = content;
     await _post('/api/admin/queues/${Uri.encodeComponent(queueName)}/publish',

@@ -1464,6 +1464,7 @@ class CommentItem {
     required this.auditReason,
     this.aiDurationMs,
     this.aiTotalTokens,
+    this.aiScore,
     required this.createdAt,
   });
 
@@ -1479,6 +1480,7 @@ class CommentItem {
   final String? auditReason;
   final int? aiDurationMs;
   final int? aiTotalTokens;
+  final int? aiScore;
   final DateTime createdAt;
 
   String get statusText {
@@ -1530,6 +1532,7 @@ class CommentItem {
       auditReason: map['auditReason']?.toString(),
       aiDurationMs: toInt(map['aiDurationMs']),
       aiTotalTokens: toInt(map['aiTotalTokens']),
+      aiScore: toInt(map['aiScore']),
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
     );
   }
@@ -1568,6 +1571,7 @@ class QueueInfo {
     required this.name,
     required this.messageCount,
     required this.consumerCount,
+    this.description = '',
     required this.deadLetterQueue,
     this.deadLetterMessageCount = 0,
   });
@@ -1575,6 +1579,7 @@ class QueueInfo {
   final String name;
   final int messageCount;
   final int consumerCount;
+  final String description;
   final String deadLetterQueue;
   final int deadLetterMessageCount;
 
@@ -1583,6 +1588,7 @@ class QueueInfo {
       name: map['name']?.toString() ?? '',
       messageCount: toInt(map['messageCount']) ?? 0,
       consumerCount: toInt(map['consumerCount']) ?? 0,
+      description: map['description']?.toString() ?? '',
       deadLetterQueue: map['deadLetterQueue']?.toString() ?? '',
       deadLetterMessageCount: toInt(map['deadLetterMessageCount']) ?? 0,
     );
