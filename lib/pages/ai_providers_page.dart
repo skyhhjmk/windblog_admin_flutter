@@ -131,97 +131,271 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     }
   }
 
+  static const Map<String, Map<String, String>> _providerOptions = {
+    'OpenAI': {'provider': 'OPENAI', 'endpoint': 'https://api.openai.com/v1'},
+    'DeepSeek': {'provider': 'OPENAI', 'endpoint': 'https://api.deepseek.com'},
+    'SiliconFlow': {
+      'provider': 'OPENAI',
+      'endpoint': 'https://api.siliconflow.cn/v1'
+    },
+    'Groq': {
+      'provider': 'OPENAI',
+      'endpoint': 'https://api.groq.com/openai/v1'
+    },
+    'ChatGLM (SDK)': {
+      'provider': 'CHATGLM',
+      'endpoint': 'https://open.bigmodel.cn/api/paas/v4'
+    },
+    'Ollama (Local)': {
+      'provider': 'OLLAMA',
+      'endpoint': 'http://localhost:11434'
+    },
+    'Custom (OpenAI Compatible)': {'provider': 'OPENAI', 'endpoint': ''},
+  };
+
   void _showConfigDialog(AiProviderConfig? existing, String type) {
     var name = existing?.name ?? '';
-    var provider = existing?.provider ?? '';
-    var endpoint = existing?.endpoint ?? '';
+    var provider = existing?.provider ?? 'OPENAI';
+    var endpoint = existing?.endpoint ?? 'https://api.openai.com/v1';
     var model = existing?.model ?? '';
     var apiKey = existing?.apiKey ?? '';
     var configText = existing?.config ?? '';
     var enabled = existing?.enabled ?? true;
+
+    // 解析附加配置
+    bool forceEndpoint = false;
+    try {
+      if (configText.isNotEmpty) {
+        final map = jsonDecode(configText);
+        if (map is Map && map.containsKey('force_endpoint')) {
+          forceEndpoint = map['force_endpoint'] == true;
+        }
+      }
+    } catch (_) {}
+
+    // 尝试匹配预设选项
+    String? selectedPreset;
+    _providerOptions.forEach((key, value) {
+      if (value['provider'] == provider && (value['endpoint'] == endpoint ||
+          (value['endpoint']!.isEmpty && endpoint.isNotEmpty))) {
+        if (selectedPreset == null || value['endpoint'] == endpoint) {
+          selectedPreset = key;
+        }
+      }
+    });
+    selectedPreset ??= 'Custom (OpenAI Compatible)';
+
+    List<String> fetchedModels = [];
+    bool fetchingModels = false;
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            Future<void> doFetchModels() async {
+              setState(() => fetchingModels = true);
+              try {
+                // 构造临时配置用于测试，需要包含当前的 forceEndpoint 状态
+                Map<String, dynamic> extraConfig = {};
+                try {
+                  if (configText.isNotEmpty) {
+                    extraConfig = jsonDecode(configText);
+                  }
+                } catch (_) {}
+                extraConfig['force_endpoint'] = forceEndpoint;
+
+                final req = AiProviderConfigUpdateRequest(
+                  type: type,
+                  name: name,
+                  provider: provider,
+                  enabled: enabled,
+                  endpoint: endpoint,
+                  model: model,
+                  apiKey: apiKey,
+                  config: jsonEncode(extraConfig),
+                );
+                final models = await widget.api.fetchAiModels(req);
+                setState(() {
+                  fetchedModels = models;
+                  if (models.isNotEmpty && model.isEmpty) {
+                    model = models.first;
+                  }
+                });
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('成功获取 ${models.length} 个模型'),
+                        backgroundColor: Colors.green),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('获取模型失败: $e'),
+                        backgroundColor: Colors.red),
+                  );
+                }
+              } finally {
+                setState(() => fetchingModels = false);
+              }
+            }
+
             return AlertDialog(
               title: Text(existing == null ? (type == "PROVIDER"
                   ? t(context, 'ai_add_provider')
                   : t(context, 'ai_add_polling_group')) : t(context, 'ai_edit_config')),
-              content: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      decoration: InputDecoration(
-                          labelText: t(context, 'ai_config_name')),
-                      controller: TextEditingController(text: name)
-                        ..selection = TextSelection.collapsed(offset: name
-                            .length),
-                      onChanged: (v) => name = v,
-                    ),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      title: Text(t(context, 'ai_is_enabled')),
-                      value: enabled,
-                      onChanged: (v) => setState(() => enabled = v),
-                    ),
-                    if (type == 'PROVIDER') ...[
-                      const SizedBox(height: 12),
+              content: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       TextField(
                         decoration: InputDecoration(
-                          labelText: t(context, 'ai_provider_type'),
-                          hintText: t(context, 'ai_provider_type_hint'),
+                            labelText: t(context, 'ai_config_name')),
+                        controller: TextEditingController(text: name)
+                          ..selection = TextSelection.collapsed(offset: name
+                              .length),
+                        onChanged: (v) => name = v,
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        title: Text(t(context, 'ai_is_enabled')),
+                        value: enabled,
+                        onChanged: (v) => setState(() => enabled = v),
+                      ),
+                      if (type == 'PROVIDER') ...[
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            labelText: t(context, 'ai_provider_type'),
+                          ),
+                          initialValue: selectedPreset,
+                          items: _providerOptions.keys
+                              .map((e) =>
+                              DropdownMenuItem(value: e, child: Text(e)))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() {
+                                selectedPreset = v;
+                                provider = _providerOptions[v]!['provider']!;
+                                if (_providerOptions[v]!['endpoint']!
+                                    .isNotEmpty) {
+                                  endpoint = _providerOptions[v]!['endpoint']!;
+                                }
+                                if (provider == 'CHATGLM') {
+                                  forceEndpoint = false;
+                                } else {
+                                  forceEndpoint = true;
+                                }
+                              });
+                            }
+                          },
                         ),
-                        controller: TextEditingController(text: provider)
-                          ..selection = TextSelection.collapsed(
-                              offset: provider.length),
-                        onChanged: (v) => provider = v,
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        decoration: InputDecoration(
-                          labelText: t(context, 'api_base_url'),
-                          hintText: t(context, 'ai_endpoint_hint_long'),
+                        if (provider == 'CHATGLM') ...[
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            title: const Text('强制覆写 API 地址',
+                                style: TextStyle(fontSize: 14)),
+                            subtitle: const Text(
+                                '关闭时使用内置 SDK 默认地址，开启时使用下方填写的地址'),
+                            value: forceEndpoint,
+                            onChanged: (v) => setState(() => forceEndpoint = v),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        TextField(
+                          enabled: provider != 'CHATGLM' || forceEndpoint,
+                          decoration: InputDecoration(
+                            labelText: t(context, 'api_base_url'),
+                            hintText: t(context, 'ai_endpoint_hint_long'),
+                            fillColor: (provider == 'CHATGLM' && !forceEndpoint)
+                                ? Colors.grey.withAlpha(20)
+                                : null,
+                            filled: provider == 'CHATGLM' && !forceEndpoint,
+                          ),
+                          controller: TextEditingController(text: endpoint)
+                            ..selection = TextSelection.collapsed(
+                                offset: endpoint.length),
+                          onChanged: (v) => endpoint = v,
                         ),
-                        controller: TextEditingController(text: endpoint)
-                          ..selection = TextSelection.collapsed(
-                              offset: endpoint.length),
-                        onChanged: (v) => endpoint = v,
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        decoration: InputDecoration(
-                            labelText: t(context, 'ai_model_name')),
-                        controller: TextEditingController(text: model)
-                          ..selection = TextSelection.collapsed(
-                              offset: model.length),
-                        onChanged: (v) => model = v,
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        decoration: InputDecoration(
-                            labelText: t(context, 'ai_api_key_modify_hint')),
-                        controller: TextEditingController(text: ''),
-                        onChanged: (v) => apiKey = v,
-                      ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          decoration: InputDecoration(
+                              labelText: t(context, 'ai_api_key_modify_hint')),
+                          obscureText: true,
+                          controller: TextEditingController(text: apiKey)
+                            ..selection = TextSelection.collapsed(
+                                offset: apiKey.length),
+                          onChanged: (v) => apiKey = v,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: fetchedModels.isEmpty ? TextField(
+                                decoration: InputDecoration(
+                                    labelText: t(context, 'ai_model_name')),
+                                controller: TextEditingController(text: model)
+                                  ..selection = TextSelection.collapsed(
+                                      offset: model.length),
+                                onChanged: (v) => model = v,
+                              ) : DropdownButtonFormField<String>(
+                                decoration: InputDecoration(
+                                    labelText: t(context, 'ai_model_name')),
+                                initialValue: fetchedModels.contains(model)
+                                    ? model
+                                    : (fetchedModels.isNotEmpty ? fetchedModels
+                                    .first : null),
+                                items: [
+                                  ...fetchedModels.map((e) =>
+                                      DropdownMenuItem(
+                                          value: e, child: Text(e))),
+                                  const DropdownMenuItem(value: "__manual__",
+                                      child: Text("-- 手动输入 --")),
+                                ],
+                                onChanged: (v) {
+                                  if (v == "__manual__") {
+                                    setState(() {
+                                      fetchedModels = [];
+                                    });
+                                  } else if (v != null) {
+                                    model = v;
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: fetchingModels ? null : doFetchModels,
+                              icon: fetchingModels ? const SizedBox(width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2)) : const Icon(
+                                  Icons.refresh),
+                              tooltip: '从 API 获取模型列表',
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (type == 'POLLING_GROUP') ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          decoration: InputDecoration(
+                              labelText: t(context, 'ai_json_config'),
+                              hintText: t(context, 'ai_json_config_hint')),
+                          controller: TextEditingController(text: configText)
+                            ..selection = TextSelection.collapsed(
+                                offset: configText.length),
+                          onChanged: (v) => configText = v,
+                          maxLines: 4,
+                        ),
+                      ]
                     ],
-                    if (type == 'POLLING_GROUP') ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        decoration: InputDecoration(
-                            labelText: t(context, 'ai_json_config'),
-                            hintText: t(context, 'ai_json_config_hint')),
-                        controller: TextEditingController(text: configText)
-                          ..selection = TextSelection.collapsed(
-                              offset: configText.length),
-                        onChanged: (v) => configText = v,
-                        maxLines: 4,
-                      ),
-                    ]
-                  ],
+                  ),
                 ),
               ),
               actions: [
@@ -229,6 +403,20 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     child: Text(t(context, 'cancel'))),
                 FilledButton(
                   onPressed: () {
+                    // 更新 JSON 配置
+                    Map<String, dynamic> extraConfig = {};
+                    try {
+                      if (configText.isNotEmpty) {
+                        extraConfig = jsonDecode(configText);
+                      }
+                    } catch (_) {}
+
+                    if (provider == 'CHATGLM') {
+                      extraConfig['force_endpoint'] = forceEndpoint;
+                    } else {
+                      extraConfig.remove('force_endpoint');
+                    }
+                    
                     final req = AiProviderConfigUpdateRequest(
                       type: type,
                       name: name,
@@ -237,7 +425,8 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                       endpoint: endpoint,
                       model: model,
                       apiKey: apiKey,
-                      config: configText,
+                      config: extraConfig.isEmpty ? null : jsonEncode(
+                          extraConfig),
                     );
                     _saveConfig(existing?.id, req);
                     Navigator.pop(context);

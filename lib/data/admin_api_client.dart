@@ -69,6 +69,14 @@ class AdminApiClient {
     await _delete('/api/admin/ai/providers/$id');
   }
 
+  Future<List<String>> fetchAiModels(
+      AiProviderConfigUpdateRequest request) async {
+    final res = await _post(
+        '/api/admin/ai/providers/fetch-models', body: request.toJson());
+    final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
+    return list.map((e) => e.toString()).toList();
+  }
+
   Stream<String> testAiStream(int id,
       {required String prompt, String? systemPrompt, bool stream = true}) async* {
     if (token == null || token!.isEmpty) {
