@@ -265,6 +265,12 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   Future<void> _showAuditReport(CommentItem comment) async {
+    final aiData = comment.aiReviewData;
+    final score = aiData != null ? (aiData['score'] as num?)?.toInt() : null;
+    final reason = aiData != null ? aiData['reason']?.toString() : null;
+    final durationMs = aiData != null ? aiData['durationMs'] : null;
+    final totalTokens = aiData != null ? (aiData['totalTokens'] ?? 0) : null;
+
     showDialog(
       context: context,
       builder: (context) =>
@@ -306,95 +312,162 @@ class _CommentsPageState extends State<CommentsPage> {
                         comment.content, style: const TextStyle(fontSize: 13)),
                   ),
                   const SizedBox(height: 16),
-                  if (comment.auditStatus != 0) ...[
-                    Text(t(context, 'ai_audit_suggestion'),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 8),
+                  Text(t(context, 'ai_audit_suggestion'),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  if (aiData == null)
+                  // 未审核状态
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.hourglass_empty_outlined,
+                              size: 28, color: Colors.grey.shade400),
+                          const SizedBox(height: 8),
+                          Text(t(context, 'not_audited_yet'),
+                              style: TextStyle(color: Colors.grey.shade500)),
+                        ],
+                      ),
+                    )
+                  else
+                  // AI 审核结果
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _getAuditStatusColor(comment.auditStatus)
-                            .withValues(alpha: 0.1),
+                        color: Colors.indigo.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                            color: _getAuditStatusColor(comment.auditStatus)
-                                .withValues(alpha: 0.2)),
+                            color: Colors.indigo.withValues(alpha: 0.15)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // 标题行：AI 建议结论 + 耗时/Token
                           Row(
                             children: [
-                              Icon(comment.auditType == 1
-                                  ? Icons.smart_toy
-                                  : Icons.person, size: 16,
-                                  color: _getAuditStatusColor(
-                                      comment.auditStatus)),
-                              const SizedBox(width: 8),
-                              Text(comment.auditStatusText, style: TextStyle(
+                              const Icon(Icons.smart_toy, size: 16,
+                                  color: Colors.indigo),
+                              const SizedBox(width: 6),
+                              Text(
+                                'AI ${t(context, 'ai_audit')}: ${comment
+                                    .aiResultText ?? '-'}',
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: _getAuditStatusColor(
-                                      comment.auditStatus))),
+                                  color: comment.aiResultText == '建议通过'
+                                      ? Colors.green.shade700
+                                      : Colors.red.shade700,
+                                  fontSize: 13,
+                                ),
+                              ),
                               const Spacer(),
-                              if (comment.aiDurationMs != null)
-                                Text('${comment.aiDurationMs}ms / ${comment
-                                    .aiTotalTokens} tokens', style: TextStyle(
-                                    fontSize: 11, color: Colors.grey.shade600)),
+                              if (durationMs != null)
+                                Text(
+                                  '$durationMs ms · $totalTokens tokens',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade500),
+                                ),
                             ],
                           ),
-                          if (comment.aiScore != null) ...[
-                            const SizedBox(height: 8),
+                          // 可信度评分条
+                          if (score != null) ...[
+                            const SizedBox(height: 12),
                             Row(
                               children: [
-                                Text('${t(context, 'ai_score')}: ',
-                                    style: const TextStyle(fontSize: 13,
-                                        fontWeight: FontWeight.bold)),
-                                Text('${comment.aiScore}', style: TextStyle(
-                                    fontSize: 13,
-                                    color: _getAuditStatusColor(
-                                        comment.auditStatus),
-                                    fontWeight: FontWeight.bold)),
+                                Text(
+                                  t(context, 'ai_score'),
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade700,
+                                      fontWeight: FontWeight.w500),
+                                ),
                                 const SizedBox(width: 8),
-                                Expanded(child: LinearProgressIndicator(
-                                    value: comment.aiScore! / 100,
-                                    color: _getAuditStatusColor(
-                                        comment.auditStatus),
-                                    backgroundColor: Colors.grey.shade200,
-                                    minHeight: 4)),
+                                Text(
+                                  '$score',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: score >= 80
+                                        ? Colors.green.shade700
+                                        : score >= 50
+                                        ? Colors.orange.shade700
+                                        : Colors.red.shade700,
+                                  ),
+                                ),
+                                Text(' / 100', style: TextStyle(
+                                    fontSize: 12, color: Colors.grey.shade500)),
                               ],
                             ),
+                            const SizedBox(height: 4),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: score / 100,
+                                minHeight: 8,
+                                backgroundColor: Colors.grey.shade200,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  score >= 80
+                                      ? Colors.green.shade500
+                                      : score >= 50
+                                      ? Colors.orange.shade500
+                                      : Colors.red.shade500,
+                                ),
+                              ),
+                            ),
                           ],
-                          if (comment.auditReason != null &&
-                              comment.auditReason!.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(comment.auditReason!, style: const TextStyle(
-                                fontSize: 13)),
+                          // AI 审核理由
+                          if (reason != null && reason.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: Colors.indigo.withValues(
+                                        alpha: 0.1)),
+                              ),
+                              child: Text(
+                                reason,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.5,
+                                  color: Colors.grey.shade800,
+                                ),
+                              ),
+                            ),
                           ],
                         ],
                       ),
                     ),
-                  ] else
-                    Center(child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(t(context, 'not_audited_yet'),
-                          style: TextStyle(color: Colors.grey.shade500)),
-                    )),
                 ],
               ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context),
                   child: Text(t(context, 'close'))),
-              if (comment.auditStatus != 1) // 只要不是审核中，就可以触发/重新触发
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _auditComment(comment);
-                  },
-                  icon: const Icon(Icons.auto_awesome, size: 16),
-                  label: Text(t(context, 'ai_audit')),
-                ),
+              FilledButton.icon(
+                onPressed: comment.isReviewing ? null : () {
+                  Navigator.pop(context);
+                  _auditComment(comment);
+                },
+                icon: comment.isReviewing
+                    ? const SizedBox(width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.auto_awesome, size: 16),
+                label: Text(comment.isReviewing ? t(context, 'auditing') : t(
+                    context, 'ai_audit')),
+              ),
             ],
           ),
     );
@@ -531,26 +604,26 @@ class _CommentTileState extends State<_CommentTile>
                   ),
                 ),
               ),
-              if (comment.auditStatus != 0) ...[
+              if (comment.aiResultText != null) ...[
                 const SizedBox(width: 8),
                 // AI 建议标签
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: widget.auditStatusColor.withValues(alpha: 0.05),
+                    color: Colors.indigo.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.smart_toy_outlined, size: 10,
-                          color: widget.auditStatusColor),
+                      const Icon(Icons.smart_toy_outlined, size: 10,
+                          color: Colors.indigo),
                       const SizedBox(width: 2),
                       Text(
-                        'AI: ${comment.auditStatusText.replaceAll('AI ', '')}',
-                        style: TextStyle(
-                          color: widget.auditStatusColor,
+                        'AI: ${comment.aiResultText}',
+                        style: const TextStyle(
+                          color: Colors.indigo,
                           fontSize: 10,
                         ),
                       ),
@@ -621,8 +694,7 @@ class _CommentTileState extends State<_CommentTile>
                     style: const TextStyle(fontSize: 14, height: 1.5),
                   ),
                 ),
-                if (comment.auditStatus != 0 || (comment.auditReason != null &&
-                    comment.auditReason!.isNotEmpty)) ...[
+                if (comment.aiReviewData != null) ...[
                   const SizedBox(height: 16),
                   _buildSectionHeader(
                       Icons.analytics_outlined, t('audit_report')),
@@ -630,10 +702,10 @@ class _CommentTileState extends State<_CommentTile>
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: widget.auditStatusColor.withValues(alpha: 0.1),
+                      color: Colors.indigo.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: widget.auditStatusColor.withValues(alpha: 0.2),
+                        color: Colors.indigo.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Column(
@@ -641,28 +713,27 @@ class _CommentTileState extends State<_CommentTile>
                       children: [
                         Row(
                           children: [
-                            Icon(
-                              comment.auditType == 1 ? Icons.smart_toy : Icons
-                                  .person,
-                              color: widget.auditStatusColor,
+                            const Icon(
+                              Icons.smart_toy,
+                              color: Colors.indigo,
                               size: 16,
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              comment.auditType == 1
-                                  ? t('ai_audit_suggestion')
-                                  : t('manual_audit_record'),
-                              style: TextStyle(
+                              '${t('ai_audit')}: ${comment.aiResultText}',
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: widget.auditStatusColor,
+                                color: Colors.indigo,
                                 fontSize: 13,
                               ),
                             ),
                             const Spacer(),
-                            if (comment.auditType == 1)
+                            if (comment.aiReviewData != null &&
+                                comment.aiReviewData!['durationMs'] != null)
                               Text(
-                                '${comment.aiDurationMs ?? 0}ms / ${comment
-                                    .aiTotalTokens ?? 0} tokens',
+                                '${comment
+                                    .aiReviewData!['durationMs']}ms / ${comment
+                                    .aiReviewData!['totalTokens'] ?? 0} tokens',
                                 style: TextStyle(
                                   color: Colors.grey.shade500,
                                   fontSize: 11,
@@ -670,24 +741,29 @@ class _CommentTileState extends State<_CommentTile>
                               ),
                           ],
                         ),
-                        if (comment.aiScore != null) ...[
+                        if (comment.aiReviewData != null &&
+                            comment.aiReviewData!['score'] != null) ...[
                           const SizedBox(height: 8),
                           Row(
                             children: [
                               Text('${t('ai_score')}: ', style: const TextStyle(
                                   fontSize: 12, fontWeight: FontWeight.bold)),
-                              Text('${comment.aiScore}', style: TextStyle(
+                              Text('${comment.aiReviewData!['score']}',
+                                  style: const TextStyle(
                                   fontSize: 12,
-                                  color: widget.auditStatusColor,
+                                      color: Colors.indigo,
                                   fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ],
-                        if (comment.auditReason != null &&
-                            comment.auditReason!.isNotEmpty) ...[
+                        if (comment.aiReviewData != null &&
+                            comment.aiReviewData!['reason'] != null &&
+                            comment.aiReviewData!['reason']
+                                .toString()
+                                .isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Text(
-                            comment.auditReason!,
+                            comment.aiReviewData!['reason'].toString(),
                             style: TextStyle(
                               color: Colors.grey.shade800,
                               fontSize: 13,
@@ -713,40 +789,51 @@ class _CommentTileState extends State<_CommentTile>
                       ),
                       const SizedBox(width: 8),
                     ],
-                    if (comment.auditStatus != 1) ...[
-                      FilledButton.icon(
-                        onPressed: widget.onAudit,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.indigo,
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const Icon(Icons.auto_awesome, size: 16),
-                        label: Text(t('ai_audit')),
+                    FilledButton.icon(
+                      onPressed: comment.isReviewing ? null : widget.onAudit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.indigo,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.indigo.withValues(
+                            alpha: 0.5),
+                        disabledForegroundColor: Colors.white,
                       ),
-                      const SizedBox(width: 8),
-                    ],
+                      icon: comment.isReviewing
+                          ? const SizedBox(width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.auto_awesome, size: 16),
+                      label: Text(
+                          comment.isReviewing ? t('auditing') : t('ai_audit')),
+                    ),
+                    const SizedBox(width: 8),
                     OutlinedButton.icon(
-                      onPressed: () => widget.onUpdateStatus(1),
+                      onPressed: comment.isReviewing ? null : () =>
+                          widget.onUpdateStatus(1),
                       icon: const Icon(Icons.check, size: 16),
                       label: Text(t('approve')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.green,
-                        side: const BorderSide(color: Colors.green),
+                        side: BorderSide(color: comment.isReviewing ? Colors
+                            .green.withValues(alpha: 0.3) : Colors.green),
                       ),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
-                      onPressed: () => widget.onUpdateStatus(2),
+                      onPressed: comment.isReviewing ? null : () =>
+                          widget.onUpdateStatus(2),
                       icon: const Icon(Icons.block, size: 16),
                       label: Text(t('reject')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
+                        side: BorderSide(color: comment.isReviewing ? Colors.red
+                            .withValues(alpha: 0.3) : Colors.red),
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton.filledTonal(
-                      onPressed: widget.onDelete,
+                      onPressed: comment.isReviewing ? null : widget.onDelete,
                       icon: const Icon(Icons.delete_outline),
                       color: Colors.red,
                     ),

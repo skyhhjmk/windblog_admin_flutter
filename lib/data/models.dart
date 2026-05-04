@@ -1460,11 +1460,8 @@ class CommentItem {
     required this.content,
     required this.status,
     required this.auditStatus,
-    required this.auditType,
-    required this.auditReason,
-    this.aiDurationMs,
-    this.aiTotalTokens,
-    this.aiScore,
+    this.aiReviewData,
+    required this.isReviewing,
     required this.createdAt,
   });
 
@@ -1476,11 +1473,8 @@ class CommentItem {
   final String content;
   final int status;
   final int auditStatus;
-  final int auditType;
-  final String? auditReason;
-  final int? aiDurationMs;
-  final int? aiTotalTokens;
-  final int? aiScore;
+  final Map<String, dynamic>? aiReviewData;
+  final bool isReviewing;
   final DateTime createdAt;
 
   String get statusText {
@@ -1497,25 +1491,25 @@ class CommentItem {
   }
 
   String get auditStatusText {
-    String prefix = '';
-    if (auditType == 1) {
-      prefix = 'AI ';
-    } else if (auditType == 2) {
-      prefix = '人工';
-    }
-
     switch (auditStatus) {
       case 0:
         return '未审核';
       case 1:
-        return '$prefix审核中';
+        return '审核中';
       case 2:
-        return '$prefix审核通过';
+        return '审核通过';
       case 3:
-        return '$prefix审核拒绝';
+        return '审核拒绝';
       default:
         return '未知';
     }
+  }
+
+  String? get aiResultText {
+    if (aiReviewData == null) return null;
+    final isSafe = aiReviewData!['isSafe'];
+    if (isSafe == null) return '无结果';
+    return isSafe == true ? '建议通过' : '建议驳回';
   }
 
   factory CommentItem.fromMap(Map<String, dynamic> map) {
@@ -1528,11 +1522,8 @@ class CommentItem {
       content: map['content']?.toString() ?? '',
       status: toInt(map['status']) ?? 0,
       auditStatus: toInt(map['auditStatus']) ?? 0,
-      auditType: toInt(map['auditType']) ?? 0,
-      auditReason: map['auditReason']?.toString(),
-      aiDurationMs: toInt(map['aiDurationMs']),
-      aiTotalTokens: toInt(map['aiTotalTokens']),
-      aiScore: toInt(map['aiScore']),
+      aiReviewData: map['aiReviewData'] as Map<String, dynamic>?,
+      isReviewing: toBool(map['isReviewing']) ?? false,
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
     );
   }
