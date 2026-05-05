@@ -294,5 +294,9 @@
   "add_tag": "Add Tag",
   "diff_view": "Diff View",
   "current_value": "Current Online Value",
-  "confirm_action": "Confirm Action"
+  "confirm_action": "Confirm Action",
+  "setting_group_basic": "Basic Settings",
+  "setting_group_ai": "AI Settings",
+  "setting_group_wallet": "Wallet & Points",
+  "setting_group_general": "General Settings"
 }

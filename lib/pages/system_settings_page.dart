@@ -67,7 +67,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           child: ListView(
             children: groups.map((g) {
               return ListTile(
-                title: Text(g),
+                title: Text(_getGroupLabel(g)),
                 selected: _selectedGroup == g,
                 onTap: () {
                   setState(() {
@@ -95,7 +95,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      _selectedGroup!.toUpperCase(),
+                      _getGroupLabel(_selectedGroup!),
                       style: Theme
                           .of(context)
                           .textTheme
@@ -120,6 +120,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   }
 
   Widget _buildSettingItem(SystemSetting setting) {
+    final title = setting.description ?? setting.configKey;
+    final subtitle = setting.description != null ? setting.configKey : null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 48),
       child: Column(
@@ -127,29 +130,31 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         children: [
           Row(
             children: [
-              Text(
-                setting.configKey,
-                style: Theme
-                    .of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme
+                      .of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 16),
               Text(
                 '${t(context, 'config_version')}: ${setting.version}',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
             ],
           ),
-          if (setting.description != null)
+          if (subtitle != null)
             Padding(
               padding: const EdgeInsets.only(top: 4, bottom: 16),
               child: Text(
-                setting.description!,
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                subtitle,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             )
           else
@@ -263,5 +268,14 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         );
       }
     }
+  }
+
+  String _getGroupLabel(String g) {
+    final key = 'setting_group_$g';
+    final label = t(context, key);
+    if (label == key) {
+      return g.toUpperCase();
+    }
+    return label;
   }
 }

@@ -295,5 +295,9 @@
   "add_tag": "添加标签",
   "diff_view": "差异对比",
   "current_value": "当前线上值",
-  "confirm_action": "确认操作"
+  "confirm_action": "确认操作",
+  "setting_group_basic": "基础设置",
+  "setting_group_ai": "AI 设置",
+  "setting_group_wallet": "积分与钱包",
+  "setting_group_general": "通用设置"
 }
