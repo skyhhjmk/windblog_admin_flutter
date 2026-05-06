@@ -45,6 +45,10 @@ part 'pages/queues_page.dart';
 part 'pages/system_monitor_page.dart';
 
 part 'pages/system_settings_page.dart';
+
+part 'pages/add_link_page.dart';
+
+part 'pages/links_page.dart';
 part 'components/diff_viewer.dart';
 
 part 'components/config_dynamic_form.dart';
@@ -147,4 +151,3 @@ class _AdminRootPageState extends State<AdminRootPage> {
     return HomePage(api: api, user: user, onLogout: onLogout);
   }
 }
-

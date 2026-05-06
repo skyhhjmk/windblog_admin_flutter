@@ -532,6 +532,72 @@ class AdminApiClient {
     );
   }
 
+  // Store Items API
+  Future<PageResult<StoreItem>> getStoreItems({
+    int page = 1,
+    int pageSize = 20,
+    String? name,
+    String? type,
+  }) async {
+    final queryParams = {
+      'page': page.toString(),
+      'pageSize': pageSize.toString(),
+    };
+    if (name != null && name.isNotEmpty) queryParams['name'] = name;
+    if (type != null && type.isNotEmpty) queryParams['type'] = type;
+
+    final res = await _get('/api/admin/store', query: queryParams);
+    return PageResult<StoreItem>.fromMap(
+      _map(jsonDecode(res.body)),
+          (m) => StoreItem.fromMap(m),
+    );
+  }
+
+  Future<StoreItem> getStoreItem(int id) async {
+    final res = await _get('/api/admin/store/$id');
+    return StoreItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<StoreItem> createStoreItem(StoreItemRequest request) async {
+    final res = await _post('/api/admin/store', body: request.toJson());
+    return StoreItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<StoreItem> updateStoreItem(int id, StoreItemRequest request) async {
+    final res = await _put('/api/admin/store/$id', body: request.toJson());
+    return StoreItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> deleteStoreItem(int id) async {
+    await _delete('/api/admin/store/$id');
+  }
+
+  // ==================== Links API ====================
+
+  Future<void> createLink(LinkCreateRequest request) async {
+    await _post('/api/admin/links', body: request.toJson());
+  }
+
+  Future<void> updateLink(int id, LinkCreateRequest request) async {
+    await _put('/api/admin/links/$id', body: request.toJson());
+  }
+
+  Future<LinkMetaResponse> parseLinkMeta(String url) async {
+    final res = await _post('/api/admin/links/parse-meta', body: {'url': url});
+    return LinkMetaResponse.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<List<AdminLinkItem>> listLinks() async {
+    final res = await _get('/api/admin/links');
+    final list = jsonDecode(res.body) as List;
+    return list.map((e) => AdminLinkItem.fromMap(_map(e))).toList();
+  }
+
+  Future<void> deleteLink(int id) async {
+    await _delete('/api/admin/links/$id');
+  }
+
+  // ==================== Internal Helpers ====================
 
   Future<http.Response> _get(String path, {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
@@ -646,46 +712,6 @@ class AdminApiClient {
         ? base.replace(path: rawUrl, query: null, fragment: null)
         : base.resolve(rawUrl);
     return resolved.toString();
-  }
-
-  // Store Items API
-  Future<PageResult<StoreItem>> getStoreItems({
-    int page = 1,
-    int pageSize = 20,
-    String? name,
-    String? type,
-  }) async {
-    final queryParams = {
-      'page': page.toString(),
-      'pageSize': pageSize.toString(),
-    };
-    if (name != null && name.isNotEmpty) queryParams['name'] = name;
-    if (type != null && type.isNotEmpty) queryParams['type'] = type;
-
-    final res = await _get('/api/admin/store', query: queryParams);
-    return PageResult<StoreItem>.fromMap(
-      _map(jsonDecode(res.body)),
-          (m) => StoreItem.fromMap(m),
-    );
-  }
-
-  Future<StoreItem> getStoreItem(int id) async {
-    final res = await _get('/api/admin/store/$id');
-    return StoreItem.fromMap(_map(jsonDecode(res.body)));
-  }
-
-  Future<StoreItem> createStoreItem(StoreItemRequest request) async {
-    final res = await _post('/api/admin/store', body: request.toJson());
-    return StoreItem.fromMap(_map(jsonDecode(res.body)));
-  }
-
-  Future<StoreItem> updateStoreItem(int id, StoreItemRequest request) async {
-    final res = await _put('/api/admin/store/$id', body: request.toJson());
-    return StoreItem.fromMap(_map(jsonDecode(res.body)));
-  }
-
-  Future<void> deleteStoreItem(int id) async {
-    await _delete('/api/admin/store/$id');
   }
 }
 

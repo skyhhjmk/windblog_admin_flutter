@@ -1945,3 +1945,149 @@ class StoreItemRequest {
     };
   }
 }
+
+class LinkMetaResponse {
+  LinkMetaResponse({
+    required this.title,
+    required this.description,
+    required this.icon,
+  });
+
+  final String title;
+  final String description;
+  final String icon;
+
+  factory LinkMetaResponse.fromMap(Map<String, dynamic> map) {
+    return LinkMetaResponse(
+      title: map['title']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      icon: map['icon']?.toString() ?? '',
+    );
+  }
+}
+
+class LinkCreateRequest {
+  LinkCreateRequest({
+    required this.name,
+    required this.url,
+    this.description,
+    this.image,
+    this.icon,
+    this.sortOrder,
+    this.status,
+    this.target,
+    this.redirectType,
+    this.showUrl,
+    this.email,
+    this.note,
+    this.seoTitle,
+    this.seoKeywords,
+    this.seoDescription,
+    this.type,
+  });
+
+  final String name;
+  final String url;
+  final String? description;
+  final String? image;
+  final String? icon;
+  final int? sortOrder;
+  final int? status;
+  final String? target;
+  final int? redirectType;
+  final bool? showUrl;
+  final String? email;
+  final String? note;
+  final String? seoTitle;
+  final String? seoKeywords;
+  final String? seoDescription;
+  final int? type;
+
+  Map<String, dynamic> toJson() {
+    final payload = <String, dynamic>{
+      'name': name,
+      'url': url,
+    };
+    if (description != null) payload['description'] = description;
+    if (image != null) payload['image'] = image;
+    if (icon != null) payload['icon'] = icon;
+    if (sortOrder != null) payload['sortOrder'] = sortOrder;
+    if (status != null) payload['status'] = status;
+    if (target != null) payload['target'] = target;
+    if (redirectType != null) payload['redirectType'] = redirectType;
+    if (showUrl != null) payload['showUrl'] = showUrl;
+    if (email != null) payload['email'] = email;
+    if (note != null) payload['note'] = note;
+    if (seoTitle != null) payload['seoTitle'] = seoTitle;
+    if (seoKeywords != null) payload['seoKeywords'] = seoKeywords;
+    if (seoDescription != null) payload['seoDescription'] = seoDescription;
+    if (type != null) payload['type'] = type;
+
+    return payload;
+  }
+}
+
+class AdminLinkItem {
+  AdminLinkItem({
+    required this.id,
+    required this.name,
+    required this.url,
+    this.description,
+    this.image,
+    this.icon,
+    required this.sortOrder,
+    required this.status,
+    required this.target,
+    required this.redirectType,
+    required this.showUrl,
+    this.email,
+    this.note,
+    this.seoTitle,
+    this.seoKeywords,
+    this.seoDescription,
+    this.type,
+    this.createdAt,
+  });
+
+  final int id;
+  final String name;
+  final String url;
+  final String? description;
+  final String? image;
+  final String? icon;
+  final int sortOrder;
+  final int status;
+  final String target;
+  final int redirectType;
+  final bool showUrl;
+  final String? email;
+  final String? note;
+  final String? seoTitle;
+  final String? seoKeywords;
+  final String? seoDescription;
+  final int? type;
+  final DateTime? createdAt;
+
+  factory AdminLinkItem.fromMap(Map<String, dynamic> map) {
+    return AdminLinkItem(
+      id: toInt(map["id"]) ?? 0,
+      name: map["name"]?.toString() ?? '',
+      url: map["url"]?.toString() ?? '',
+      description: map["description"]?.toString(),
+      image: map["image"]?.toString(),
+      icon: map["icon"]?.toString(),
+      sortOrder: toInt(map["sortOrder"]) ?? 0,
+      status: toInt(map["status"]) ?? 1,
+      target: map["target"]?.toString() ?? '_blank',
+      redirectType: toInt(map["redirectType"]) ?? 1,
+      showUrl: toBool(map["showUrl"]) ?? true,
+      email: map["email"]?.toString(),
+      note: map["note"]?.toString(),
+      seoTitle: map["seoTitle"]?.toString(),
+      seoKeywords: map["seoKeywords"]?.toString(),
+      seoDescription: map["seoDescription"]?.toString(),
+      type: toInt(map["type"]),
+      createdAt: parseDate(map["createdAt"]),
+    );
+  }
+}
