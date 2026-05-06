@@ -116,6 +116,40 @@ class AdminApiClient {
     }
   }
 
+  Stream<Map<String, dynamic>> importStream() async* {
+    if (token == null || token!.isEmpty) {
+      throw UnauthorizedException('Session expired');
+    }
+    final uri = Uri.parse('$baseUrl/api/admin/import/stream');
+    final request = http.Request('GET', uri);
+    request.headers['Authorization'] = 'Bearer $token';
+    request.headers['Accept'] = 'text/event-stream';
+
+    final client = http.Client();
+    try {
+      final response = await client.send(request);
+      if (response.statusCode >= 400) {
+        final body = await response.stream.bytesToString();
+        throw Exception('连接导入流失败: $body');
+      }
+      await for (final line in response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty || trimmed.startsWith(':')) continue;
+
+        if (trimmed.startsWith('data:')) {
+          final data = trimmed.substring(5).trim();
+          try {
+            yield jsonDecode(data) as Map<String, dynamic>;
+          } catch (_) {}
+        }
+      }
+    } finally {
+      client.close();
+    }
+  }
+
   Future<PostListResult> listPosts({
     required int page,
     required int pageSize,
@@ -375,6 +409,17 @@ class AdminApiClient {
     final res = await _post('/api/admin/database/seed', body: {});
     final map = _map(jsonDecode(res.body));
     return map;
+  }
+
+  Future<Map<String, dynamic>> testImportConnection(
+      Map<String, dynamic> body) async {
+    final res = await _post('/api/admin/import/test-connection', body: body);
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> doImport(Map<String, dynamic> body) async {
+    final res = await _post('/api/admin/import', body: body);
+    return _map(jsonDecode(res.body));
   }
 
   // ==================== 评论管理 API ====================

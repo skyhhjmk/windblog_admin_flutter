@@ -295,6 +295,50 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '数据导入',
+                  style: Theme
+                      .of(context)
+                      .textTheme
+                      .titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '从旧版 WindBlog (webman) 或其他兼容数据库导入数据。',
+                  style: Theme
+                      .of(context)
+                      .textTheme
+                      .bodySmall,
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            ImportDataPage(
+                              api: widget.api,
+                              onAuthError: widget.onAuthError,
+                            ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.input),
+                  label: const Text('前往导入页面'),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: Colors.orange[800]),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
