@@ -245,7 +245,19 @@ class _TagEditDialogState extends State<_TagEditDialog> {
           children: [
             TextField(
               controller: slugCtrl,
-              decoration: InputDecoration(labelText: t(context, 'slug')),
+              decoration: InputDecoration(
+                labelText: t(context, 'slug'),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.autorenew),
+                  onPressed: () {
+                    final text = nameCtrl.text.toLowerCase().replaceAll(
+                        RegExp(r'[^a-z0-9]+'), '-').replaceAll(
+                        RegExp(r'^-+|-+$'), '');
+                    slugCtrl.text = text;
+                  },
+                  tooltip: '根据名称自动生成',
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -271,7 +283,7 @@ class _TagEditDialogState extends State<_TagEditDialog> {
           onPressed: () {
             final slug = slugCtrl.text.trim();
             final name = nameCtrl.text.trim();
-            if (slug.isEmpty || name.isEmpty) return;
+            if (name.isEmpty) return;
 
             final request = isEdit
                 ? TagUpdateRequest(

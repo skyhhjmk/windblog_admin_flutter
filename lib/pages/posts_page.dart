@@ -816,7 +816,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   String _generateSlug(String title) {
     if (title.isEmpty) return '';
     return title.toLowerCase().replaceAll(
-        RegExp(r'[^a-z0-9\u4e00-\u9fa5]+'), '-').replaceAll(
+        RegExp(r'[^a-z0-9]+'), '-').replaceAll(
         RegExp(r'^-+|-+$'), '');
   }
 
@@ -1019,8 +1019,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final finalContent = contentCtrl.text.trim();
 
-    if (slugCtrl.text.trim().isEmpty ||
-        titleCtrl.text.trim().isEmpty) {
+    if (titleCtrl.text
+        .trim()
+        .isEmpty) {
       scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('请填写必填字段')),
       );
@@ -1605,7 +1606,10 @@ class _PostEditorPageState extends State<PostEditorPage>
               suffixIcon: IconButton(
                 icon: const Icon(Icons.autorenew),
                 onPressed: () {
-                  slugCtrl.text = _generateSlug(titleCtrl.text);
+                  final text = titleCtrl.text.toLowerCase().replaceAll(
+                      RegExp(r'[^a-z0-9]+'), '-').replaceAll(
+                      RegExp(r'^-+|-+$'), '');
+                  slugCtrl.text = text;
                 },
                 tooltip: '根据标题自动生成',
               ),
