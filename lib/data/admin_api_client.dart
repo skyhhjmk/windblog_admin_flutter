@@ -80,8 +80,7 @@ class AdminApiClient {
   Stream<String> testAiStream(int id,
       {required String prompt, String? systemPrompt, bool stream = true}) async* {
     if (token == null || token!.isEmpty) {
-      throw UnauthorizedException(
-        'Session expired');
+      throw UnauthorizedException('Session expired');
     }
     final uri = Uri.parse('$baseUrl/api/admin/ai/test/$id');
     final request = http.Request('POST', uri);
@@ -93,24 +92,28 @@ class AdminApiClient {
       'stream': stream,
     });
     final client = http.Client();
-    final response = await client.send(request);
-    if (response.statusCode >= 400) {
-      final body = await response.stream.bytesToString();
-      client.close();
-      throw Exception('测试失败: $body');
-    }
-    await for (final line in response.stream.transform(utf8.decoder).transform(
-        const LineSplitter())) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty || trimmed.startsWith(':')) continue;
-
-      if (trimmed.startsWith('data:')) {
-        yield trimmed.substring(5).trim();
-      } else {
-        yield trimmed;
+    try {
+      final response = await client.send(request);
+      if (response.statusCode >= 400) {
+        final body = await response.stream.bytesToString();
+        throw Exception('测试失败: $body');
       }
+      await for (final line in response.stream
+          .transform(utf8.decoder)
+          .transform(
+          const LineSplitter())) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty || trimmed.startsWith(':')) continue;
+
+        if (trimmed.startsWith('data:')) {
+          yield trimmed.substring(5).trim();
+        } else {
+          yield trimmed;
+        }
+      }
+    } finally {
+      client.close();
     }
-    client.close();
   }
 
   Future<PostListResult> listPosts({
