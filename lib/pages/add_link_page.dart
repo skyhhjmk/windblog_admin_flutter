@@ -306,11 +306,14 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                 validator: (v) {
                                   if (v == null || v
                                       .trim()
-                                      .isEmpty) return t(context, 'required');
+                                      .isEmpty) {
+                                    return t(context, 'required');
+                                  }
                                   if (!Uri
                                       .parse(v)
-                                      .isAbsolute)
+                                      .isAbsolute) {
                                     return t(context, 'invalid_url');
+                                  }
                                   return null;
                                 },
                               ),

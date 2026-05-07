@@ -356,5 +356,14 @@
   "db_type": "Database Type",
   "select_import_content": "Select Import Content",
   "media_library_import": "Media Library (Attachment Download)",
-  "import_data": "Import Data"
+  "import_data": "Import Data",
+  "full_screen": "Full Screen",
+  "metadata": "Metadata",
+  "references": "References",
+  "rescan_references": "Rescan References",
+  "unknown_error": "Unknown Error",
+  "import_info": "Import Info",
+  "failure_reason": "Failure Reason",
+  "last_retry_at": "Last Retry At",
+  "all_metadata": "All Metadata"
 }

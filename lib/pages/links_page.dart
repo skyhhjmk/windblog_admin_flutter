@@ -82,156 +82,149 @@ class _LinksPageState extends State<LinksPage> {
     }
   }
 
-  return
-
-  DefaultTabController
-
-  (
-
-  length: 2,
-  child: Padding(
-  padding: const EdgeInsets.all(16),
-  child: Column(
-  children: [
-  Row(
-  children: [
-  const Expanded(
-  child: TabBar(
-  tabs: [
-  Tab(text: '友情链接'),
-  Tab(text: '文章外链'),
-  ],
-  isScrollable: true,
-  ),
-  ),
-  const SizedBox(width: 16),
-  FilledButton.icon(
-  onPressed: () async {
-  await Navigator.push(
-  context,
-  MaterialPageRoute(
-  builder: (context) => AddLinkPage(
-  api: widget.api,
-  onAuthError: widget.onAuthError,
-  ),
-  ),
-  );
-  _loadLinks();
-  },
-  icon: const Icon(Icons.add),
-  label: Text(t(context, 'add_link')),
-  ),
-  const SizedBox(width: 8),
-  FilledButton.icon(
-  onPressed: _loadLinks,
-  icon: const Icon(Icons.refresh),
-  label: Text(t(context, 'refresh')),
-  ),
-  ],
-  ),
-  const SizedBox(height: 12),
-  Expanded(
-  child: loading
-  ? const Center(child: CircularProgressIndicator())
-      : TabBarView(
-  children: [
-  _buildLinkList(links.where((l) => l.type != 3).toList()),
-  _buildLinkList(links.where((l) => l.type == 3).toList()),
-  ],
-  ),
-  ),
-  ],
-  ),
-  ),
-  );
-}
-
-Widget _buildLinkList(List<AdminLinkItem> filteredLinks) {
-  if (filteredLinks.isEmpty) {
-    return Center(child: Text(t(context, 'no_links')));
-  }
-  return Card(
-    child: ListView.separated(
-      itemCount: filteredLinks.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final link = filteredLinks[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundImage: link.icon != null
-                ? NetworkImage(link.icon!)
-                : null,
-            child: link.icon == null ? const Icon(Icons.link) : null,
-          ),
-          title: Text(link.name),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(link.url, style: const TextStyle(fontSize: 12)),
-              if (link.description != null)
-                Text(
-                  link.description!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                ),
-            ],
-          ),
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    AddLinkPage(
-                      api: widget.api,
-                      onAuthError: widget.onAuthError,
-                      initialLink: link,
-                    ),
-              ),
-            );
-            _loadLinks();
-          },
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (link.status == 0)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Chip(
-                    label: Text(t(context, 'disabled'),
-                        style: const TextStyle(fontSize: 10)),
-                    visualDensity: VisualDensity.compact,
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: TabBar(
+                    tabs: [
+                      Tab(text: '友情链接'),
+                      Tab(text: '文章外链'),
+                    ],
+                    isScrollable: true,
                   ),
                 ),
-              IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          AddLinkPage(
-                            api: widget.api,
-                            onAuthError: widget.onAuthError,
-                            initialLink: link,
-                          ),
+                const SizedBox(width: 16),
+                FilledButton.icon(
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AddLinkPage(
+                              api: widget.api,
+                              onAuthError: widget.onAuthError,
+                            ),
+                      ),
+                    );
+                    _loadLinks();
+                  },
+                  icon: const Icon(Icons.add),
+                  label: Text(t(context, 'add_link')),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _loadLinks,
+                  icon: const Icon(Icons.refresh),
+                  label: Text(t(context, 'refresh')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                children: [
+                  _buildLinkList(links.where((l) => l.type != 3).toList()),
+                  _buildLinkList(links.where((l) => l.type == 3).toList()),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkList(List<AdminLinkItem> filteredLinks) {
+    if (filteredLinks.isEmpty) {
+      return Center(child: Text(t(context, 'no_links')));
+    }
+    return Card(
+      child: ListView.separated(
+        itemCount: filteredLinks.length,
+        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final link = filteredLinks[index];
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundImage:
+              link.icon != null ? NetworkImage(link.icon!) : null,
+              child: link.icon == null ? const Icon(Icons.link) : null,
+            ),
+            title: Text(link.name),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(link.url, style: const TextStyle(fontSize: 12)),
+                if (link.description != null)
+                  Text(
+                    link.description!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+              ],
+            ),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      AddLinkPage(
+                        api: widget.api,
+                        onAuthError: widget.onAuthError,
+                        initialLink: link,
+                      ),
+                ),
+              );
+              _loadLinks();
+            },
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (link.status == 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Chip(
+                      label: Text(t(context, 'disabled'),
+                          style: const TextStyle(fontSize: 10)),
+                      visualDensity: VisualDensity.compact,
                     ),
-                  );
-                  _loadLinks();
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _deleteLink(link),
-              ),
-            ],
-          ),
-        );
-      },
-    ),
-  );
-}
-        ],
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AddLinkPage(
+                              api: widget.api,
+                              onAuthError: widget.onAuthError,
+                              initialLink: link,
+                            ),
+                      ),
+                    );
+                    _loadLinks();
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () => _deleteLink(link),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

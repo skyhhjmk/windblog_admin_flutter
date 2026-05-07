@@ -45,3 +45,7 @@ StreamSubscription? listenToNativePaste(
     }
   });
 }
+
+void openUrl(String url) {
+  html.window.open(url, '_blank');
+}

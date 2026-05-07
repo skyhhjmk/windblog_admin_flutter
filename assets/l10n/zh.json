@@ -356,5 +356,14 @@
   "db_type": "数据库类型",
   "select_import_content": "选择导入内容",
   "media_library_import": "媒体库 (附件下载)",
-  "import_data": "导入数据"
+  "import_data": "导入数据",
+  "full_screen": "全屏查看",
+  "metadata": "元数据",
+  "references": "引用",
+  "rescan_references": "重新扫描引用",
+  "unknown_error": "未知错误",
+  "import_info": "导入信息",
+  "failure_reason": "失败原因",
+  "last_retry_at": "最后重试时间",
+  "all_metadata": "完整元数据"
 }

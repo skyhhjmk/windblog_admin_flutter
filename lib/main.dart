@@ -25,6 +25,8 @@ part 'pages/ai_providers_page.dart';
 part 'pages/media_library_page.dart';
 part 'components/progressive_image.dart';
 part 'components/media_library_picker.dart';
+
+part 'components/media_detail_dialog.dart';
 part 'components/markdown_protocol.dart';
 part 'components/markdown_plus_editor.dart';
 part 'pages/user_management_page.dart';

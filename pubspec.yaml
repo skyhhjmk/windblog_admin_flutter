@@ -45,6 +45,7 @@ dependencies:
   pdf: ^3.12.0
   flutter_markdown_plus: ^1.0.7
   diff_match_patch: ^0.4.1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
