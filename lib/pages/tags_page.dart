@@ -220,7 +220,7 @@ class _TagEditDialogState extends State<_TagEditDialog> {
     slugCtrl = TextEditingController(text: tag?.slug ?? '');
     nameCtrl = TextEditingController(text: tag?.zhName ?? '');
     descCtrl = TextEditingController(
-      text: tag?.description?['zh-cn'] ?? '',
+      text: tag?.zhDescription ?? '',
     );
   }
 

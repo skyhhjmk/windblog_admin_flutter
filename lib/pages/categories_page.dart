@@ -299,7 +299,7 @@ class _CategoryEditDialogState extends State<_CategoryEditDialog> {
     slugCtrl = TextEditingController(text: cat?.slug ?? '');
     nameCtrl = TextEditingController(text: cat?.zhName ?? '');
     descCtrl = TextEditingController(
-      text: cat?.description?['zh-cn'] ?? '',
+      text: cat?.zhDescription ?? '',
     );
     parentId = cat?.parentId;
   }

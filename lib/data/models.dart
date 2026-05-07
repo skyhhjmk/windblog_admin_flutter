@@ -143,6 +143,20 @@ class PostDetail {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  String get zhTitle =>
+      title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
+
+  String get zhSummary =>
+      summary['zh-cn'] ?? (summary.isEmpty ? '' : summary.values.first);
+
+  String get zhContent =>
+      contentMarkdown['zh-cn'] ??
+          (contentMarkdown.isEmpty ? '' : contentMarkdown.values.first);
+
+  String get zhAiSummary =>
+      aiSummary['zh-cn'] ?? (aiSummary.isEmpty ? '' : aiSummary.values.first);
+
+
   factory PostDetail.fromMap(Map<String, dynamic> map) {
     return PostDetail(
       id: toInt(map['id']) ?? 0,
@@ -793,6 +807,7 @@ class MediaItem {
     required this.createdAt,
     required this.referenced,
     required this.references,
+    this.metadata = const {},
   });
 
   final int id;
@@ -812,6 +827,7 @@ class MediaItem {
   final DateTime createdAt;
   final bool referenced;
   final List<MediaReference> references;
+  final Map<String, dynamic> metadata;
 
   bool get isImage => mimeType.toLowerCase().startsWith('image/');
 
@@ -842,6 +858,8 @@ class MediaItem {
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
       referenced: toBool(map['referenced']) ?? false,
       references: refList,
+      metadata: map['metadata'] is Map ? Map<String, dynamic>.from(
+          map['metadata']) : {},
     );
   }
 }
@@ -915,6 +933,11 @@ class CategoryItem {
   final int postCount;
 
   String get zhName => name['zh-cn'] ?? (name.isEmpty ? '' : name.values.first);
+
+  String get zhDescription =>
+      description?['zh-cn'] ??
+          (description == null || description!.isEmpty ? '' : description!
+              .values.first);
 
   String get displayName => zhName.isEmpty ? slug : zhName;
 
@@ -1008,6 +1031,11 @@ class TagItem {
   final int postCount;
 
   String get zhName => name['zh-cn'] ?? (name.isEmpty ? '' : name.values.first);
+
+  String get zhDescription =>
+      description?['zh-cn'] ??
+          (description == null || description!.isEmpty ? '' : description!
+              .values.first);
 
   String get displayName => zhName.isEmpty ? slug : zhName;
 

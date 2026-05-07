@@ -740,8 +740,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     _currentDetail = widget.detail;
     final d = _currentDetail;
     slugCtrl = TextEditingController(text: d?.slug ?? '');
-    titleCtrl = TextEditingController(text: d?.title['zh-cn'] ?? '');
-    summaryCtrl = TextEditingController(text: d?.summary['zh-cn'] ?? '');
+    titleCtrl = TextEditingController(text: d?.zhTitle ?? '');
+    summaryCtrl = TextEditingController(text: d?.zhSummary ?? '');
     status = d?.status ?? 0;
     visibility = d?.visibility ?? 0;
     renderType = d?.renderType ?? 6;
@@ -757,11 +757,11 @@ class _PostEditorPageState extends State<PostEditorPage>
 
     if (renderType == 1) {
       contentCtrl = HtmlSyntaxController(
-        text: d?.contentMarkdown['zh-cn'] ?? '',
+        text: d?.zhContent ?? '',
       );
     } else {
       contentCtrl = MarkdownSyntaxController(
-        text: d?.contentMarkdown['zh-cn'] ?? '',
+        text: d?.zhContent ?? '',
       );
     }
     aiSummaryStatus = d?.aiSummaryStatus ?? 0;
@@ -773,9 +773,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     tagIds = d?.tagIds ?? [];
 
     _initialSlug = d?.slug;
-    _initialTitle = d?.title['zh-cn'];
-    _initialSummary = d?.summary['zh-cn'];
-    _initialContent = d?.contentMarkdown['zh-cn'];
+    _initialTitle = d?.zhTitle;
+    _initialSummary = d?.zhSummary;
+    _initialContent = d?.zhContent;
     _initialStatus = d?.status;
     _initialVisibility = d?.visibility;
     _initialRenderType = d?.renderType;
@@ -1117,9 +1117,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           _currentDetail = newDetail;
 
           slugCtrl.text = newDetail.slug;
-          titleCtrl.text = newDetail.title['zh-cn'] ?? '';
-          summaryCtrl.text = newDetail.summary['zh-cn'] ?? '';
-          contentCtrl.text = newDetail.contentMarkdown['zh-cn'] ?? '';
+          titleCtrl.text = newDetail.zhTitle;
+          summaryCtrl.text = newDetail.zhSummary;
+          contentCtrl.text = newDetail.zhContent;
           pointsPriceCtrl.text = newDetail.pointsPrice?.toString() ?? '';
           freeLinesCtrl.text = newDetail.freeLines?.toString() ?? '';
           passwordCtrl.text = newDetail.password ?? '';
@@ -1132,9 +1132,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           tagIds = newDetail.tagIds;
 
           _initialSlug = newDetail.slug;
-          _initialTitle = newDetail.title['zh-cn'];
-          _initialSummary = newDetail.summary['zh-cn'];
-          _initialContent = newDetail.contentMarkdown['zh-cn'];
+          _initialTitle = newDetail.zhTitle;
+          _initialSummary = newDetail.zhSummary;
+          _initialContent = newDetail.zhContent;
           _initialStatus = newDetail.status;
           _initialVisibility = newDetail.visibility;
           _initialRenderType = newDetail.renderType;
@@ -1185,9 +1185,9 @@ class _PostEditorPageState extends State<PostEditorPage>
         final currentSummary = summaryCtrl.text;
         final currentContent = contentCtrl.text;
 
-        final revTitle = revisionDetail.title['zh-cn'] ?? '';
-        final revSummary = revisionDetail.summary['zh-cn'] ?? '';
-        final revContent = revisionDetail.contentMarkdown['zh-cn'] ?? '';
+        final revTitle = revisionDetail.zhTitle;
+        final revSummary = revisionDetail.zhSummary;
+        final revContent = revisionDetail.zhContent;
 
         showDialog(
           context: context,
@@ -1534,8 +1534,8 @@ class _PostEditorPageState extends State<PostEditorPage>
               ],
             ),
             const SizedBox(height: 8),
-            if (_currentDetail?.aiSummary['zh-cn'] != null &&
-                _currentDetail!.aiSummary['zh-cn']!.isNotEmpty)
+            if (_currentDetail?.zhAiSummary != null &&
+                _currentDetail!.zhAiSummary.isNotEmpty)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1544,7 +1544,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  _currentDetail!.aiSummary['zh-cn']!,
+                  _currentDetail!.zhAiSummary,
                   style: const TextStyle(
                       fontSize: 13, height: 1.5, fontStyle: FontStyle.italic),
                 ),

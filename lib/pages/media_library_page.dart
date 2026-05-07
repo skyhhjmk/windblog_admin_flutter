@@ -237,7 +237,11 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                     fit: BoxFit.cover,
                   ),
                 )
-              : const Icon(Icons.insert_drive_file),
+              : item.isVideo
+              ? const Icon(Icons.video_library, color: Colors.blue)
+              : item.isAudio
+              ? const Icon(Icons.audiotrack, color: Colors.orange)
+              : const Icon(Icons.insert_drive_file, color: Colors.grey),
           title: Text(item.fileName),
           subtitle: Text('${_formatBytes(item.size)} - refs ${item.references.length}'),
         );
@@ -282,15 +286,79 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                             ),
                           )
                         else
+                          if (item.isVideo)
+                            Container(
+                              width: double.infinity,
+                              height: 180,
+                              color: Colors.black,
+                              child: const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.play_circle_outline, size: 64,
+                                        color: Colors.white70),
+                                    SizedBox(height: 8),
+                                    Text('Video File', style: TextStyle(
+                                        color: Colors.white70)),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            if (item.isAudio)
+                              Container(
+                                width: double.infinity,
+                                height: 100,
+                                color: Colors.orange.withOpacity(0.1),
+                                child: const Center(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.audiotrack, size: 48,
+                                          color: Colors.orange),
+                                      SizedBox(width: 16),
+                                      Text('Audio File', style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                ),
+                              )
+                        else
                           const SizedBox(
                             height: 120,
                             child: Center(
-                                child: Icon(Icons.insert_drive_file, size: 56)),
+                                child: Icon(Icons.insert_drive_file, size: 56,
+                                    color: Colors.grey)),
                           ),
                         const SizedBox(height: 8),
                         Text('${t(dialogContext, 'type')}: ${item.mimeType}'),
                         Text('${t(dialogContext, 'size')}: ${_formatBytes(item.size)}'),
                         SelectableText('${t(dialogContext, 'url')}: ${item.url}'),
+                        if (item.metadata.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          const Divider(),
+                          const SizedBox(height: 4),
+                          Text('Metadata:', style: Theme
+                              .of(context)
+                              .textTheme
+                              .titleSmall),
+                          const SizedBox(height: 4),
+                          ...item.metadata.entries.map((e) =>
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('${e.key}: ', style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12)),
+                                    Expanded(child: Text('${e.value}',
+                                        style: const TextStyle(fontSize: 12))),
+                                  ],
+                                ),
+                              )),
+                        ],
                         if (item.requiresManualOriginal)
                           Padding(
                             padding: const EdgeInsets.only(top: 8),

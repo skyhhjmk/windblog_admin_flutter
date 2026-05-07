@@ -20,12 +20,14 @@ class _ImportDataPageState extends State<ImportDataPage> {
       text: 'jdbc:postgresql://localhost:5432/windblog');
   final _usernameController = TextEditingController(text: 'postgres');
   final _passwordController = TextEditingController(text: 'postgres');
+  final _assetPrefixController = TextEditingController(text: 'https://');
   String _driver = 'org.postgresql.Driver';
 
   bool _importCategories = true;
   bool _importTags = true;
   bool _importPosts = true;
   bool _importLinks = true;
+  bool _importMedia = true;
   bool _importComments = false;
 
   bool _isTesting = false;
@@ -69,6 +71,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
     if (_importTags) types.add('tags');
     if (_importPosts) types.add('posts');
     if (_importLinks) types.add('links');
+    if (_importMedia) types.add('media');
     if (_importComments) types.add('comments');
 
     if (types.isEmpty) {
@@ -126,6 +129,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
         'username': _usernameController.text,
         'password': _passwordController.text,
         'types': types,
+        'assetPrefix': _assetPrefixController.text,
         'clearExisting': false,
       });
       if (mounted) {
@@ -210,6 +214,12 @@ class _ImportDataPageState extends State<ImportDataPage> {
                         decoration: const InputDecoration(labelText: '密码'),
                         obscureText: true,
                       ),
+                      TextFormField(
+                        controller: _assetPrefixController,
+                        decoration: const InputDecoration(
+                            labelText: '附件相对地址补全前缀',
+                            hintText: '例如: https://your-old-site.com'),
+                      ),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
                         onPressed: _isTesting ? null : _testConnection,
@@ -254,6 +264,11 @@ class _ImportDataPageState extends State<ImportDataPage> {
                         title: const Text('友情链接'),
                         value: _importLinks,
                         onChanged: (v) => setState(() => _importLinks = v!),
+                      ),
+                      CheckboxListTile(
+                        title: const Text('媒体库 (附件下载)'),
+                        value: _importMedia,
+                        onChanged: (v) => setState(() => _importMedia = v!),
                       ),
                       // CheckboxListTile(
                       //   title: const Text('评论 (暂不支持)'),
