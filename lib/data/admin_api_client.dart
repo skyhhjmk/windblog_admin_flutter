@@ -216,11 +216,13 @@ class AdminApiClient {
     int page = 1,
     int pageSize = 20,
     bool unreferenced = false,
+    bool failedOnly = false,
   }) async {
     final res = await _get('/api/admin/media', query: {
       'page': '$page',
       'pageSize': '$pageSize',
       'unreferenced': unreferenced ? 'true' : 'false',
+      'failedOnly': failedOnly ? 'true' : 'false',
     });
     final map = _normalizeMediaListMap(_map(jsonDecode(res.body)));
     return MediaListResult.fromMap(map);
@@ -229,6 +231,18 @@ class AdminApiClient {
   Future<MediaScanResult> scanMedia() async {
     final res = await _post('/api/admin/media/scan', body: {});
     return MediaScanResult.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<MediaItem> retryMedia(int id) async {
+    final res = await _post('/api/admin/media/$id/retry', body: {});
+    return MediaItem.fromMap(
+        _normalizeMediaItemMap(_map(jsonDecode(res.body))));
+  }
+
+  Future<int> batchRetryMedia() async {
+    final res = await _post('/api/admin/media/batch-retry', body: {});
+    final map = _map(jsonDecode(res.body));
+    return (map['retriedCount'] as num?)?.toInt() ?? 0;
   }
 
   Future<MediaItem> uploadMedia({

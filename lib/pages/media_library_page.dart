@@ -1,5 +1,12 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
+enum MediaFilter {
+  all,
+  failed,
+  unreferenced,
+  referenced,
+}
+
 class MediaLibraryPage extends StatefulWidget {
   const MediaLibraryPage({
     super.key,
@@ -15,26 +22,84 @@ class MediaLibraryPage extends StatefulWidget {
 }
 
 class _MediaLibraryPageState extends State<MediaLibraryPage> {
+  MediaFilter _filter = MediaFilter.all;
   MediaListResult? mediaResult;
-  MediaListResult? unreferencedResult;
   MediaScanResult? scanResult;
-  bool loadingMedia = true;
-  bool loadingUnreferenced = true;
+  bool loading = true;
   bool scanning = false;
+  bool batchRetrying = false;
   int page = 1;
-  int unreferencedPage = 1;
+  static const int pageSize = 24;
 
   @override
   void initState() {
     super.initState();
     _loadMedia();
-    _loadUnreferenced();
+  }
+
+  String _filterToLabel(MediaFilter filter) {
+    switch (filter) {
+      case MediaFilter.all:
+        return t(context, 'media_library');
+      case MediaFilter.failed:
+        return t(context, 'failed_imports');
+      case MediaFilter.unreferenced:
+        return t(context, 'unreferenced_files');
+      case MediaFilter.referenced:
+        return t(context, 'referenced');
+    }
+  }
+
+  Future<void> _onFilterChanged(MediaFilter newFilter) async {
+    setState(() {
+      _filter = newFilter;
+      page = 1;
+      mediaResult = null;
+    });
+    await _loadMedia();
   }
 
   Future<void> _loadMedia() async {
-    setState(() => loadingMedia = true);
+    setState(() => loading = true);
     try {
-      mediaResult = await widget.api.listMedia(page: page, pageSize: 24);
+      bool failedOnly = false;
+      bool unreferenced = false;
+
+      switch (_filter) {
+        case MediaFilter.failed:
+          failedOnly = true;
+          break;
+        case MediaFilter.unreferenced:
+          unreferenced = true;
+          break;
+        case MediaFilter.all:
+          break;
+        case MediaFilter.referenced:
+          break;
+      }
+
+      mediaResult = await widget.api.listMedia(
+        page: page,
+        pageSize: pageSize,
+        failedOnly: failedOnly,
+        unreferenced: unreferenced,
+      );
+
+      if (_filter == MediaFilter.referenced && mediaResult != null) {
+        List<MediaItem> filteredItems = [];
+        for (int i = 0; i < mediaResult!.items.length; i++) {
+          MediaItem item = mediaResult!.items[i];
+          if (item.references.isNotEmpty) {
+            filteredItems.add(item);
+          }
+        }
+        mediaResult = MediaListResult(
+          items: filteredItems,
+          total: filteredItems.length,
+          page: page,
+          pageSize: pageSize,
+        );
+      }
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
@@ -44,28 +109,58 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
         );
       }
     } finally {
-      if (mounted) setState(() => loadingMedia = false);
+      if (mounted) setState(() => loading = false);
     }
   }
 
-  Future<void> _loadUnreferenced() async {
-    setState(() => loadingUnreferenced = true);
+  Future<void> _retryImport(MediaItem item) async {
     try {
-      unreferencedResult = await widget.api.listMedia(
-        page: unreferencedPage,
-        pageSize: 24,
-        unreferenced: true,
-      );
-    } on UnauthorizedException {
-      widget.onAuthError();
+      await widget.api.retryMedia(item.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t(context, 'retry_success'))),
+        );
+      }
+      await _loadMedia();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'load_unreferenced_failed')}$e')),
+          SnackBar(content: Text('${t(context, 'retry_failed')}$e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _batchRetry() async {
+    setState(() => batchRetrying = true);
+    try {
+      int retriedCount = await widget.api.batchRetryMedia();
+      await _loadMedia();
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) =>
+              AlertDialog(
+                title: Text(t(dialogContext, 'batch_retry_result')),
+                content: Text(
+                    '${t(dialogContext, 'retried_count')}: $retriedCount'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: Text(t(dialogContext, 'close')),
+                  ),
+                ],
+              ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${t(context, 'batch_retry_failed')}$e')),
         );
       }
     } finally {
-      if (mounted) setState(() => loadingUnreferenced = false);
+      if (mounted) setState(() => batchRetrying = false);
     }
   }
 
@@ -74,7 +169,6 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     try {
       scanResult = await widget.api.scanMedia();
       await _loadMedia();
-      await _loadUnreferenced();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
@@ -102,7 +196,6 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
         mimeType: mimeType,
       );
       await _loadMedia();
-      if (!mounted) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(t(context, 'upload_success'))),
@@ -111,7 +204,6 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
-      if (!mounted) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
@@ -120,37 +212,39 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     }
   }
 
+  void _goToPreviousPage() {
+    setState(() => page--);
+    _loadMedia();
+  }
+
+  void _goToNextPage() {
+    setState(() => page++);
+    _loadMedia();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: DefaultTabController(
-        length: 2,
-        child: Column(
-          children: [
-            TabBar(
-              tabs: [
-                Tab(text: t(context, 'media_library')),
-                Tab(text: t(context, 'unreferenced_files')),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildMediaTab(),
-                  _buildUnreferencedTab(),
-                ],
-              ),
-            ),
-          ],
-        ),
+      child: Column(
+        children: [
+          _buildToolbar(),
+          const SizedBox(height: 12),
+          Expanded(
+            child: loading
+                ? const Center(child: CircularProgressIndicator())
+                : _buildGridView(),
+          ),
+          const SizedBox(height: 8),
+          _buildPagination(),
+        ],
       ),
     );
   }
 
-  Widget _buildMediaTab() {
-    final total = mediaResult?.total ?? 0;
+  Widget _buildToolbar() {
+    int total = mediaResult?.total ?? 0;
+
     return Column(
       children: [
         Row(
@@ -164,7 +258,38 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
               onPressed: scanning ? null : _scanReferences,
               child: Text(scanning ? t(context, 'scanning') : t(context, 'rescan')),
             ),
+            const SizedBox(width: 8),
+            DropdownButton<MediaFilter>(
+              value: _filter,
+              items: MediaFilter.values.map((MediaFilter filter) {
+                return DropdownMenuItem<MediaFilter>(
+                  value: filter,
+                  child: Text(_filterToLabel(filter)),
+                );
+              }).toList(),
+              onChanged: (MediaFilter? newValue) {
+                if (newValue != null) {
+                  _onFilterChanged(newValue);
+                }
+              },
+            ),
             const Spacer(),
+            if (_filter == MediaFilter.failed)
+              FilledButton.icon(
+                onPressed: batchRetrying ? null : _batchRetry,
+                icon: batchRetrying
+                    ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                    : const Icon(Icons.refresh),
+                label: Text(t(context, 'batch_retry')),
+              ),
+            const SizedBox(width: 8),
             Text('${t(context, 'total')}: $total'),
           ],
         ),
@@ -172,78 +297,98 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Text(
-              t(context, 'scan_result').replaceAll('%d', scanResult!.postsScanned.toString()).replaceFirst('%d', scanResult!.referencesCreated.toString()).replaceFirst('%d', scanResult!.unreferenced.toString()),
+              t(context, 'scan_result')
+                  .replaceAll('%d', scanResult!.postsScanned.toString())
+                  .replaceFirst('%d', scanResult!.referencesCreated.toString())
+                  .replaceFirst('%d', scanResult!.unreferenced.toString()),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: loadingMedia
-              ? const Center(child: CircularProgressIndicator())
-              : _buildListView(),
-        ),
-        const SizedBox(height: 8),
-        _buildPagination(),
       ],
     );
   }
 
-  Widget _buildUnreferencedTab() {
-    return loadingUnreferenced
-        ? const Center(child: CircularProgressIndicator())
-        : unreferencedResult == null || unreferencedResult!.items.isEmpty
-            ? Center(child: Text(t(context, 'no_unreferenced_media')))
-            : ListView.separated(
-      physics: const BouncingScrollPhysics(),
-                itemCount: unreferencedResult!.items.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final item = unreferencedResult!.items[index];
-                  return ListTile(
-                    leading: CircleAvatar(
-                      child: Text(item.fileName.isEmpty
-                          ? '?'
-                          : item.fileName[0].toUpperCase()),
-                    ),
-                    title: Text(item.fileName),
-                    subtitle: Text('${_formatBytes(item.size)} - uploaded ${item.createdAt.toLocal()}'),
-                  );
-                },
-              );
-  }
-
-  Widget _buildListView() {
-    final items = mediaResult?.items ?? [];
+  Widget _buildGridView() {
+    List<MediaItem> items = mediaResult?.items ?? [];
     if (items.isEmpty) {
       return Center(child: Text(t(context, 'no_media_found')));
     }
-    return ListView.separated(
+    return GridView.builder(
       physics: const BouncingScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 0.8,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
       itemCount: items.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        final item = items[index];
-        return ListTile(
-          onTap: () => _openMediaDetail(item),
-          leading: item.isImage
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: _ProgressiveImage(
-                    previewUrl: item.previewUrl,
-                    thumbnailUrl: item.thumbnailUrl,
-                    fallbackUrl: item.url,
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.cover,
+        MediaItem item = items[index];
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _openMediaDetail(item),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    color: Colors.grey.shade100,
+                    child: item.isImage
+                        ? _ProgressiveImage(
+                      previewUrl: item.previewUrl,
+                      thumbnailUrl: item.thumbnailUrl,
+                      fallbackUrl: item.url,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                        : item.isVideo
+                        ? const Icon(
+                        Icons.video_library, size: 48, color: Colors.blue)
+                        : item.isAudio
+                        ? const Icon(
+                        Icons.audiotrack, size: 48, color: Colors.orange)
+                        : const Icon(
+                        Icons.insert_drive_file, size: 48, color: Colors.grey),
                   ),
-                )
-              : item.isVideo
-              ? const Icon(Icons.video_library, color: Colors.blue)
-              : item.isAudio
-              ? const Icon(Icons.audiotrack, color: Colors.orange)
-              : const Icon(Icons.insert_drive_file, color: Colors.grey),
-          title: Text(item.fileName),
-          subtitle: Text('${_formatBytes(item.size)} - refs ${item.references.length}'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    children: [
+                      Text(
+                        item.fileName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme
+                            .of(context)
+                            .textTheme
+                            .bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatBytes(item.size),
+                        style: Theme
+                            .of(context)
+                            .textTheme
+                            .bodySmall,
+                      ),
+                      if (item.metadata['importStatus'] == 'failed')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: TextButton(
+                            onPressed: () => _retryImport(item),
+                            child: Text(t(context, 'retry')),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -309,7 +454,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                               Container(
                                 width: double.infinity,
                                 height: 100,
-                                color: Colors.orange.withOpacity(0.1),
+                                color: Colors.orange.withValues(alpha: 0.1),
                                 child: const Center(
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -324,23 +469,44 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                                   ),
                                 ),
                               )
-                        else
-                          const SizedBox(
-                            height: 120,
-                            child: Center(
-                                child: Icon(Icons.insert_drive_file, size: 56,
+                            else
+                              const SizedBox(
+                                height: 120,
+                                child: Center(child: Icon(Icons
+                                    .insert_drive_file, size: 56,
                                     color: Colors.grey)),
-                          ),
+                              ),
                         const SizedBox(height: 8),
                         Text('${t(dialogContext, 'type')}: ${item.mimeType}'),
-                        Text('${t(dialogContext, 'size')}: ${_formatBytes(item.size)}'),
-                        SelectableText('${t(dialogContext, 'url')}: ${item.url}'),
+                        Text('${t(dialogContext, 'size')}: ${_formatBytes(
+                            item.size)}'),
+                        SelectableText(
+                            '${t(dialogContext, 'url')}: ${item.url}'),
+                        if (_isImportFailed(item)) ...[
+                          const SizedBox(height: 12),
+                          const Divider(),
+                          const SizedBox(height: 4),
+                          Text('导入信息', style: Theme
+                              .of(dialogContext)
+                              .textTheme
+                              .titleSmall),
+                          const SizedBox(height: 8),
+                          _buildInfoRow(
+                              dialogContext, '原始链接', _getSourceUrl(item)),
+                          _buildInfoRow(
+                              dialogContext, '失败原因', _getImportError(item)),
+                          _buildInfoRow(dialogContext, '导入状态',
+                              item.metadata['importStatus'].toString()),
+                          if (item.metadata['lastRetryAt'] != null)
+                            _buildInfoRow(dialogContext, '最后重试时间',
+                                item.metadata['lastRetryAt'].toString()),
+                        ],
                         if (item.metadata.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           const Divider(),
                           const SizedBox(height: 4),
-                          Text('Metadata:', style: Theme
-                              .of(context)
+                          Text('完整 Metadata:', style: Theme
+                              .of(dialogContext)
                               .textTheme
                               .titleSmall),
                           const SizedBox(height: 4),
@@ -353,7 +519,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                                     Text('${e.key}: ', style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12)),
-                                    Expanded(child: Text('${e.value}',
+                                    Expanded(child: SelectableText('${e.value}',
                                         style: const TextStyle(fontSize: 12))),
                                   ],
                                 ),
@@ -363,11 +529,23 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: OutlinedButton(
-                              onPressed: loadOriginal
-                                  ? null
-                                  : () =>
+                              onPressed: loadOriginal ? null : () =>
                                   setLocalState(() => loadOriginal = true),
-                              child: Text(item.isImage ? t(dialogContext, 'load_original_image') : t(dialogContext, 'load_original_file')),
+                              child: Text(item.isImage ? t(dialogContext,
+                                  'load_original_image') : t(dialogContext,
+                                  'load_original_file')),
+                            ),
+                          ),
+                        if (_isImportFailed(item))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: FilledButton.icon(
+                              icon: const Icon(Icons.refresh),
+                              label: Text(t(dialogContext, 'retry')),
+                              onPressed: () {
+                                Navigator.of(dialogContext).pop();
+                                _retryImport(item);
+                              },
                             ),
                           ),
                       ],
@@ -383,28 +561,19 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
           ),
     );
   }
+
   Widget _buildPagination() {
-    final total = mediaResult?.total ?? 0;
+    int total = mediaResult?.total ?? 0;
     return Row(
       children: [
         Text(t(context, 'page_number').replaceAll('%d', page.toString()).replaceFirst('%d', total.toString())),
         const Spacer(),
         IconButton(
-          onPressed: page <= 1
-              ? null
-              : () {
-                  setState(() => page--);
-                  _loadMedia();
-                },
+          onPressed: page <= 1 ? null : _goToPreviousPage,
           icon: const Icon(Icons.chevron_left),
         ),
         IconButton(
-          onPressed: page * 24 >= total
-              ? null
-              : () {
-                  setState(() => page++);
-                  _loadMedia();
-                },
+          onPressed: page * pageSize >= total ? null : _goToNextPage,
           icon: const Icon(Icons.chevron_right),
         ),
         FilledButton(
@@ -418,9 +587,56 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
   String _formatBytes(int? bytes) {
     if (bytes == null) return '-';
     if (bytes < 1024) return '$bytes B';
-    final kb = bytes / 1024;
+    final double kb = bytes / 1024;
     if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
-    final mb = kb / 1024;
+    final double mb = kb / 1024;
     return '${mb.toStringAsFixed(1)} MB';
+  }
+
+  bool _isImportFailed(MediaItem item) {
+    final Object? status = item.metadata['importStatus'];
+    if (status == null) {
+      return false;
+    }
+    return status.toString() == 'failed';
+  }
+
+  String _getSourceUrl(MediaItem item) {
+    final Object? sourceUrl = item.metadata['sourceUrl'];
+    if (sourceUrl == null) {
+      return item.url;
+    }
+    final String urlText = sourceUrl.toString();
+    if (urlText.isEmpty || urlText == 'null') {
+      return item.url;
+    }
+    return urlText;
+  }
+
+  String _getImportError(MediaItem item) {
+    final Object? error = item.metadata['importError'];
+    if (error == null) {
+      return '未知错误';
+    }
+    final String errorText = error.toString();
+    if (errorText.isEmpty || errorText == 'null') {
+      return '未知错误';
+    }
+    return errorText;
+  }
+
+  Widget _buildInfoRow(BuildContext dialogContext, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(
+              fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 2),
+          SelectableText(value, style: const TextStyle(fontSize: 13)),
+        ],
+      ),
+    );
   }
 }

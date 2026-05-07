@@ -878,10 +878,18 @@ class MediaListResult {
   final int pageSize;
 
   factory MediaListResult.fromMap(Map<String, dynamic> map) {
-    final items = asDynamicList(map['items'])
-            ?.map((e) => MediaItem.fromMap(toStringMap(e)))
-            .toList() ??
-        [];
+    final rawItems = asDynamicList(map['items']);
+    final List<MediaItem> items = [];
+    if (rawItems != null) {
+      for (int i = 0; i < rawItems.length; i++) {
+        final raw = rawItems[i];
+        if (raw is Map<String, dynamic>) {
+          items.add(MediaItem.fromMap(raw));
+        } else if (raw is Map) {
+          items.add(MediaItem.fromMap(Map<String, dynamic>.from(raw)));
+        }
+      }
+    }
     return MediaListResult(
       items: items,
       total: toInt(map['total']) ?? 0,

@@ -21,14 +21,14 @@ class _ImportDataPageState extends State<ImportDataPage> {
   final _usernameController = TextEditingController(text: 'postgres');
   final _passwordController = TextEditingController(text: 'postgres');
   final _assetPrefixController = TextEditingController(text: 'https://');
-  String _driver = 'org.postgresql.Driver';
+  final String _driver = 'org.postgresql.Driver';
 
   bool _importCategories = true;
   bool _importTags = true;
   bool _importPosts = true;
   bool _importLinks = true;
   bool _importMedia = true;
-  bool _importComments = false;
+  final bool _importComments = false;
 
   bool _isTesting = false;
   bool _isImporting = false;
@@ -76,7 +76,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
 
     if (types.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请至少选择一项导入内容')),
+        SnackBar(content: Text(t(context, 'please_select_at_least_one'))),
       );
       return;
     }
@@ -94,13 +94,18 @@ class _ImportDataPageState extends State<ImportDataPage> {
         setState(() {
           final type = event['type']?.toString();
           final message = event['message']?.toString() ?? '';
+          final status = event['status']?.toString();
           String prefix = '';
           if (type == 'info') prefix = 'ℹ️ ';
           if (type == 'error') prefix = '❌ ';
           if (type == 'progress') prefix = '📈 ';
           if (type == 'end') prefix = '✅ ';
 
-          _logs.add('$prefix $message');
+          String finalMsg = '$prefix $message';
+          if (status != null) {
+            finalMsg += ' [$status]';
+          }
+          _logs.add(finalMsg);
 
           // 自动滚动到底部
           Future.delayed(const Duration(milliseconds: 100), () {
@@ -172,7 +177,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('导入数据'),
+        title: Text(t(context, 'import_data')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -191,14 +196,14 @@ class _ImportDataPageState extends State<ImportDataPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('源数据库配置', style: TextStyle(
+                      Text(t(context, 'db_config'), style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 16),
                       TextFormField(
                         initialValue: 'PostgreSQL',
                         readOnly: true,
-                        decoration: const InputDecoration(
-                            labelText: '数据库类型'),
+                        decoration: InputDecoration(
+                            labelText: t(context, 'db_type')),
                       ),
                       TextFormField(
                         controller: _urlController,
@@ -207,11 +212,13 @@ class _ImportDataPageState extends State<ImportDataPage> {
                       ),
                       TextFormField(
                         controller: _usernameController,
-                        decoration: const InputDecoration(labelText: '用户名'),
+                        decoration: InputDecoration(labelText: t(context,
+                            'username')),
                       ),
                       TextFormField(
                         controller: _passwordController,
-                        decoration: const InputDecoration(labelText: '密码'),
+                        decoration: InputDecoration(labelText: t(context,
+                            'password')),
                         obscureText: true,
                       ),
                       TextFormField(
@@ -228,7 +235,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.cable),
-                        label: const Text('测试连接'),
+                        label: Text(t(context, 'test_connection')),
                       ),
                     ],
                   ),
@@ -241,32 +248,33 @@ class _ImportDataPageState extends State<ImportDataPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('选择导入内容', style: TextStyle(
+                      Text(t(context, 'select_import_content'),
+                          style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       CheckboxListTile(
-                        title: const Text('分类'),
+                        title: Text(t(context, 'categories')),
                         value: _importCategories,
                         onChanged: (v) =>
                             setState(() => _importCategories = v!),
                       ),
                       CheckboxListTile(
-                        title: const Text('标签'),
+                        title: Text(t(context, 'tags')),
                         value: _importTags,
                         onChanged: (v) => setState(() => _importTags = v!),
                       ),
                       CheckboxListTile(
-                        title: const Text('文章'),
+                        title: Text(t(context, 'posts')),
                         value: _importPosts,
                         onChanged: (v) => setState(() => _importPosts = v!),
                       ),
                       CheckboxListTile(
-                        title: const Text('友情链接'),
+                        title: Text(t(context, 'links')),
                         value: _importLinks,
                         onChanged: (v) => setState(() => _importLinks = v!),
                       ),
                       CheckboxListTile(
-                        title: const Text('媒体库 (附件下载)'),
+                        title: Text(t(context, 'media_library_import')),
                         value: _importMedia,
                         onChanged: (v) => setState(() => _importMedia = v!),
                       ),
@@ -289,11 +297,13 @@ class _ImportDataPageState extends State<ImportDataPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.terminal, color: Colors.green, size: 16),
-                            SizedBox(width: 8),
-                            Text('导入日志', style: TextStyle(
+                            const Icon(Icons.terminal, color: Colors.green,
+                                size: 16),
+                            const SizedBox(width: 8),
+                            Text(t(context, 'import_logs'),
+                                style: const TextStyle(
                                 color: Colors.green,
                                 fontWeight: FontWeight.bold)),
                           ],
@@ -350,7 +360,8 @@ class _ImportDataPageState extends State<ImportDataPage> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white)) : const Icon(
                       Icons.input),
-                  label: Text(_isImporting ? '导入中...' : '开始导入'),
+                  label: Text(_isImporting ? t(context, 'importing') : t(
+                      context, 'start_import')),
                   style: FilledButton.styleFrom(
                       backgroundColor: Colors.orange[800]),
                 ),
