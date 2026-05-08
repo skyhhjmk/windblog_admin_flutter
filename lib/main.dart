@@ -16,6 +16,7 @@ import 'data/admin_api_client.dart';
 import 'data/models.dart';
 import 'l10n/app_localizations.dart';
 import 'components/web_stub.dart' if (dart.library.html) 'components/web_impl.dart' as web_helper;
+import 'utils/storage_service.dart';
 
 part 'pages/login_page.dart';
 part 'pages/home_page.dart';
@@ -133,22 +134,64 @@ class AdminRootPage extends StatefulWidget {
 class _AdminRootPageState extends State<AdminRootPage> {
   final api = AdminApiClient();
   AdminUser? user;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    final session = await StorageService.getSession();
+    final baseUrl = session['baseUrl'];
+    final token = session['token'];
+
+    if (baseUrl != null && baseUrl.isNotEmpty) {
+      api.baseUrl = baseUrl;
+    }
+
+    if (token != null && token.isNotEmpty) {
+      api.token = token;
+      try {
+        user = await api.me();
+      } catch (e) {
+        api.token = null;
+        await StorageService.clearSession();
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
 
   Future<void> onLogin(String baseUrl, String token) async {
     api.baseUrl = baseUrl;
     api.token = token;
     user = await api.me();
+    await StorageService.saveSession(baseUrl, token);
     if (mounted) setState(() {});
   }
 
-  void onLogout() {
+  void onLogout() async {
     api.token = null;
     user = null;
-    setState(() {});
+    await StorageService.clearSession();
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
     if (api.token == null) {
       return LoginPage(api: api, onLogin: onLogin);
     }

@@ -12,7 +12,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final formKey = GlobalKey<FormState>();
-  final baseUrlCtrl = TextEditingController(text: 'http://localhost:8080');
+  late final baseUrlCtrl = TextEditingController(text: widget.api.baseUrl);
   final accountCtrl = TextEditingController(text: 'admin');
   final passwordCtrl = TextEditingController(text: 'admin');
   bool loading = false;
