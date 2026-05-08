@@ -289,7 +289,7 @@ class _CommentsPageState extends State<CommentsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSimpleInfoRow(
-                      Icons.person_outline, t(context, 'userName'),
+                      Icons.person_outline, t(context, 'username'),
                       comment.userName),
                   _buildSimpleInfoRow(
                       Icons.article_outlined, t(context, 'article'),
@@ -490,36 +490,14 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   Widget _buildPagination() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '${t(context, 'total')}: $totalItems',
-            style: TextStyle(color: Colors.grey.shade600),
-          ),
-          const SizedBox(width: 16),
-          IconButton(
-            onPressed: currentPage > 1 ? () {
-              setState(() => currentPage--);
-              _loadComments();
-            } : null,
-            icon: const Icon(Icons.chevron_left),
-          ),
-          Text('$currentPage / $totalPages'),
-          IconButton(
-            onPressed: currentPage < totalPages ? () {
-              setState(() => currentPage++);
-              _loadComments();
-            } : null,
-            icon: const Icon(Icons.chevron_right),
-          ),
-        ],
-      ),
+    return PaginationBar(
+      currentPage: currentPage,
+      totalPages: totalPages,
+      totalItems: totalItems,
+      onPageChanged: (newPage) {
+        setState(() => currentPage = newPage);
+        _loadComments();
+      },
     );
   }
 

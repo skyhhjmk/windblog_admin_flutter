@@ -60,6 +60,8 @@ part 'components/config_dynamic_form.dart';
 
 part 'components/html_syntax_editor.dart';
 
+part 'components/pagination_bar.dart';
+
 
 String _resolveMimeType(PlatformFile file) {
   final candidate = file.path ?? file.name;

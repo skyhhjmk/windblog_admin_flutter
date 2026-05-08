@@ -151,24 +151,27 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     }
 
     if (_item.isVideo) {
-      return const Column(
+      return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.play_circle_outline, size: 80, color: Colors.black54),
-          SizedBox(height: 12),
-          Text('Video File', style: TextStyle(color: Colors.black54)),
+          const Icon(
+              Icons.play_circle_outline, size: 80, color: Colors.black54),
+          const SizedBox(height: 12),
+          Text(t(context, 'video_file'),
+              style: const TextStyle(color: Colors.black54)),
         ],
       );
     }
 
     if (_item.isAudio) {
-      return const Row(
+      return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.audiotrack, size: 64, color: Colors.orange),
-          SizedBox(width: 16),
-          Text('Audio File',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const Icon(Icons.audiotrack, size: 64, color: Colors.orange),
+          const SizedBox(width: 16),
+          Text(t(context, 'audio_file'),
+              style: const TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.bold)),
         ],
       );
     }
@@ -235,10 +238,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSidebarRow(t(context, 'media_name'), _item.fileName),
-        _buildSidebarRow(t(context, 'type_label'), _item.mimeType),
-        _buildSidebarRow(t(context, 'size_label'), _formatBytes(_item.size)),
+        _buildSidebarRow(t(context, 'media_type'), _item.mimeType),
+        _buildSidebarRow(t(context, 'media_size'), _formatBytes(_item.size)),
         _buildSidebarRow(
-            t(context, 'url_label'), _item.url, isSelectable: true),
+            t(context, 'media_url'), _item.url, isSelectable: true),
         if (_item.requiresManualOriginal && !_loadOriginal)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -293,8 +296,8 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
           Text(t(context, 'references'),
               style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          const Text('None',
-              style: TextStyle(color: Colors.black45, fontSize: 13)),
+          Text(t(context, 'none'),
+              style: const TextStyle(color: Colors.black45, fontSize: 13)),
         ],
       );
     }

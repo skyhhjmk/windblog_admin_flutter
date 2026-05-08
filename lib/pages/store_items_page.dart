@@ -39,7 +39,7 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败: $e')),
+          SnackBar(content: Text('${t(context, 'load_failed')}: $e')),
         );
       }
     } finally {
@@ -62,7 +62,7 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败: $e')),
+        SnackBar(content: Text('${t(context, 'save_failed')}: $e')),
       );
     }
   }
@@ -92,17 +92,19 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
       context: context,
       builder: (context) =>
           AlertDialog(
-            title: const Text('确认删除'),
-            content: Text('确定要删除物品 "${item.name}" 吗？'),
+            title: Text(t(context, 'confirm_delete')),
+            content: Text(
+                '${t(context, 'confirm_delete_item_prefix')} "${item.name}" ${t(
+                    context, 'confirm_delete_item_suffix')}'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+                child: Text(t(context, 'cancel')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('删除'),
+                child: Text(t(context, 'delete')),
               ),
             ],
           ),
@@ -117,7 +119,7 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('删除失败: $e')),
+        SnackBar(content: Text('${t(context, 'delete_failed')}: $e')),
       );
     }
   }
@@ -133,13 +135,13 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
               FilledButton.icon(
                 onPressed: _createItem,
                 icon: const Icon(Icons.add),
-                label: const Text('新增物品'),
+                label: Text(t(context, 'add_item')),
               ),
               const SizedBox(width: 8),
               FilledButton.tonalIcon(
                 onPressed: _loadItems,
                 icon: const Icon(Icons.refresh),
-                label: const Text('刷新'),
+                label: Text(t(context, 'refresh')),
               ),
             ],
           ),
@@ -148,7 +150,7 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
             child: loading
                 ? const Center(child: CircularProgressIndicator())
                 : items.isEmpty
-                ? const Center(child: Text('暂无物品'))
+                ? Center(child: Text(t(context, 'no_items')))
                 : Card(
               child: ListView.separated(
                 physics: const BouncingScrollPhysics(),
@@ -191,7 +193,8 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            item.status == 1 ? '上架' : '下架',
+                            item.status == 1 ? t(context, 'on_sale') : t(
+                                context, 'off_sale'),
                             style: TextStyle(
                               color: item.status == 1
                                   ? Colors.green.shade700
@@ -210,7 +213,7 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            '${item.price} 积分',
+                            '${item.price} ${t(context, 'points')}',
                             style: TextStyle(
                               color: Colors.blue.shade700,
                               fontSize: 12,
@@ -220,19 +223,20 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
                         ),
                       ],
                     ),
-                    subtitle: Text(item.description ?? '无描述'),
+                    subtitle: Text(
+                        item.description ?? t(context, 'no_description')),
                     trailing: Wrap(
                       spacing: 8,
                       children: [
                         TextButton(
                           onPressed: () => _editItem(item),
-                          child: const Text('编辑'),
+                          child: Text(t(context, 'edit')),
                         ),
                         TextButton(
                           onPressed: () => _deleteItem(item),
                           style: TextButton.styleFrom(
                               foregroundColor: Colors.red),
-                          child: const Text('删除'),
+                          child: Text(t(context, 'delete')),
                         ),
                       ],
                     ),
@@ -241,34 +245,16 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
               ),
             ),
           ),
-          if (totalItems > pageSize) ...[
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: currentPage > 1
-                      ? () {
-                    setState(() => currentPage--);
-                    _loadItems();
-                  }
-                      : null,
-                ),
-                Text('第 $currentPage 页 (共 ${(totalItems / pageSize)
-                    .ceil()} 页)'),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: currentPage * pageSize < totalItems
-                      ? () {
-                    setState(() => currentPage++);
-                    _loadItems();
-                  }
-                      : null,
-                ),
-              ],
+          if (totalItems > pageSize)
+            PaginationBar(
+              currentPage: currentPage,
+              totalPages: (totalItems / pageSize).ceil().clamp(1, 999999),
+              totalItems: totalItems,
+              onPageChanged: (newPage) {
+                setState(() => currentPage = newPage);
+                _loadItems();
+              },
             ),
-          ],
         ],
       ),
     );
@@ -352,7 +338,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
     final isEdit = widget.item != null;
 
     return AlertDialog(
-      title: Text(isEdit ? '编辑物品' : '新增物品'),
+      title: Text(isEdit ? t(context, 'edit_item') : t(context, 'add_item')),
       content: SizedBox(
         width: 600,
         child: SingleChildScrollView(
@@ -360,19 +346,22 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('基础信息',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(t(context, 'basic_info'),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
               const Divider(),
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(
-                    labelText: '物品名称 *', hintText: '如：高级会员卡'),
+                decoration: InputDecoration(
+                    labelText: '${t(context, 'item_name')} *',
+                    hintText: t(context, 'item_name_hint')),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descCtrl,
-                decoration: const InputDecoration(
-                    labelText: '物品描述', hintText: '简短介绍物品功能'),
+                decoration: InputDecoration(
+                    labelText: t(context, 'item_description'),
+                    hintText: t(context, 'item_description_hint')),
                 minLines: 2,
                 maxLines: 4,
               ),
@@ -382,8 +371,9 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                   Expanded(
                     child: TextField(
                       controller: priceCtrl,
-                      decoration: const InputDecoration(
-                          labelText: '价格 (积分) *'),
+                      decoration: InputDecoration(
+                          labelText: '${t(context, 'item_price')} (${t(
+                              context, 'points')}) *'),
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -391,8 +381,8 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                   Expanded(
                     child: TextField(
                       controller: rarityCtrl,
-                      decoration: const InputDecoration(
-                          labelText: '稀有度颜色 (Hex, 如 #FFD700)'),
+                      decoration: InputDecoration(
+                          labelText: t(context, 'rarity_color')),
                     ),
                   ),
                 ],
@@ -403,18 +393,21 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                   Expanded(
                     child: TextField(
                       controller: typeCtrl,
-                      decoration: const InputDecoration(
-                          labelText: '类型 (如 item, code, file)'),
+                      decoration: InputDecoration(
+                          labelText: t(context, 'item_type')),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       initialValue: status,
-                      decoration: const InputDecoration(labelText: '状态'),
-                      items: const [
-                        DropdownMenuItem(value: 1, child: Text('上架')),
-                        DropdownMenuItem(value: 0, child: Text('下架')),
+                      decoration: InputDecoration(
+                          labelText: t(context, 'status')),
+                      items: [
+                        DropdownMenuItem(value: 1, child: Text(t(
+                            context, 'on_sale'))),
+                        DropdownMenuItem(value: 0, child: Text(t(
+                            context, 'off_sale'))),
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => status = val);
@@ -424,44 +417,44 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                 ],
               ),
               const SizedBox(height: 24),
-              const Text('扩展功能 (购买后可见)', style: TextStyle(
+              Text(t(context, 'extra_functions'), style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                   color: Colors.blue)),
               const Divider(color: Colors.blue),
               TextField(
                 controller: downloadUrlCtrl,
-                decoration: const InputDecoration(
-                  labelText: '下载链接 (download_url)',
-                  prefixIcon: Icon(Icons.link, size: 20),
-                  hintText: '如：网盘链接、官网链接',
+                decoration: InputDecoration(
+                  labelText: '${t(context, 'download_url')} (download_url)',
+                  prefixIcon: const Icon(Icons.link, size: 20),
+                  hintText: t(context, 'download_url_hint'),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: extractCodeCtrl,
-                decoration: const InputDecoration(
-                  labelText: '提取码/解压密码 (extract_code)',
-                  prefixIcon: Icon(Icons.vpn_key_outlined, size: 20),
+                decoration: InputDecoration(
+                  labelText: '${t(context, 'extract_code')} (extract_code)',
+                  prefixIcon: const Icon(Icons.vpn_key_outlined, size: 20),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: cdkCtrl,
-                decoration: const InputDecoration(
-                  labelText: '卡密/序列号 (cdk)',
-                  prefixIcon: Icon(Icons.password, size: 20),
-                  hintText: '购买后自动发放的单条或多条文本',
+                decoration: InputDecoration(
+                  labelText: '${t(context, 'cdk')} (cdk)',
+                  prefixIcon: const Icon(Icons.password, size: 20),
+                  hintText: t(context, 'cdk_hint'),
                 ),
                 maxLines: 3,
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: noticeCtrl,
-                decoration: const InputDecoration(
-                  labelText: '购买须知/通知 (notice)',
-                  prefixIcon: Icon(Icons.info_outline, size: 20),
-                  hintText: '购买后展示给用户的额外说明文字',
+                decoration: InputDecoration(
+                  labelText: '${t(context, 'notice')} (notice)',
+                  prefixIcon: const Icon(Icons.info_outline, size: 20),
+                  hintText: t(context, 'notice_hint'),
                 ),
                 maxLines: 2,
               ),
@@ -472,7 +465,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(t(context, 'cancel')),
         ),
         FilledButton(
           onPressed: () {
@@ -482,12 +475,12 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
 
             if (name.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('物品名称不能为空')));
+                  SnackBar(content: Text(t(context, 'item_name_required'))));
               return;
             }
             if (price < 0) {
               ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('价格必须为有效的非负整数')));
+                  SnackBar(content: Text(t(context, 'price_invalid'))));
               return;
             }
 
@@ -531,7 +524,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
             );
             Navigator.pop(context, request);
           },
-          child: const Text('保存'),
+          child: Text(t(context, 'save')),
         ),
       ],
     );

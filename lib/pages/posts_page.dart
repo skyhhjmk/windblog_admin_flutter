@@ -68,7 +68,8 @@ class _PostsPageState extends State<PostsPage> {
       setState(() => _isTreeLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载分类失败：$e')),
+          SnackBar(
+              content: Text('${t(context, 'load_categories_failed')}: $e')),
         );
       }
     }
@@ -138,7 +139,7 @@ class _PostsPageState extends State<PostsPage> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载文章失败：$e')),
+          SnackBar(content: Text('${t(context, 'load_posts_failed')}: $e')),
         );
       }
     }
@@ -259,11 +260,24 @@ class _PostsPageState extends State<PostsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'slug: ${it.slug} | Author: ${it.userName ?? 'Unknown'} | ${t(
-                  context, 'status_text')}: ${it.statusText}',
+              'slug: ${it.slug} | ${t(context, 'author')}: ${it.userName ??
+                  t(context, 'unknown')} | ${t(context, 'status_text')}: ${it
+                  .status == 0 ? t(context, 'draft') : (it.status == 1 ? t(
+                  context, 'published') : t(context, 'archived'))}',
               style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade500,
+                color: Colors.grey.shade600,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${t(context, 'visibility_label')}: ${it.visibility == 0 ? t(
+                  context, 'public_visibility') : (it.visibility == 1 ? t(
+                  context, 'private_visibility') : t(
+                  context, 'password_protected'))}',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 12,
               ),
             ),
             if (it.aiSummaryStatus != 2)
@@ -284,7 +298,9 @@ class _PostsPageState extends State<PostsPage> {
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
-                        it.aiSummaryStatus == 0 ? 'AI: 自动' : 'AI: 手动/锁定',
+                        it.aiSummaryStatus == 0
+                            ? t(context, 'ai_status_auto')
+                            : t(context, 'ai_status_manual_locked'),
                         style: TextStyle(
                           fontSize: 9,
                           color: it.aiSummaryStatus == 0
@@ -644,30 +660,14 @@ class _PostsPageState extends State<PostsPage> {
                     : _buildListView(),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Text('${t(context, 'total')}: $total'),
-              const Spacer(),
-              IconButton(
-                onPressed: page <= 1
-                    ? null
-                    : () {
-                        setState(() => page--);
-                        load();
-                      },
-                icon: const Icon(Icons.chevron_left),
-              ),
-              Text('${t(context, 'page')} $page ${t(context, 'page')}'),
-              IconButton(
-                onPressed: page * 10 >= total
-                    ? null
-                    : () {
-                        setState(() => page++);
-                        load();
-                      },
-                icon: const Icon(Icons.chevron_right),
-              ),
-            ],
+          PaginationBar(
+            currentPage: page,
+            totalPages: (total / 10).ceil().clamp(1, 999999),
+            totalItems: total,
+            onPageChanged: (newPage) {
+              setState(() => page = newPage);
+              load();
+            },
           ),
         ],
       ),
@@ -884,7 +884,8 @@ class _PostEditorPageState extends State<PostEditorPage>
         setState(() => _isLoadingRevisions = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('加载版本列表失败：$e')),
+            SnackBar(
+                content: Text('${t(context, 'load_revisions_failed')}: $e')),
           );
         }
       }
@@ -909,7 +910,7 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (!mounted) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载分类和标签失败：$e')),
+          SnackBar(content: Text('${t(context, 'load_failed')}: $e')),
         );
       }
     }
@@ -1023,7 +1024,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         .trim()
         .isEmpty) {
       scaffoldMessenger.showSnackBar(
-        const SnackBar(content: Text('请填写必填字段')),
+        SnackBar(content: Text(t(context, 'fill_required_fields'))),
       );
       return false;
     }
@@ -1074,7 +1075,7 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (mounted) {
         setState(() => _isSaving = false);
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('保存失败：$e')),
+          SnackBar(content: Text('${t(context, 'save_failed')}: $e')),
         );
       }
       return false;
@@ -1088,17 +1089,18 @@ class _PostEditorPageState extends State<PostEditorPage>
       context: context,
       builder: (context) =>
           AlertDialog(
-            title: const Text('切换版本'),
+            title: Text(t(context, 'switch_version')),
             content: Text(
-                '确定要切换到版本 $revisionNumber 吗？这将创建一个新版本。'),
+                t(context, 'switch_version_confirm').replaceAll(
+                    '%d', revisionNumber.toString())),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+                child: Text(t(context, 'cancel')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('确定'),
+                child: Text(t(context, 'confirm')),
               ),
             ],
           ),
@@ -1150,14 +1152,14 @@ class _PostEditorPageState extends State<PostEditorPage>
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('版本切换成功')),
+            SnackBar(content: Text(t(context, 'switch_success'))),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('版本切换失败：$e')),
+          SnackBar(content: Text('${t(context, 'switch_failed')}: $e')),
         );
       }
     }
@@ -1194,7 +1196,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           builder: (context) {
             final screenSize = MediaQuery.of(context).size;
             return AlertDialog(
-              title: Text('版本 $revisionNumber 对比'),
+              title: Text(t(context, 'diff_with_version').replaceAll(
+                  '%d', revisionNumber.toString())),
               content: SizedBox(
                 width: screenSize.width * 0.8,
                 height: screenSize.height * 0.8,
@@ -1214,7 +1217,8 @@ class _PostEditorPageState extends State<PostEditorPage>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '提示：红色删除线部分来自版本 $revisionNumber，绿色背景部分为当前编辑器中的内容。',
+                              t(context, 'diff_tip').replaceAll(
+                                  '%d', revisionNumber.toString()),
                               style: const TextStyle(fontSize: 12, color: Colors.black87),
                             ),
                           ),
@@ -1228,19 +1232,19 @@ class _PostEditorPageState extends State<PostEditorPage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             DiffViewer(
-                              title: '标题对比',
+                              title: t(context, 'title_diff'),
                               oldText: revTitle,
                               newText: currentTitle,
                             ),
                             const SizedBox(height: 24),
                             DiffViewer(
-                              title: '摘要对比',
+                              title: t(context, 'summary_diff'),
                               oldText: revSummary,
                               newText: currentSummary,
                             ),
                             const SizedBox(height: 24),
                             DiffViewer(
-                              title: '正文对比',
+                              title: t(context, 'content_diff'),
                               oldText: revContent,
                               newText: currentContent,
                             ),
@@ -1254,7 +1258,7 @@ class _PostEditorPageState extends State<PostEditorPage>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('关闭'),
+                  child: Text(t(context, 'close')),
                 ),
                 FilledButton.icon(
                   onPressed: () {
@@ -1262,7 +1266,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                     _switchToRevision(revisionNumber);
                   },
                   icon: const Icon(Icons.history_edu, size: 18),
-                  label: const Text('切换到此版本'),
+                  label: Text(t(context, 'switch_to_this_version')),
                 ),
               ],
             );
@@ -1273,7 +1277,7 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载版本详情失败：$e')),
+          SnackBar(content: Text('${t(context, 'load_revision_failed')}: $e')),
         );
       }
     }
@@ -1432,10 +1436,10 @@ class _PostEditorPageState extends State<PostEditorPage>
       children: [
         TabBar(
           controller: _sidebarTabController,
-          tabs: const [
-            Tab(text: '基本信息'),
-            Tab(text: '版本修订'),
-            Tab(text: 'AI 摘要'),
+          tabs: [
+            Tab(text: t(context, 'basic_info')),
+            Tab(text: t(context, 'revisions')),
+            Tab(text: t(context, 'ai_summary')),
           ],
         ),
         Expanded(
@@ -1460,7 +1464,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'AI 摘要设置',
+            t(context, 'ai_summary_settings'),
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -1469,21 +1473,21 @@ class _PostEditorPageState extends State<PostEditorPage>
           ),
           const SizedBox(height: 12),
           SegmentedButton<int>(
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: 0,
-                label: Text('自动'),
-                icon: Icon(Icons.auto_awesome, size: 16),
+                label: Text(t(context, 'ai_auto')),
+                icon: const Icon(Icons.auto_awesome, size: 16),
               ),
               ButtonSegment(
                 value: 1,
-                label: Text('锁定'),
-                icon: Icon(Icons.lock_outline, size: 16),
+                label: Text(t(context, 'ai_locked')),
+                icon: const Icon(Icons.lock_outline, size: 16),
               ),
               ButtonSegment(
                 value: 2,
-                label: Text('禁用'),
-                icon: Icon(Icons.block, size: 16),
+                label: Text(t(context, 'ai_disabled')),
+                icon: const Icon(Icons.block, size: 16),
               ),
             ],
             selected: {aiSummaryStatus},
@@ -1500,7 +1504,7 @@ class _PostEditorPageState extends State<PostEditorPage>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '摘要内容 (ZH-CN)',
+                  t(context, 'ai_summary_content'),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -1514,22 +1518,25 @@ class _PostEditorPageState extends State<PostEditorPage>
                       await widget.api.triggerAiSummary(_currentDetail!.id);
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text(
-                              '已成功触发 AI 摘要任务'), backgroundColor: Colors
+                          SnackBar(content: Text(
+                              t(context, 'trigger_ai_success')),
+                              backgroundColor: Colors
                               .green),
                         );
                       }
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('触发失败: $e'),
+                          SnackBar(content: Text(
+                              '${t(context, 'trigger_ai_failed')}: $e'),
                               backgroundColor: Colors.red),
                         );
                       }
                     }
                   },
                   icon: const Icon(Icons.refresh, size: 14),
-                  label: const Text('触发生成', style: TextStyle(fontSize: 12)),
+                  label: Text(t(context, 'trigger_ai_gen'),
+                      style: const TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -1550,28 +1557,30 @@ class _PostEditorPageState extends State<PostEditorPage>
                 ),
               )
             else
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Text('暂无摘要内容',
-                      style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(t(context, 'no_ai_summary'),
+                      style: const TextStyle(color: Colors.grey, fontSize: 13)),
                 ),
               ),
             const SizedBox(height: 16),
-            const Text(
-              '说明：自动模式下更新文章会重新生成摘要。手动锁定后将保留已有内容。禁用后在前台不显示摘要板块。',
-              style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.5),
+            Text(
+              t(context, 'ai_summary_desc'),
+              style: const TextStyle(
+                  fontSize: 11, color: Colors.grey, height: 1.5),
             ),
           ] else
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
+                padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Column(
                   children: [
-                    Icon(Icons.visibility_off_outlined, size: 48,
+                    const Icon(Icons.visibility_off_outlined, size: 48,
                         color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text('AI 摘要已禁用', style: TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 16),
+                    Text(t(context, 'ai_summary_disabled_status'),
+                        style: const TextStyle(color: Colors.grey)),
                   ],
                 ),
               ),
@@ -1590,7 +1599,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         children: [
           if (d != null) ...[
             Text(
-              '作者: ${d.userName ?? 'Unknown'}',
+              '${t(context, 'author')}: ${d.userName ?? t(context, 'unknown')}',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey.shade600,
@@ -1611,7 +1620,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                       RegExp(r'^-+|-+$'), '');
                   slugCtrl.text = text;
                 },
-                tooltip: '根据标题自动生成',
+                tooltip: t(context, 'auto_gen_from_title'),
               ),
             ),
             style: const TextStyle(fontSize: 13),
@@ -1657,7 +1666,9 @@ class _PostEditorPageState extends State<PostEditorPage>
               labelText: t(context, 'tags'),
               isDense: true,
             ),
-            hint: Text(tagIds.isEmpty ? t(context, 'select_tags') : '${tagIds.length} tags'),
+            hint: Text(tagIds.isEmpty ? t(context, 'select_tags') : t(
+                context, 'tags_selected_count').replaceFirst(
+                '%d', tagIds.length.toString())),
             items: [
               ..._tags.map((tag) => DropdownMenuItem<int>(
                     value: tag.id,
@@ -1689,13 +1700,14 @@ class _PostEditorPageState extends State<PostEditorPage>
           const SizedBox(height: 16),
           DropdownButtonFormField<int>(
             initialValue: renderType,
-            decoration: const InputDecoration(
-              labelText: '编辑器模式 (Editor Mode)',
+            decoration: InputDecoration(
+              labelText: t(context, 'editor_mode'),
               isDense: true,
             ),
-            items: const [
-              DropdownMenuItem(value: 6, child: Text('区块化 Markdown')),
-              DropdownMenuItem(value: 1, child: Text('HTML')),
+            items: [
+              DropdownMenuItem(
+                  value: 6, child: Text(t(context, 'block_markdown'))),
+              const DropdownMenuItem(value: 1, child: Text('HTML')),
             ],
             onChanged: (v) {
               if (v != null) {
@@ -1718,15 +1730,17 @@ class _PostEditorPageState extends State<PostEditorPage>
           const SizedBox(height: 16),
           DropdownButtonFormField<int>(
             initialValue: visibility,
-            decoration: const InputDecoration(
-              labelText: '可见性 (Visibility)',
+            decoration: InputDecoration(
+              labelText: t(context, 'visibility_label'),
               isDense: true,
             ),
-            items: const [
-              DropdownMenuItem(value: 0, child: Text('公开 (Public)')),
-              DropdownMenuItem(value: 1, child: Text('私密 (Private)')),
+            items: [
               DropdownMenuItem(
-                  value: 2, child: Text('密码保护 (Password Protected)')),
+                  value: 0, child: Text(t(context, 'public_visibility'))),
+              DropdownMenuItem(
+                  value: 1, child: Text(t(context, 'private_visibility'))),
+              DropdownMenuItem(
+                  value: 2, child: Text(t(context, 'password_protected'))),
             ],
             onChanged: (v) =>
                 setState(() {
@@ -1738,9 +1752,9 @@ class _PostEditorPageState extends State<PostEditorPage>
             const SizedBox(height: 16),
             TextField(
               controller: passwordCtrl,
-              decoration: const InputDecoration(
-                labelText: '访问密码',
-                prefixIcon: Icon(Icons.lock_outline, size: 18),
+              decoration: InputDecoration(
+                labelText: t(context, 'access_password'),
+                prefixIcon: const Icon(Icons.lock_outline, size: 18),
                 isDense: true,
               ),
               style: const TextStyle(fontSize: 13),
@@ -1757,7 +1771,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           ),
           const SizedBox(height: 24),
           Text(
-            '内容变现 (Monetization)',
+            t(context, 'monetization'),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
@@ -1767,9 +1781,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           const SizedBox(height: 12),
           TextField(
             controller: pointsPriceCtrl,
-            decoration: const InputDecoration(
-              labelText: '全文买断价格 (积分)',
-              prefixIcon: Icon(Icons.monetization_on_outlined, size: 18),
+            decoration: InputDecoration(
+              labelText: t(context, 'points_price'),
+              prefixIcon: const Icon(Icons.monetization_on_outlined, size: 18),
               isDense: true,
             ),
             keyboardType: TextInputType.number,
@@ -1778,9 +1792,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           const SizedBox(height: 16),
           TextField(
             controller: freeLinesCtrl,
-            decoration: const InputDecoration(
-              labelText: '免费预览行数',
-              prefixIcon: Icon(Icons.visibility_outlined, size: 18),
+            decoration: InputDecoration(
+              labelText: t(context, 'free_lines'),
+              prefixIcon: const Icon(Icons.visibility_outlined, size: 18),
               isDense: true,
             ),
             keyboardType: TextInputType.number,
@@ -1788,18 +1802,22 @@ class _PostEditorPageState extends State<PostEditorPage>
           ),
           const Divider(height: 32),
           if (d != null) ...[
-            MetadataItem('文章 ID', '${d.id}'),
-            MetadataItem('当前版本', '${d.currentRevisionNumber}'),
-            MetadataItem('数据版本', '${d.version}'),
+            MetadataItem(t(context, 'post_id'), '${d.id}'),
+            MetadataItem(
+                t(context, 'current_revision'), '${d.currentRevisionNumber}'),
+            MetadataItem(t(context, 'data_version'), '${d.version}'),
             const Divider(height: 24),
-            if (d.createdAt != null) MetadataItem('创建时间', _formatDate(d.createdAt!)),
-            if (d.updatedAt != null) MetadataItem('更新时间', _formatDate(d.updatedAt!)),
-            if (d.publishedAt != null) MetadataItem('发布时间', _formatDate(d.publishedAt!)),
+            if (d.createdAt != null) MetadataItem(
+                t(context, 'created_at'), _formatDate(d.createdAt!)),
+            if (d.updatedAt != null) MetadataItem(
+                t(context, 'updated_at'), _formatDate(d.updatedAt!)),
+            if (d.publishedAt != null) MetadataItem(
+                t(context, 'published_at'), _formatDate(d.publishedAt!)),
           ] else ...[
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text('保存后显示系统信息'),
+                padding: const EdgeInsets.all(32),
+                child: Text(t(context, 'system_info_after_save')),
               ),
             ),
           ],
@@ -1810,10 +1828,10 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   Widget _buildRevisionsTab() {
     if (_currentDetail == null) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('保存后显示版本历史'),
+          padding: const EdgeInsets.all(32),
+          child: Text(t(context, 'history_after_save')),
         ),
       );
     }
@@ -1823,10 +1841,10 @@ class _PostEditorPageState extends State<PostEditorPage>
     }
 
     if (_revisions.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('暂无版本历史'),
+          padding: const EdgeInsets.all(32),
+          child: Text(t(context, 'no_history')),
         ),
       );
     }
@@ -1841,7 +1859,8 @@ class _PostEditorPageState extends State<PostEditorPage>
             _currentDetail!.currentRevisionNumber;
         return ListTile(
           title: Text(
-            '版本 ${revision.revisionNumber}',
+            t(context, 'revision_text').replaceAll(
+                '%d', revision.revisionNumber.toString()),
             style: TextStyle(
               fontWeight: isCurrent ? FontWeight.bold : null,
             ),
@@ -1850,7 +1869,8 @@ class _PostEditorPageState extends State<PostEditorPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                revision.zhTitle.isEmpty ? '无标题' : revision.zhTitle,
+                revision.zhTitle.isEmpty ? t(context, 'no_title') : revision
+                    .zhTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1864,7 +1884,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           ),
           trailing: isCurrent
               ? Chip(
-            label: const Text('当前', style: TextStyle(fontSize: 10)),
+            label: Text(t(context, 'current_badge'),
+                style: const TextStyle(fontSize: 10)),
             backgroundColor: Colors.green.shade100,
             labelStyle: TextStyle(color: Colors.green.shade800),
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
@@ -1874,11 +1895,11 @@ class _PostEditorPageState extends State<PostEditorPage>
                 children: [
                   TextButton(
                     onPressed: () => _showDiff(revision.revisionNumber),
-                    child: const Text('对比'),
+                    child: Text(t(context, 'compare')),
                   ),
                   TextButton(
                     onPressed: () => _switchToRevision(revision.revisionNumber),
-                    child: const Text('切换'),
+                    child: Text(t(context, 'switch')),
                   ),
                 ],
               ),

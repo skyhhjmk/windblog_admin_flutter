@@ -220,7 +220,11 @@ class _UserManagementPageState extends State<UserManagementPage> {
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(user.statusText),
+                                Text(user.status == 1
+                                    ? t(context, 'active')
+                                    : (user.status == 0
+                                    ? t(context, 'disabled')
+                                    : t(context, 'locked'))),
                                 const SizedBox(width: 8),
                                 IconButton(
                                   icon: const Icon(Icons
@@ -236,25 +240,16 @@ class _UserManagementPageState extends State<UserManagementPage> {
                       ),
           ),
           if (pageResult != null)
-            Row(
-              children: [
-                Text(t(context, 'page_of')
-                    .replaceFirst('%d', page.toString())
-                    .replaceFirst('%d',
-                    ((pageResult!.total / pageResult!.pageSize).ceil())
-                        .toString())),
-                const Spacer(),
-                IconButton(
-                  onPressed: page <= 1 ? null : () => setState(() => page--),
-                  icon: const Icon(Icons.chevron_left),
-                ),
-                IconButton(
-                  onPressed: page * pageResult!.pageSize >= pageResult!.total
-                      ? null
-                      : () => setState(() => page++),
-                  icon: const Icon(Icons.chevron_right),
-                ),
-              ],
+            PaginationBar(
+              currentPage: page,
+              totalPages: (pageResult!.total / pageResult!.pageSize)
+                  .ceil()
+                  .clamp(1, 999999),
+              totalItems: pageResult!.total,
+              onPageChanged: (newPage) {
+                setState(() => page = newPage);
+                _loadUsers();
+              },
             ),
         ],
       ),

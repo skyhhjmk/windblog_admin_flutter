@@ -399,7 +399,7 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
     super.didChangeDependencies();
     if (_contentCtrl.text.isEmpty) {
       _contentCtrl.text = isAudit
-          ? '这是一条用于测试 AI 审核的评论内容，包含一些敏感词如垃圾广告。'
+          ? t(context, 'audit_test_content')
           : t(context, 'publish_test_message_default_content');
     }
   }
@@ -429,7 +429,7 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
             TextField(
               controller: _idCtrl,
               decoration: InputDecoration(
-                labelText: isAudit ? '评论 ID (Comment ID)' : t(
+                labelText: isAudit ? 'Comment ID' : t(
                     context, 'article_id_label'),
                 border: const OutlineInputBorder(),
               ),
@@ -439,7 +439,7 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
             TextField(
               controller: _contentCtrl,
               decoration: InputDecoration(
-                labelText: isAudit ? '评论内容' : t(
+                labelText: isAudit ? t(context, 'comment_content') : t(
                     context, 'article_summary_label'),
                 border: const OutlineInputBorder(),
               ),
@@ -478,7 +478,8 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
             if (id == null) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(
-                    isAudit ? '无效的评论 ID' : t(context, 'invalid_post_id'))),
+                    isAudit ? 'Invalid Comment ID' : t(
+                        context, 'invalid_post_id'))),
               );
               return;
             }

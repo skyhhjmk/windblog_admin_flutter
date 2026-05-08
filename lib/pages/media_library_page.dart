@@ -212,15 +212,6 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     }
   }
 
-  void _goToPreviousPage() {
-    setState(() => page--);
-    _loadMedia();
-  }
-
-  void _goToNextPage() {
-    setState(() => page++);
-    _loadMedia();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -409,23 +400,14 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
 
   Widget _buildPagination() {
     int total = mediaResult?.total ?? 0;
-    return Row(
-      children: [
-        Text(t(context, 'page_number').replaceAll('%d', page.toString()).replaceFirst('%d', total.toString())),
-        const Spacer(),
-        IconButton(
-          onPressed: page <= 1 ? null : _goToPreviousPage,
-          icon: const Icon(Icons.chevron_left),
-        ),
-        IconButton(
-          onPressed: page * pageSize >= total ? null : _goToNextPage,
-          icon: const Icon(Icons.chevron_right),
-        ),
-        FilledButton(
-          onPressed: _loadMedia,
-          child: Text(t(context, 'refresh')),
-        ),
-      ],
+    return PaginationBar(
+      currentPage: page,
+      totalPages: (total / pageSize).ceil().clamp(1, 999999),
+      totalItems: total,
+      onPageChanged: (newPage) {
+        setState(() => page = newPage);
+        _loadMedia();
+      },
     );
   }
 

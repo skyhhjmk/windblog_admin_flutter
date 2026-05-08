@@ -303,7 +303,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '数据导入',
+                  t(context, 'data_import'),
                   style: Theme
                       .of(context)
                       .textTheme
@@ -311,7 +311,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '从旧版 WindBlog (webman) 或其他兼容数据库导入数据。',
+                  t(context, 'data_import_desc'),
                   style: Theme
                       .of(context)
                       .textTheme
@@ -331,7 +331,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                     );
                   },
                   icon: const Icon(Icons.input),
-                  label: const Text('前往导入页面'),
+                  label: Text(t(context, 'go_to_import')),
                   style: FilledButton.styleFrom(
                       backgroundColor: Colors.orange[800]),
                 ),

@@ -224,14 +224,16 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                 });
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('成功获取 ${models.length} 个模型'),
-                        backgroundColor: Colors.green),
+                    SnackBar(content: Text(
+                        '${t(context, 'fetch_models_success')} ${models
+                            .length}')),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('获取模型失败: $e'),
+                    SnackBar(content: Text(
+                        '${t(context, 'fetch_models_failed')}: $e'),
                         backgroundColor: Colors.red),
                   );
                 }
@@ -297,10 +299,10 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                         if (provider == 'CHATGLM') ...[
                           const SizedBox(height: 8),
                           SwitchListTile(
-                            title: const Text('强制覆写 API 地址',
-                                style: TextStyle(fontSize: 14)),
-                            subtitle: const Text(
-                                '关闭时使用内置 SDK 默认地址，开启时使用下方填写的地址'),
+                            title: Text(t(context, 'ai_force_endpoint'),
+                                style: const TextStyle(fontSize: 14)),
+                            subtitle: Text(
+                                t(context, 'ai_force_endpoint_hint')),
                             value: forceEndpoint,
                             onChanged: (v) => setState(() => forceEndpoint = v),
                           ),
@@ -355,7 +357,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                                       DropdownMenuItem(
                                           value: e, child: Text(e))),
                                   const DropdownMenuItem(value: "__manual__",
-                                      child: Text("-- 手动输入 --")),
+                                      child: Text("-- 手动输入 (Manual) --")),
                                 ],
                                 onChanged: (v) {
                                   if (v == "__manual__") {
@@ -376,7 +378,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2)) : const Icon(
                                   Icons.refresh),
-                              tooltip: '从 API 获取模型列表',
+                              tooltip: t(context, 'ai_fetch_models_tooltip'),
                             ),
                           ],
                         ),
@@ -512,7 +514,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : _error != null
-              ? Center(child: Text('错误: $_error'))
+              ? Center(child: Text('${t(context, 'error')}: $_error'))
               : TabBarView(
             controller: _tabController,
             children: [

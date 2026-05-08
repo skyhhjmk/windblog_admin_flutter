@@ -121,13 +121,13 @@ class _UserWalletPageState extends State<UserWalletPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.username} 的钱包'),
+        title: Text('${widget.username}${t(context, 's_wallet')}'),
         actions: [
           if (widget.isSuperAdmin)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: _adjustPoints,
-              tooltip: '调整积分',
+              tooltip: t(context, 'adjust_points'),
             ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -135,7 +135,7 @@ class _UserWalletPageState extends State<UserWalletPage> {
               _loadWallet();
               _loadTransactions();
             },
-            tooltip: '刷新',
+            tooltip: t(context, 'refresh'),
           ),
         ],
       ),
@@ -167,9 +167,9 @@ class _UserWalletPageState extends State<UserWalletPage> {
             ),
             child: Column(
               children: [
-                const Text(
-                  '积分余额',
-                  style: TextStyle(
+                Text(
+                  t(context, 'points_balance'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                   ),
@@ -185,7 +185,7 @@ class _UserWalletPageState extends State<UserWalletPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '版本号：v${walletInfo?.version ?? 0}',
+                  '${t(context, 'version')}：v${walletInfo?.version ?? 0}',
                   style: const TextStyle(
                     color: Color.fromRGBO(255, 255, 255, 0.8),
                     fontSize: 12,
@@ -206,9 +206,9 @@ class _UserWalletPageState extends State<UserWalletPage> {
                   ),
                   child: Row(
                     children: [
-                      const Text(
-                        '交易记录',
-                        style: TextStyle(
+                      Text(
+                        t(context, 'transaction_history'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -233,8 +233,8 @@ class _UserWalletPageState extends State<UserWalletPage> {
                       ? Center(
                     child: Text(
                       transactionHistory == null
-                          ? '加载中...'
-                          : '暂无交易记录',
+                          ? t(context, 'loading')
+                          : t(context, 'no_transactions'),
                       style: TextStyle(
                         color: Theme
                             .of(context)
@@ -285,7 +285,7 @@ class _UserWalletPageState extends State<UserWalletPage> {
                               ),
                             ),
                             Text(
-                              '余额：${item.balanceAfter}',
+                              '${t(context, 'balance')}：${item.balanceAfter}',
                               style: TextStyle(
                                 color:
                                 Theme
@@ -302,32 +302,16 @@ class _UserWalletPageState extends State<UserWalletPage> {
                 ),
                 // 分页按钮
                 if (transactionHistory != null)
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed: page <= 1
-                              ? null
-                              : () {
-                            setState(() => page--);
-                            _loadTransactions();
-                          },
-                          icon: const Icon(Icons.chevron_left),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          onPressed:
-                          page * pageSize >= transactionHistory!.total
-                              ? null
-                              : () {
-                            setState(() => page++);
-                            _loadTransactions();
-                          },
-                          icon: const Icon(Icons.chevron_right),
-                        ),
-                      ],
-                    ),
+                  PaginationBar(
+                    currentPage: page,
+                    totalPages: (transactionHistory!.total / pageSize)
+                        .ceil()
+                        .clamp(1, 999999),
+                    totalItems: transactionHistory!.total,
+                    onPageChanged: (newPage) {
+                      setState(() => page = newPage);
+                      _loadTransactions();
+                    },
                   ),
               ],
             ),
@@ -370,7 +354,7 @@ class _AdjustPointsDialogState extends State<_AdjustPointsDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('调整积分'),
+      title: Text(t(context, 'adjust_points')),
       content: SizedBox(
         width: 400,
         child: Column(
@@ -378,18 +362,18 @@ class _AdjustPointsDialogState extends State<_AdjustPointsDialog> {
           children: [
             TextField(
               controller: balanceCtrl,
-              decoration: const InputDecoration(
-                labelText: '新余额',
-                hintText: '请输入新的积分余额',
+              decoration: InputDecoration(
+                labelText: t(context, 'new_balance'),
+                hintText: t(context, 'new_balance_hint'),
               ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: descriptionCtrl,
-              decoration: const InputDecoration(
-                labelText: '调整说明',
-                hintText: '请输入调整原因或说明',
+              decoration: InputDecoration(
+                labelText: t(context, 'adjust_reason'),
+                hintText: t(context, 'adjust_reason_hint'),
               ),
               maxLines: 3,
             ),
@@ -399,20 +383,21 @@ class _AdjustPointsDialogState extends State<_AdjustPointsDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(t(context, 'cancel')),
         ),
         FilledButton(
           onPressed: () {
             final newBalance = int.tryParse(balanceCtrl.text.trim());
             if (newBalance == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请输入有效的数字')),
+                SnackBar(content: Text(t(context, 'invalid_number'))),
               );
               return;
             }
             if (newBalance < 0) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('余额不能为负数')),
+                SnackBar(
+                    content: Text(t(context, 'balance_cannot_be_negative'))),
               );
               return;
             }
@@ -424,7 +409,7 @@ class _AdjustPointsDialogState extends State<_AdjustPointsDialog> {
               ),
             );
           },
-          child: const Text('确定'),
+          child: Text(t(context, 'confirm')),
         ),
       ],
     );

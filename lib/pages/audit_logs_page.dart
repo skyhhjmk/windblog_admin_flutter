@@ -178,31 +178,14 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
   }
 
   Widget _buildPagination() {
-    return Row(
-      children: [
-        Text(t(context, 'page_of').replaceFirst('%d', '$_page').replaceFirst(
-            '%d', '${(_total / _pageSize).ceil()}')),
-        const Spacer(),
-        IconButton(
-          onPressed: _page <= 1
-              ? null
-              : () {
-            setState(() => _page--);
-            _loadData();
-          },
-          icon: const Icon(Icons.chevron_left),
-        ),
-        Text('$_page'),
-        IconButton(
-          onPressed: _page * _pageSize >= _total
-              ? null
-              : () {
-            setState(() => _page++);
-            _loadData();
-          },
-          icon: const Icon(Icons.chevron_right),
-        ),
-      ],
+    return PaginationBar(
+      currentPage: _page,
+      totalPages: (_total / _pageSize).ceil().clamp(1, 999999),
+      totalItems: _total,
+      onPageChanged: (newPage) {
+        setState(() => _page = newPage);
+        _loadData();
+      },
     );
   }
 }

@@ -336,7 +336,7 @@ class _CategoryEditDialogState extends State<_CategoryEditDialog> {
                         RegExp(r'^-+|-+$'), '');
                     slugCtrl.text = text;
                   },
-                  tooltip: '根据名称自动生成',
+                  tooltip: t(context, 'auto_generate_tooltip'),
                 ),
               ),
             ),

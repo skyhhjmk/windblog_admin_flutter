@@ -255,7 +255,7 @@ class _TagEditDialogState extends State<_TagEditDialog> {
                         RegExp(r'^-+|-+$'), '');
                     slugCtrl.text = text;
                   },
-                  tooltip: '根据名称自动生成',
+                  tooltip: t(context, 'auto_generate_tooltip'),
                 ),
               ),
             ),
