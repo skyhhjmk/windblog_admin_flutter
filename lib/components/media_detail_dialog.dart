@@ -5,14 +5,32 @@ class MediaDetailDialog extends StatefulWidget {
     super.key,
     required this.item,
     required this.api,
-    required this.onRetry,
-    required this.onScan,
+    this.onRetry,
+    this.onScan,
   });
+
+  static Future<void> show(BuildContext context, {
+    required MediaItem item,
+    required AdminApiClient api,
+    Future<void> Function(MediaItem)? onRetry,
+    Future<void> Function()? onScan,
+  }) {
+    return showDialog(
+      context: context,
+      builder: (context) =>
+          MediaDetailDialog(
+            item: item,
+            api: api,
+            onRetry: onRetry,
+            onScan: onScan,
+          ),
+    );
+  }
 
   final MediaItem item;
   final AdminApiClient api;
-  final Future<void> Function(MediaItem) onRetry;
-  final Future<void> Function() onScan;
+  final Future<void> Function(MediaItem)? onRetry;
+  final Future<void> Function()? onScan;
 
   @override
   State<MediaDetailDialog> createState() => _MediaDetailDialogState();
@@ -39,7 +57,8 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   }
 
   Future<void> _handleRetry() async {
-    await widget.onRetry(_item);
+    if (widget.onRetry == null) return;
+    await widget.onRetry!(_item);
     // 重试后关闭弹窗，由页面刷新
     if (mounted) {
       Navigator.of(context).pop();
@@ -47,7 +66,8 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   }
 
   Future<void> _handleScan() async {
-    await widget.onScan();
+    if (widget.onScan == null) return;
+    await widget.onScan!();
     // 扫描后关闭弹窗，由页面刷新
     if (mounted) {
       Navigator.of(context).pop();
@@ -135,9 +155,20 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
       if (_loadOriginal) {
         return Image.network(
           _item.url,
+          headers: const {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) =>
-          const Center(child: Icon(Icons.broken_image, size: 64)),
+              Center(child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.broken_image, size: 64),
+                  const SizedBox(height: 8),
+                  Text('加载失败: $error',
+                      style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                ],
+              )),
         );
       }
       return _ProgressiveImage(
@@ -215,20 +246,21 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         ),
         const Divider(height: 1),
         // 底部操作区
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _handleScan,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: Text(t(context, 'rescan_references')),
+        if (widget.onScan != null)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _handleScan,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: Text(t(context, 'rescan_references')),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -276,14 +308,15 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         _buildSidebarRow(
             t(context, 'last_retry_at'), _getMetadataValue('lastRetryAt')),
         const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: _handleRetry,
-            icon: const Icon(Icons.replay),
-            label: Text(t(context, 'retry')),
+        if (widget.onRetry != null)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _handleRetry,
+              icon: const Icon(Icons.replay),
+              label: Text(t(context, 'retry')),
+            ),
           ),
-        ),
       ],
     );
   }

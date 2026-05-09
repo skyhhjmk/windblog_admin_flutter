@@ -149,95 +149,31 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     if (!mounted) return;
     Navigator.pop(context); // Close loading dialog
 
-    final item = foundItem;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) =>
-          AlertDialog(
-            title: Text(item?.fileName ?? '图片信息'),
-            content: SizedBox(
-              width: 640,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    height: 320,
-                    color: Colors.black12,
-                    child: Image.network(
-                      item?.url ?? url,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                      const Center(child: Icon(Icons.broken_image)),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                                : null,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (item != null) ...[
-                    Row(
-                      children: [
-                        Expanded(child: Text('MIME 类型: ${item.mimeType}')),
-                        Text('大小: ${((item.size ?? 0) / 1024).toStringAsFixed(
-                            1)} KB'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    Text('引用统计: 共被 ${item.references.length} 篇文章引用',
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    if (item.references.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        constraints: const BoxConstraints(maxHeight: 120),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.all(8),
-                          itemCount: item.references.length,
-                          itemBuilder: (context, index) {
-                            final ref = item.references[index];
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Text(
-                                  '• ${ref.postTitle} (${ref.postSlug})',
-                                  style: TextStyle(fontSize: 12,
-                                      color: Colors.grey.shade700)),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                  ],
-                  SelectableText('URL: $url', style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade600)),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('关闭'),
-              ),
-            ],
-          ),
-    );
+    if (foundItem != null) {
+      MediaDetailDialog.show(context, item: foundItem, api: widget.api);
+    } else {
+      // Fallback for external image or not found in recent media
+      final fileName = url
+          .split('/')
+          .last
+          .split('?')
+          .first;
+      final mimeType = lookupMimeType(fileName) ?? 'image/jpeg';
+      final fallbackItem = MediaItem(
+        id: 0,
+        storageKey: '',
+        url: url,
+        requiresManualOriginal: false,
+        fileName: fileName,
+        mimeType: mimeType,
+        size: 0,
+        mediaType: 0,
+        createdAt: DateTime.now(),
+        referenced: false,
+        references: [],
+      );
+      MediaDetailDialog.show(context, item: fallbackItem, api: widget.api);
+    }
   }
 
   Future<void> _uploadPastedImageBytes(Uint8List bytes, String fileName,
@@ -867,8 +803,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
           block: block,
           isHighlighted: isHighlighted,
           onJumpToSource: () => _jumpToEditorLine(block.startLine),
+          onImageTap: (url) => _handleImageTap(url),
           onCopyHtml: (styled) => _copyBlockAsHtml(block.content, styled),
           onCopyMarkdown: () => _copyBlockAsMarkdown(block.content),
+          api: widget.api,
         );
       }),
     );
@@ -1158,16 +1096,20 @@ class MarkdownBlockWrapper extends StatefulWidget {
   final MarkdownBlock block;
   final bool isHighlighted;
   final VoidCallback onJumpToSource;
+  final Function(String) onImageTap;
   final Function(bool) onCopyHtml;
   final VoidCallback onCopyMarkdown;
+  final AdminApiClient api;
 
   const MarkdownBlockWrapper({
     super.key,
     required this.block,
     required this.isHighlighted,
     required this.onJumpToSource,
+    required this.onImageTap,
     required this.onCopyHtml,
     required this.onCopyMarkdown,
+    required this.api,
   });
 
   @override
@@ -1247,14 +1189,13 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
             selectable: false,
             extensionSet: md.ExtensionSet(
               [
-                const md.FencedCodeBlockSyntax(),
-                const md.TableSyntax(),
+                ...md.ExtensionSet.gitHubWeb.blockSyntaxes,
                 const CustomContainerSyntax(),
                 const CalloutSyntax(),
                 const HideContentSyntax(),
               ],
               [
-                md.EmojiSyntax(),
+                ...md.ExtensionSet.gitHubWeb.inlineSyntaxes,
                 HighlightSyntax(),
                 KeyboardSyntax(),
                 ProgressSyntax(),
@@ -1262,6 +1203,70 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                 StoreItemSyntax(),
               ],
             ),
+            imageBuilder: (uri, title, alt) {
+              final url = uri.toString();
+              return GestureDetector(
+                onTap: () => widget.onImageTap(url),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.network(
+                      url.startsWith('/') ? '${widget.api.baseUrl}$url' : url,
+                      headers: const {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                      },
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            color: Colors.grey.shade100,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.broken_image,
+                                    size: 48, color: Colors.grey),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '图片加载失败\n错误: $error\nURL: $url',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 200,
+                          color: Colors.grey.shade100,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
             builders: {
               'blockquote': BlockquoteBuilder(),
               'mdplus-callout': CalloutElementBuilder(),

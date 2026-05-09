@@ -71,11 +71,23 @@ class _ProgressiveImageState extends State<_ProgressiveImage> {
   Widget build(BuildContext context) {
     return Image.network(
       _currentUrl,
+      headers: const {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
       width: widget.width,
       height: widget.height,
       fit: widget.fit,
       errorBuilder: (context, error, stackTrace) =>
-      const Center(child: Icon(Icons.broken_image)),
+          Center(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.broken_image),
+              const SizedBox(height: 4),
+              Text('加载失败: $error',
+                  style: const TextStyle(fontSize: 8, color: Colors.grey),
+                  textAlign: TextAlign.center),
+            ],
+          )),
     );
   }
 }
