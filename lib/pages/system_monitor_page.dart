@@ -19,6 +19,9 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
   bool loading = true;
   String? error;
   DateTime? lastUpdate;
+  final TextEditingController _trackingTextController = TextEditingController();
+  String? _decryptedText;
+  bool _decrypting = false;
 
   @override
   void initState() {
@@ -41,6 +44,37 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
     } finally {
       if (mounted) setState(() => loading = false);
     }
+  }
+
+  Future<void> _decryptTrackingText() async {
+    final text = _trackingTextController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      _decrypting = true;
+      _decryptedText = null;
+    });
+
+    try {
+      final result = await widget.api.decryptError(text);
+      setState(() {
+        _decryptedText = result;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('解密失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _decrypting = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _trackingTextController.dispose();
+    super.dispose();
   }
 
   @override
@@ -110,7 +144,11 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
                           ],
                         ),
                         const SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         _buildApplicationCard(),
+                        const SizedBox(height: 16),
+                        _buildDecryptionTool(),
+                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
@@ -285,6 +323,84 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
               _InfoItem(t(context, 'start_time'), app.startTime),
               _InfoItem(t(context, 'app_uptime'), app.uptimeText),
             ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDecryptionTool() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.security, color: Colors.teal),
+                const SizedBox(width: 8),
+                Text(
+                  '错误追踪解密工具',
+                  style: Theme
+                      .of(context)
+                      .textTheme
+                      .titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _trackingTextController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: '在此粘贴加密的追踪文本...',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(12),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _decrypting ? null : _decryptTrackingText,
+                icon: _decrypting
+                    ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                    : const Icon(Icons.vpn_key),
+                label: const Text('解密追踪文本'),
+              ),
+            ),
+            if (_decryptedText != null) ...[
+              const SizedBox(height: 16),
+              const Text(
+                '解密结果:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: SelectableText(
+                  _decryptedText!,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

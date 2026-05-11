@@ -500,6 +500,14 @@ class AdminApiClient {
     return SystemMonitorInfo.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<String> decryptError(String trackingText) async {
+    final res = await _post('/api/admin/system/decrypt-error', body: {
+      'trackingText': trackingText,
+    });
+    final map = _map(jsonDecode(res.body));
+    return map['decrypted']?.toString() ?? '解密失败';
+  }
+
   // ==================== 审计日志 API ====================
 
   Future<PaginatedAuditLogResult> listAuditLogs({
