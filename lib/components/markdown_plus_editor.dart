@@ -128,32 +128,29 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   }
 
   Future<void> _handleImageTap(String rawUrl) async {
-    final url = widget.api.normalizeUrl(rawUrl);
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
+    // 获取规范化前的 URL 供 API 查找
+    // 后端会处理解码和路径匹配
     MediaItem? foundItem;
     try {
-      final res = await widget.api.listMedia(page: 1, pageSize: 200);
-      for (final item in res.items) {
-        if (item.url == url || item.previewUrl == url ||
-            item.thumbnailUrl == url) {
-          foundItem = item;
-          break;
-        }
-      }
-    } catch (_) {}
+      foundItem = await widget.api.findMedia(rawUrl);
+    } catch (_) {
+      // API 报错通常说明库中没有该文件（例如外部链接）
+    }
 
     if (!mounted) return;
-    Navigator.pop(context); // Close loading dialog
+    Navigator.pop(context); // 关闭加载框
 
     if (foundItem != null) {
       MediaDetailDialog.show(context, item: foundItem, api: widget.api);
     } else {
-      // Fallback for external image or not found in recent media
+      // 降级逻辑：处理外部链接或未收录的媒体
+      final url = widget.api.normalizeUrl(rawUrl);
       final fileName = url
           .split('/')
           .last

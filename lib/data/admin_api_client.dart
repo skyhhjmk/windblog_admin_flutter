@@ -228,6 +228,12 @@ class AdminApiClient {
     return MediaListResult.fromMap(map);
   }
 
+  Future<MediaItem> findMedia(String url) async {
+    final res = await _get('/api/admin/media/find', query: {'url': url});
+    return MediaItem.fromMap(
+        _normalizeMediaItemMap(_map(jsonDecode(res.body))));
+  }
+
   Future<MediaScanResult> scanMedia() async {
     final res = await _post('/api/admin/media/scan', body: {});
     return MediaScanResult.fromMap(_map(jsonDecode(res.body)));
