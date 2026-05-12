@@ -127,7 +127,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     }
   }
 
-  Future<void> _handleImageTap(String url) async {
+  Future<void> _handleImageTap(String rawUrl) async {
+    final url = widget.api.normalizeUrl(rawUrl);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1222,7 +1223,7 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Image.network(
-                      url.startsWith('/') ? '${widget.api.baseUrl}$url' : url,
+                      widget.api.normalizeUrl(url),
                       headers: const {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                       },

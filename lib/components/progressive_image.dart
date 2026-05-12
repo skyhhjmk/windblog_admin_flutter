@@ -8,7 +8,10 @@ class _ProgressiveImage extends StatefulWidget {
     required this.width,
     required this.height,
     required this.fit,
+    required this.api,
   });
+
+  final AdminApiClient api;
 
   final String? previewUrl;
   final String? thumbnailUrl;
@@ -43,20 +46,20 @@ class _ProgressiveImageState extends State<_ProgressiveImage> {
   }
 
   String _pickInitialUrl() {
-    final preview = widget.previewUrl?.trim();
-    if (preview != null && preview.isNotEmpty) {
+    final preview = widget.api.normalizeUrl(widget.previewUrl?.trim());
+    if (preview.isNotEmpty) {
       return preview;
     }
-    final thumb = widget.thumbnailUrl?.trim();
-    if (thumb != null && thumb.isNotEmpty) {
+    final thumb = widget.api.normalizeUrl(widget.thumbnailUrl?.trim());
+    if (thumb.isNotEmpty) {
       return thumb;
     }
-    return widget.fallbackUrl;
+    return widget.api.normalizeUrl(widget.fallbackUrl);
   }
 
   Future<void> _upgradeToThumbnail() async {
-    final thumb = widget.thumbnailUrl?.trim();
-    if (thumb == null || thumb.isEmpty || thumb == _currentUrl) {
+    final thumb = widget.api.normalizeUrl(widget.thumbnailUrl?.trim());
+    if (thumb.isEmpty || thumb == _currentUrl) {
       return;
     }
     final provider = NetworkImage(thumb);

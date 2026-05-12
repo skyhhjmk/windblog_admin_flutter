@@ -333,6 +333,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.cover,
+                      api: widget.api,
                     )
                         : item.isVideo
                         ? const Icon(

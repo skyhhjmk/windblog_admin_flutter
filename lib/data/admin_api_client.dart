@@ -761,27 +761,27 @@ class AdminApiClient {
 
   Map<String, dynamic> _normalizeMediaItemMap(Map<String, dynamic> map) {
     final normalized = Map<String, dynamic>.from(map);
-    normalized['url'] = _normalizeMediaUrl(normalized['url']?.toString());
+    normalized['url'] = normalizeUrl(normalized['url']?.toString());
     normalized['thumbnailUrl'] =
-        _normalizeMediaUrl(normalized['thumbnailUrl']?.toString());
+        normalizeUrl(normalized['thumbnailUrl']?.toString());
     normalized['previewUrl'] =
-        _normalizeMediaUrl(normalized['previewUrl']?.toString());
+        normalizeUrl(normalized['previewUrl']?.toString());
     return normalized;
   }
 
-  String _normalizeMediaUrl(String? rawUrl) {
-    if (rawUrl == null || rawUrl.isEmpty) {
+  String normalizeUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl
+        .trim()
+        .isEmpty) {
       return '';
     }
-    final parsed = Uri.tryParse(rawUrl);
+    final trimmed = rawUrl.trim();
+    final parsed = Uri.tryParse(trimmed);
     if (parsed != null && parsed.hasScheme) {
-      return rawUrl;
+      return trimmed;
     }
     final base = Uri.parse(baseUrl);
-    final resolved = rawUrl.startsWith('/')
-        ? base.replace(path: rawUrl, query: null, fragment: null)
-        : base.resolve(rawUrl);
-    return resolved.toString();
+    return base.resolve(trimmed).toString();
   }
 }
 

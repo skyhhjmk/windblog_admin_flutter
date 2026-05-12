@@ -145,6 +145,7 @@ class _MediaLibraryPickerState extends State<MediaLibraryPicker> {
                     width: double.infinity,
                     height: double.infinity,
                     fit: BoxFit.cover,
+                    api: widget.api,
                   )
                 else
                   const Center(child: Icon(Icons.insert_drive_file, size: 40)),

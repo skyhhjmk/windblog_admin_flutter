@@ -51,7 +51,8 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (context) => _MediaFullScreenPreview(url: _item.url),
+        builder: (context) =>
+            _MediaFullScreenPreview(url: _item.url, api: widget.api),
       ),
     );
   }
@@ -154,7 +155,7 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     if (_item.isImage) {
       if (_loadOriginal) {
         return Image.network(
-          _item.url,
+          widget.api.normalizeUrl(_item.url),
           headers: const {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           },
@@ -178,6 +179,7 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         width: double.infinity,
         height: double.infinity,
         fit: BoxFit.contain,
+        api: widget.api,
       );
     }
 
@@ -490,9 +492,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
 }
 
 class _MediaFullScreenPreview extends StatelessWidget {
-  const _MediaFullScreenPreview({required this.url});
+  const _MediaFullScreenPreview({required this.url, required this.api});
 
   final String url;
+  final AdminApiClient api;
 
   @override
   Widget build(BuildContext context) {
@@ -505,7 +508,7 @@ class _MediaFullScreenPreview extends StatelessWidget {
               minScale: 0.1,
               maxScale: 5.0,
               child: Image.network(
-                url,
+                api.normalizeUrl(url),
                 fit: BoxFit.contain,
                 width: double.infinity,
                 height: double.infinity,

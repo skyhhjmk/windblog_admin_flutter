@@ -208,24 +208,35 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Future<void> createOrEdit({PostItem? item}) async {
-    PostDetail? detail;
-    if (item != null) {
-      detail = await widget.api.postDetail(item.id);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    try {
+      PostDetail? detail;
+      if (item != null) {
+        detail = await widget.api.postDetail(item.id);
+      }
+      if (!mounted) return;
+
+      await Navigator.push<PostEditRequest?>(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              PostEditorPage(
+                detail: detail,
+                api: widget.api,
+              ),
+        ),
+      );
+
+      await load();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('${t(context, 'operation_failed')}: $e')),
+        );
+      }
     }
-    if (!mounted) return;
-
-    await Navigator.push<PostEditRequest?>(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            PostEditorPage(
-              detail: detail,
-              api: widget.api,
-            ),
-      ),
-    );
-
-    await load();
   }
 
   Widget _buildListView() {
@@ -325,11 +336,20 @@ class _PostsPageState extends State<PostsPage> {
             ),
             TextButton(
               onPressed: () async {
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
                 try {
                   await widget.api.publishPost(it.id);
                   await load();
                 } on UnauthorizedException {
                   widget.onAuthError();
+                } catch (e) {
+                  if (mounted) {
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(
+                          content: Text('${t(
+                              context, 'operation_failed')}: $e')),
+                    );
+                  }
                 }
               },
               child: Text(
@@ -337,15 +357,47 @@ class _PostsPageState extends State<PostsPage> {
             ),
             TextButton(
               onPressed: () async {
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) =>
+                      AlertDialog(
+                        title: Text(t(context, 'confirm_delete')),
+                        content: Text(t(context, 'confirm_delete_post_msg')),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text(t(context, 'cancel')),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: Text(t(context, 'delete'),
+                                style: const TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                );
+
+                if (confirmed != true) return;
+
                 try {
                   await widget.api.deletePost(it.id);
                   await load();
                 } on UnauthorizedException {
                   widget.onAuthError();
+                } catch (e) {
+                  if (mounted) {
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(
+                          content: Text('${t(
+                              context, 'operation_failed')}: $e')),
+                    );
+                  }
                 }
               },
               child: Text(
-                  t(context, 'delete'), style: const TextStyle(fontSize: 12)),
+                  t(context, 'delete'),
+                  style: const TextStyle(fontSize: 12, color: Colors.red)),
             ),
           ],
         ),
