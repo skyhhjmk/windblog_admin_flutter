@@ -141,6 +141,11 @@ class _HomePageState extends State<HomePage> {
                           selectedIcon: const Icon(Icons.settings),
                           label: Text(t(context, 'system_settings')),
                         ),
+                        NavigationRailDestination(
+                          icon: const Icon(Icons.hub_outlined),
+                          selectedIcon: const Icon(Icons.hub),
+                          label: const Text('边缘节点'),
+                        ),
                       ],
                     ),
                   ),
@@ -182,7 +187,9 @@ class _HomePageState extends State<HomePage> {
                           17 => t(context, 'queue_monitoring'),
                           18 => t(context, 'system_monitoring'),
                           19 => t(context, 'system_logs'),
-                          _ => t(context, 'system_settings'),
+                          20 => t(context, 'system_settings'),
+                          21 => '边缘节点',
+                          _ => t(context, 'unknown'),
                         },
                       ),
                       const Spacer(),
@@ -241,7 +248,8 @@ class _HomePageState extends State<HomePage> {
       17 => QueuesPage(api: widget.api, onAuthError: widget.onLogout),
       18 => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
       19 => AuditLogsPage(api: widget.api, onAuthError: widget.onLogout),
-      _ => SystemSettingsPage(api: widget.api, onAuthError: widget.onLogout),
+      20 => SystemSettingsPage(api: widget.api, onAuthError: widget.onLogout),
+      _ => EdgeNodesPage(api: widget.api, onAuthError: widget.onLogout),
     };
   }
 }

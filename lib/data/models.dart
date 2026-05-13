@@ -2461,3 +2461,33 @@ class ImageProcessingMetadata {
     );
   }
 }
+
+class EdgeNode {
+  final String nodeId;
+  final String region;
+  final DateTime lastHeartbeat;
+  final Map<String, String> metrics;
+  final String status;
+  final bool isEnabled;
+
+  EdgeNode({
+    required this.nodeId,
+    required this.region,
+    required this.lastHeartbeat,
+    required this.metrics,
+    required this.status,
+    required this.isEnabled,
+  });
+
+  factory EdgeNode.fromJson(Map<String, dynamic> json) {
+    return EdgeNode(
+      nodeId: json['nodeId']?.toString() ?? '',
+      region: json['region']?.toString() ?? '',
+      lastHeartbeat: parseDate(json['lastHeartbeat']) ?? DateTime.now(),
+      metrics: (json['metrics'] as Map?)?.map((k, v) =>
+          MapEntry(k.toString(), v.toString())) ?? {},
+      status: json['status']?.toString() ?? 'OFFLINE',
+      isEnabled: json['isEnabled'] == true || json['enabled'] == true,
+    );
+  }
+}

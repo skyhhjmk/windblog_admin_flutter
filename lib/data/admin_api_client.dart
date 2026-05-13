@@ -800,6 +800,19 @@ class AdminApiClient {
     await _post('/api/admin/storage/dead-letter/$id/retry', body: {});
   }
 
+  // ==================== Edge Nodes API ====================
+
+  Future<List<EdgeNode>> listEdgeNodes() async {
+    final res = await _get('/api/admin/edge-nodes');
+    final list = jsonDecode(res.body) as List<dynamic>;
+    return list.map((e) => EdgeNode.fromJson(_map(e))).toList();
+  }
+
+  Future<void> toggleEdgeNode(String nodeId, bool enabled) async {
+    await _put(
+        '/api/admin/edge-nodes/$nodeId/toggle', query: {'enabled': '$enabled'});
+  }
+
   Future<void> deleteDeadLetterMessage(int id) async {
     await _delete('/api/admin/storage/dead-letter/$id');
   }
@@ -831,9 +844,10 @@ class AdminApiClient {
 
   Future<http.Response> _put(
     String path, {
-    required Map<String, dynamic> body,
+        Map<String, dynamic> body = const {},
+        Map<String, String>? query,
   }) async {
-    final uri = Uri.parse('$baseUrl$path');
+    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.put(
       uri,
       headers: _headers(true),
