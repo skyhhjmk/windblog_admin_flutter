@@ -840,6 +840,21 @@ class AdminApiClient {
     return list.map((e) => EdgeNode.fromJson(_map(e))).toList();
   }
 
+  Future<EdgeNode> createEdgeNode(EdgeNode node) async {
+    final res = await _post('/api/admin/edge-nodes', body: node.toJson());
+    return EdgeNode.fromJson(_map(jsonDecode(res.body)));
+  }
+
+  Future<EdgeNode> updateEdgeNode(String nodeId, EdgeNode node) async {
+    final res = await _put(
+        '/api/admin/edge-nodes/$nodeId', body: node.toJson());
+    return EdgeNode.fromJson(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> deleteEdgeNode(String nodeId) async {
+    await _delete('/api/admin/edge-nodes/$nodeId');
+  }
+
   Future<void> toggleEdgeNode(String nodeId, bool enabled) async {
     await _put(
         '/api/admin/edge-nodes/$nodeId/toggle', query: {'enabled': '$enabled'});

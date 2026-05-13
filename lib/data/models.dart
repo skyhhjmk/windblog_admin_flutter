@@ -2479,18 +2479,34 @@ class ImageProcessingMetadata {
   }
 }
 
+enum EdgeRegion {
+  CHINA,
+  GLOBAL,
+}
+
+enum EdgeConnectionType {
+  HEARTBEAT,
+  ACTIVE_POLL,
+}
+
 class EdgeNode {
   final String nodeId;
-  final String region;
-  final DateTime lastHeartbeat;
+  final String name;
+  final String? address;
+  final EdgeRegion region;
+  final EdgeConnectionType connectionType;
+  final DateTime? lastHeartbeat;
   final Map<String, String> metrics;
   final String status;
   final bool isEnabled;
 
   EdgeNode({
     required this.nodeId,
+    required this.name,
+    this.address,
     required this.region,
-    required this.lastHeartbeat,
+    required this.connectionType,
+    this.lastHeartbeat,
     required this.metrics,
     required this.status,
     required this.isEnabled,
@@ -2499,13 +2515,37 @@ class EdgeNode {
   factory EdgeNode.fromJson(Map<String, dynamic> json) {
     return EdgeNode(
       nodeId: json['nodeId']?.toString() ?? '',
-      region: json['region']?.toString() ?? '',
-      lastHeartbeat: parseDate(json['lastHeartbeat']) ?? DateTime.now(),
+      name: json['name']?.toString() ?? '',
+      address: json['address']?.toString(),
+      region: _parseRegion(json['region']),
+      connectionType: _parseConnectionType(json['connectionType']),
+      lastHeartbeat: parseDate(json['lastHeartbeat']),
       metrics: (json['metrics'] as Map?)?.map((k, v) =>
           MapEntry(k.toString(), v.toString())) ?? {},
       status: json['status']?.toString() ?? 'OFFLINE',
       isEnabled: json['isEnabled'] == true || json['enabled'] == true,
     );
+  }
+
+  static EdgeRegion _parseRegion(dynamic value) {
+    if (value == 'CHINA') return EdgeRegion.CHINA;
+    return EdgeRegion.GLOBAL;
+  }
+
+  static EdgeConnectionType _parseConnectionType(dynamic value) {
+    if (value == 'ACTIVE_POLL') return EdgeConnectionType.ACTIVE_POLL;
+    return EdgeConnectionType.HEARTBEAT;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'nodeId': nodeId,
+      'name': name,
+      'address': address,
+      'region': region.name,
+      'connectionType': connectionType.name,
+      'isEnabled': isEnabled,
+    };
   }
 }
 
