@@ -502,9 +502,11 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day
+    final localDate = date.toLocal();
+    return '${localDate.year}-${localDate.month.toString().padLeft(
+        2, '0')}-${localDate.day
         .toString().padLeft(2, '0')} '
-        '${date.hour.toString().padLeft(2, '0')}:${date.minute
+        '${localDate.hour.toString().padLeft(2, '0')}:${localDate.minute
         .toString()
         .padLeft(2, '0')}';
   }

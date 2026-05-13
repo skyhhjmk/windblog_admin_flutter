@@ -2043,9 +2043,11 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day
-        .toString().padLeft(2, '0')} ${date.hour.toString().padLeft(
-        2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final localDate = date.toLocal();
+    return '${localDate.year}-${localDate.month.toString().padLeft(
+        2, '0')}-${localDate.day
+        .toString().padLeft(2, '0')} ${localDate.hour.toString().padLeft(
+        2, '0')}:${localDate.minute.toString().padLeft(2, '0')}';
   }
 }
 

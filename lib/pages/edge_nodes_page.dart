@@ -322,8 +322,10 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
 
   String _formatDate(DateTime? dt) {
     if (dt == null) return '从未活跃';
-    return '${dt.year}-${dt.month}-${dt.day} ${dt.hour.toString().padLeft(
-        2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second
+    final localDt = dt.toLocal();
+    return '${localDt.year}-${localDt.month}-${localDt.day} ${localDt.hour
+        .toString().padLeft(
+        2, '0')}:${localDt.minute.toString().padLeft(2, '0')}:${localDt.second
         .toString()
         .padLeft(2, '0')}';
   }

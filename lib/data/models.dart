@@ -1358,7 +1358,8 @@ DateTime? parseDate(Object? value) {
   if (value == null) {
     return null;
   }
-  return DateTime.tryParse(value.toString());
+  final dt = DateTime.tryParse(value.toString());
+  return dt?.toLocal();
 }
 
 String? _parseSupportedTypes(Object? value) {
