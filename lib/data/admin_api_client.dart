@@ -679,6 +679,38 @@ class AdminApiClient {
     await _delete('/api/admin/links/$id');
   }
 
+  // ==================== Region Management API ====================
+
+  Future<List<RegionRule>> listRegionRules() async {
+    final res = await _get('/api/admin/regions');
+    final list = jsonDecode(res.body) as List;
+    return list.map((e) => RegionRule.fromJson(_map(e))).toList();
+  }
+
+  Future<RegionRule> createRegionRule(RegionRule rule) async {
+    final res = await _post('/api/admin/regions', body: rule.toJson());
+    return RegionRule.fromJson(_map(jsonDecode(res.body)));
+  }
+
+  Future<RegionRule> updateRegionRule(int id, RegionRule rule) async {
+    final res = await _put('/api/admin/regions/$id', body: rule.toJson());
+    return RegionRule.fromJson(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> deleteRegionRule(int id) async {
+    await _delete('/api/admin/regions/$id');
+  }
+
+  Future<MediaItem> updateMedia(int id,
+      {List<String>? visibilityRegions}) async {
+    final res = await _patch('/api/admin/media/$id', body: {
+      // ignore: use_null_aware_elements
+      if (visibilityRegions != null) 'visibilityRegions': visibilityRegions,
+    });
+    return MediaItem.fromMap(
+        _normalizeMediaItemMap(_map(jsonDecode(res.body))));
+  }
+
   // ==================== Storage Management API ====================
 
   Future<List<StorageProviderItem>> listStorageProviders() async {
@@ -849,6 +881,19 @@ class AdminApiClient {
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.put(
+      uri,
+      headers: _headers(true),
+      body: jsonEncode(body),
+    );
+    _check(res, authFailureAsSessionExpired: true);
+    return res;
+  }
+
+  Future<http.Response> _patch(String path, {
+    Map<String, dynamic> body = const {},
+  }) async {
+    final uri = Uri.parse('$baseUrl$path');
+    final res = await http.patch(
       uri,
       headers: _headers(true),
       body: jsonEncode(body),

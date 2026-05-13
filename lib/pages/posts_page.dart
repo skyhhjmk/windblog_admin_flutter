@@ -763,8 +763,10 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   int? categoryId;
   List<int> tagIds = [];
+  List<String> visibilityRegions = [];
   List<CategoryItem> _categories = [];
   List<TagItem> _tags = [];
+  List<RegionRule> _regionRules = [];
   List<PostRevisionItem> _revisions = [];
   bool _isLoadingRevisions = false;
 
@@ -782,6 +784,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   int? _initialAiSummaryStatus;
   int? _initialCategoryId;
   List<int>? _initialTagIds;
+  List<String>? _initialVisibilityRegions;
 
   PostDetail? _currentDetail;
 
@@ -823,6 +826,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     passwordCtrl = TextEditingController(text: d?.password ?? '');
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
+    visibilityRegions = d?.visibilityRegions ?? [];
 
     _initialSlug = d?.slug;
     _initialTitle = d?.zhTitle;
@@ -835,6 +839,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     _initialAiSummaryStatus = d?.aiSummaryStatus;
     _initialCategoryId = d?.categoryId;
     _initialTagIds = d?.tagIds != null ? List<int>.from(d!.tagIds) : null;
+    _initialVisibilityRegions = d?.visibilityRegions != null
+        ? List<String>.from(d!.visibilityRegions)
+        : null;
 
     _sidebarTabController = TabController(length: 3, vsync: this);
 
@@ -907,7 +914,18 @@ class _PostEditorPageState extends State<PostEditorPage>
         editorType != _initialEditorType ||
         aiSummaryStatus != _initialAiSummaryStatus ||
         categoryId != _initialCategoryId ||
-        !_listEquals(tagIds, _initialTagIds);
+        !_listEquals(tagIds, _initialTagIds) ||
+        !_listEqualsString(visibilityRegions, _initialVisibilityRegions);
+  }
+
+  bool _listEqualsString(List<String>? a, List<String>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   bool _listEquals(List<int>? a, List<int>? b) {
@@ -948,6 +966,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     try {
       final cats = await widget.api.listCategories();
       final tags = await widget.api.listTags();
+      final regions = await widget.api.listRegionRules();
       if (mounted) {
         setState(() {
           final uniqueCatsMap = <int, CategoryItem>{};
@@ -956,6 +975,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           }
           _categories = uniqueCatsMap.values.toList();
           _tags = tags;
+          _regionRules = regions;
         });
       }
     } catch (e) {
@@ -1102,6 +1122,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         freeLines: int.tryParse(freeLinesCtrl.text.trim()),
         categoryId: categoryId,
         tagIds: tagIds,
+        visibilityRegions: visibilityRegions,
       );
 
       if (_currentDetail == null) {
@@ -1184,6 +1205,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           editorType = newDetail.editorType;
           categoryId = newDetail.categoryId;
           tagIds = newDetail.tagIds;
+          visibilityRegions = newDetail.visibilityRegions;
 
           _initialSlug = newDetail.slug;
           _initialTitle = newDetail.zhTitle;
@@ -1196,6 +1218,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           _initialAiSummaryStatus = newDetail.aiSummaryStatus;
           _initialCategoryId = newDetail.categoryId;
           _initialTagIds = List<int>.from(newDetail.tagIds);
+          _initialVisibilityRegions =
+          List<String>.from(newDetail.visibilityRegions);
 
           _isDirty = false;
         });
@@ -1799,6 +1823,63 @@ class _PostEditorPageState extends State<PostEditorPage>
                   visibility = v ?? 0;
                   _markDirty();
                 }),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String?>(
+            initialValue: null,
+            decoration: const InputDecoration(
+              labelText: '可见性区域约束',
+              isDense: true,
+            ),
+            hint: Text(visibilityRegions.isEmpty
+                ? '全部区域可见'
+                : '已选择 ${visibilityRegions.length} 个区域'),
+            items: [
+              if (visibilityRegions.isNotEmpty)
+                const DropdownMenuItem<String?>(
+                  value: "__clear__",
+                  child: Text(
+                      "清除所有区域限制", style: TextStyle(color: Colors.red)),
+                ),
+              ..._regionRules
+                  .map((r) => r.region)
+                  .toSet()
+                  .map((region) =>
+                  DropdownMenuItem<String>(
+                    value: region,
+                    child: Row(
+                      children: [
+                        Icon(
+                          visibilityRegions.contains(region)
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(region.toUpperCase()),
+                      ],
+                    ),
+                  )),
+            ],
+            onChanged: (v) {
+              if (v == "__clear__") {
+                setState(() {
+                  visibilityRegions.clear();
+                  _markDirty();
+                });
+                return;
+              }
+              if (v != null) {
+                setState(() {
+                  if (visibilityRegions.contains(v)) {
+                    visibilityRegions.remove(v);
+                  } else {
+                    visibilityRegions.add(v);
+                  }
+                  _markDirty();
+                });
+              }
+            },
           ),
           if (visibility == 2) ...[
             const SizedBox(height: 16),

@@ -74,6 +74,8 @@ part 'pages/edge_monitor_page.dart';
 
 part 'pages/edge_nodes_page.dart';
 
+part 'pages/region_management_page.dart';
+
 
 String _resolveMimeType(PlatformFile file) {
   final candidate = file.path ?? file.name;

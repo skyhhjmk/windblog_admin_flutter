@@ -111,6 +111,7 @@ class PostDetail {
     this.categoryId,
     this.userName,
     this.tagIds = const [],
+    this.visibilityRegions = const [],
     this.pointsPrice,
     this.freeLines,
     this.publishedAt,
@@ -137,6 +138,7 @@ class PostDetail {
   final int? categoryId;
   final String? userName;
   final List<int> tagIds;
+  final List<String> visibilityRegions;
   final int? pointsPrice;
   final int? freeLines;
   final DateTime? publishedAt;
@@ -181,6 +183,7 @@ class PostDetail {
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
           .toList(),
+      visibilityRegions: toStringList(map['visibilityRegions']) ?? [],
       pointsPrice: toInt(map['pointsPrice']),
       freeLines: toInt(map['freeLines']),
       publishedAt: parseDate(map['publishedAt']),
@@ -243,6 +246,7 @@ class PostEditRequest {
     required this.version,
     this.categoryId,
     this.tagIds = const [],
+    this.visibilityRegions = const [],
     this.pointsPrice,
     this.freeLines,
   });
@@ -263,6 +267,7 @@ class PostEditRequest {
   final int version;
   final int? categoryId;
   final List<int> tagIds;
+  final List<String> visibilityRegions;
   final int? pointsPrice;
   final int? freeLines;
 
@@ -283,6 +288,7 @@ class PostEditRequest {
       'aiSummaryStatus': aiSummaryStatus,
       'categoryId': categoryId,
       'tagIds': tagIds,
+      'visibilityRegions': visibilityRegions,
       if (pointsPrice != null) 'pointsPrice': pointsPrice,
       if (freeLines != null) 'freeLines': freeLines,
     };
@@ -306,6 +312,7 @@ class PostEditRequest {
       'version': version,
       'categoryId': categoryId,
       'tagIds': tagIds,
+      'visibilityRegions': visibilityRegions,
       if (pointsPrice != null) 'pointsPrice': pointsPrice,
       if (freeLines != null) 'freeLines': freeLines,
     };
@@ -332,6 +339,7 @@ class PostEditRequest {
       version: version ?? this.version,
       categoryId: categoryId ?? this.categoryId,
       tagIds: tagIds ?? this.tagIds,
+      visibilityRegions: visibilityRegions,
       pointsPrice: pointsPrice,
       freeLines: freeLines,
     );
@@ -807,6 +815,7 @@ class MediaItem {
     required this.createdAt,
     required this.referenced,
     required this.references,
+    this.visibilityRegions = const [],
     this.metadata = const {},
     this.processingStatus,
     this.processingProgress,
@@ -830,6 +839,7 @@ class MediaItem {
   final DateTime createdAt;
   final bool referenced;
   final List<MediaReference> references;
+  final List<String> visibilityRegions;
   final Map<String, dynamic> metadata;
   final String? processingStatus;
   final int? processingProgress;
@@ -867,6 +877,7 @@ class MediaItem {
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
       referenced: toBool(map['referenced']) ?? false,
       references: refList,
+      visibilityRegions: toStringList(map['visibilityRegions']) ?? [],
       metadata: map['metadata'] is Map ? Map<String, dynamic>.from(
           map['metadata']) : {},
     );
@@ -1398,6 +1409,12 @@ List<dynamic>? asDynamicList(Object? value) {
     }
   }
   return null;
+}
+
+List<String>? toStringList(Object? value) {
+  final list = asDynamicList(value);
+  if (list == null) return null;
+  return list.map((e) => e.toString()).toList();
 }
 
 // ==================== 钱包相关模型 ====================
@@ -2489,5 +2506,55 @@ class EdgeNode {
       status: json['status']?.toString() ?? 'OFFLINE',
       isEnabled: json['isEnabled'] == true || json['enabled'] == true,
     );
+  }
+}
+
+class RegionRule {
+  final int? id;
+  final String name;
+  final String ruleType;
+  final String pattern;
+  final String region;
+  final int priority;
+  final bool isEnabled;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  RegionRule({
+    this.id,
+    required this.name,
+    required this.ruleType,
+    required this.pattern,
+    required this.region,
+    this.priority = 0,
+    this.isEnabled = true,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory RegionRule.fromJson(Map<String, dynamic> json) {
+    return RegionRule(
+      id: toInt(json['id']),
+      name: json['name']?.toString() ?? '',
+      ruleType: json['ruleType']?.toString() ?? '',
+      pattern: json['pattern']?.toString() ?? '',
+      region: json['region']?.toString() ?? '',
+      priority: toInt(json['priority']) ?? 0,
+      isEnabled: toBool(json['isEnabled']) ?? true,
+      createdAt: parseDate(json['createdAt']),
+      updatedAt: parseDate(json['updatedAt']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null) 'id': id,
+      'name': name,
+      'ruleType': ruleType,
+      'pattern': pattern,
+      'region': region,
+      'priority': priority,
+      'isEnabled': isEnabled,
+    };
   }
 }

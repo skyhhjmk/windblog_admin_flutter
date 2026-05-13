@@ -39,12 +39,52 @@ class MediaDetailDialog extends StatefulWidget {
 class _MediaDetailDialogState extends State<MediaDetailDialog> {
   bool _loadOriginal = false;
   late MediaItem _item;
+  List<RegionRule> _regionRules = [];
+  bool _loadingRegions = false;
 
   @override
   void initState() {
     super.initState();
     _item = widget.item;
     _loadOriginal = !_item.requiresManualOriginal;
+    _loadRegionRules();
+  }
+
+  Future<void> _loadRegionRules() async {
+    setState(() => _loadingRegions = true);
+    try {
+      final rules = await widget.api.listRegionRules();
+      if (mounted) {
+        setState(() {
+          _regionRules = rules;
+          _loadingRegions = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingRegions = false);
+    }
+  }
+
+  Future<void> _updateVisibility(List<String> regions) async {
+    try {
+      final updated = await widget.api.updateMedia(
+          _item.id, visibilityRegions: regions);
+      if (mounted) {
+        setState(() {
+          _item = updated;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('可见性更新成功'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _openFullScreen() {
@@ -237,6 +277,8 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
               children: [
                 _buildInfoSection(),
                 const SizedBox(height: 24),
+                _buildVisibilityRegionsSection(),
+                const SizedBox(height: 24),
                 _buildImportSection(),
                 const SizedBox(height: 24),
                 _buildReferencesSection(),
@@ -287,6 +329,81 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
               ),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildVisibilityRegionsSection() {
+    final currentRegions = _item.visibilityRegions;
+    final availableRegions = _regionRules.map((r) => r.region).toSet().toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+            '可见性区域约束', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (_loadingRegions)
+          const LinearProgressIndicator()
+        else
+          DropdownButtonFormField<String?>(
+            isExpanded: true,
+            decoration: const InputDecoration(
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            hint: Text(currentRegions.isEmpty
+                ? '全部区域可见'
+                : '已选择 ${currentRegions.length} 个区域'),
+            items: [
+              if (currentRegions.isNotEmpty)
+                const DropdownMenuItem<String?>(
+                  value: "__clear__",
+                  child: Text("清除所有限制",
+                      style: TextStyle(color: Colors.red, fontSize: 13)),
+                ),
+              ...availableRegions.map((region) =>
+                  DropdownMenuItem<String>(
+                    value: region,
+                    child: Row(
+                      children: [
+                        Icon(
+                          currentRegions.contains(region)
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(region.toUpperCase(),
+                            style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  )),
+            ],
+            onChanged: (v) {
+              if (v == "__clear__") {
+                _updateVisibility([]);
+                return;
+              }
+              if (v != null) {
+                final newRegions = List<String>.from(currentRegions);
+                if (newRegions.contains(v)) {
+                  newRegions.remove(v);
+                } else {
+                  newRegions.add(v);
+                }
+                _updateVisibility(newRegions);
+              }
+            },
+          ),
+        const SizedBox(height: 4),
+        Text(
+          currentRegions.isEmpty
+              ? '默认所有区域均可访问此媒体文件'
+              : '仅在匹配所选区域的节点/语言环境下可见',
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
+        ),
       ],
     );
   }

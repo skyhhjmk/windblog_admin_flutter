@@ -146,6 +146,11 @@ class _HomePageState extends State<HomePage> {
                           selectedIcon: const Icon(Icons.hub),
                           label: const Text('边缘节点'),
                         ),
+                        NavigationRailDestination(
+                          icon: const Icon(Icons.language_outlined),
+                          selectedIcon: const Icon(Icons.language),
+                          label: const Text('区域规则'),
+                        ),
                       ],
                     ),
                   ),
@@ -189,6 +194,7 @@ class _HomePageState extends State<HomePage> {
                           19 => t(context, 'system_logs'),
                           20 => t(context, 'system_settings'),
                           21 => '边缘节点',
+                          22 => '区域规则',
                           _ => t(context, 'unknown'),
                         },
                       ),
@@ -249,7 +255,8 @@ class _HomePageState extends State<HomePage> {
       18 => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
       19 => AuditLogsPage(api: widget.api, onAuthError: widget.onLogout),
       20 => SystemSettingsPage(api: widget.api, onAuthError: widget.onLogout),
-      _ => EdgeNodesPage(api: widget.api, onAuthError: widget.onLogout),
+      21 => EdgeNodesPage(api: widget.api, onAuthError: widget.onLogout),
+      _ => RegionManagementPage(api: widget.api, onAuthError: widget.onLogout),
     };
   }
 }
