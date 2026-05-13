@@ -17,6 +17,8 @@ class StorageSyncPanel extends StatefulWidget {
 class _StorageSyncPanelState extends State<StorageSyncPanel> {
   StorageSyncStatus? syncStatus;
   bool loading = false;
+  int _currentPage = 1;
+  final int _pageSize = 20;
 
   @override
   void initState() {
@@ -27,7 +29,10 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
   Future<void> _loadStatus() async {
     setState(() => loading = true);
     try {
-      syncStatus = await widget.api.getStorageSyncStatus();
+      syncStatus = await widget.api.getStorageSyncStatus(
+        page: _currentPage - 1, // Convert to 0-based
+        size: _pageSize,
+      );
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
@@ -41,6 +46,13 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
         setState(() => loading = false);
       }
     }
+  }
+
+  void _onPageChanged(int page) {
+    setState(() {
+      _currentPage = page;
+    });
+    _loadStatus();
   }
 
   Future<void> _batchSync() async {
@@ -104,14 +116,31 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
     if (syncStatus == null) {
       return const Center(child: Text('暂无同步数据'));
     }
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildStatsCard(),
-          const SizedBox(height: 16),
-          _buildDetailsCard(),
-        ],
-      ),
+
+    final totalPages = (syncStatus!.totalDetails / _pageSize).ceil();
+
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildStatsCard(),
+                const SizedBox(height: 16),
+                _buildDetailsCard(),
+              ],
+            ),
+          ),
+        ),
+        if (totalPages > 1)
+          PaginationBar(
+            currentPage: _currentPage,
+            totalPages: totalPages,
+            totalItems: syncStatus!.totalDetails,
+            pageSize: _pageSize,
+            onPageChanged: _onPageChanged,
+          ),
+      ],
     );
   }
 
@@ -200,8 +229,8 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
   }
 
   Widget _buildDetailsTable() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return SizedBox(
+      width: double.infinity,
       child: DataTable(
         columns: const [
           DataColumn(label: Text('媒体ID')),

@@ -208,16 +208,18 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     );
 
     try {
-      await widget.api.uploadMedia(
+      final mediaItem = await widget.api.uploadMedia(
         fileName: file.name,
         bytes: bytes,
         mimeType: mimeType,
       );
+
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t(context, 'upload_success'))),
-      );
+
+      // 开始轮询进度
+      _showProcessingProgress(mediaItem);
+      
       await _loadMedia();
     } on UnauthorizedException {
       if (!mounted) return;
@@ -230,6 +232,21 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
         SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
       );
     }
+  }
+
+  void _showProcessingProgress(MediaItem item) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) =>
+          _ProcessingProgressDialog(
+            api: widget.api,
+            initialItem: item,
+            onDone: () {
+              _loadMedia();
+            },
+          ),
+    );
   }
 
 
@@ -441,4 +458,117 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     return '${mb.toStringAsFixed(1)} MB';
   }
 
+}
+
+class _ProcessingProgressDialog extends StatefulWidget {
+  final AdminApiClient api;
+  final MediaItem initialItem;
+  final VoidCallback onDone;
+
+  const _ProcessingProgressDialog({
+    required this.api,
+    required this.initialItem,
+    required this.onDone,
+  });
+
+  @override
+  State<_ProcessingProgressDialog> createState() =>
+      _ProcessingProgressDialogState();
+}
+
+class _ProcessingProgressDialogState extends State<_ProcessingProgressDialog> {
+  late MediaItem currentItem;
+  bool finished = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    currentItem = widget.initialItem;
+    if (currentItem.processingStatus != 'COMPLETED' &&
+        currentItem.processingStatus != 'FAILED') {
+      _startPolling();
+    } else {
+      finished = true;
+    }
+  }
+
+  void _startPolling() {
+    _timer = Timer.periodic(const Duration(milliseconds: 800), (timer) async {
+      try {
+        final updated = await widget.api.getMediaItem(currentItem.id);
+        if (mounted) {
+          setState(() {
+            currentItem = updated;
+            if (updated.processingStatus == 'COMPLETED' ||
+                updated.processingStatus == 'FAILED') {
+              finished = true;
+              _timer?.cancel();
+            }
+          });
+        }
+      } catch (e) {
+        // Ignore errors during polling
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = currentItem.processingStatus ?? 'PENDING';
+    final progress = (currentItem.processingProgress ?? 0) / 100.0;
+    final isFailed = status == 'FAILED';
+
+    return AlertDialog(
+      title: Text(
+          isFailed ? '处理失败' : (finished ? '处理完成' : '媒体处理中')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isFailed) ...[
+            LinearProgressIndicator(value: finished ? 1.0 : progress),
+            const SizedBox(height: 16),
+            Text('状态: ${_getStatusLabel(status)}'),
+            if (!finished) const Text('正在生成 WebP 转换和变体，请稍候...'),
+          ] else
+            ...[
+              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              Text('错误: ${currentItem.processingError ?? '未知错误'}'),
+            ],
+        ],
+      ),
+      actions: [
+        if (finished)
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onDone();
+            },
+            child: const Text('完成'),
+          ),
+      ],
+    );
+  }
+
+  String _getStatusLabel(String status) {
+    switch (status) {
+      case 'PENDING':
+        return '等待中';
+      case 'PROCESSING':
+        return '处理中';
+      case 'COMPLETED':
+        return '已完成';
+      case 'FAILED':
+        return '失败';
+      default:
+        return status;
+    }
+  }
 }

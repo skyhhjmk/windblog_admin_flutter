@@ -808,6 +808,9 @@ class MediaItem {
     required this.referenced,
     required this.references,
     this.metadata = const {},
+    this.processingStatus,
+    this.processingProgress,
+    this.processingError,
   });
 
   final int id;
@@ -828,6 +831,9 @@ class MediaItem {
   final bool referenced;
   final List<MediaReference> references;
   final Map<String, dynamic> metadata;
+  final String? processingStatus;
+  final int? processingProgress;
+  final String? processingError;
 
   bool get isImage => mimeType.toLowerCase().startsWith('image/');
 
@@ -841,6 +847,9 @@ class MediaItem {
             .toList() ??
         [];
     return MediaItem(
+      processingStatus: map['processingStatus']?.toString(),
+      processingProgress: toInt(map['processingProgress']),
+      processingError: map['processingError']?.toString(),
       id: toInt(map['id']) ?? 0,
       storageKey: map['storageKey']?.toString() ?? '',
       url: map['url']?.toString() ?? '',
@@ -2263,6 +2272,9 @@ class StorageSyncStatus {
     required this.pendingCount,
     required this.failedCount,
     required this.details,
+    required this.totalDetails,
+    required this.page,
+    required this.size,
   });
 
   final int totalMedia;
@@ -2271,6 +2283,9 @@ class StorageSyncStatus {
   final int pendingCount;
   final int failedCount;
   final List<MediaSyncDetail> details;
+  final int totalDetails;
+  final int page;
+  final int size;
 
   double get syncPercent {
     if (totalVariants == 0) return 0;
@@ -2288,6 +2303,9 @@ class StorageSyncStatus {
       details: rawDetails
           .map((e) => MediaSyncDetail.fromMap(toStringMap(e)))
           .toList(),
+      totalDetails: toInt(map['totalDetails']) ?? 0,
+      page: toInt(map['page']) ?? 0,
+      size: toInt(map['size']) ?? 20,
     );
   }
 }
@@ -2408,6 +2426,38 @@ class DeadLetterMessageItem {
       retryCount: toInt(map['retryCount']) ?? 0,
       status: toInt(map['status']) ?? 0,
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
+    );
+  }
+}
+
+class ImageProcessingMetadata {
+  ImageProcessingMetadata({
+    required this.key,
+    required this.label,
+    required this.type,
+    this.description,
+    this.min,
+    this.max,
+    this.testUrl,
+  });
+
+  final String key;
+  final String label;
+  final String type;
+  final String? description;
+  final num? min;
+  final num? max;
+  final String? testUrl;
+
+  factory ImageProcessingMetadata.fromMap(Map<String, dynamic> map) {
+    return ImageProcessingMetadata(
+      key: map['key']?.toString() ?? '',
+      label: map['label']?.toString() ?? '',
+      type: map['type']?.toString() ?? 'text',
+      description: map['description']?.toString(),
+      min: map['min'] as num?,
+      max: map['max'] as num?,
+      testUrl: map['testUrl']?.toString(),
     );
   }
 }

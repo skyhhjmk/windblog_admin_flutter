@@ -191,7 +191,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: selectedProviderType,
+                        initialValue: selectedProviderType,
                         decoration: const InputDecoration(
                             labelText: '提供商类型'),
                         items: const [
@@ -214,7 +214,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: selectedRole,
+                        initialValue: selectedRole,
                         decoration: const InputDecoration(
                             labelText: '角色 (Role)'),
                         items: const [
@@ -503,7 +503,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: selectedRole,
+                        initialValue: selectedRole,
                         decoration: const InputDecoration(
                             labelText: '角色 (Role)'),
                         items: const [

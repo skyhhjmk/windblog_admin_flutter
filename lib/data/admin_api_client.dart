@@ -251,6 +251,12 @@ class AdminApiClient {
     return (map['retriedCount'] as num?)?.toInt() ?? 0;
   }
 
+  Future<MediaItem> getMediaItem(int id) async {
+    final res = await _get('/api/admin/media/$id');
+    return MediaItem.fromMap(
+        _normalizeMediaItemMap(_map(jsonDecode(res.body))));
+  }
+
   Future<MediaItem> uploadMedia({
     required String fileName,
     required Uint8List bytes,
@@ -711,8 +717,12 @@ class AdminApiClient {
     return StorageProviderItem.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<StorageSyncStatus> getStorageSyncStatus() async {
-    final res = await _get('/api/admin/storage/sync/status');
+  Future<StorageSyncStatus> getStorageSyncStatus(
+      {int page = 0, int size = 20}) async {
+    final res = await _get('/api/admin/storage/sync/status', query: {
+      'page': page.toString(),
+      'size': size.toString(),
+    });
     return StorageSyncStatus.fromMap(_map(jsonDecode(res.body)));
   }
 
@@ -749,6 +759,20 @@ class AdminApiClient {
         '/api/admin/storage/image-processing/configs',
         body: request.toJson());
     return ImageProcessingConfigItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<List<ImageProcessingMetadata>> getImageProcessingMetadata() async {
+    final res = await _get(
+        '/api/admin/storage/image-processing/configs/metadata');
+    final rawList = (jsonDecode(res.body) as List<dynamic>? ?? []);
+    return rawList
+        .map((e) => ImageProcessingMetadata.fromMap(_map(e)))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> testImageProcessingTool(String testUrl) async {
+    final res = await _post(testUrl, body: {});
+    return _map(jsonDecode(res.body));
   }
 
   // ==================== Dead Letter Queue API ====================
