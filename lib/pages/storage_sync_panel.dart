@@ -1,0 +1,242 @@
+part of 'package:windblog_admin_flutter/main.dart';
+
+class StorageSyncPanel extends StatefulWidget {
+  const StorageSyncPanel({
+    super.key,
+    required this.api,
+    required this.onAuthError,
+  });
+
+  final AdminApiClient api;
+  final VoidCallback onAuthError;
+
+  @override
+  State<StorageSyncPanel> createState() => _StorageSyncPanelState();
+}
+
+class _StorageSyncPanelState extends State<StorageSyncPanel> {
+  StorageSyncStatus? syncStatus;
+  bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatus();
+  }
+
+  Future<void> _loadStatus() async {
+    setState(() => loading = true);
+    try {
+      syncStatus = await widget.api.getStorageSyncStatus();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
+      }
+    }
+  }
+
+  Future<void> _batchSync() async {
+    try {
+      await widget.api.triggerBatchStorageSync();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('批量同步任务已提交')),
+        );
+      }
+      await _loadStatus();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('触发同步失败: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Text(
+                '存储同步监控',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: _batchSync,
+                icon: const Icon(Icons.sync),
+                label: const Text('批量同步'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _loadStatus,
+                icon: const Icon(Icons.refresh),
+                label: const Text('刷新'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: loading
+                ? const Center(child: CircularProgressIndicator())
+                : _buildContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (syncStatus == null) {
+      return const Center(child: Text('暂无同步数据'));
+    }
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildStatsCard(),
+          const SizedBox(height: 16),
+          _buildDetailsCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '同步概览',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _statItem(
+                    '媒体总数', syncStatus!.totalMedia.toString())),
+                Expanded(child: _statItem(
+                    '变体总数', syncStatus!.totalVariants.toString())),
+                Expanded(child: _statItem(
+                    '已同步', syncStatus!.syncedCount.toString(),
+                    color: Colors.green)),
+                Expanded(child: _statItem(
+                    '待同步', syncStatus!.pendingCount.toString(),
+                    color: Colors.orange)),
+                Expanded(child: _statItem(
+                    '失败', syncStatus!.failedCount.toString(),
+                    color: Colors.red)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: syncStatus!.syncPercent / 100,
+              minHeight: 8,
+            ),
+            const SizedBox(height: 4),
+            Text('同步进度: ${syncStatus!.syncPercent.toStringAsFixed(1)}%'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value, {Color? color}) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '同步详情',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            if (syncStatus!.details.isEmpty)
+              const Center(child: Text('暂无详情数据'))
+            else
+              _buildDetailsTable(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailsTable() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columns: const [
+          DataColumn(label: Text('媒体ID')),
+          DataColumn(label: Text('文件名')),
+          DataColumn(label: Text('MIME 类型')),
+          DataColumn(label: Text('节点状态')),
+        ],
+        rows: _buildDetailRows(),
+      ),
+    );
+  }
+
+  List<DataRow> _buildDetailRows() {
+    final List<DataRow> rows = [];
+    for (int i = 0; i < syncStatus!.details.length; i++) {
+      final detail = syncStatus!.details[i];
+      final nodeStatus = _getNodeStatusText(detail.storageNodes);
+      final row = DataRow(
+        cells: [
+          DataCell(Text(detail.mediaId.toString())),
+          DataCell(Text(detail.fileName)),
+          DataCell(Text(detail.mimeType)),
+          DataCell(Text(nodeStatus)),
+        ],
+      );
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  String _getNodeStatusText(Map<String, dynamic>? nodes) {
+    if (nodes == null) {
+      return '未同步';
+    }
+    final syncedCount = nodes.length;
+    return '$syncedCount 个节点';
+  }
+}

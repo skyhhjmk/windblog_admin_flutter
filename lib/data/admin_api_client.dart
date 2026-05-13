@@ -673,6 +673,113 @@ class AdminApiClient {
     await _delete('/api/admin/links/$id');
   }
 
+  // ==================== Storage Management API ====================
+
+  Future<List<StorageProviderItem>> listStorageProviders() async {
+    final res = await _get('/api/admin/storage/providers');
+    final rawList = (jsonDecode(res.body) as List<dynamic>? ?? []);
+    final List<StorageProviderItem> items = [];
+    for (int i = 0; i < rawList.length; i++) {
+      final element = rawList[i];
+      final item = StorageProviderItem.fromMap(_map(element));
+      items.add(item);
+    }
+    return items;
+  }
+
+  Future<StorageProviderItem> createStorageProvider(
+      StorageProviderItem request) async {
+    final res = await _post(
+        '/api/admin/storage/providers', body: request.toCreateJson());
+    return StorageProviderItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<StorageProviderItem> updateStorageProvider(int id,
+      StorageProviderItem request) async {
+    final res = await _put(
+        '/api/admin/storage/providers/$id', body: request.toUpdateJson());
+    return StorageProviderItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> deleteStorageProvider(int id) async {
+    await _delete('/api/admin/storage/providers/$id');
+  }
+
+  Future<StorageProviderItem> testStorageProvider(String name) async {
+    final res = await _post(
+        '/api/admin/storage/providers/test/$name', body: {});
+    return StorageProviderItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<StorageSyncStatus> getStorageSyncStatus() async {
+    final res = await _get('/api/admin/storage/sync/status');
+    return StorageSyncStatus.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<MediaSyncDetail> getSyncDetail(int mediaId) async {
+    final res = await _get('/api/admin/storage/sync/detail/$mediaId');
+    return MediaSyncDetail.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> triggerStorageSync(int mediaId) async {
+    await _post('/api/admin/storage/sync/trigger/$mediaId', body: {});
+  }
+
+  Future<void> triggerBatchStorageSync() async {
+    await _post('/api/admin/storage/sync/batch-trigger', body: {});
+  }
+
+  // ==================== Image Processing Config API ====================
+
+  Future<List<ImageProcessingConfigItem>> listImageProcessingConfigs() async {
+    final res = await _get('/api/admin/storage/image-processing/configs');
+    final rawList = (jsonDecode(res.body) as List<dynamic>? ?? []);
+    final List<ImageProcessingConfigItem> items = [];
+    for (int i = 0; i < rawList.length; i++) {
+      final element = rawList[i];
+      final item = ImageProcessingConfigItem.fromMap(_map(element));
+      items.add(item);
+    }
+    return items;
+  }
+
+  Future<ImageProcessingConfigItem> updateImageProcessingConfig(
+      ImageProcessingConfigItem request) async {
+    final res = await _put(
+        '/api/admin/storage/image-processing/configs',
+        body: request.toJson());
+    return ImageProcessingConfigItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  // ==================== Dead Letter Queue API ====================
+
+  Future<List<DeadLetterMessageItem>> listDeadLetterMessages({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final res = await _get('/api/admin/storage/dead-letter', query: {
+      'page': '$page',
+      'pageSize': '$pageSize',
+    });
+    final map = _map(jsonDecode(res.body));
+    final rawList = (map['items'] as List<dynamic>? ?? []);
+    final List<DeadLetterMessageItem> items = [];
+    for (int i = 0; i < rawList.length; i++) {
+      final element = rawList[i];
+      final item = DeadLetterMessageItem.fromMap(_map(element));
+      items.add(item);
+    }
+    return items;
+  }
+
+  Future<void> retryDeadLetterMessage(int id) async {
+    await _post('/api/admin/storage/dead-letter/$id/retry', body: {});
+  }
+
+  Future<void> deleteDeadLetterMessage(int id) async {
+    await _delete('/api/admin/storage/dead-letter/$id');
+  }
+
   // ==================== Internal Helpers ====================
 
   Future<http.Response> _get(String path, {Map<String, String>? query}) async {

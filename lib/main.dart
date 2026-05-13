@@ -62,6 +62,16 @@ part 'components/html_syntax_editor.dart';
 
 part 'components/pagination_bar.dart';
 
+part 'pages/storage_providers_page.dart';
+
+part 'pages/storage_sync_panel.dart';
+
+part 'pages/dead_letter_page.dart';
+
+part 'pages/image_processing_config_page.dart';
+
+part 'pages/edge_monitor_page.dart';
+
 
 String _resolveMimeType(PlatformFile file) {
   final candidate = file.path ?? file.name;

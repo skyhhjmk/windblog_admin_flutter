@@ -67,6 +67,31 @@ class _HomePageState extends State<HomePage> {
                           label: Text(t(context, 'media')),
                         ),
                         NavigationRailDestination(
+                          icon: const Icon(Icons.cloud_outlined),
+                          selectedIcon: const Icon(Icons.cloud),
+                          label: const Text('存储节点'),
+                        ),
+                        NavigationRailDestination(
+                          icon: const Icon(Icons.sync_outlined),
+                          selectedIcon: const Icon(Icons.sync),
+                          label: const Text('同步监控'),
+                        ),
+                        NavigationRailDestination(
+                          icon: const Icon(Icons.warning_outlined),
+                          selectedIcon: const Icon(Icons.warning),
+                          label: const Text('死信队列'),
+                        ),
+                        NavigationRailDestination(
+                          icon: const Icon(Icons.image_outlined),
+                          selectedIcon: const Icon(Icons.image),
+                          label: const Text('图片处理'),
+                        ),
+                        NavigationRailDestination(
+                          icon: const Icon(Icons.public_outlined),
+                          selectedIcon: const Icon(Icons.public),
+                          label: const Text('边缘监控'),
+                        ),
+                        NavigationRailDestination(
                           icon: const Icon(Icons.link_outlined),
                           selectedIcon: const Icon(Icons.link),
                           label: Text(t(context, 'links_management')),
@@ -143,15 +168,20 @@ class _HomePageState extends State<HomePage> {
                           3 => t(context, 'tags'),
                           4 => t(context, 'store_items'),
                           5 => t(context, 'media'),
-                          6 => t(context, 'links_management'),
-                          7 => t(context, 'users'),
-                          8 => t(context, 'permissions'),
-                          9 => t(context, 'ai_providers'),
-                          10 => t(context, 'database'),
-                          11 => t(context, 'comments'),
-                          12 => t(context, 'queue_monitoring'),
-                          13 => t(context, 'system_monitoring'),
-                          14 => t(context, 'system_logs'),
+                          6 => '存储节点',
+                          7 => '同步监控',
+                          8 => '死信队列',
+                          9 => '图片处理',
+                          10 => '边缘监控',
+                          11 => t(context, 'links_management'),
+                          12 => t(context, 'users'),
+                          13 => t(context, 'permissions'),
+                          14 => t(context, 'ai_providers'),
+                          15 => t(context, 'database'),
+                          16 => t(context, 'comments'),
+                          17 => t(context, 'queue_monitoring'),
+                          18 => t(context, 'system_monitoring'),
+                          19 => t(context, 'system_logs'),
                           _ => t(context, 'system_settings'),
                         },
                       ),
@@ -184,26 +214,33 @@ class _HomePageState extends State<HomePage> {
       3 => TagsPage(api: widget.api, onAuthError: widget.onLogout),
       4 => StoreItemsPage(api: widget.api, onAuthError: widget.onLogout),
       5 => MediaLibraryPage(api: widget.api, onAuthError: widget.onLogout),
-      6 => LinksPage(api: widget.api, onAuthError: widget.onLogout),
-      7 =>
+      6 => StorageProvidersPage(api: widget.api, onAuthError: widget.onLogout),
+      7 => StorageSyncPanel(api: widget.api, onAuthError: widget.onLogout),
+      8 => DeadLetterPage(api: widget.api, onAuthError: widget.onLogout),
+      9 =>
+          ImageProcessingConfigPage(
+              api: widget.api, onAuthError: widget.onLogout),
+      10 => EdgeMonitorPage(api: widget.api, onAuthError: widget.onLogout),
+      11 => LinksPage(api: widget.api, onAuthError: widget.onLogout),
+      12 =>
           UserManagementPage(
           api: widget.api,
           onAuthError: widget.onLogout,
           isSuperAdmin: isSuperAdmin,
         ),
-      8 =>
+      13 =>
           PermissionManagementPage(
           api: widget.api,
           isSuperAdmin: isSuperAdmin,
           onAuthError: widget.onLogout,
         ),
-      9 => AiProvidersPage(api: widget.api, onAuthError: widget.onLogout),
-      10 =>
+      14 => AiProvidersPage(api: widget.api, onAuthError: widget.onLogout),
+      15 =>
           DatabaseManagementPage(api: widget.api, onAuthError: widget.onLogout),
-      11 => CommentsPage(api: widget.api, onAuthError: widget.onLogout),
-      12 => QueuesPage(api: widget.api, onAuthError: widget.onLogout),
-      13 => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
-      14 => AuditLogsPage(api: widget.api, onAuthError: widget.onLogout),
+      16 => CommentsPage(api: widget.api, onAuthError: widget.onLogout),
+      17 => QueuesPage(api: widget.api, onAuthError: widget.onLogout),
+      18 => SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout),
+      19 => AuditLogsPage(api: widget.api, onAuthError: widget.onLogout),
       _ => SystemSettingsPage(api: widget.api, onAuthError: widget.onLogout),
     };
   }

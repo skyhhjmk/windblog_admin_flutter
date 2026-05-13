@@ -189,26 +189,46 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     final bytes = file.bytes;
     if (bytes == null) return;
     final mimeType = _resolveMimeType(file);
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) =>
+      const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在上传，请稍候...'),
+          ],
+        ),
+      ),
+    );
+
     try {
       await widget.api.uploadMedia(
         fileName: file.name,
         bytes: bytes,
         mimeType: mimeType,
       );
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t(context, 'upload_success'))),
+      );
       await _loadMedia();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(t(context, 'upload_success'))),
-        );
-      }
     } on UnauthorizedException {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
       widget.onAuthError();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
-        );
-      }
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
+      );
     }
   }
 

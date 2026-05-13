@@ -1341,6 +1341,26 @@ DateTime? parseDate(Object? value) {
   return DateTime.tryParse(value.toString());
 }
 
+String? _parseSupportedTypes(Object? value) {
+  if (value == null) return null;
+  if (value is String) {
+    final text = value.trim();
+    if (text.startsWith('[') && text.endsWith(']')) {
+      try {
+        final list = jsonDecode(text);
+        if (list is List) {
+          return list.join(',');
+        }
+      } catch (_) {}
+    }
+    return text;
+  }
+  if (value is List) {
+    return value.join(',');
+  }
+  return value.toString();
+}
+
 List<dynamic>? asDynamicList(Object? value) {
   if (value == null) {
     return null;
@@ -2124,6 +2144,270 @@ class AdminLinkItem {
       seoDescription: map["seoDescription"]?.toString(),
       type: toInt(map["type"]),
       createdAt: parseDate(map["createdAt"]),
+    );
+  }
+}
+
+// ==================== 存储管理相关模型 ====================
+
+class StorageProviderItem {
+  StorageProviderItem({
+    required this.id,
+    required this.name,
+    required this.displayName,
+    required this.providerType,
+    required this.isEnabled,
+    required this.isPrimary,
+    this.role,
+    this.configJson,
+    this.supportedTypes,
+    this.cdnDomain,
+    this.cdnEnabled,
+    this.region,
+    this.priority,
+  });
+
+  final int? id;
+  final String name;
+  final String displayName;
+  final String providerType;
+  final bool isEnabled;
+  final bool isPrimary;
+  final String? role;
+  final String? configJson;
+  final String? supportedTypes;
+  final String? cdnDomain;
+  final bool? cdnEnabled;
+  final String? region;
+  final int? priority;
+
+  String get providerTypeText {
+    switch (providerType) {
+      case 'aliyun_oss_v2':
+        return '阿里云 OSS v2';
+      case 'local_fs':
+        return '本地文件系统';
+      default:
+        return providerType;
+    }
+  }
+
+  String get roleText {
+    switch (role) {
+      case 'primary':
+        return '主存储 (Primary)';
+      case 'backup':
+        return '备份存储 (Backup)';
+      case 'archive':
+        return '归档存储 (Archive)';
+      default:
+        return role ?? '未设置';
+    }
+  }
+
+  factory StorageProviderItem.fromMap(Map<String, dynamic> map) {
+    return StorageProviderItem(
+      id: toInt(map['id']),
+      name: map['name']?.toString() ?? '',
+      displayName: map['displayName']?.toString() ?? '',
+      providerType: map['providerType']?.toString() ?? '',
+      isEnabled: toBool(map['isEnabled']) ?? false,
+      isPrimary: toBool(map['isPrimary']) ?? false,
+      role: map['role']?.toString(),
+      configJson: map['configJson']?.toString(),
+      supportedTypes: _parseSupportedTypes(map['supportedTypes']),
+      cdnDomain: map['cdnDomain']?.toString(),
+      cdnEnabled: toBool(map['cdnEnabled']),
+      region: map['region']?.toString(),
+      priority: toInt(map['priority']),
+    );
+  }
+
+  Map<String, dynamic> toCreateJson() {
+    return {
+      'name': name,
+      'displayName': displayName,
+      'providerType': providerType,
+      'isEnabled': isEnabled,
+      'isPrimary': isPrimary,
+      if (role != null) 'role': role,
+      if (configJson != null) 'configJson': configJson,
+      if (supportedTypes != null) 'supportedTypes': supportedTypes,
+      if (cdnDomain != null) 'cdnDomain': cdnDomain,
+      if (cdnEnabled != null) 'cdnEnabled': cdnEnabled,
+      if (region != null) 'region': region,
+      if (priority != null) 'priority': priority,
+    };
+  }
+
+  Map<String, dynamic> toUpdateJson() {
+    return {
+      'displayName': displayName,
+      'isEnabled': isEnabled,
+      if (role != null) 'role': role,
+      if (configJson != null) 'configJson': configJson,
+      if (supportedTypes != null) 'supportedTypes': supportedTypes,
+      if (cdnDomain != null) 'cdnDomain': cdnDomain,
+      if (cdnEnabled != null) 'cdnEnabled': cdnEnabled,
+      if (region != null) 'region': region,
+      if (priority != null) 'priority': priority,
+    };
+  }
+}
+
+class StorageSyncStatus {
+  StorageSyncStatus({
+    required this.totalMedia,
+    required this.totalVariants,
+    required this.syncedCount,
+    required this.pendingCount,
+    required this.failedCount,
+    required this.details,
+  });
+
+  final int totalMedia;
+  final int totalVariants;
+  final int syncedCount;
+  final int pendingCount;
+  final int failedCount;
+  final List<MediaSyncDetail> details;
+
+  double get syncPercent {
+    if (totalVariants == 0) return 0;
+    return syncedCount / totalVariants * 100;
+  }
+
+  factory StorageSyncStatus.fromMap(Map<String, dynamic> map) {
+    final rawDetails = asDynamicList(map['details']) ?? [];
+    return StorageSyncStatus(
+      totalMedia: toInt(map['totalMedia']) ?? 0,
+      totalVariants: toInt(map['totalVariants']) ?? 0,
+      syncedCount: toInt(map['syncedCount']) ?? 0,
+      pendingCount: toInt(map['pendingCount']) ?? 0,
+      failedCount: toInt(map['failedCount']) ?? 0,
+      details: rawDetails
+          .map((e) => MediaSyncDetail.fromMap(toStringMap(e)))
+          .toList(),
+    );
+  }
+}
+
+class MediaSyncDetail {
+  MediaSyncDetail({
+    required this.mediaId,
+    required this.fileName,
+    required this.mimeType,
+    this.storageNodes,
+  });
+
+  final int mediaId;
+  final String fileName;
+  final String mimeType;
+  final Map<String, dynamic>? storageNodes;
+
+  factory MediaSyncDetail.fromMap(Map<String, dynamic> map) {
+    return MediaSyncDetail(
+      mediaId: toInt(map['mediaId']) ?? 0,
+      fileName: map['fileName']?.toString() ?? '',
+      mimeType: map['mimeType']?.toString() ?? '',
+      storageNodes: map['storageNodes'] is Map
+          ? Map<String, dynamic>.from(map['storageNodes'] as Map)
+          : null,
+    );
+  }
+}
+
+class StorageTestResult {
+  StorageTestResult({
+    required this.success,
+    required this.message,
+  });
+
+  final bool success;
+  final String message;
+
+  factory StorageTestResult.fromMap(Map<String, dynamic> map) {
+    return StorageTestResult(
+      success: toBool(map['success']) ?? false,
+      message: map['message']?.toString() ?? '',
+    );
+  }
+}
+
+class ImageProcessingConfigItem {
+  ImageProcessingConfigItem({
+    required this.id,
+    required this.configKey,
+    required this.configValue,
+    this.description,
+    required this.version,
+    required this.isFrozen,
+  });
+
+  final int id;
+  final String configKey;
+  final String configValue;
+  final String? description;
+  final int version;
+  final bool isFrozen;
+
+  factory ImageProcessingConfigItem.fromMap(Map<String, dynamic> map) {
+    return ImageProcessingConfigItem(
+      id: toInt(map['id']) ?? 0,
+      configKey: map['configKey']?.toString() ?? '',
+      configValue: map['configValue']?.toString() ?? '',
+      description: map['description']?.toString(),
+      version: toInt(map['version']) ?? 1,
+      isFrozen: toBool(map['isFrozen']) ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'configKey': configKey,
+      'configValue': configValue,
+      if (description != null) 'description': description,
+      'version': version,
+    };
+  }
+}
+
+class DeadLetterMessageItem {
+  DeadLetterMessageItem({
+    required this.id,
+    required this.queueName,
+    required this.payload,
+    required this.errorReason,
+    required this.retryCount,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final int id;
+  final String queueName;
+  final String payload;
+  final String? errorReason;
+  final int retryCount;
+  final int status;
+  final DateTime createdAt;
+
+  String get statusText {
+    if (status == 0) return '待处理';
+    if (status == 1) return '处理中';
+    if (status == 2) return '已处理';
+    if (status == 3) return '已忽略';
+    return '未知';
+  }
+
+  factory DeadLetterMessageItem.fromMap(Map<String, dynamic> map) {
+    return DeadLetterMessageItem(
+      id: toInt(map['id']) ?? 0,
+      queueName: map['queueName']?.toString() ?? '',
+      payload: map['payload']?.toString() ?? '',
+      errorReason: map['errorReason']?.toString(),
+      retryCount: toInt(map['retryCount']) ?? 0,
+      status: toInt(map['status']) ?? 0,
+      createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
     );
   }
 }
