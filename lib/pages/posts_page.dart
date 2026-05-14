@@ -766,7 +766,6 @@ class _PostEditorPageState extends State<PostEditorPage>
   List<String> visibilityRegions = [];
   List<CategoryItem> _categories = [];
   List<TagItem> _tags = [];
-  List<RegionRule> _regionRules = [];
   List<PostRevisionItem> _revisions = [];
   bool _isLoadingRevisions = false;
 
@@ -966,7 +965,6 @@ class _PostEditorPageState extends State<PostEditorPage>
     try {
       final cats = await widget.api.listCategories();
       final tags = await widget.api.listTags();
-      final regions = await widget.api.listRegionRules();
       if (mounted) {
         setState(() {
           final uniqueCatsMap = <int, CategoryItem>{};
@@ -975,7 +973,6 @@ class _PostEditorPageState extends State<PostEditorPage>
           }
           _categories = uniqueCatsMap.values.toList();
           _tags = tags;
-          _regionRules = regions;
         });
       }
     } catch (e) {
@@ -1668,6 +1665,14 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   Widget _buildBasicInfoTab() {
     final d = _currentDetail;
+    final Map<String, String> regions = {
+      'global': 'Global (全局)',
+      'cn': 'CN (China)',
+      'us': 'US (United States)',
+      'jp': 'JP (Japan)',
+      'hk': 'HK (Hong Kong)',
+      'tw': 'TW (Taiwan)',
+    };
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1825,57 +1830,63 @@ class _PostEditorPageState extends State<PostEditorPage>
                 }),
           ),
           const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: visibilityRegions.map((region) =>
+                Chip(
+                  label: Text(region.toUpperCase()),
+                  onDeleted: () =>
+                      setState(() {
+                        visibilityRegions.remove(region);
+                        _markDirty();
+                      }),
+                )).toList(),
+          ),
+          const SizedBox(height: 8),
           DropdownButtonFormField<String?>(
+            key: UniqueKey(),
+            // Force reset after selection
             initialValue: null,
             decoration: const InputDecoration(
-              labelText: '可见性区域约束',
-              isDense: true,
+              labelText: "添加可见区域",
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.add_location_alt_outlined),
             ),
-            hint: Text(visibilityRegions.isEmpty
-                ? '全部区域可见'
-                : '已选择 ${visibilityRegions.length} 个区域'),
             items: [
               if (visibilityRegions.isNotEmpty)
-                const DropdownMenuItem<String?>(
+                const DropdownMenuItem(
                   value: "__clear__",
                   child: Text(
                       "清除所有区域限制", style: TextStyle(color: Colors.red)),
                 ),
-              ..._regionRules
-                  .map((r) => r.region)
-                  .toSet()
-                  .map((region) =>
-                  DropdownMenuItem<String>(
-                    value: region,
-                    child: Row(
-                      children: [
-                        Icon(
-                          visibilityRegions.contains(region)
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(region.toUpperCase()),
-                      ],
+              ...regions.entries.map((e) {
+                final bool isSelected = visibilityRegions.contains(e.key);
+                return DropdownMenuItem(
+                  value: e.key,
+                  enabled: !isSelected,
+                  child: Text(
+                    e.value + (isSelected ? " (已选)" : ""),
+                    style: TextStyle(
+                      color: isSelected ? Colors.grey : null,
+                      fontWeight: isSelected ? FontWeight.bold : null,
                     ),
-                  )),
+                  ),
+                );
+              }),
             ],
-            onChanged: (v) {
-              if (v == "__clear__") {
+            onChanged: (val) {
+              if (val == null) return;
+              if (val == "__clear__") {
                 setState(() {
                   visibilityRegions.clear();
                   _markDirty();
                 });
                 return;
               }
-              if (v != null) {
+              if (!visibilityRegions.contains(val)) {
                 setState(() {
-                  if (visibilityRegions.contains(v)) {
-                    visibilityRegions.remove(v);
-                  } else {
-                    visibilityRegions.add(v);
-                  }
+                  visibilityRegions.add(val);
                   _markDirty();
                 });
               }
