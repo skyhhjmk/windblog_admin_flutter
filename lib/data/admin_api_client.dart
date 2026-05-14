@@ -865,8 +865,9 @@ class AdminApiClient {
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
-  Future<void> triggerEdgeNodeSync(String nodeId) async {
-    await _post('/api/admin/edge-nodes/$nodeId/sync', body: {});
+  Future<void> triggerEdgeNodeSync(String nodeId, {bool force = false}) async {
+    await _post('/api/admin/edge-nodes/$nodeId/sync', body: {},
+        query: {'force': force.toString()});
   }
 
   Future<EdgeSyncStatus?> getEdgeNodeSyncStatus(String nodeId) async {
@@ -893,10 +894,11 @@ class AdminApiClient {
   Future<http.Response> _post(
     String path, {
     required Map<String, dynamic> body,
+        Map<String, String>? query,
     bool auth = true,
     bool authFailureAsSessionExpired = true,
   }) async {
-    final uri = Uri.parse('$baseUrl$path');
+    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.post(
       uri,
       headers: _headers(auth),

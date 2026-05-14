@@ -384,6 +384,7 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
   EdgeNode? detailedNode;
   EdgeSyncStatus? syncStatus;
   Timer? _timer;
+  bool _forceSync = false;
   bool loading = true;
 
   @override
@@ -427,7 +428,8 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
 
   Future<void> _startSync() async {
     try {
-      await widget.api.triggerEdgeNodeSync(widget.node.nodeId);
+      await widget.api.triggerEdgeNodeSync(
+          widget.node.nodeId, force: _forceSync);
       _refreshStatus();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -491,6 +493,18 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
                               color: Colors.red, fontSize: 12)),
                     ),
                 ],
+              const SizedBox(height: 16),
+              CheckboxListTile(
+                title: const Text('强一致性同步 (覆盖所有数据)'),
+                subtitle: const Text(
+                    '勾选后将强制重置节点数据并同步，用于解决排序不一致等持久性问题'),
+                value: _forceSync,
+                onChanged: (v) {
+                  setState(() => _forceSync = v ?? false);
+                },
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              ),
             ],
           ),
         ),
