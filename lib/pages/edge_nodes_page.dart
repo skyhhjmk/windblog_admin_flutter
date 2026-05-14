@@ -184,6 +184,12 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                       label: const Text(
                           '删除', style: TextStyle(color: Colors.red)),
                     ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: () => _showDetailDialog(node),
+                      icon: const Icon(Icons.analytics),
+                      label: const Text('详情与同步'),
+                    ),
                   ],
                 ),
               ],
@@ -214,7 +220,11 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
     final isEdit = node != null;
     final idController = TextEditingController(text: node?.nodeId);
     final nameController = TextEditingController(text: node?.name);
-    final addressController = TextEditingController(text: node?.address);
+    final externalUrlController = TextEditingController(
+        text: node?.externalUrl);
+    final apiUrlController = TextEditingController(text: node?.apiUrl);
+    final grpcAddressController = TextEditingController(
+        text: node?.grpcAddress ?? node?.address);
     EdgeRegion selectedRegion = node?.region ?? EdgeRegion.GLOBAL;
     EdgeConnectionType selectedConn = node?.connectionType ??
         EdgeConnectionType.HEARTBEAT;
@@ -243,10 +253,22 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                               labelText: '节点名称'),
                         ),
                         TextField(
-                          controller: addressController,
+                          controller: externalUrlController,
                           decoration: const InputDecoration(
-                              labelText: '节点地址 (host:port)',
-                              hintText: '主动连接模式必填'),
+                              labelText: '外部访问地址',
+                              hintText: 'https://edge.example.com'),
+                        ),
+                        TextField(
+                          controller: apiUrlController,
+                          decoration: const InputDecoration(
+                              labelText: 'API 通信地址',
+                              hintText: 'http://edge-node:8081'),
+                        ),
+                        TextField(
+                          controller: grpcAddressController,
+                          decoration: const InputDecoration(
+                              labelText: 'gRPC 通信地址',
+                              hintText: 'edge-node:9001 (主动连接模式必填)'),
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<EdgeRegion>(
@@ -297,7 +319,13 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
     final newNode = EdgeNode(
       nodeId: idController.text,
       name: nameController.text,
-      address: addressController.text,
+      externalUrl: externalUrlController.text.isEmpty
+          ? null
+          : externalUrlController.text,
+      apiUrl: apiUrlController.text.isEmpty ? null : apiUrlController.text,
+      grpcAddress: grpcAddressController.text.isEmpty
+          ? null
+          : grpcAddressController.text,
       region: selectedRegion,
       connectionType: selectedConn,
       metrics: {},
@@ -320,6 +348,17 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
     }
   }
 
+  Future<void> _showDetailDialog(EdgeNode node) async {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          _EdgeNodeDetailDialog(
+            node: node,
+            api: widget.api,
+          ),
+    );
+  }
+
   String _formatDate(DateTime? dt) {
     if (dt == null) return '从未活跃';
     final localDt = dt.toLocal();
@@ -328,5 +367,165 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
         2, '0')}:${localDt.minute.toString().padLeft(2, '0')}:${localDt.second
         .toString()
         .padLeft(2, '0')}';
+  }
+}
+
+class _EdgeNodeDetailDialog extends StatefulWidget {
+  final EdgeNode node;
+  final AdminApiClient api;
+
+  const _EdgeNodeDetailDialog({required this.node, required this.api});
+
+  @override
+  State<_EdgeNodeDetailDialog> createState() => _EdgeNodeDetailDialogState();
+}
+
+class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
+  EdgeNode? detailedNode;
+  EdgeSyncStatus? syncStatus;
+  Timer? _timer;
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    _timer =
+        Timer.periodic(const Duration(seconds: 3), (_) => _refreshStatus());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final n = await widget.api.getEdgeNode(widget.node.nodeId);
+      final s = await widget.api.getEdgeNodeSyncStatus(widget.node.nodeId);
+      if (mounted) {
+        setState(() {
+          detailedNode = n;
+          syncStatus = s;
+          loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _refreshStatus() async {
+    try {
+      final s = await widget.api.getEdgeNodeSyncStatus(widget.node.nodeId);
+      if (mounted) {
+        setState(() => syncStatus = s);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _startSync() async {
+    try {
+      await widget.api.triggerEdgeNodeSync(widget.node.nodeId);
+      _refreshStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已触发全量同步')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('触发同步失败: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final node = detailedNode ?? widget.node;
+    return AlertDialog(
+      title: Text('节点详情: ${node.name}'),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSectionTitle('基本信息'),
+              _buildInfoRow('节点 ID', node.nodeId),
+              _buildInfoRow('外部访问', node.externalUrl ?? 'N/A'),
+              _buildInfoRow('API 地址', node.apiUrl ?? 'N/A'),
+              _buildInfoRow(
+                  'gRPC 地址', node.grpcAddress ?? node.address ?? 'N/A'),
+              _buildInfoRow('状态', node.status,
+                  color: node.status == 'ONLINE' ? Colors.green : Colors.red),
+              _buildInfoRow('区域', node.region.name),
+              _buildInfoRow('连接模式', node.connectionType.name),
+              const Divider(),
+              _buildSectionTitle('运行指标'),
+              if (node.metrics.isEmpty)
+                const Text('暂无指标数据', style: TextStyle(color: Colors.grey))
+              else
+                ...node.metrics.entries.map((e) =>
+                    _buildInfoRow(e.key, e.value)),
+              const Divider(),
+              _buildSectionTitle('同步状态'),
+              if (syncStatus == null)
+                const Text('无活跃同步任务')
+              else
+                ...[
+                  _buildInfoRow('当前阶段', syncStatus!.status),
+                  _buildInfoRow('进度',
+                      '${syncStatus!.processed} / ${syncStatus!.total}'),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(value: syncStatus!.progress),
+                  if (syncStatus!.lastError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text('最后错误: ${syncStatus!.lastError}',
+                          style: const TextStyle(
+                              color: Colors.red, fontSize: 12)),
+                    ),
+                ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+        FilledButton.icon(
+          onPressed: syncStatus?.status == 'SYNCING' ? null : _startSync,
+          icon: const Icon(Icons.sync),
+          label: const Text('全量同步'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(width: 100,
+              child: Text(label, style: const TextStyle(color: Colors.grey))),
+          Expanded(child: Text(value, style: TextStyle(color: color,
+              fontWeight: color != null ? FontWeight.bold : null))),
+        ],
+      ),
+    );
   }
 }

@@ -860,6 +860,23 @@ class AdminApiClient {
         '/api/admin/edge-nodes/$nodeId/toggle', query: {'enabled': '$enabled'});
   }
 
+  Future<EdgeNode> getEdgeNode(String nodeId) async {
+    final res = await _get('/api/admin/edge-nodes/$nodeId');
+    return EdgeNode.fromJson(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> triggerEdgeNodeSync(String nodeId) async {
+    await _post('/api/admin/edge-nodes/$nodeId/sync', body: {});
+  }
+
+  Future<EdgeSyncStatus?> getEdgeNodeSyncStatus(String nodeId) async {
+    final res = await _get('/api/admin/edge-nodes/$nodeId/sync-status');
+    if (res.body.isEmpty || res.body == 'null') return null;
+    final map = _map(jsonDecode(res.body));
+    if (map.isEmpty) return null;
+    return EdgeSyncStatus.fromMap(map);
+  }
+
   Future<void> deleteDeadLetterMessage(int id) async {
     await _delete('/api/admin/storage/dead-letter/$id');
   }

@@ -2493,6 +2493,10 @@ enum EdgeConnectionType {
 class EdgeNode {
   final String nodeId;
   final String name;
+  final String? externalUrl;
+  final String? apiUrl;
+  final String? grpcAddress;
+  @Deprecated('Use grpcAddress instead')
   final String? address;
   final EdgeRegion region;
   final EdgeConnectionType connectionType;
@@ -2504,7 +2508,10 @@ class EdgeNode {
   EdgeNode({
     required this.nodeId,
     required this.name,
-    this.address,
+    this.externalUrl,
+    this.apiUrl,
+    this.grpcAddress,
+    @Deprecated('Use grpcAddress instead') this.address,
     required this.region,
     required this.connectionType,
     this.lastHeartbeat,
@@ -2517,6 +2524,9 @@ class EdgeNode {
     return EdgeNode(
       nodeId: json['nodeId']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
+      externalUrl: json['externalUrl']?.toString(),
+      apiUrl: json['apiUrl']?.toString(),
+      grpcAddress: json['grpcAddress']?.toString(),
       address: json['address']?.toString(),
       region: _parseRegion(json['region']),
       connectionType: _parseConnectionType(json['connectionType']),
@@ -2542,12 +2552,39 @@ class EdgeNode {
     return {
       'nodeId': nodeId,
       'name': name,
-      'address': address,
+      'externalUrl': externalUrl,
+      'apiUrl': apiUrl,
+      'grpcAddress': grpcAddress,
       'region': region.name,
       'connectionType': connectionType.name,
       'isEnabled': isEnabled,
     };
   }
+}
+
+class EdgeSyncStatus {
+  final int total;
+  final int processed;
+  final String status;
+  final String? lastError;
+
+  EdgeSyncStatus({
+    required this.total,
+    required this.processed,
+    required this.status,
+    this.lastError,
+  });
+
+  factory EdgeSyncStatus.fromMap(Map<String, dynamic> map) {
+    return EdgeSyncStatus(
+      total: toInt(map['total']) ?? 0,
+      processed: toInt(map['processed']) ?? 0,
+      status: map['status']?.toString() ?? 'IDLE',
+      lastError: map['lastError']?.toString(),
+    );
+  }
+
+  double get progress => total > 0 ? processed / total : 0.0;
 }
 
 class RegionRule {
