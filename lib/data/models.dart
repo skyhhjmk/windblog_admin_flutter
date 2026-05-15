@@ -1,5 +1,27 @@
 import 'dart:convert';
 
+enum BlogRegion {
+  global('global', 'Global (全局)'),
+  cn('cn', 'CN (China)'),
+  us('us', 'US (United States)'),
+  eu('eu', 'EU (Europe)'),
+  jp('jp', 'JP (Japan)'),
+  hk('hk', 'HK (Hong Kong)'),
+  tw('tw', 'TW (Taiwan)');
+
+  final String code;
+  final String displayName;
+
+  const BlogRegion(this.code, this.displayName);
+
+  static BlogRegion fromCode(String code) {
+    return values.firstWhere(
+          (r) => r.code == code,
+      orElse: () => BlogRegion.global,
+    );
+  }
+}
+
 class AdminUser {
   AdminUser({
     required this.id,
@@ -2480,11 +2502,6 @@ class ImageProcessingMetadata {
   }
 }
 
-enum EdgeRegion {
-  CHINA,
-  GLOBAL,
-}
-
 enum EdgeConnectionType {
   HEARTBEAT,
   ACTIVE_POLL,
@@ -2498,7 +2515,7 @@ class EdgeNode {
   final String? grpcAddress;
   @Deprecated('Use grpcAddress instead')
   final String? address;
-  final EdgeRegion region;
+  final BlogRegion region;
   final EdgeConnectionType connectionType;
   final DateTime? lastHeartbeat;
   final Map<String, String> metrics;
@@ -2528,7 +2545,7 @@ class EdgeNode {
       apiUrl: json['apiUrl']?.toString(),
       grpcAddress: json['grpcAddress']?.toString(),
       address: json['address']?.toString(),
-      region: _parseRegion(json['region']),
+      region: BlogRegion.fromCode(json['region']?.toString() ?? 'global'),
       connectionType: _parseConnectionType(json['connectionType']),
       lastHeartbeat: parseDate(json['lastHeartbeat']),
       metrics: (json['metrics'] as Map?)?.map((k, v) =>
@@ -2536,11 +2553,6 @@ class EdgeNode {
       status: json['status']?.toString() ?? 'OFFLINE',
       isEnabled: json['isEnabled'] == true || json['enabled'] == true,
     );
-  }
-
-  static EdgeRegion _parseRegion(dynamic value) {
-    if (value == 'CHINA') return EdgeRegion.CHINA;
-    return EdgeRegion.GLOBAL;
   }
 
   static EdgeConnectionType _parseConnectionType(dynamic value) {
@@ -2555,7 +2567,7 @@ class EdgeNode {
       'externalUrl': externalUrl,
       'apiUrl': apiUrl,
       'grpcAddress': grpcAddress,
-      'region': region.name,
+      'region': region.code,
       'connectionType': connectionType.name,
       'isEnabled': isEnabled,
     };

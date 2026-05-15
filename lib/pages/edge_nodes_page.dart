@@ -151,7 +151,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 8),
-                    _buildBadge(node.region.name, Colors.blue),
+                    _buildBadge(node.region.code.toUpperCase(), Colors.blue),
                     const SizedBox(width: 4),
                     _buildBadge(node.connectionType.name, Colors.orange),
                     const Spacer(),
@@ -225,7 +225,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
     final apiUrlController = TextEditingController(text: node?.apiUrl);
     final grpcAddressController = TextEditingController(
         text: node?.grpcAddress ?? node?.address);
-    EdgeRegion selectedRegion = node?.region ?? EdgeRegion.GLOBAL;
+    BlogRegion selectedRegion = node?.region ?? BlogRegion.global;
     EdgeConnectionType selectedConn = node?.connectionType ??
         EdgeConnectionType.HEARTBEAT;
     bool isEnabled = node?.isEnabled ?? true;
@@ -271,13 +271,14 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                               hintText: 'edge-node:9001 (主动连接模式必填)'),
                         ),
                         const SizedBox(height: 16),
-                        DropdownButtonFormField<EdgeRegion>(
+                        DropdownButtonFormField<BlogRegion>(
                           value: selectedRegion,
                           decoration: const InputDecoration(
                               labelText: '所属区域'),
-                          items: EdgeRegion.values
+                          items: BlogRegion.values
                               .map((e) =>
-                              DropdownMenuItem(value: e, child: Text(e.name)))
+                              DropdownMenuItem(value: e, child: Text(
+                                  e.displayName)))
                               .toList(),
                           onChanged: (v) =>
                               setDialogState(() => selectedRegion = v!),
@@ -465,7 +466,7 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
                   'gRPC 地址', node.grpcAddress ?? node.address ?? 'N/A'),
               _buildInfoRow('状态', node.status,
                   color: node.status == 'ONLINE' ? Colors.green : Colors.red),
-              _buildInfoRow('区域', node.region.name),
+              _buildInfoRow('区域', node.region.displayName),
               _buildInfoRow('连接模式', node.connectionType.name),
               const Divider(),
               _buildSectionTitle('运行指标'),

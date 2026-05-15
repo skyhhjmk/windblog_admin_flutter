@@ -161,16 +161,10 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
                         decoration: const InputDecoration(
                             labelText: '目标区域'),
                         initialValue: region,
-                        items: const [
+                        items: BlogRegion.values.map((r) =>
                           DropdownMenuItem(
-                              value: 'global', child: Text('全球 (Global)')),
-                          DropdownMenuItem(
-                              value: 'cn', child: Text('中国 (China)')),
-                          DropdownMenuItem(
-                              value: 'us', child: Text('美国 (USA)')),
-                          DropdownMenuItem(
-                              value: 'eu', child: Text('欧洲 (Europe)')),
-                        ],
+                              value: r.code, child: Text(r.displayName)),
+                        ).toList(),
                         onChanged: (v) => setState(() => region = v!),
                       ),
                       const SizedBox(height: 12),

@@ -1665,14 +1665,6 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   Widget _buildBasicInfoTab() {
     final d = _currentDetail;
-    final Map<String, String> regions = {
-      'global': 'Global (全局)',
-      'cn': 'CN (China)',
-      'us': 'US (United States)',
-      'jp': 'JP (Japan)',
-      'hk': 'HK (Hong Kong)',
-      'tw': 'TW (Taiwan)',
-    };
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1860,13 +1852,13 @@ class _PostEditorPageState extends State<PostEditorPage>
                   child: Text(
                       "清除所有区域限制", style: TextStyle(color: Colors.red)),
                 ),
-              ...regions.entries.map((e) {
-                final bool isSelected = visibilityRegions.contains(e.key);
+              ...BlogRegion.values.map((e) {
+                final bool isSelected = visibilityRegions.contains(e.code);
                 return DropdownMenuItem(
-                  value: e.key,
+                  value: e.code,
                   enabled: !isSelected,
                   child: Text(
-                    e.value + (isSelected ? " (已选)" : ""),
+                    e.displayName + (isSelected ? " (已选)" : ""),
                     style: TextStyle(
                       color: isSelected ? Colors.grey : null,
                       fontWeight: isSelected ? FontWeight.bold : null,

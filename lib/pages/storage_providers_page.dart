@@ -147,7 +147,6 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
   Future<void> _showCreateDialog() async {
     final nameController = TextEditingController();
     final displayNameController = TextEditingController();
-    final regionController = TextEditingController();
     final cdnDomainController = TextEditingController();
     final endpointController = TextEditingController();
     final accessKeyIdController = TextEditingController();
@@ -160,6 +159,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
     bool isPrimary = false;
     bool cdnEnabled = false;
     final priorityController = TextEditingController(text: '0');
+    BlogRegion selectedRegion = BlogRegion.global;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -313,12 +313,17 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                           ),
                         ],
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: regionController,
-                        decoration: const InputDecoration(
-                          labelText: '区域',
-                          hintText: '如 oss-cn-hangzhou',
-                        ),
+                      DropdownButtonFormField<BlogRegion>(
+                        value: selectedRegion,
+                        decoration: const InputDecoration(labelText: '区域'),
+                        items: BlogRegion.values.map((r) =>
+                            DropdownMenuItem(
+                                value: r, child: Text(r.displayName))).toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setDialogState(() => selectedRegion = v);
+                          }
+                        },
                       ),
                       const SizedBox(height: 8),
                       TextField(
@@ -395,7 +400,6 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
 
     final name = nameController.text;
     final displayName = displayNameController.text;
-    final region = regionController.text;
     final cdnDomain = cdnDomainController.text;
 
     if (name.isEmpty) {
@@ -450,7 +454,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
       supportedTypes: selectedSupportedTypes.join(','),
       cdnDomain: cdnDomain.isNotEmpty ? cdnDomain : null,
       cdnEnabled: cdnEnabled,
-      region: region.isNotEmpty ? region : null,
+      region: selectedRegion.code,
       priority: int.tryParse(priorityController.text) ?? 0,
     );
 
@@ -471,7 +475,6 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
   Future<void> _showEditDialog(StorageProviderItem provider) async {
     final displayNameController = TextEditingController(
         text: provider.displayName);
-    final regionController = TextEditingController(text: provider.region);
     final cdnDomainController = TextEditingController(text: provider.cdnDomain);
     final configController = TextEditingController(text: provider.configJson);
     String selectedRole = provider.role ?? 'backup';
@@ -483,6 +486,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
     bool cdnEnabled = provider.cdnEnabled ?? false;
     int priority = provider.priority ?? 0;
     final priorityController = TextEditingController(text: priority.toString());
+    BlogRegion selectedRegion = BlogRegion.fromCode(provider.region ?? '');
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -568,9 +572,17 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: regionController,
+                      DropdownButtonFormField<BlogRegion>(
+                        value: selectedRegion,
                         decoration: const InputDecoration(labelText: '区域'),
+                        items: BlogRegion.values.map((r) =>
+                            DropdownMenuItem(
+                                value: r, child: Text(r.displayName))).toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setDialogState(() => selectedRegion = v);
+                          }
+                        },
                       ),
                       const SizedBox(height: 8),
                       TextField(
@@ -653,7 +665,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
       supportedTypes: selectedSupportedTypes.join(','),
       cdnDomain: cdnDomainController.text,
       cdnEnabled: cdnEnabled,
-      region: regionController.text,
+      region: selectedRegion.code,
       priority: int.tryParse(priorityController.text) ?? 0,
     );
 
@@ -726,7 +738,9 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                 const SizedBox(height: 8),
                 Text('名称: ${provider.name}'),
                 if (provider.region != null && provider.region!.isNotEmpty)
-                  Text('区域: ${provider.region}'),
+                  Text('区域: ${BlogRegion
+                      .fromCode(provider.region!)
+                      .displayName}'),
                 if (provider.role != null && provider.role!.isNotEmpty)
                   Text('角色: ${provider.roleText}'),
                 if (provider.supportedTypes != null &&

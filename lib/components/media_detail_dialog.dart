@@ -375,7 +375,9 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
                           size: 18,
                         ),
                         const SizedBox(width: 8),
-                        Text(region.toUpperCase(),
+                        Text(BlogRegion
+                            .fromCode(region)
+                            .displayName,
                             style: const TextStyle(fontSize: 13)),
                       ],
                     ),
