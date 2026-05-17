@@ -154,6 +154,21 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                     _buildBadge(node.region.code.toUpperCase(), Colors.blue),
                     const SizedBox(width: 4),
                     _buildBadge(node.connectionType.name, Colors.orange),
+                    const SizedBox(width: 4),
+                    if (node.certificateSerial != null)
+                      _buildBadge(
+                          node.certificateRevoked
+                              ? '已吊销'
+                              : (node.certificateExpiry != null &&
+                              node.certificateExpiry!.isBefore(DateTime.now())
+                              ? '已过期'
+                              : (node.isTrusted ? '可信' : '待连接')),
+                          node.certificateRevoked
+                              ? Colors.red
+                              : (node.certificateExpiry != null &&
+                              node.certificateExpiry!.isBefore(DateTime.now())
+                              ? Colors.orange
+                              : (node.isTrusted ? Colors.green : Colors.blue))),
                     const Spacer(),
                     Switch(
                       value: node.isEnabled,
@@ -163,8 +178,8 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                 ),
                 const SizedBox(height: 8),
                 Text('节点 ID: ${node.nodeId}'),
-                if (node.address != null && node.address!.isNotEmpty)
-                  Text('地址: ${node.address}'),
+                if (node.grpcAddress != null && node.grpcAddress!.isNotEmpty)
+                  Text('地址: ${node.grpcAddress}'),
                 Text('状态: ${node.status}'),
                 Text('最后活跃: ${_formatDate(node.lastHeartbeat)}'),
                 if (node.metrics.isNotEmpty)
@@ -204,9 +219,9 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(
         text,
@@ -224,10 +239,10 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
         text: node?.externalUrl);
     final apiUrlController = TextEditingController(text: node?.apiUrl);
     final grpcAddressController = TextEditingController(
-        text: node?.grpcAddress ?? node?.address);
+        text: node?.grpcAddress);
     BlogRegion selectedRegion = node?.region ?? BlogRegion.global;
     EdgeConnectionType selectedConn = node?.connectionType ??
-        EdgeConnectionType.HEARTBEAT;
+        EdgeConnectionType.heartbeat;
     bool isEnabled = node?.isEnabled ?? true;
 
     final confirmed = await showDialog<bool>(
@@ -272,7 +287,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<BlogRegion>(
-                          value: selectedRegion,
+                          initialValue: selectedRegion,
                           decoration: const InputDecoration(
                               labelText: '所属区域'),
                           items: BlogRegion.values
@@ -285,7 +300,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<EdgeConnectionType>(
-                          value: selectedConn,
+                          initialValue: selectedConn,
                           decoration: const InputDecoration(
                               labelText: '连接模式'),
                           items: EdgeConnectionType.values
@@ -359,16 +374,14 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
           ),
     );
   }
+}
 
-  String _formatDate(DateTime? dt) {
-    if (dt == null) return '从未活跃';
-    final localDt = dt.toLocal();
-    return '${localDt.year}-${localDt.month}-${localDt.day} ${localDt.hour
-        .toString().padLeft(
-        2, '0')}:${localDt.minute.toString().padLeft(2, '0')}:${localDt.second
-        .toString()
-        .padLeft(2, '0')}';
-  }
+String _formatDate(DateTime? dt) {
+  if (dt == null) return '从未活跃';
+  final localDt = dt.toLocal();
+  return '${localDt.year}-${localDt.month}-${localDt.day} ${localDt.hour
+      .toString().padLeft(2, '0')}:${localDt.minute.toString().padLeft(
+      2, '0')}:${localDt.second.toString().padLeft(2, '0')}';
 }
 
 class _EdgeNodeDetailDialog extends StatefulWidget {
@@ -463,11 +476,41 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
               _buildInfoRow('外部访问', node.externalUrl ?? 'N/A'),
               _buildInfoRow('API 地址', node.apiUrl ?? 'N/A'),
               _buildInfoRow(
-                  'gRPC 地址', node.grpcAddress ?? node.address ?? 'N/A'),
+                  'gRPC 地址', node.grpcAddress ?? 'N/A'),
               _buildInfoRow('状态', node.status,
                   color: node.status == 'ONLINE' ? Colors.green : Colors.red),
               _buildInfoRow('区域', node.region.displayName),
               _buildInfoRow('连接模式', node.connectionType.name),
+              const Divider(),
+              _buildSectionTitle('安全与证书'),
+              _buildInfoRow('可信状态',
+                  node.certificateSerial == null ? '未授信' : (node
+                      .certificateRevoked ? '已吊销' : (node.isTrusted
+                      ? '可信'
+                      : '已签发，待连接')),
+                  color: node.certificateRevoked ? Colors.red : (node
+                      .certificateSerial == null ? Colors.grey : (node.isTrusted
+                      ? Colors.green
+                      : Colors.blue))),
+              if (node.certificateSerial != null) ...[
+                _buildInfoRow('主证书序列号', node.certificateSerial!),
+                _buildInfoRow(
+                    '主证书过期', _formatDate(node.certificateExpiry)),
+              ],
+              if (node.certificateBackupSerial != null) ...[
+                _buildInfoRow('备用证书序列号', node.certificateBackupSerial!),
+                _buildInfoRow(
+                    '备用证书过期', _formatDate(node.certificateBackupExpiry)),
+              ],
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _showCertificateSetup(node),
+                  icon: const Icon(Icons.security),
+                  label: const Text('管理证书与部署指引'),
+                ),
+              ),
               const Divider(),
               _buildSectionTitle('运行指标'),
               if (node.metrics.isEmpty)
@@ -519,6 +562,228 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
           label: const Text('全量同步'),
         ),
       ],
+    );
+  }
+
+  Future<void> _showCertificateSetup(EdgeNode node) async {
+    bool localLoading = false;
+    NodeDeploymentPackage? cert;
+
+    await showDialog(
+      context: context,
+      builder: (context) =>
+          StatefulBuilder(
+            builder: (context, setDialogState) =>
+                AlertDialog(
+                  title: const Text('边缘节点部署与证书管理'),
+                  content: SizedBox(
+                    width: 700,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (cert == null) ...[
+                            const Text(
+                                '边缘节点需要通过 mTLS 双向认证才能与主节点通信。'),
+                            const SizedBox(height: 8),
+                            const Text('部署流程：',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text(
+                                '1. 点击下方按钮签发新的证书对（包含 24h 主证书和 72h 备用证书）。'),
+                            const Text(
+                                '2. 下载或复制生成的证书文件、环境变量和 Docker Compose 配置。'),
+                            const Text('3. 在边缘节点服务器上运行部署命令。'),
+                            const SizedBox(height: 16),
+                            if (localLoading)
+                              const Center(child: CircularProgressIndicator())
+                            else
+                              Center(
+                                child: Column(
+                                  children: [
+                                    FilledButton.icon(
+                                      onPressed: () async {
+                                        setDialogState(() =>
+                                        localLoading = true);
+                                        try {
+                                          // 获取完整的部署包（包含证书 PEM）
+                                          final res = await widget.api
+                                              .getEdgeNodeDeploymentPackage(
+                                              node.nodeId);
+                                          setDialogState(() {
+                                            cert = res;
+                                            localLoading = false;
+                                          });
+                                          _refresh();
+                                        } catch (e) {
+                                          setDialogState(() =>
+                                          localLoading = false);
+                                          if (!context.mounted) return;
+                                          ScaffoldMessenger
+                                              .of(context)
+                                              .showSnackBar(SnackBar(
+                                              content: Text('获取失败: $e')));
+                                        }
+                                      },
+                                      icon: const Icon(Icons.cloud_download),
+                                      label: const Text('生成并获取部署包'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ] else
+                            ...[
+                              const Text(
+                                  '✅ 部署信息已准备就绪！请务必保存私钥信息。',
+                                  style: TextStyle(fontWeight: FontWeight.bold,
+                                      color: Colors.green)),
+                              const SizedBox(height: 16),
+                              _buildStep(1, '保存证书文件',
+                                  '将以下证书内容保存到部署目录的 certs/ 文件夹中：'),
+                              _buildFileBox('ca.crt (根证书)', cert!.caCert),
+                              Row(
+                                children: [
+                                  Expanded(child: _buildFileBox(
+                                      'server.crt (主证书)',
+                                      cert!.primaryCert)),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _buildFileBox(
+                                      'server.key (主私钥)', cert!.primaryKey)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  Expanded(child: _buildFileBox(
+                                      'backup.crt (备用证书)',
+                                      cert!.backupCert)),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _buildFileBox(
+                                      'backup.key (备用私钥)',
+                                      cert!.backupKey)),
+                                ],
+                              ),
+                              _buildStep(2, '配置文件',
+                                  '创建 .env 文件或 docker-compose.yml：'),
+                              _buildFileBox('.env 环境变量', cert!.envFile),
+                              _buildFileBox(
+                                  'docker-compose.yml', cert!.dockerCompose),
+                              _buildStep(
+                                  3, '启动命令', '在目录下执行以下命令：'),
+                              _buildFileBox('Shell', 'docker-compose up -d'),
+                            ],
+                          if (node.certificateSerial != null &&
+                              !node.certificateRevoked) ...[
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: () async {
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) =>
+                                      AlertDialog(
+                                        title: const Text('确认吊销'),
+                                        content: const Text(
+                                            '吊销证书后，该节点将无法再通过 mTLS 与主节点通信。确定要继续吗？'),
+                                        actions: [
+                                          TextButton(onPressed: () =>
+                                              Navigator.pop(context, false),
+                                              child: const Text('取消')),
+                                          TextButton(onPressed: () =>
+                                              Navigator.pop(context, true),
+                                              child: const Text('确定吊销',
+                                                  style: TextStyle(
+                                                      color: Colors.red))),
+                                        ],
+                                      ),
+                                );
+                                if (ok == true) {
+                                  try {
+                                    await widget.api.revokeNodeCertificate(
+                                        node.nodeId);
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    _refresh();
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            content: Text('吊销失败: $e')));
+                                  }
+                                }
+                              },
+                              icon: const Icon(Icons.block, color: Colors.red),
+                              label: const Text(
+                                  '吊销当前证书', style: TextStyle(
+                                  color: Colors.red)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context),
+                        child: const Text('完成')),
+                  ],
+                ),
+          ),
+    );
+  }
+
+  Widget _buildStep(int num, String title, String desc) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$num. $title',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFileBox(String name, String content) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8, top: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(name, style: const TextStyle(fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueGrey)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.copy, size: 14),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: content));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('已复制到剪贴板'),
+                        duration: Duration(seconds: 1)),
+                  );
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            content.length > 80 ? '${content.substring(0, 80)}...' : content,
+            style: const TextStyle(
+                fontFamily: 'monospace', fontSize: 10, color: Colors.black87),
+          ),
+        ],
+      ),
     );
   }
 

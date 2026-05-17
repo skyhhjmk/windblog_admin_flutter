@@ -2503,8 +2503,8 @@ class ImageProcessingMetadata {
 }
 
 enum EdgeConnectionType {
-  HEARTBEAT,
-  ACTIVE_POLL,
+  heartbeat,
+  activePoll,
 }
 
 class EdgeNode {
@@ -2521,6 +2521,12 @@ class EdgeNode {
   final Map<String, String> metrics;
   final String status;
   final bool isEnabled;
+  final String? certificateSerial;
+  final DateTime? certificateExpiry;
+  final bool certificateRevoked;
+  final String? certificateBackupSerial;
+  final DateTime? certificateBackupExpiry;
+  final bool isTrusted;
 
   EdgeNode({
     required this.nodeId,
@@ -2535,6 +2541,9 @@ class EdgeNode {
     required this.metrics,
     required this.status,
     required this.isEnabled,
+    this.certificateSerial,
+    this.certificateExpiry,
+    this.certificateRevoked = false,
   });
 
   factory EdgeNode.fromJson(Map<String, dynamic> json) {
@@ -2543,7 +2552,9 @@ class EdgeNode {
       name: json['name']?.toString() ?? '',
       externalUrl: json['externalUrl']?.toString(),
       apiUrl: json['apiUrl']?.toString(),
-      grpcAddress: json['grpcAddress']?.toString(),
+      grpcAddress: json['grpcAddress']?.toString() ??
+          json['address']?.toString(),
+      // ignore: deprecated_member_use_from_same_package
       address: json['address']?.toString(),
       region: BlogRegion.fromCode(json['region']?.toString() ?? 'global'),
       connectionType: _parseConnectionType(json['connectionType']),
@@ -2552,12 +2563,19 @@ class EdgeNode {
           MapEntry(k.toString(), v.toString())) ?? {},
       status: json['status']?.toString() ?? 'OFFLINE',
       isEnabled: json['isEnabled'] == true || json['enabled'] == true,
+      certificateSerial: json['certificateSerial']?.toString(),
+      certificateExpiry: parseDate(json['certificateExpiry']),
+      certificateRevoked: json['certificateRevoked'] == true,
+      certificateBackupSerial: json['certificateBackupSerial']?.toString(),
+      certificateBackupExpiry: parseDate(json['certificateBackupExpiry']),
+      isTrusted: json['isTrusted'] == true,
     );
   }
 
   static EdgeConnectionType _parseConnectionType(dynamic value) {
-    if (value == 'ACTIVE_POLL') return EdgeConnectionType.ACTIVE_POLL;
-    return EdgeConnectionType.HEARTBEAT;
+    if (value == 'activePoll' || value == 'ACTIVE_POLL')
+      return EdgeConnectionType.activePoll;
+    return EdgeConnectionType.heartbeat;
   }
 
   Map<String, dynamic> toJson() {
@@ -2571,6 +2589,38 @@ class EdgeNode {
       'connectionType': connectionType.name,
       'isEnabled': isEnabled,
     };
+  }
+}
+
+class NodeDeploymentPackage {
+  final String primaryCert;
+  final String primaryKey;
+  final String backupCert;
+  final String backupKey;
+  final String caCert;
+  final String envFile;
+  final String dockerCompose;
+
+  NodeDeploymentPackage({
+    required this.primaryCert,
+    required this.primaryKey,
+    required this.backupCert,
+    required this.backupKey,
+    required this.caCert,
+    required this.envFile,
+    required this.dockerCompose,
+  });
+
+  factory NodeDeploymentPackage.fromJson(Map<String, dynamic> json) {
+    return NodeDeploymentPackage(
+      primaryCert: json['primaryCert']?.toString() ?? '',
+      primaryKey: json['primaryKey']?.toString() ?? '',
+      backupCert: json['backupCert']?.toString() ?? '',
+      backupKey: json['backupKey']?.toString() ?? '',
+      caCert: json['caCert']?.toString() ?? '',
+      envFile: json['envFile']?.toString() ?? '',
+      dockerCompose: json['dockerCompose']?.toString() ?? '',
+    );
   }
 }
 
@@ -2598,6 +2648,42 @@ class EdgeSyncStatus {
 
   double get progress => total > 0 ? processed / total : 0.0;
 }
+
+class NodeCertificateResponse {
+  final String nodeId;
+  final String primaryCertificatePem;
+  final String primaryPrivateKeyPem;
+  final String backupCertificatePem;
+  final String backupPrivateKeyPem;
+  final String caCertificatePem;
+  final DateTime primaryExpiry;
+  final DateTime backupExpiry;
+
+  NodeCertificateResponse({
+    required this.nodeId,
+    required this.primaryCertificatePem,
+    required this.primaryPrivateKeyPem,
+    required this.backupCertificatePem,
+    required this.backupPrivateKeyPem,
+    required this.caCertificatePem,
+    required this.primaryExpiry,
+    required this.backupExpiry,
+  });
+
+  factory NodeCertificateResponse.fromMap(Map<String, dynamic> map) {
+    return NodeCertificateResponse(
+      nodeId: map['nodeId']?.toString() ?? '',
+      primaryCertificatePem: map['primaryCertificatePem']?.toString() ?? '',
+      primaryPrivateKeyPem: map['primaryPrivateKeyPem']?.toString() ?? '',
+      backupCertificatePem: map['backupCertificatePem']?.toString() ?? '',
+      backupPrivateKeyPem: map['backupPrivateKeyPem']?.toString() ?? '',
+      caCertificatePem: map['caCertificatePem']?.toString() ?? '',
+      primaryExpiry: parseDate(map['primaryExpiry']) ?? DateTime.now(),
+      backupExpiry: parseDate(map['backupExpiry']) ?? DateTime.now(),
+    );
+  }
+}
+
 
 class RegionRule {
   final int? id;

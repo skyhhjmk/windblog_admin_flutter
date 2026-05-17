@@ -865,6 +865,7 @@ class AdminApiClient {
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
+
   Future<void> triggerEdgeNodeSync(String nodeId, {bool force = false}) async {
     await _post('/api/admin/edge-nodes/$nodeId/sync', body: {},
         query: {'force': force.toString()});
@@ -876,6 +877,26 @@ class AdminApiClient {
     final map = _map(jsonDecode(res.body));
     if (map.isEmpty) return null;
     return EdgeSyncStatus.fromMap(map);
+  }
+
+  // ==================== Node Certificate API ====================
+
+  Future<EdgeNode> issueEdgeNodeCertificate(String nodeId) async {
+    final res = await _post(
+        '/api/admin/edge-nodes/$nodeId/issue-certificate', body: {});
+    return EdgeNode.fromJson(_map(jsonDecode(res.body)));
+  }
+
+  Future<NodeDeploymentPackage> getEdgeNodeDeploymentPackage(
+      String nodeId) async {
+    final res = await _get('/api/admin/edge-nodes/$nodeId/deployment-package');
+    return NodeDeploymentPackage.fromJson(_map(jsonDecode(res.body)));
+  }
+
+  Future<void> revokeEdgeNodeCertificate(String nodeId) async {
+    // 吊销证书通过更新节点状态实现
+    await _put(
+        '/api/admin/edge-nodes/$nodeId', body: {'certificateRevoked': true});
   }
 
   Future<void> deleteDeadLetterMessage(int id) async {

@@ -314,7 +314,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                         ],
                       const SizedBox(height: 8),
                       DropdownButtonFormField<BlogRegion>(
-                        value: selectedRegion,
+                        initialValue: selectedRegion,
                         decoration: const InputDecoration(labelText: '区域'),
                         items: BlogRegion.values.map((r) =>
                             DropdownMenuItem(
@@ -573,7 +573,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<BlogRegion>(
-                        value: selectedRegion,
+                        initialValue: selectedRegion,
                         decoration: const InputDecoration(labelText: '区域'),
                         items: BlogRegion.values.map((r) =>
                             DropdownMenuItem(
