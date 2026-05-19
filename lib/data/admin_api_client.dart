@@ -841,7 +841,13 @@ class AdminApiClient {
   }
 
   Future<EdgeNode> createEdgeNode(EdgeNode node) async {
-    final res = await _post('/api/admin/edge-nodes', body: node.toJson());
+    final res = await _post('/api/admin/edge-nodes', body: {
+      'nodeId': node.nodeId,
+      'nodeName': node.name,
+      'region': node.region.code,
+      'connectionType': node.connectionType.name,
+      'edgeGrpcPort': node.edgeGrpcPort,
+    });
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
@@ -887,14 +893,65 @@ class AdminApiClient {
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
-  Future<NodeDeploymentPackage> getEdgeNodeDeploymentPackage(
-      String nodeId) async {
-    final res = await _get('/api/admin/edge-nodes/$nodeId/deployment-package');
-    return NodeDeploymentPackage.fromJson(_map(jsonDecode(res.body)));
+  Future<Uint8List> downloadDeploymentZip(String nodeId) async {
+    final uri = Uri.parse(
+        '$baseUrl/api/admin/edge-nodes/$nodeId/deployment-zip');
+    final res = await http.get(uri, headers: _headers(true));
+    _check(res, authFailureAsSessionExpired: true);
+    return res.bodyBytes;
+  }
+
+  Future<Uint8List> downloadDeploymentZipWithProgress(String nodeId, {
+    void Function(double progress)? onProgress,
+    void Function(String status)? onStatus,
+  }) async {
+    final uri = Uri.parse(
+        '$baseUrl/api/admin/edge-nodes/$nodeId/deployment-zip');
+    final request = http.Request('GET', uri);
+    request.headers.addAll(_headers(true));
+
+    final client = http.Client();
+    try {
+      onStatus?.call('正在生成部署包...');
+      final streamedResponse = await client.send(request);
+
+      if (streamedResponse.statusCode < 200 ||
+          streamedResponse.statusCode >= 300) {
+        final errorBody = await streamedResponse.stream.bytesToString();
+        final mockResponse = http.Response(
+          errorBody,
+          streamedResponse.statusCode,
+          request: request,
+        );
+        _check(mockResponse, authFailureAsSessionExpired: true);
+      }
+
+      final contentLength = streamedResponse.contentLength ?? 0;
+      final bytesBuilder = BytesBuilder();
+      int received = 0;
+
+      onStatus?.call('正在下载 (0%)');
+
+      await for (final chunk in streamedResponse.stream) {
+        bytesBuilder.add(chunk);
+        received = received + chunk.length;
+        if (contentLength > 0 && onProgress != null) {
+          double ratio = received / contentLength;
+          onProgress(ratio > 1.0 ? 1.0 : ratio);
+          int percent = (ratio * 100).toInt();
+          onStatus?.call('正在下载 ($percent%)');
+        }
+      }
+
+      onProgress?.call(1.0);
+      onStatus?.call('下载完成');
+      return bytesBuilder.toBytes();
+    } finally {
+      client.close();
+    }
   }
 
   Future<void> revokeEdgeNodeCertificate(String nodeId) async {
-    // 吊销证书通过更新节点状态实现
     await _put(
         '/api/admin/edge-nodes/$nodeId', body: {'certificateRevoked': true});
   }

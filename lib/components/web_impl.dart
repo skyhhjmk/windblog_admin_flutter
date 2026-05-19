@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter, unnecessary_cast
 import 'dart:async';
 import 'dart:html' as html;
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 /// Web implementation using dart:html.
@@ -48,4 +49,41 @@ StreamSubscription? listenToNativePaste(
 
 void openUrl(String url) {
   html.window.open(url, '_blank');
+}
+
+void downloadFile(Uint8List bytes, String fileName, String mimeType) {
+  final blob = html.Blob([bytes], mimeType);
+  final blobUrl = html.Url.createObjectUrlFromBlob(blob);
+
+  final anchor = html.AnchorElement(href: blobUrl)
+    ..setAttribute('download', fileName)
+    ..style.display = 'none';
+
+  html.document.body!.children.add(anchor);
+  anchor.click();
+
+  Future.delayed(const Duration(milliseconds: 200), () {
+    anchor.remove();
+    html.Url.revokeObjectUrl(blobUrl);
+  });
+}
+
+void saveFileWithPicker(Uint8List bytes, String fileName) {
+  final blob = html.Blob([bytes], 'application/zip');
+  final blobUrl = html.Url.createObjectUrlFromBlob(blob);
+
+  final htmlContent = '<!DOCTYPE html><html><body><script>'
+      'window.parent._windblogSavePicker("' + blobUrl + '","' + fileName + '");'
+      '</script></body></html>';
+
+  final iframe = html.IFrameElement()
+    ..style.display = 'none'
+    ..srcdoc = htmlContent;
+
+  html.document.body?.children.add(iframe);
+
+  Future.delayed(const Duration(seconds: 60), () {
+    html.Url.revokeObjectUrl(blobUrl);
+    iframe.remove();
+  });
 }

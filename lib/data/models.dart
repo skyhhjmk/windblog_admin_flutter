@@ -2527,6 +2527,7 @@ class EdgeNode {
   final String? certificateBackupSerial;
   final DateTime? certificateBackupExpiry;
   final bool isTrusted;
+  final int? edgeGrpcPort;
 
   EdgeNode({
     required this.nodeId,
@@ -2544,6 +2545,10 @@ class EdgeNode {
     this.certificateSerial,
     this.certificateExpiry,
     this.certificateRevoked = false,
+    this.certificateBackupSerial,
+    this.certificateBackupExpiry,
+    this.isTrusted = false,
+    this.edgeGrpcPort,
   });
 
   factory EdgeNode.fromJson(Map<String, dynamic> json) {
@@ -2569,6 +2574,8 @@ class EdgeNode {
       certificateBackupSerial: json['certificateBackupSerial']?.toString(),
       certificateBackupExpiry: parseDate(json['certificateBackupExpiry']),
       isTrusted: json['isTrusted'] == true,
+      edgeGrpcPort: json['edgeGrpcPort'] != null ? int.tryParse(
+          json['edgeGrpcPort'].toString()) : null,
     );
   }
 
@@ -2588,6 +2595,7 @@ class EdgeNode {
       'region': region.code,
       'connectionType': connectionType.name,
       'isEnabled': isEnabled,
+      'edgeGrpcPort': edgeGrpcPort,
     };
   }
 }
