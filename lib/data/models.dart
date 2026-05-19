@@ -2580,8 +2580,9 @@ class EdgeNode {
   }
 
   static EdgeConnectionType _parseConnectionType(dynamic value) {
-    if (value == 'activePoll' || value == 'ACTIVE_POLL')
+    if (value == 'activePoll' || value == 'ACTIVE_POLL') {
       return EdgeConnectionType.activePoll;
+    }
     return EdgeConnectionType.heartbeat;
   }
 

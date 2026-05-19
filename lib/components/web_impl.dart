@@ -1,7 +1,6 @@
 // ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter, unnecessary_cast
 import 'dart:async';
 import 'dart:html' as html;
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 /// Web implementation using dart:html.
@@ -73,7 +72,7 @@ void saveFileWithPicker(Uint8List bytes, String fileName) {
   final blobUrl = html.Url.createObjectUrlFromBlob(blob);
 
   final htmlContent = '<!DOCTYPE html><html><body><script>'
-      'window.parent._windblogSavePicker("' + blobUrl + '","' + fileName + '");'
+      'window.parent._windblogSavePicker("$blobUrl","$fileName");'
       '</script></body></html>';
 
   final iframe = html.IFrameElement()

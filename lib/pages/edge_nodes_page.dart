@@ -240,6 +240,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
     final apiUrlController = TextEditingController(text: node?.apiUrl);
     final grpcAddressController = TextEditingController(
         text: node?.grpcAddress);
+    final ipController = TextEditingController();
     BlogRegion selectedRegion = node?.region ?? BlogRegion.global;
     EdgeConnectionType selectedConn = node?.connectionType ??
         EdgeConnectionType.heartbeat;
@@ -288,6 +289,15 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                               decoration: const InputDecoration(
                                   labelText: 'gRPC 通信地址',
                                   hintText: 'edge-node:9001 (主动连接模式必填)'),
+                            ),
+                          ],
+                          if (!isEdit && selectedConn ==
+                              EdgeConnectionType.activePoll) ...[
+                            TextField(
+                              controller: ipController,
+                              decoration: const InputDecoration(
+                                  labelText: '节点 IP (主动连接模式必填)',
+                                  hintText: '例如: 192.168.1.100'),
                             ),
                           ],
                           const SizedBox(height: 8),
@@ -360,7 +370,21 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                     TextButton(onPressed: () => Navigator.pop(context),
                         child: const Text('取消')),
                     FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
+                      onPressed: () {
+                        if (!isEdit &&
+                            selectedConn == EdgeConnectionType.activePoll) {
+                          if (ipController.text
+                              .trim()
+                              .isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text(
+                                  '使用主动轮询模式时必须填写节点 IP')),
+                            );
+                            return;
+                          }
+                        }
+                        Navigator.pop(context, true);
+                      },
                       child: Text(isEdit ? '保存' : '创建'),
                     ),
                   ],
@@ -393,7 +417,8 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
         await widget.api.updateEdgeNode(node.nodeId, newNode);
         _loadData();
       } else {
-        await widget.api.createEdgeNode(newNode);
+        await widget.api.createEdgeNode(
+            newNode, nodeIp: ipController.text.trim());
         _loadData();
         if (mounted) {
           _offerDownloadZip(idController.text);
@@ -468,7 +493,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                           const Icon(
                               Icons.error_outline, color: Colors.red, size: 48),
                           const SizedBox(height: 12),
-                          Text(downloadError!, style: const TextStyle(
+                          Text(downloadError, style: const TextStyle(
                               color: Colors.red)),
                         ] else
                           ...[
@@ -488,7 +513,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                                 OutlinedButton.icon(
                                   onPressed: () {
                                     if (zipBytes != null) {
-                                      web_helper.downloadFile(zipBytes!,
+                                      web_helper.downloadFile(zipBytes,
                                           'windblog-edge-$nodeId.zip',
                                           'application/zip');
                                     }
@@ -500,7 +525,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                                 FilledButton.icon(
                                   onPressed: () {
                                     if (zipBytes != null) {
-                                      web_helper.saveFileWithPicker(zipBytes!,
+                                      web_helper.saveFileWithPicker(zipBytes,
                                           'windblog-edge-$nodeId.zip');
                                     }
                                   },

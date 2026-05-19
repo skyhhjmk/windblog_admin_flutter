@@ -840,13 +840,14 @@ class AdminApiClient {
     return list.map((e) => EdgeNode.fromJson(_map(e))).toList();
   }
 
-  Future<EdgeNode> createEdgeNode(EdgeNode node) async {
+  Future<EdgeNode> createEdgeNode(EdgeNode node, {String? nodeIp}) async {
     final res = await _post('/api/admin/edge-nodes', body: {
       'nodeId': node.nodeId,
       'nodeName': node.name,
       'region': node.region.code,
       'connectionType': node.connectionType.name,
       'edgeGrpcPort': node.edgeGrpcPort,
+      if (nodeIp != null && nodeIp.isNotEmpty) 'nodeIp': nodeIp,
     });
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
