@@ -338,7 +338,7 @@ class _PostsPageState extends State<PostsPage> {
               onPressed: () async {
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
                 try {
-                  await widget.api.publishPost(it.id);
+                  await widget.api.publishLatestDraftPost(it.id);
                   await load();
                 } on UnauthorizedException {
                   widget.onAuthError();
@@ -353,7 +353,8 @@ class _PostsPageState extends State<PostsPage> {
                 }
               },
               child: Text(
-                  t(context, 'publish'), style: const TextStyle(fontSize: 12)),
+                  t(context, 'publish_latest_draft'),
+                  style: const TextStyle(fontSize: 12)),
             ),
             TextButton(
               onPressed: () async {
@@ -1099,6 +1100,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     }
 
     setState(() => _isSaving = true);
+    final draftSaveSuccessText = t(context, 'draft_save_success');
+    final publishNowText = t(context, 'publish_now');
     try {
       final request = PostEditRequest(
         slug: slugCtrl.text.trim(),
@@ -1122,10 +1125,11 @@ class _PostEditorPageState extends State<PostEditorPage>
         visibilityRegions: visibilityRegions,
       );
 
+      PostDetail savedDetail;
       if (_currentDetail == null) {
-        await widget.api.createPost(request);
+        savedDetail = await widget.api.createPost(request);
       } else {
-        await widget.api.updatePost(
+        savedDetail = await widget.api.updatePost(
           _currentDetail!.id,
           request.copyWith(version: _currentDetail!.version),
         );
@@ -1133,11 +1137,21 @@ class _PostEditorPageState extends State<PostEditorPage>
 
       if (mounted) {
         setState(() {
+          _currentDetail = savedDetail;
           _isSaving = false;
           _isDirty = false;
         });
+        await _loadRevisions();
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(t(context, 'save_success'))),
+          SnackBar(
+            content: Text(draftSaveSuccessText),
+            action: SnackBarAction(
+              label: publishNowText,
+              onPressed: () {
+                _publishLatestDraft();
+              },
+            ),
+          ),
         );
       }
       return true;
@@ -1149,6 +1163,62 @@ class _PostEditorPageState extends State<PostEditorPage>
         );
       }
       return false;
+    }
+  }
+
+  Future<void> _publishLatestDraft() async {
+    if (_currentDetail == null) return;
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final publishSuccessText = t(context, 'publish_success');
+    final operationFailedText = t(context, 'operation_failed');
+    try {
+      await widget.api.publishLatestDraftPost(_currentDetail!.id);
+      final latestDetail = await widget.api.postDetail(_currentDetail!.id);
+      if (mounted) {
+        setState(() {
+          _currentDetail = latestDetail;
+          status = latestDetail.status;
+        });
+        await _loadRevisions();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text(publishSuccessText)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('$operationFailedText: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _publishRevision(int revisionNumber) async {
+    if (_currentDetail == null) return;
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final publishSuccessText = t(context, 'publish_success');
+    final operationFailedText = t(context, 'operation_failed');
+    try {
+      await widget.api.publishPostRevision(_currentDetail!.id, revisionNumber);
+      final latestDetail = await widget.api.postDetail(_currentDetail!.id);
+      if (mounted) {
+        setState(() {
+          _currentDetail = latestDetail;
+          status = latestDetail.status;
+        });
+        await _loadRevisions();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text(publishSuccessText)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('$operationFailedText: $e')),
+        );
+      }
     }
   }
 
@@ -1944,6 +2014,11 @@ class _PostEditorPageState extends State<PostEditorPage>
             MetadataItem(t(context, 'post_id'), '${d.id}'),
             MetadataItem(
                 t(context, 'current_revision'), '${d.currentRevisionNumber}'),
+            MetadataItem(
+                t(context, 'published_revision'),
+                d.hasPublishedRevision
+                    ? '${d.publishedRevisionNumber}'
+                    : t(context, 'not_published')),
             MetadataItem(t(context, 'data_version'), '${d.version}'),
             const Divider(height: 24),
             if (d.createdAt != null) MetadataItem(
@@ -1996,6 +2071,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         final revision = _revisions[i];
         final isCurrent = revision.revisionNumber ==
             _currentDetail!.currentRevisionNumber;
+        final isPublished = revision.isPublishedRevision;
         return ListTile(
           title: Text(
             t(context, 'revision_text').replaceAll(
@@ -2021,25 +2097,42 @@ class _PostEditorPageState extends State<PostEditorPage>
               ),
             ],
           ),
-          trailing: isCurrent
-              ? Chip(
-            label: Text(t(context, 'current_badge'),
-                style: const TextStyle(fontSize: 10)),
-            backgroundColor: Colors.green.shade100,
-            labelStyle: TextStyle(color: Colors.green.shade800),
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-          )
-              : Wrap(
-                spacing: 4,
-                children: [
+          trailing: Wrap(
+            spacing: 4,
+            children: [
+              if (isCurrent)
+                Chip(
+                  label: Text(t(context, 'current_draft'),
+                      style: const TextStyle(fontSize: 10)),
+                  backgroundColor: Colors.green.shade100,
+                  labelStyle: TextStyle(color: Colors.green.shade800),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 4, vertical: 0),
+                ),
+              if (isPublished)
+                Chip(
+                  label: Text(t(context, 'published_revision_badge'),
+                      style: const TextStyle(fontSize: 10)),
+                  backgroundColor: Colors.blue.shade100,
+                  labelStyle: TextStyle(color: Colors.blue.shade800),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 4, vertical: 0),
+                ),
                   TextButton(
                     onPressed: () => _showDiff(revision.revisionNumber),
                     child: Text(t(context, 'compare')),
                   ),
-                  TextButton(
-                    onPressed: () => _switchToRevision(revision.revisionNumber),
-                    child: Text(t(context, 'switch')),
-                  ),
+              if (!isCurrent)
+                TextButton(
+                  onPressed: () =>
+                      _switchToRevision(revision.revisionNumber),
+                  child: Text(t(context, 'switch')),
+                ),
+              if (!isPublished)
+                TextButton(
+                  onPressed: () => _publishRevision(revision.revisionNumber),
+                  child: Text(t(context, 'publish_this_revision')),
+                ),
                 ],
               ),
           dense: true,

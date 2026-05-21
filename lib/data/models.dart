@@ -62,6 +62,8 @@ class PostItem {
     this.categoryId,
     this.userName,
     this.tagIds = const [],
+    required this.publishedRevisionNumber,
+    required this.hasPublishedRevision,
   });
   final int id;
   final String slug;
@@ -75,6 +77,8 @@ class PostItem {
   final int? categoryId;
   final String? userName;
   final List<int> tagIds;
+  final int publishedRevisionNumber;
+  final bool hasPublishedRevision;
 
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
@@ -108,6 +112,8 @@ class PostItem {
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
           .toList(),
+      publishedRevisionNumber: toInt(map['publishedRevisionNumber']) ?? 0,
+      hasPublishedRevision: map['hasPublishedRevision'] == true,
     );
   }
 }
@@ -137,6 +143,8 @@ class PostDetail {
     this.visibilityRegions = const [],
     this.pointsPrice,
     this.freeLines,
+    required this.publishedRevisionNumber,
+    required this.hasPublishedRevision,
     this.publishedAt,
     this.createdAt,
     this.updatedAt,
@@ -165,6 +173,8 @@ class PostDetail {
   final List<String> visibilityRegions;
   final int? pointsPrice;
   final int? freeLines;
+  final int publishedRevisionNumber;
+  final bool hasPublishedRevision;
   final DateTime? publishedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -211,6 +221,8 @@ class PostDetail {
       visibilityRegions: toStringList(map['visibilityRegions']) ?? [],
       pointsPrice: toInt(map['pointsPrice']),
       freeLines: toInt(map['freeLines']),
+      publishedRevisionNumber: toInt(map['publishedRevisionNumber']) ?? 0,
+      hasPublishedRevision: map['hasPublishedRevision'] == true,
       publishedAt: parseDate(map['publishedAt']),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
@@ -226,6 +238,7 @@ class PostRevisionItem {
     required this.editorType,
     this.createdBy,
     required this.createdByName,
+    required this.isPublishedRevision,
     required this.createdAt,
   });
 
@@ -235,6 +248,7 @@ class PostRevisionItem {
   final int editorType;
   final int? createdBy;
   final String createdByName;
+  final bool isPublishedRevision;
   final DateTime createdAt;
 
   String get zhTitle =>
@@ -248,6 +262,7 @@ class PostRevisionItem {
       editorType: toInt(map['editorType']) ?? 0,
       createdBy: toInt(map['createdBy']),
       createdByName: map['createdByName']?.toString() ?? '',
+      isPublishedRevision: map['isPublishedRevision'] == true,
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
     );
   }

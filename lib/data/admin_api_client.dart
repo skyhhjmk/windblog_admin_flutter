@@ -178,14 +178,25 @@ class AdminApiClient {
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<void> createPost(PostEditRequest req) async =>
-      _post('/api/admin/posts', body: req.toCreateBody());
+  Future<PostDetail> createPost(PostEditRequest req) async {
+    final res = await _post('/api/admin/posts', body: req.toCreateBody());
+    return PostDetail.fromMap(_map(jsonDecode(res.body)));
+  }
 
-  Future<void> updatePost(int id, PostEditRequest req) async =>
-      _put('/api/admin/posts/$id', body: req.toUpdateBody());
+  Future<PostDetail> updatePost(int id, PostEditRequest req) async {
+    final res = await _put('/api/admin/posts/$id', body: req.toUpdateBody());
+    return PostDetail.fromMap(_map(jsonDecode(res.body)));
+  }
 
   Future<void> publishPost(int id) async =>
       _post('/api/admin/posts/$id/publish', body: const {});
+
+  Future<void> publishLatestDraftPost(int id) async =>
+      _post('/api/admin/posts/$id/publish', body: const {});
+
+  Future<void> publishPostRevision(int postId, int revisionNumber) async =>
+      _post('/api/admin/posts/$postId/revisions/$revisionNumber/publish',
+          body: const {});
 
   Future<void> deletePost(int id) async => _delete('/api/admin/posts/$id');
 
