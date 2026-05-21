@@ -822,7 +822,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     pointsPriceCtrl =
         TextEditingController(text: d?.pointsPrice?.toString() ?? '');
     freeLinesCtrl = TextEditingController(text: d?.freeLines?.toString() ?? '');
-    passwordCtrl = TextEditingController(text: d?.password ?? '');
+    passwordCtrl = TextEditingController();
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
     visibilityRegions = d?.visibilityRegions ?? [];
@@ -908,7 +908,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         currentContent != _initialContent ||
         status != _initialStatus ||
         visibility != _initialVisibility ||
-        passwordCtrl.text.trim() != (_currentDetail?.password ?? '') ||
+        passwordCtrl.text.trim().isNotEmpty ||
         renderType != _initialRenderType ||
         editorType != _initialEditorType ||
         aiSummaryStatus != _initialAiSummaryStatus ||
@@ -1194,7 +1194,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           contentCtrl.text = newDetail.zhContent;
           pointsPriceCtrl.text = newDetail.pointsPrice?.toString() ?? '';
           freeLinesCtrl.text = newDetail.freeLines?.toString() ?? '';
-          passwordCtrl.text = newDetail.password ?? '';
+          passwordCtrl.clear();
 
           status = newDetail.status;
           visibility = newDetail.visibility;
@@ -1890,6 +1890,9 @@ class _PostEditorPageState extends State<PostEditorPage>
               controller: passwordCtrl,
               decoration: InputDecoration(
                 labelText: t(context, 'access_password'),
+                helperText: _currentDetail?.hasPassword == true
+                    ? '已设置访问密码，留空表示不修改'
+                    : null,
                 prefixIcon: const Icon(Icons.lock_outline, size: 18),
                 isDense: true,
               ),

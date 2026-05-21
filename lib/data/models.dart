@@ -125,6 +125,7 @@ class PostDetail {
     required this.status,
     required this.visibility,
     this.password,
+    required this.hasPassword,
     required this.renderType,
     required this.editorType,
     required this.aiSummaryStatus,
@@ -152,6 +153,7 @@ class PostDetail {
   final int status;
   final int visibility;
   final String? password;
+  final bool hasPassword;
   final int renderType;
   final int editorType;
   final int aiSummaryStatus;
@@ -194,6 +196,7 @@ class PostDetail {
       status: toInt(map['status']) ?? 0,
       visibility: toInt(map['visibility']) ?? 0,
       password: map['password']?.toString(),
+      hasPassword: map['hasPassword'] == true,
       renderType: toInt(map['renderType']) ?? 0,
       editorType: toInt(map['editorType']) ?? 0,
       aiSummaryStatus: toInt(map['aiSummaryStatus']) ?? 0,
