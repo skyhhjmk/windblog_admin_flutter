@@ -2676,6 +2676,64 @@ class EdgeSyncStatus {
   double get progress => total > 0 ? processed / total : 0.0;
 }
 
+class EdgeNodeDataStatus {
+  EdgeNodeDataStatus({
+    required this.nodeId,
+    required this.nodeStatus,
+    required this.enabled,
+    required this.trusted,
+    required this.persistentChannelOnline,
+    required this.primaryOnline,
+    required this.readOnly,
+    required this.readOnlyMessage,
+    this.channelConnectedAt,
+    this.lastHeartbeat,
+    required this.metrics,
+    this.syncProgress,
+  });
+
+  final String nodeId;
+  final String nodeStatus;
+  final bool enabled;
+  final bool trusted;
+  final bool persistentChannelOnline;
+  final bool primaryOnline;
+  final bool readOnly;
+  final String readOnlyMessage;
+  final DateTime? channelConnectedAt;
+  final DateTime? lastHeartbeat;
+  final Map<String, String> metrics;
+  final EdgeSyncStatus? syncProgress;
+
+  factory EdgeNodeDataStatus.fromMap(Map<String, dynamic> map) {
+    final rawSyncProgress = map['syncProgress'];
+    EdgeSyncStatus? parsedSyncProgress;
+    if (rawSyncProgress is Map) {
+      parsedSyncProgress = EdgeSyncStatus.fromMap(
+        rawSyncProgress.map((key, value) => MapEntry(key.toString(), value)),
+      );
+    }
+
+    return EdgeNodeDataStatus(
+      nodeId: map['nodeId']?.toString() ?? '',
+      nodeStatus: map['nodeStatus']?.toString() ?? 'OFFLINE',
+      enabled: toBool(map['enabled']) ?? false,
+      trusted: toBool(map['trusted']) ?? false,
+      persistentChannelOnline: toBool(map['persistentChannelOnline']) ?? false,
+      primaryOnline: toBool(map['primaryOnline']) ?? false,
+      readOnly: toBool(map['readOnly']) ?? true,
+      readOnlyMessage: map['readOnlyMessage']?.toString() ?? '',
+      channelConnectedAt: parseDate(map['channelConnectedAt']),
+      lastHeartbeat: parseDate(map['lastHeartbeat']),
+      metrics: (map['metrics'] as Map?)?.map(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+      ) ??
+          {},
+      syncProgress: parsedSyncProgress,
+    );
+  }
+}
+
 class NodeCertificateResponse {
   final String nodeId;
   final String primaryCertificatePem;

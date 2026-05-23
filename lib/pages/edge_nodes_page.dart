@@ -17,6 +17,7 @@ class EdgeNodesPage extends StatefulWidget {
 class _EdgeNodesPageState extends State<EdgeNodesPage> {
   bool loading = false;
   List<EdgeNode> nodes = [];
+  Map<String, EdgeNodeDataStatus> dataStatuses = {};
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
     setState(() => loading = true);
     try {
       nodes = await widget.api.listEdgeNodes();
+      dataStatuses = await _loadDataStatuses(nodes);
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
@@ -41,6 +43,19 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
         setState(() => loading = false);
       }
     }
+  }
+
+  Future<Map<String, EdgeNodeDataStatus>> _loadDataStatuses(
+      List<EdgeNode> edgeNodes,) async {
+    final Map<String, EdgeNodeDataStatus> loadedStatuses = {};
+    for (int index = 0; index < edgeNodes.length; index++) {
+      final node = edgeNodes[index];
+      try {
+        final status = await widget.api.getEdgeNodeDataStatus(node.nodeId);
+        loadedStatuses[node.nodeId] = status;
+      } catch (_) {}
+    }
+    return loadedStatuses;
   }
 
   Future<void> _toggleNode(String nodeId, bool enabled) async {
@@ -130,6 +145,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       itemCount: nodes.length,
       itemBuilder: (context, index) {
         final node = nodes[index];
+        final dataStatus = dataStatuses[node.nodeId];
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: Padding(
@@ -169,6 +185,19 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                               node.certificateExpiry!.isBefore(DateTime.now())
                               ? Colors.orange
                               : (node.isTrusted ? Colors.green : Colors.blue))),
+                    const SizedBox(width: 4),
+                    if (dataStatus != null)
+                      _buildBadge(
+                        dataStatus.persistentChannelOnline
+                            ? '通道在线'
+                            : '通道离线',
+                        dataStatus.persistentChannelOnline
+                            ? Colors.green
+                            : Colors.red,
+                      ),
+                    const SizedBox(width: 4),
+                    if (dataStatus != null && dataStatus.readOnly)
+                      _buildBadge('只读', Colors.deepOrange),
                     const Spacer(),
                     Switch(
                       value: node.isEnabled,
@@ -181,6 +210,13 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                 if (node.grpcAddress != null && node.grpcAddress!.isNotEmpty)
                   Text('地址: ${node.grpcAddress}'),
                 Text('状态: ${node.status}'),
+                if (dataStatus != null)
+                  Text(
+                    '数据状态: ${dataStatus.primaryOnline
+                        ? '主节点在线'
+                        : '主节点离线'} / '
+                        '${dataStatus.readOnly ? '只读' : '可写回源'}',
+                  ),
                 Text('最后活跃: ${_formatDate(node.lastHeartbeat)}'),
                 if (node.metrics.isNotEmpty)
                   Text('指标: ${node.metrics.toString()}'),
@@ -616,6 +652,7 @@ class _EdgeNodeDetailDialog extends StatefulWidget {
 class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
   EdgeNode? detailedNode;
   EdgeSyncStatus? syncStatus;
+  EdgeNodeDataStatus? dataStatus;
   Timer? _timer;
   bool _forceSync = false;
   bool loading = true;
@@ -637,11 +674,12 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
   Future<void> _refresh() async {
     try {
       final n = await widget.api.getEdgeNode(widget.node.nodeId);
-      final s = await widget.api.getEdgeNodeSyncStatus(widget.node.nodeId);
+      final d = await widget.api.getEdgeNodeDataStatus(widget.node.nodeId);
       if (mounted) {
         setState(() {
           detailedNode = n;
-          syncStatus = s;
+          dataStatus = d;
+          syncStatus = d.syncProgress;
           loading = false;
         });
       }
@@ -652,9 +690,12 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
 
   Future<void> _refreshStatus() async {
     try {
-      final s = await widget.api.getEdgeNodeSyncStatus(widget.node.nodeId);
+      final d = await widget.api.getEdgeNodeDataStatus(widget.node.nodeId);
       if (mounted) {
-        setState(() => syncStatus = s);
+        setState(() {
+          dataStatus = d;
+          syncStatus = d.syncProgress;
+        });
       }
     } catch (_) {}
   }
@@ -701,6 +742,40 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
               _buildInfoRow('区域', node.region.displayName),
               _buildInfoRow('连接模式', node.connectionType.name),
               const Divider(),
+              _buildSectionTitle('数据通道'),
+              if (dataStatus == null)
+                const Text('暂无数据通道状态')
+              else
+                ...[
+                  _buildInfoRow(
+                    '持久通道',
+                    dataStatus!.persistentChannelOnline ? '在线' : '离线',
+                    color: dataStatus!.persistentChannelOnline
+                        ? Colors.green
+                        : Colors.red,
+                  ),
+                  _buildInfoRow(
+                    '主节点',
+                    dataStatus!.primaryOnline ? '在线' : '离线',
+                    color: dataStatus!.primaryOnline
+                        ? Colors.green
+                        : Colors.red,
+                  ),
+                  _buildInfoRow(
+                    '写入模式',
+                    dataStatus!.readOnly ? '只读' : '写请求回源主节点',
+                    color: dataStatus!.readOnly
+                        ? Colors.deepOrange
+                        : Colors.green,
+                  ),
+                  if (dataStatus!.readOnlyMessage.isNotEmpty)
+                    _buildInfoRow('只读原因', dataStatus!.readOnlyMessage),
+                  _buildInfoRow(
+                    '通道建立',
+                    _formatDate(dataStatus!.channelConnectedAt),
+                  ),
+                ],
+              const Divider(),
               _buildSectionTitle('安全与证书'),
               _buildInfoRow('可信状态',
                   node.certificateSerial == null ? '未授信' : (node
@@ -732,10 +807,10 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
               ),
               const Divider(),
               _buildSectionTitle('运行指标'),
-              if (node.metrics.isEmpty)
+              if (_mergedMetrics(node).isEmpty)
                 const Text('暂无指标数据', style: TextStyle(color: Colors.grey))
               else
-                ...node.metrics.entries.map((e) =>
+                ..._mergedMetrics(node).entries.map((e) =>
                     _buildInfoRow(e.key, e.value)),
               const Divider(),
               _buildSectionTitle('同步状态'),
@@ -1029,5 +1104,12 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
         ],
       ),
     );
+  }
+
+  Map<String, String> _mergedMetrics(EdgeNode node) {
+    if (dataStatus != null && dataStatus!.metrics.isNotEmpty) {
+      return dataStatus!.metrics;
+    }
+    return node.metrics;
   }
 }

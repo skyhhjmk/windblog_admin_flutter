@@ -10,10 +10,22 @@ class AdminApiClient {
   String baseUrl = 'http://localhost:8080';
   String? token;
 
+  String normalizeBaseUrl(String rawBaseUrl) {
+    String normalizedBaseUrl = rawBaseUrl.trim();
+    while (normalizedBaseUrl.endsWith('/')) {
+      normalizedBaseUrl = normalizedBaseUrl.substring(
+        0,
+        normalizedBaseUrl.length - 1,
+      );
+    }
+    return normalizedBaseUrl;
+  }
+
   Future<String> login({
     required String account,
     required String password,
   }) async {
+    baseUrl = normalizeBaseUrl(baseUrl);
     final res = await _post(
       '/api/admin/auth/login',
       body: {'account': account, 'password': password},
@@ -895,6 +907,11 @@ class AdminApiClient {
     final map = _map(jsonDecode(res.body));
     if (map.isEmpty) return null;
     return EdgeSyncStatus.fromMap(map);
+  }
+
+  Future<EdgeNodeDataStatus> getEdgeNodeDataStatus(String nodeId) async {
+    final res = await _get('/api/admin/edge-nodes/$nodeId/data-status');
+    return EdgeNodeDataStatus.fromMap(_map(jsonDecode(res.body)));
   }
 
   // ==================== Node Certificate API ====================

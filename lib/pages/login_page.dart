@@ -29,7 +29,7 @@ class _LoginPageState extends State<LoginPage> {
     if (!formKey.currentState!.validate()) return;
     setState(() => loading = true);
     try {
-      widget.api.baseUrl = baseUrlCtrl.text.trim();
+      widget.api.baseUrl = widget.api.normalizeBaseUrl(baseUrlCtrl.text);
       final token = await widget.api.login(
         account: accountCtrl.text.trim(),
         password: passwordCtrl.text,

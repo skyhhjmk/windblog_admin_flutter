@@ -18,6 +18,8 @@ class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
   bool loading = false;
   StorageSyncStatus? syncStatus;
   List<StorageProviderItem> providers = [];
+  List<EdgeNode> edgeNodes = [];
+  Map<String, EdgeNodeDataStatus> edgeDataStatuses = {};
 
   @override
   void initState() {
@@ -30,8 +32,11 @@ class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
     try {
       final syncStatusFuture = widget.api.getStorageSyncStatus();
       final providersFuture = widget.api.listStorageProviders();
+      final edgeNodesFuture = widget.api.listEdgeNodes();
       syncStatus = await syncStatusFuture;
       providers = await providersFuture;
+      edgeNodes = await edgeNodesFuture;
+      edgeDataStatuses = await _loadEdgeDataStatuses(edgeNodes);
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
@@ -45,6 +50,19 @@ class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
         setState(() => loading = false);
       }
     }
+  }
+
+  Future<Map<String, EdgeNodeDataStatus>> _loadEdgeDataStatuses(
+      List<EdgeNode> nodes,) async {
+    final Map<String, EdgeNodeDataStatus> loadedStatuses = {};
+    for (int index = 0; index < nodes.length; index++) {
+      final node = nodes[index];
+      try {
+        final status = await widget.api.getEdgeNodeDataStatus(node.nodeId);
+        loadedStatuses[node.nodeId] = status;
+      } catch (_) {}
+    }
+    return loadedStatuses;
   }
 
   @override
@@ -84,8 +102,149 @@ class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
         children: [
           _buildProviderOverview(),
           const SizedBox(height: 16),
+          _buildEdgeDataOverview(),
+          const SizedBox(height: 16),
           _buildSyncOverview(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEdgeDataOverview() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '边缘数据状态',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                    child: _statItem('边缘节点', edgeNodes.length.toString())),
+                Expanded(
+                  child: _statItem(
+                    '通道在线',
+                    _onlineChannelCount.toString(),
+                    color: Colors.green,
+                  ),
+                ),
+                Expanded(
+                  child: _statItem(
+                    '只读节点',
+                    _readOnlyCount.toString(),
+                    color: Colors.deepOrange,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildEdgeNodeStatusList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int get _onlineChannelCount {
+    int count = 0;
+    for (int index = 0; index < edgeDataStatuses.length; index++) {
+      final status = edgeDataStatuses.values.elementAt(index);
+      if (status.persistentChannelOnline) {
+        count = count + 1;
+      }
+    }
+    return count;
+  }
+
+  int get _readOnlyCount {
+    int count = 0;
+    for (int index = 0; index < edgeDataStatuses.length; index++) {
+      final status = edgeDataStatuses.values.elementAt(index);
+      if (status.readOnly) {
+        count = count + 1;
+      }
+    }
+    return count;
+  }
+
+  Widget _buildEdgeNodeStatusList() {
+    if (edgeNodes.isEmpty) {
+      return const Center(child: Text('暂无边缘节点'));
+    }
+
+    final List<Widget> rows = [];
+    for (int index = 0; index < edgeNodes.length; index++) {
+      final node = edgeNodes[index];
+      final status = edgeDataStatuses[node.nodeId];
+      rows.add(_buildEdgeNodeStatusRow(node, status));
+      if (index < edgeNodes.length - 1) {
+        rows.add(const Divider(height: 16));
+      }
+    }
+    return Column(children: rows);
+  }
+
+  Widget _buildEdgeNodeStatusRow(EdgeNode node,
+      EdgeNodeDataStatus? status,) {
+    final bool channelOnline = status?.persistentChannelOnline ?? false;
+    final bool readOnly = status?.readOnly ?? true;
+    final String writeMode = readOnly ? '只读' : '写请求回源';
+
+    return Row(
+      children: [
+        Icon(
+          channelOnline ? Icons.cable : Icons.cable_outlined,
+          color: channelOnline ? Colors.green : Colors.red,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                node.name.isNotEmpty ? node.name : node.nodeId,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '节点 ${node.nodeId} / ${node.region.code.toUpperCase()}',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        _statusChip(
+          channelOnline ? '通道在线' : '通道离线',
+          channelOnline ? Colors.green : Colors.red,
+        ),
+        const SizedBox(width: 8),
+        _statusChip(
+          writeMode,
+          readOnly ? Colors.deepOrange : Colors.green,
+        ),
+      ],
+    );
+  }
+
+  Widget _statusChip(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

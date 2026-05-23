@@ -1200,6 +1200,29 @@ class _PostEditorPageState extends State<PostEditorPage>
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final publishSuccessText = t(context, 'publish_success');
     final operationFailedText = t(context, 'operation_failed');
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: Text(t(context, 'publish_revision_title')),
+            content: Text(
+                t(context, 'publish_revision_confirm').replaceAll(
+                    '%d', revisionNumber.toString())),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(t(context, 'cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(t(context, 'publish_this_revision')),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
+
     try {
       await widget.api.publishPostRevision(_currentDetail!.id, revisionNumber);
       final latestDetail = await widget.api.postDetail(_currentDetail!.id);
@@ -1229,9 +1252,9 @@ class _PostEditorPageState extends State<PostEditorPage>
       context: context,
       builder: (context) =>
           AlertDialog(
-            title: Text(t(context, 'switch_version')),
+            title: Text(t(context, 'set_current_draft_title')),
             content: Text(
-                t(context, 'switch_version_confirm').replaceAll(
+                t(context, 'set_current_draft_confirm').replaceAll(
                     '%d', revisionNumber.toString())),
             actions: [
               TextButton(
@@ -1240,7 +1263,7 @@ class _PostEditorPageState extends State<PostEditorPage>
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: Text(t(context, 'confirm')),
+                child: Text(t(context, 'set_current_draft')),
               ),
             ],
           ),
@@ -1295,14 +1318,15 @@ class _PostEditorPageState extends State<PostEditorPage>
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(t(context, 'switch_success'))),
+            SnackBar(content: Text(t(context, 'set_current_draft_success'))),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'switch_failed')}: $e')),
+          SnackBar(
+              content: Text('${t(context, 'set_current_draft_failed')}: $e')),
         );
       }
     }
@@ -2126,7 +2150,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                 TextButton(
                   onPressed: () =>
                       _switchToRevision(revision.revisionNumber),
-                  child: Text(t(context, 'switch')),
+                  child: Text(t(context, 'set_current_draft')),
                 ),
               if (!isPublished)
                 TextButton(
