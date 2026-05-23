@@ -2689,6 +2689,7 @@ class EdgeNodeDataStatus {
     this.channelConnectedAt,
     this.lastHeartbeat,
     required this.metrics,
+    this.availability,
     this.syncProgress,
   });
 
@@ -2703,6 +2704,7 @@ class EdgeNodeDataStatus {
   final DateTime? channelConnectedAt;
   final DateTime? lastHeartbeat;
   final Map<String, String> metrics;
+  final EdgeNodeAvailabilityRates? availability;
   final EdgeSyncStatus? syncProgress;
 
   factory EdgeNodeDataStatus.fromMap(Map<String, dynamic> map) {
@@ -2711,6 +2713,14 @@ class EdgeNodeDataStatus {
     if (rawSyncProgress is Map) {
       parsedSyncProgress = EdgeSyncStatus.fromMap(
         rawSyncProgress.map((key, value) => MapEntry(key.toString(), value)),
+      );
+    }
+
+    EdgeNodeAvailabilityRates? parsedAvailability;
+    final rawAvailability = map['availability'];
+    if (rawAvailability is Map) {
+      parsedAvailability = EdgeNodeAvailabilityRates.fromMap(
+        rawAvailability.map((key, value) => MapEntry(key.toString(), value)),
       );
     }
 
@@ -2729,7 +2739,202 @@ class EdgeNodeDataStatus {
             (key, value) => MapEntry(key.toString(), value.toString()),
       ) ??
           {},
+      availability: parsedAvailability,
       syncProgress: parsedSyncProgress,
+    );
+  }
+}
+
+class EdgeNodeAvailabilityRates {
+  EdgeNodeAvailabilityRates({
+    required this.lastHour,
+    required this.last24Hours,
+    required this.last7Days,
+    required this.last30Days,
+  });
+
+  final EdgeNodeAvailabilityRate lastHour;
+  final EdgeNodeAvailabilityRate last24Hours;
+  final EdgeNodeAvailabilityRate last7Days;
+  final EdgeNodeAvailabilityRate last30Days;
+
+  factory EdgeNodeAvailabilityRates.fromMap(Map<String, dynamic> map) {
+    return EdgeNodeAvailabilityRates(
+      lastHour: EdgeNodeAvailabilityRate.fromMap(
+        _availabilityRateMap(map['lastHour']),
+      ),
+      last24Hours: EdgeNodeAvailabilityRate.fromMap(
+        _availabilityRateMap(map['last24Hours']),
+      ),
+      last7Days: EdgeNodeAvailabilityRate.fromMap(
+        _availabilityRateMap(map['last7Days']),
+      ),
+      last30Days: EdgeNodeAvailabilityRate.fromMap(
+        _availabilityRateMap(map['last30Days']),
+      ),
+    );
+  }
+}
+
+Map<String, dynamic> _availabilityRateMap(Object? value) {
+  if (value is Map) {
+    return value.map((key, mapValue) => MapEntry(key.toString(), mapValue));
+  }
+  return {};
+}
+
+class EdgeNodeAvailabilityRate {
+  EdgeNodeAvailabilityRate({
+    this.onlineRate,
+    required this.totalSamples,
+    required this.onlineSamples,
+  });
+
+  final double? onlineRate;
+  final int totalSamples;
+  final int onlineSamples;
+
+  factory EdgeNodeAvailabilityRate.fromMap(Map<String, dynamic> map) {
+    double? parsedOnlineRate;
+    final rawOnlineRate = map['onlineRate'];
+    if (rawOnlineRate is num) {
+      parsedOnlineRate = rawOnlineRate.toDouble();
+    }
+
+    return EdgeNodeAvailabilityRate(
+      onlineRate: parsedOnlineRate,
+      totalSamples: toInt(map['totalSamples']) ?? 0,
+      onlineSamples: toInt(map['onlineSamples']) ?? 0,
+    );
+  }
+}
+
+class EdgeNodeAvailabilityHistory {
+  EdgeNodeAvailabilityHistory({
+    required this.nodeId,
+    required this.from,
+    required this.to,
+    required this.rates,
+    required this.samples,
+    required this.onlinePeriods,
+    required this.calendarDays,
+  });
+
+  final String nodeId;
+  final DateTime? from;
+  final DateTime? to;
+  final EdgeNodeAvailabilityRates rates;
+  final List<EdgeNodeAvailabilitySamplePoint> samples;
+  final List<EdgeNodeOnlinePeriod> onlinePeriods;
+  final List<EdgeNodeAvailabilityCalendarDay> calendarDays;
+
+  factory EdgeNodeAvailabilityHistory.fromMap(Map<String, dynamic> map) {
+    final List<EdgeNodeAvailabilitySamplePoint> parsedSamples = [];
+    final rawSamples = asDynamicList(map['samples']) ?? [];
+    for (int index = 0; index < rawSamples.length; index++) {
+      final rawSample = rawSamples[index];
+      if (rawSample is Map) {
+        parsedSamples.add(EdgeNodeAvailabilitySamplePoint.fromMap(
+          rawSample.map((key, value) => MapEntry(key.toString(), value)),
+        ));
+      }
+    }
+
+    final List<EdgeNodeOnlinePeriod> parsedOnlinePeriods = [];
+    final rawOnlinePeriods = asDynamicList(map['onlinePeriods']) ?? [];
+    for (int index = 0; index < rawOnlinePeriods.length; index++) {
+      final rawPeriod = rawOnlinePeriods[index];
+      if (rawPeriod is Map) {
+        parsedOnlinePeriods.add(EdgeNodeOnlinePeriod.fromMap(
+          rawPeriod.map((key, value) => MapEntry(key.toString(), value)),
+        ));
+      }
+    }
+
+    final List<EdgeNodeAvailabilityCalendarDay> parsedCalendarDays = [];
+    final rawCalendarDays = asDynamicList(map['calendarDays']) ?? [];
+    for (int index = 0; index < rawCalendarDays.length; index++) {
+      final rawDay = rawCalendarDays[index];
+      if (rawDay is Map) {
+        parsedCalendarDays.add(EdgeNodeAvailabilityCalendarDay.fromMap(
+          rawDay.map((key, value) => MapEntry(key.toString(), value)),
+        ));
+      }
+    }
+
+    return EdgeNodeAvailabilityHistory(
+      nodeId: map['nodeId']?.toString() ?? '',
+      from: parseDate(map['from']),
+      to: parseDate(map['to']),
+      rates: EdgeNodeAvailabilityRates.fromMap(
+        _availabilityRateMap(map['rates']),
+      ),
+      samples: parsedSamples,
+      onlinePeriods: parsedOnlinePeriods,
+      calendarDays: parsedCalendarDays,
+    );
+  }
+}
+
+class EdgeNodeAvailabilitySamplePoint {
+  EdgeNodeAvailabilitySamplePoint({
+    required this.sampledAt,
+    required this.online,
+  });
+
+  final DateTime? sampledAt;
+  final bool online;
+
+  factory EdgeNodeAvailabilitySamplePoint.fromMap(Map<String, dynamic> map) {
+    return EdgeNodeAvailabilitySamplePoint(
+      sampledAt: parseDate(map['sampledAt']),
+      online: toBool(map['online']) ?? false,
+    );
+  }
+}
+
+class EdgeNodeOnlinePeriod {
+  EdgeNodeOnlinePeriod({
+    required this.startAt,
+    required this.endAt,
+  });
+
+  final DateTime? startAt;
+  final DateTime? endAt;
+
+  factory EdgeNodeOnlinePeriod.fromMap(Map<String, dynamic> map) {
+    return EdgeNodeOnlinePeriod(
+      startAt: parseDate(map['startAt']),
+      endAt: parseDate(map['endAt']),
+    );
+  }
+}
+
+class EdgeNodeAvailabilityCalendarDay {
+  EdgeNodeAvailabilityCalendarDay({
+    required this.date,
+    this.onlineRate,
+    required this.totalSamples,
+    required this.onlineSamples,
+  });
+
+  final String date;
+  final double? onlineRate;
+  final int totalSamples;
+  final int onlineSamples;
+
+  factory EdgeNodeAvailabilityCalendarDay.fromMap(Map<String, dynamic> map) {
+    double? parsedOnlineRate;
+    final rawOnlineRate = map['onlineRate'];
+    if (rawOnlineRate is num) {
+      parsedOnlineRate = rawOnlineRate.toDouble();
+    }
+
+    return EdgeNodeAvailabilityCalendarDay(
+      date: map['date']?.toString() ?? '',
+      onlineRate: parsedOnlineRate,
+      totalSamples: toInt(map['totalSamples']) ?? 0,
+      onlineSamples: toInt(map['onlineSamples']) ?? 0,
     );
   }
 }

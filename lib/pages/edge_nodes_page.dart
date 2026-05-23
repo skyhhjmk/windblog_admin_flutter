@@ -217,6 +217,17 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                         : '主节点离线'} / '
                         '${dataStatus.readOnly ? '只读' : '可写回源'}',
                   ),
+                if (dataStatus != null)
+                  Text(
+                    '在线率: 1小时 ${_formatListRate(
+                        dataStatus.availability?.lastHour)} / '
+                        '24小时 ${_formatListRate(
+                        dataStatus.availability?.last24Hours)} / '
+                        '7天 ${_formatListRate(
+                        dataStatus.availability?.last7Days)} / '
+                        '30天 ${_formatListRate(
+                        dataStatus.availability?.last30Days)}',
+                  ),
                 Text('最后活跃: ${_formatDate(node.lastHeartbeat)}'),
                 if (node.metrics.isNotEmpty)
                   Text('指标: ${node.metrics.toString()}'),
@@ -639,6 +650,13 @@ String _formatDate(DateTime? dt) {
       2, '0')}:${localDt.second.toString().padLeft(2, '0')}';
 }
 
+String _formatListRate(EdgeNodeAvailabilityRate? rate) {
+  if (rate == null || rate.onlineRate == null) {
+    return '暂无';
+  }
+  return '${rate.onlineRate!.toStringAsFixed(1)}%';
+}
+
 class _EdgeNodeDetailDialog extends StatefulWidget {
   final EdgeNode node;
   final AdminApiClient api;
@@ -653,6 +671,7 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
   EdgeNode? detailedNode;
   EdgeSyncStatus? syncStatus;
   EdgeNodeDataStatus? dataStatus;
+  EdgeNodeAvailabilityHistory? availabilityHistory;
   Timer? _timer;
   bool _forceSync = false;
   bool loading = true;
@@ -675,10 +694,14 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
     try {
       final n = await widget.api.getEdgeNode(widget.node.nodeId);
       final d = await widget.api.getEdgeNodeDataStatus(widget.node.nodeId);
+      final h = await widget.api.getEdgeNodeAvailabilityHistory(
+        widget.node.nodeId,
+      );
       if (mounted) {
         setState(() {
           detailedNode = n;
           dataStatus = d;
+          availabilityHistory = h;
           syncStatus = d.syncProgress;
           loading = false;
         });
@@ -776,6 +799,9 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
                   ),
                 ],
               const Divider(),
+              _buildSectionTitle('在线率'),
+              _buildAvailabilitySection(),
+              const Divider(),
               _buildSectionTitle('安全与证书'),
               _buildInfoRow('可信状态',
                   node.certificateSerial == null ? '未授信' : (node
@@ -857,6 +883,160 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
         ),
       ],
     );
+  }
+
+  Widget _buildAvailabilitySection() {
+    final rates = dataStatus?.availability ?? availabilityHistory?.rates;
+    if (rates == null) {
+      return const Text('暂无在线率数据', style: TextStyle(color: Colors.grey));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _buildRateCard('1小时', rates.lastHour),
+            _buildRateCard('24小时', rates.last24Hours),
+            _buildRateCard('7天', rates.last7Days),
+            _buildRateCard('30天', rates.last30Days),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (availabilityHistory == null)
+          const Text('暂无历史采样数据', style: TextStyle(color: Colors.grey))
+        else
+          _buildAvailabilityHistoryView(availabilityHistory!),
+      ],
+    );
+  }
+
+  Widget _buildRateCard(String label, EdgeNodeAvailabilityRate rate) {
+    final value = _formatAvailabilityRate(rate);
+    final color = _availabilityColor(rate.onlineRate);
+
+    return Container(
+      width: 108,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${rate.onlineSamples}/${rate.totalSamples} 样本',
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvailabilityHistoryView(EdgeNodeAvailabilityHistory history) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 90,
+          width: double.infinity,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme
+                .of(context)
+                .colorScheme
+                .surfaceContainerHighest
+                .withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: CustomPaint(
+            painter: _AvailabilityTimelinePainter(history.samples),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _AvailabilityCalendarGrid(days: history.calendarDays),
+        const SizedBox(height: 10),
+        _buildOnlinePeriods(history.onlinePeriods),
+      ],
+    );
+  }
+
+  Widget _buildOnlinePeriods(List<EdgeNodeOnlinePeriod> periods) {
+    if (periods.isEmpty) {
+      return const Text('暂无在线时段', style: TextStyle(color: Colors.grey));
+    }
+
+    final List<Widget> periodRows = [];
+    final int startIndex = periods.length > 5 ? periods.length - 5 : 0;
+    for (int index = periods.length - 1; index >= startIndex; index--) {
+      final period = periods[index];
+      periodRows.add(Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(
+          children: [
+            const Icon(Icons.timeline, size: 16, color: Colors.green),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '${_formatDate(period.startAt)}  至  ${_formatDate(
+                    period.endAt)}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '最近在线时段',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+        const SizedBox(height: 6),
+        ...periodRows,
+      ],
+    );
+  }
+
+  String _formatAvailabilityRate(EdgeNodeAvailabilityRate rate) {
+    if (rate.onlineRate == null) {
+      return '暂无';
+    }
+    return '${rate.onlineRate!.toStringAsFixed(1)}%';
+  }
+
+  Color _availabilityColor(double? rate) {
+    if (rate == null) {
+      return Colors.grey;
+    }
+    if (rate >= 99.0) {
+      return Colors.green;
+    }
+    if (rate >= 95.0) {
+      return Colors.lightGreen;
+    }
+    if (rate >= 80.0) {
+      return Colors.orange;
+    }
+    return Colors.red;
   }
 
   Future<void> _showCertificateSetup(EdgeNode node) async {
@@ -1111,5 +1291,235 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
       return dataStatus!.metrics;
     }
     return node.metrics;
+  }
+}
+
+class _AvailabilityTimelinePainter extends CustomPainter {
+  _AvailabilityTimelinePainter(this.samples);
+
+  final List<EdgeNodeAvailabilitySamplePoint> samples;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final backgroundPaint = Paint()
+      ..color = Colors.grey.withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+    final borderPaint = Paint()
+      ..color = Colors.grey.withValues(alpha: 0.25)
+      ..strokeWidth = 1;
+    final onlinePaint = Paint()
+      ..color = Colors.green
+      ..strokeWidth = 3;
+    final offlinePaint = Paint()
+      ..color = Colors.redAccent
+      ..strokeWidth = 3;
+
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(6)),
+      backgroundPaint,
+    );
+    canvas.drawLine(
+      Offset(0, size.height - 18),
+      Offset(size.width, size.height - 18),
+      borderPaint,
+    );
+
+    if (samples.isEmpty) {
+      _drawCenteredText(canvas, size, '暂无采样');
+      return;
+    }
+
+    final DateTime? firstTime = samples.first.sampledAt;
+    final DateTime? lastTime = samples.last.sampledAt;
+    if (firstTime == null || lastTime == null) {
+      _drawCenteredText(canvas, size, '采样时间无效');
+      return;
+    }
+
+    final int totalMilliseconds = lastTime
+        .difference(firstTime)
+        .inMilliseconds
+        .abs();
+    final double lineTop = 10;
+    final double lineBottom = size.height - 28;
+    final double onlineY = lineTop + 10;
+    final double offlineY = lineBottom - 10;
+
+    for (int index = 0; index < samples.length; index++) {
+      final sample = samples[index];
+      final DateTime? sampledAt = sample.sampledAt;
+      if (sampledAt == null) {
+        continue;
+      }
+
+      double x = 0;
+      if (totalMilliseconds > 0) {
+        final int sampleOffset = sampledAt
+            .difference(firstTime)
+            .inMilliseconds;
+        x = size.width * sampleOffset / totalMilliseconds;
+      }
+
+      final Paint pointPaint = sample.online ? onlinePaint : offlinePaint;
+      final double y = sample.online ? onlineY : offlineY;
+      canvas.drawCircle(Offset(x, y), 2.5, pointPaint);
+
+      if (index > 0) {
+        final previousSample = samples[index - 1];
+        final DateTime? previousTime = previousSample.sampledAt;
+        if (previousTime == null) {
+          continue;
+        }
+        double previousX = 0;
+        if (totalMilliseconds > 0) {
+          final int previousOffset =
+              previousTime
+                  .difference(firstTime)
+                  .inMilliseconds;
+          previousX = size.width * previousOffset / totalMilliseconds;
+        }
+        final double previousY = previousSample.online ? onlineY : offlineY;
+        canvas.drawLine(
+          Offset(previousX, previousY),
+          Offset(x, y),
+          pointPaint,
+        );
+      }
+    }
+
+    _drawLabel(canvas, '在线', Offset(6, onlineY - 9), Colors.green);
+    _drawLabel(canvas, '离线', Offset(6, offlineY - 9), Colors.redAccent);
+  }
+
+  void _drawCenteredText(Canvas canvas, Size size, String text) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(color: Colors.grey, fontSize: 12),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(
+        (size.width - textPainter.width) / 2,
+        (size.height - textPainter.height) / 2,
+      ),
+    );
+  }
+
+  void _drawLabel(Canvas canvas, String text, Offset offset, Color color) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(color: color, fontSize: 11),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AvailabilityTimelinePainter oldDelegate) {
+    return oldDelegate.samples != samples;
+  }
+}
+
+class _AvailabilityCalendarGrid extends StatelessWidget {
+  const _AvailabilityCalendarGrid({required this.days});
+
+  final List<EdgeNodeAvailabilityCalendarDay> days;
+
+  @override
+  Widget build(BuildContext context) {
+    if (days.isEmpty) {
+      return const Text('暂无日历数据', style: TextStyle(color: Colors.grey));
+    }
+
+    final List<Widget> cells = [];
+    for (int index = 0; index < days.length; index++) {
+      final day = days[index];
+      cells.add(Tooltip(
+        message: _tooltipText(day),
+        child: Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: _dayColor(day.onlineRate),
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+          ),
+        ),
+      ));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '30天在线日历',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 5, runSpacing: 5, children: cells),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _legendItem('无数据', Colors.grey.shade300),
+            const SizedBox(width: 10),
+            _legendItem('低', Colors.red.shade300),
+            const SizedBox(width: 10),
+            _legendItem('中', Colors.orange.shade300),
+            const SizedBox(width: 10),
+            _legendItem('高', Colors.green.shade400),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _legendItem(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
+    );
+  }
+
+  String _tooltipText(EdgeNodeAvailabilityCalendarDay day) {
+    if (day.onlineRate == null) {
+      return '${day.date}: 暂无样本';
+    }
+    return '${day.date}: ${day.onlineRate!.toStringAsFixed(1)}% '
+        '(${day.onlineSamples}/${day.totalSamples})';
+  }
+
+  Color _dayColor(double? rate) {
+    if (rate == null) {
+      return Colors.grey.shade300;
+    }
+    if (rate >= 99.0) {
+      return Colors.green.shade500;
+    }
+    if (rate >= 95.0) {
+      return Colors.lightGreen.shade400;
+    }
+    if (rate >= 80.0) {
+      return Colors.orange.shade300;
+    }
+    return Colors.red.shade300;
   }
 }

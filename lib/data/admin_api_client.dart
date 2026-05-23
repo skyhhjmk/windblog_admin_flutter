@@ -914,6 +914,16 @@ class AdminApiClient {
     return EdgeNodeDataStatus.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<EdgeNodeAvailabilityHistory> getEdgeNodeAvailabilityHistory(
+      String nodeId, {
+        int days = 30,
+      }) async {
+    final res = await _get(
+      '/api/admin/edge-nodes/$nodeId/availability-history?days=$days',
+    );
+    return EdgeNodeAvailabilityHistory.fromMap(_map(jsonDecode(res.body)));
+  }
+
   // ==================== Node Certificate API ====================
 
   Future<EdgeNode> issueEdgeNodeCertificate(String nodeId) async {

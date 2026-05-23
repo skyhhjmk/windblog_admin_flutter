@@ -226,8 +226,36 @@ class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
           writeMode,
           readOnly ? Colors.deepOrange : Colors.green,
         ),
+        const SizedBox(width: 8),
+        _statusChip(
+          '24h ${_formatRate(status?.availability?.last24Hours)}',
+          _rateColor(status?.availability?.last24Hours.onlineRate),
+        ),
       ],
     );
+  }
+
+  String _formatRate(EdgeNodeAvailabilityRate? rate) {
+    if (rate == null || rate.onlineRate == null) {
+      return '暂无';
+    }
+    return '${rate.onlineRate!.toStringAsFixed(1)}%';
+  }
+
+  Color _rateColor(double? rate) {
+    if (rate == null) {
+      return Colors.grey;
+    }
+    if (rate >= 99.0) {
+      return Colors.green;
+    }
+    if (rate >= 95.0) {
+      return Colors.lightGreen;
+    }
+    if (rate >= 80.0) {
+      return Colors.orange;
+    }
+    return Colors.red;
   }
 
   Widget _statusChip(String text, Color color) {
