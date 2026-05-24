@@ -6,11 +6,13 @@ class AddLinkPage extends StatefulWidget {
     required this.api,
     required this.onAuthError,
     this.initialLink,
+    this.defaultLinkType,
   });
 
   final AdminApiClient api;
   final VoidCallback onAuthError;
   final AdminLinkItem? initialLink;
+  final int? defaultLinkType;
 
   @override
   State<AddLinkPage> createState() => _AddLinkPageState();
@@ -46,6 +48,10 @@ class _AddLinkPageState extends State<AddLinkPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.defaultLinkType != null) {
+      _linkType = widget.defaultLinkType!;
+    }
+
     if (widget.initialLink != null) {
       final link = widget.initialLink!;
       _nameController.text = link.name;
@@ -349,6 +355,8 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   DropdownMenuItem(value: 5,
                                       child: Text(
                                           t(context, 'link_type_tool'))),
+                                  const DropdownMenuItem(value: 3,
+                                      child: Text('文章外链')),
                                   DropdownMenuItem(value: 99,
                                       child: Text(
                                           t(context, 'link_type_other'))),

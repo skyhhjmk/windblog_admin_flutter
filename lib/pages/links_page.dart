@@ -104,6 +104,13 @@ class _LinksPageState extends State<LinksPage> {
                 const SizedBox(width: 16),
                 FilledButton.icon(
                   onPressed: () async {
+                    final tabIndex = DefaultTabController
+                        .of(context)
+                        .index;
+                    int defaultLinkType = 0;
+                    if (tabIndex == 1) {
+                      defaultLinkType = 3;
+                    }
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -111,6 +118,7 @@ class _LinksPageState extends State<LinksPage> {
                             AddLinkPage(
                               api: widget.api,
                               onAuthError: widget.onAuthError,
+                              defaultLinkType: defaultLinkType,
                             ),
                       ),
                     );

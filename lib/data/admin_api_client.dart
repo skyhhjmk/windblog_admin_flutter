@@ -18,6 +18,33 @@ class AdminApiClient {
         normalizedBaseUrl.length - 1,
       );
     }
+
+    final parsedUri = Uri.tryParse(normalizedBaseUrl);
+    if (parsedUri == null || !parsedUri.hasScheme || parsedUri.host.isEmpty) {
+      return normalizedBaseUrl;
+    }
+
+    String normalizedPath = parsedUri.path;
+    if (normalizedPath == '/admin' ||
+        normalizedPath.startsWith('/admin/') ||
+        normalizedPath.startsWith('/api/admin/')) {
+      final originUri = Uri(
+        scheme: parsedUri.scheme,
+        host: parsedUri.host,
+        port: parsedUri.hasPort ? parsedUri.port : null,
+      );
+      return originUri.toString();
+    }
+
+    if (parsedUri.fragment.isNotEmpty) {
+      final originUri = Uri(
+        scheme: parsedUri.scheme,
+        host: parsedUri.host,
+        port: parsedUri.hasPort ? parsedUri.port : null,
+        path: normalizedPath,
+      );
+      return originUri.toString();
+    }
     return normalizedBaseUrl;
   }
 
@@ -696,6 +723,19 @@ class AdminApiClient {
     final res = await _get('/api/admin/links');
     final list = jsonDecode(res.body) as List;
     return list.map((e) => AdminLinkItem.fromMap(_map(e))).toList();
+  }
+
+  Future<AdminLinkItem?> findArticleLink(String url) async {
+    try {
+      final res = await _get(
+          '/api/admin/links/article-link', query: {'url': url});
+      return AdminLinkItem.fromMap(_map(jsonDecode(res.body)));
+    } catch (error) {
+      if (error is UnauthorizedException) {
+        rethrow;
+      }
+      return null;
+    }
   }
 
   Future<void> deleteLink(int id) async {

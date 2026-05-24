@@ -2,6 +2,8 @@ part of 'package:windblog_admin_flutter/main.dart';
 
 // Regex for markdown image syntax: ![alt](url)
 final _imageRegExp = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
+final _markdownLinkRegExp = RegExp(
+    r'(?<!!)\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)');
 
 class MarkdownSyntaxController extends TextEditingController {
   MarkdownSyntaxController({super.text});
@@ -42,6 +44,15 @@ class MarkdownSyntaxController extends TextEditingController {
   /// inside a `![alt](url)` match, otherwise null.
   String? imageUrlAtOffset(int offset) {
     for (final match in _imageRegExp.allMatches(text)) {
+      if (offset >= match.start && offset <= match.end) {
+        return match.group(2);
+      }
+    }
+    return null;
+  }
+
+  String? linkUrlAtOffset(int offset) {
+    for (final match in _markdownLinkRegExp.allMatches(text)) {
       if (offset >= match.start && offset <= match.end) {
         return match.group(2);
       }
@@ -124,7 +135,82 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     final url = ctrl.imageUrlAtOffset(offset);
     if (url != null && url.isNotEmpty) {
       _handleImageTap(url);
+      return;
     }
+
+    final linkUrl = ctrl.linkUrlAtOffset(offset);
+    if (linkUrl != null && linkUrl.isNotEmpty) {
+      _handleMarkdownLinkTap(linkUrl);
+    }
+  }
+
+  Future<void> _handleMarkdownLinkTap(String rawUrl) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    AdminLinkItem? link;
+    try {
+      link = await widget.api.findArticleLink(rawUrl);
+    } catch (_) {
+      link = null;
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context);
+
+    await _showMarkdownLinkDialog(rawUrl, link);
+  }
+
+  Future<void> _showMarkdownLinkDialog(String rawUrl, AdminLinkItem? link) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) {
+        final title = link?.name ?? '未登记文章外链';
+        final description = link?.description ??
+            '保存文章后，系统会自动把这个 Markdown 链接登记到“文章外链”。';
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.link_outlined, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title)),
+            ],
+          ),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(rawUrl),
+                const SizedBox(height: 12),
+                Text(description),
+                if (link != null) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      Chip(label: Text('ID: ${link.id}')),
+                      Chip(label: Text(link.status == 1 ? '启用' : '停用')),
+                      const Chip(label: Text('文章外链')),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('关闭'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _handleImageTap(String rawUrl) async {
@@ -802,6 +888,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
           isHighlighted: isHighlighted,
           onJumpToSource: () => _jumpToEditorLine(block.startLine),
           onImageTap: (url) => _handleImageTap(url),
+          onLinkTap: (url) => _handleMarkdownLinkTap(url),
           onCopyHtml: (styled) => _copyBlockAsHtml(block.content, styled),
           onCopyMarkdown: () => _copyBlockAsMarkdown(block.content),
           api: widget.api,
@@ -1095,6 +1182,7 @@ class MarkdownBlockWrapper extends StatefulWidget {
   final bool isHighlighted;
   final VoidCallback onJumpToSource;
   final Function(String) onImageTap;
+  final Function(String) onLinkTap;
   final Function(bool) onCopyHtml;
   final VoidCallback onCopyMarkdown;
   final AdminApiClient api;
@@ -1105,6 +1193,7 @@ class MarkdownBlockWrapper extends StatefulWidget {
     required this.isHighlighted,
     required this.onJumpToSource,
     required this.onImageTap,
+    required this.onLinkTap,
     required this.onCopyHtml,
     required this.onCopyMarkdown,
     required this.api,
@@ -1264,6 +1353,12 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                   ),
                 ),
               );
+            },
+            onTapLink: (text, href, title) {
+              if (href == null || href.isEmpty) {
+                return;
+              }
+              widget.onLinkTap(href);
             },
             builders: {
               'blockquote': BlockquoteBuilder(),
