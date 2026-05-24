@@ -738,6 +738,12 @@ class AdminApiClient {
     }
   }
 
+  Future<List<LinkReferenceItem>> listLinkReferences(int id) async {
+    final res = await _get('/api/admin/links/$id/references');
+    final list = jsonDecode(res.body) as List;
+    return list.map((e) => LinkReferenceItem.fromMap(_map(e))).toList();
+  }
+
   Future<void> deleteLink(int id) async {
     await _delete('/api/admin/links/$id');
   }

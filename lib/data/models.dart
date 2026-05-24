@@ -2169,6 +2169,8 @@ class AdminLinkItem {
     this.seoKeywords,
     this.seoDescription,
     this.type,
+    this.referencedPostCount = 0,
+    this.referenceCount = 0,
     this.createdAt,
   });
 
@@ -2189,6 +2191,8 @@ class AdminLinkItem {
   final String? seoKeywords;
   final String? seoDescription;
   final int? type;
+  final int referencedPostCount;
+  final int referenceCount;
   final DateTime? createdAt;
 
   factory AdminLinkItem.fromMap(Map<String, dynamic> map) {
@@ -2210,7 +2214,44 @@ class AdminLinkItem {
       seoKeywords: map["seoKeywords"]?.toString(),
       seoDescription: map["seoDescription"]?.toString(),
       type: toInt(map["type"]),
+      referencedPostCount: toInt(map["referencedPostCount"]) ?? 0,
+      referenceCount: toInt(map["referenceCount"]) ?? 0,
       createdAt: parseDate(map["createdAt"]),
+    );
+  }
+}
+
+class LinkReferenceItem {
+  LinkReferenceItem({
+    required this.id,
+    required this.postId,
+    required this.postSlug,
+    required this.postTitle,
+    this.anchorText,
+    required this.normalizedUrl,
+    required this.referenceCount,
+    this.updatedAt,
+  });
+
+  final int id;
+  final int postId;
+  final String postSlug;
+  final String postTitle;
+  final String? anchorText;
+  final String normalizedUrl;
+  final int referenceCount;
+  final DateTime? updatedAt;
+
+  factory LinkReferenceItem.fromMap(Map<String, dynamic> map) {
+    return LinkReferenceItem(
+      id: toInt(map['id']) ?? 0,
+      postId: toInt(map['postId']) ?? 0,
+      postSlug: map['postSlug']?.toString() ?? '',
+      postTitle: map['postTitle']?.toString() ?? '',
+      anchorText: map['anchorText']?.toString(),
+      normalizedUrl: map['normalizedUrl']?.toString() ?? '',
+      referenceCount: toInt(map['referenceCount']) ?? 0,
+      updatedAt: parseDate(map['updatedAt']),
     );
   }
 }

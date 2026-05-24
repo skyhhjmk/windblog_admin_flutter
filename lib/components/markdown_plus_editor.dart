@@ -152,25 +152,33 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     );
 
     AdminLinkItem? link;
+    List<LinkReferenceItem> references = [];
     try {
       link = await widget.api.findArticleLink(rawUrl);
+      if (link != null) {
+        references = await widget.api.listLinkReferences(link.id);
+      }
     } catch (_) {
       link = null;
+      references = [];
     }
 
     if (!mounted) return;
     Navigator.pop(context);
 
-    await _showMarkdownLinkDialog(rawUrl, link);
+    await _showMarkdownLinkDialog(rawUrl, link, references);
   }
 
-  Future<void> _showMarkdownLinkDialog(String rawUrl, AdminLinkItem? link) {
+  Future<void> _showMarkdownLinkDialog(String rawUrl,
+      AdminLinkItem? link,
+      List<LinkReferenceItem> references,) {
     return showDialog<void>(
       context: context,
       builder: (context) {
         final title = link?.name ?? '未登记文章外链';
         final description = link?.description ??
             '保存文章后，系统会自动把这个 Markdown 链接登记到“文章外链”。';
+        final hasNoReference = link != null && link.referencedPostCount == 0;
         return AlertDialog(
           title: Row(
             children: [
@@ -196,13 +204,104 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                       Chip(label: Text('ID: ${link.id}')),
                       Chip(label: Text(link.status == 1 ? '启用' : '停用')),
                       const Chip(label: Text('文章外链')),
+                      Chip(label: Text('引用文章 ${link.referencedPostCount}')),
+                      Chip(label: Text('总引用 ${link.referenceCount}')),
                     ],
                   ),
+                  if (hasNoReference) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: const Text('当前没有文章引用这个链接，可以删除。'),
+                    ),
+                  ],
+                  if (references.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      '引用文章',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 160,
+                      child: ListView.separated(
+                        itemCount: references.length,
+                        separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final reference = references[index];
+                          final postTitle = reference.postTitle.isEmpty
+                              ? reference.postSlug
+                              : reference.postTitle;
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(postTitle),
+                            subtitle: Text(reference.anchorText ??
+                                reference.normalizedUrl),
+                            trailing: Text('x${reference.referenceCount}'),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),
           ),
           actions: [
+            if (link != null && link.referencedPostCount == 0)
+              TextButton(
+                onPressed: () async {
+                  final shouldDelete = await showDialog<bool>(
+                    context: context,
+                    builder: (confirmContext) {
+                      return AlertDialog(
+                        title: const Text('删除文章外链'),
+                        content: const Text(
+                            '这个链接当前没有文章引用，确定删除吗？'),
+                        actions: [
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.pop(confirmContext, false),
+                            child: const Text('取消'),
+                          ),
+                          FilledButton(
+                            onPressed: () =>
+                                Navigator.pop(confirmContext, true),
+                            child: const Text('删除'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                  if (shouldDelete != true) {
+                    return;
+                  }
+
+                  await widget.api.deleteLink(link.id);
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('已删除无引用文章外链')),
+                  );
+                },
+                child: const Text('删除', style: TextStyle(color: Colors.red)),
+              ),
+            if (link != null)
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _editMarkdownLink(link);
+                },
+                child: const Text('编辑'),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('关闭'),
@@ -210,6 +309,123 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _editMarkdownLink(AdminLinkItem link) async {
+    final nameController = TextEditingController(text: link.name);
+    final urlController = TextEditingController(text: link.url);
+    final descriptionController = TextEditingController(
+        text: link.description ?? '');
+    final iconController = TextEditingController(text: link.icon ?? '');
+    bool enabled = link.status == 1;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('编辑文章外链'),
+              content: SizedBox(
+                width: 560,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: '名称',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: urlController,
+                      decoration: const InputDecoration(
+                        labelText: 'URL',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: descriptionController,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: '描述',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: iconController,
+                      decoration: const InputDecoration(
+                        labelText: '图标 URL',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: enabled,
+                      title: const Text('启用'),
+                      onChanged: (value) {
+                        setDialogState(() => enabled = value);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved != true) {
+      return;
+    }
+
+    final request = LinkCreateRequest(
+      name: nameController.text.trim(),
+      url: urlController.text.trim(),
+      description: descriptionController.text
+          .trim()
+          .isEmpty
+          ? null
+          : descriptionController.text.trim(),
+      icon: iconController.text
+          .trim()
+          .isEmpty ? null : iconController.text.trim(),
+      image: link.image,
+      sortOrder: link.sortOrder,
+      status: enabled ? 1 : 0,
+      target: link.target,
+      redirectType: link.redirectType,
+      showUrl: link.showUrl,
+      email: link.email,
+      note: link.note,
+      seoTitle: link.seoTitle,
+      seoKeywords: link.seoKeywords,
+      seoDescription: link.seoDescription,
+      type: link.type ?? 3,
+    );
+
+    await widget.api.updateLink(link.id, request);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('文章外链已更新')),
     );
   }
 

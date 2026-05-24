@@ -180,6 +180,40 @@ class _LinksPageState extends State<LinksPage> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
+                if (link.type == 3)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        Chip(
+                          label: Text(
+                            '引用文章 ${link.referencedPostCount}',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        Chip(
+                          label: Text(
+                            '总引用 ${link.referenceCount}',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        if (link.referenceCount == 0)
+                          Chip(
+                            label: const Text(
+                              '无引用，可删除',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            backgroundColor: Colors.orange.shade50,
+                            side: BorderSide(color: Colors.orange.shade200),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                      ],
+                    ),
+                  ),
               ],
             ),
             onTap: () async {
