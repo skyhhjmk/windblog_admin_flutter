@@ -17,7 +17,7 @@ class EdgeMonitorPage extends StatefulWidget {
 class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
   bool loading = false;
   StorageSyncStatus? syncStatus;
-  List<StorageProviderItem> providers = [];
+  List<StorageClassItem> providers = [];
   List<EdgeNode> edgeNodes = [];
   Map<String, EdgeNodeDataStatus> edgeDataStatuses = {};
 
@@ -31,7 +31,7 @@ class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
     setState(() => loading = true);
     try {
       final syncStatusFuture = widget.api.getStorageSyncStatus();
-      final providersFuture = widget.api.listStorageProviders();
+      final providersFuture = widget.api.listStorageClasses();
       final edgeNodesFuture = widget.api.listEdgeNodes();
       syncStatus = await syncStatusFuture;
       providers = await providersFuture;
@@ -285,18 +285,18 @@ class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '节点概览',
+              '存储类概览',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                    child: _statItem('节点总数', providers.length.toString())),
+                    child: _statItem('存储类总数', providers.length.toString())),
                 Expanded(child: _statItem(
                     '已启用', _enabledCount.toString(), color: Colors.green)),
                 Expanded(child: _statItem(
-                    '主节点', _primaryCount.toString(), color: Colors.blue)),
+                    '主存储类', _primaryCount.toString(), color: Colors.blue)),
               ],
             ),
             const SizedBox(height: 12),
@@ -331,7 +331,7 @@ class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
 
   Widget _buildProviderList() {
     if (providers.isEmpty) {
-      return const Center(child: Text('暂无节点'));
+      return const Center(child: Text('暂无存储类'));
     }
     final List<Widget> chips = [];
     for (int i = 0; i < providers.length; i++) {

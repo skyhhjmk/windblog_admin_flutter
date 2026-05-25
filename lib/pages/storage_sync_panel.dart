@@ -236,7 +236,7 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
           DataColumn(label: Text('媒体ID')),
           DataColumn(label: Text('文件名')),
           DataColumn(label: Text('MIME 类型')),
-          DataColumn(label: Text('节点状态')),
+          DataColumn(label: Text('存储类状态')),
         ],
         rows: _buildDetailRows(),
       ),
@@ -247,13 +247,13 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
     final List<DataRow> rows = [];
     for (int i = 0; i < syncStatus!.details.length; i++) {
       final detail = syncStatus!.details[i];
-      final nodeStatus = _getNodeStatusText(detail.storageNodes);
+      final storageClassStatus = _getStorageClassStatusText(detail.storageClasses);
       final row = DataRow(
         cells: [
           DataCell(Text(detail.mediaId.toString())),
           DataCell(Text(detail.fileName)),
           DataCell(Text(detail.mimeType)),
-          DataCell(Text(nodeStatus)),
+          DataCell(Text(storageClassStatus)),
         ],
       );
       rows.add(row);
@@ -261,11 +261,11 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
     return rows;
   }
 
-  String _getNodeStatusText(Map<String, dynamic>? nodes) {
-    if (nodes == null) {
+  String _getStorageClassStatusText(Map<String, dynamic>? storageClasses) {
+    if (storageClasses == null) {
       return '未同步';
     }
-    final syncedCount = nodes.length;
-    return '$syncedCount 个节点';
+    final syncedCount = storageClasses.length;
+    return '$syncedCount 个存储类';
   }
 }

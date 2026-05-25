@@ -1,7 +1,7 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
-class StorageProvidersPage extends StatefulWidget {
-  const StorageProvidersPage({
+class StorageClassesPage extends StatefulWidget {
+  const StorageClassesPage({
     super.key,
     required this.api,
     required this.onAuthError,
@@ -11,12 +11,19 @@ class StorageProvidersPage extends StatefulWidget {
   final VoidCallback onAuthError;
 
   @override
-  State<StorageProvidersPage> createState() => _StorageProvidersPageState();
+  State<StorageClassesPage> createState() => _StorageClassesPageState();
 }
 
-class _StorageProvidersPageState extends State<StorageProvidersPage> {
-  List<StorageProviderItem> providers = [];
+class _StorageClassesPageState extends State<StorageClassesPage> {
+  List<StorageClassItem> providers = [];
   bool loading = false;
+  static const List<String> _mediaTypes = [
+    'image',
+    'video',
+    'audio',
+    'document',
+    '*',
+  ];
 
   @override
   void initState() {
@@ -27,7 +34,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
   Future<void> _loadProviders() async {
     setState(() => loading = true);
     try {
-      providers = await widget.api.listStorageProviders();
+      providers = await widget.api.listStorageClasses();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
@@ -43,7 +50,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
     }
   }
 
-  Future<void> _deleteProvider(StorageProviderItem provider) async {
+  Future<void> _deleteProvider(StorageClassItem provider) async {
     if (provider.id == null) {
       return;
     }
@@ -52,7 +59,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
       builder: (context) =>
           AlertDialog(
             title: const Text('确认删除'),
-            content: Text('确定要删除存储节点 "${provider.displayName}" 吗？'),
+            content: Text('确定要删除存储类 "${provider.displayName}" 吗？'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -75,7 +82,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
     }
 
     try {
-      await widget.api.deleteStorageProvider(provider.id!);
+      await widget.api.deleteStorageClass(provider.id!);
       await _loadProviders();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -90,7 +97,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
 
   Future<void> _testProvider(String name) async {
     try {
-      await widget.api.testStorageProvider(name);
+      await widget.api.testStorageClass(name);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('连接测试成功')),
@@ -116,7 +123,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
           Row(
             children: [
               const Text(
-                '存储节点管理',
+                '存储类管理',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
@@ -149,17 +156,19 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
     final displayNameController = TextEditingController();
     final cdnDomainController = TextEditingController();
     final endpointController = TextEditingController();
+    final ossRegionController = TextEditingController(text: 'cn-hangzhou');
     final accessKeyIdController = TextEditingController();
     final accessKeySecretController = TextEditingController();
     final bucketNameController = TextEditingController();
-    String selectedProviderType = 'aliyun_oss_v2';
-    String selectedRole = 'backup';
+    final localBaseUrlController = TextEditingController(text: '/uploads');
+    final localRootPathController = TextEditingController(text: 'uploads');
+    String selectedProviderType = 'oss_aliyun';
+    String selectedRole = 'origin';
     List<String> selectedSupportedTypes = ['image', 'video'];
+    List<String> selectedStorageRegions = ['global'];
     bool isEnabled = true;
-    bool isPrimary = false;
     bool cdnEnabled = false;
     final priorityController = TextEditingController(text: '0');
-    BlogRegion selectedRegion = BlogRegion.global;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -168,7 +177,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
             builder: (context, setDialogState) {
               bool showCloudFields = selectedProviderType != 'local_fs';
               return AlertDialog(
-                title: const Text('新建存储节点'),
+                title: const Text('新建存储类'),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -196,7 +205,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                             labelText: '提供商类型'),
                         items: const [
                           DropdownMenuItem(
-                            value: 'aliyun_oss_v2',
+                            value: 'oss_aliyun',
                             child: Text('阿里云 OSS v2'),
                           ),
                           DropdownMenuItem(
@@ -216,25 +225,40 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       DropdownButtonFormField<String>(
                         initialValue: selectedRole,
                         decoration: const InputDecoration(
-                            labelText: '角色 (Role)'),
+                            labelText: '存储类角色'),
                         items: const [
-                          DropdownMenuItem(value: 'primary', child: Text(
-                              '主存储 (Primary)')),
-                          DropdownMenuItem(value: 'backup', child: Text(
-                              '备份存储 (Backup)')),
-                          DropdownMenuItem(value: 'archive', child: Text(
-                              '归档存储 (Archive)')),
+                          DropdownMenuItem(
+                            value: 'primary',
+                            child: Text('主写入存储'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'origin',
+                            child: Text('对象存储同步源'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'backup',
+                            child: Text('普通副本'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'archive',
+                            child: Text('归档存储'),
+                          ),
                         ],
                         onChanged: (value) {
                           if (value != null) {
                             setDialogState(() {
                               selectedRole = value;
-                              if (value == 'primary') {
-                                isPrimary = true;
-                              }
                             });
                           }
                         },
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _storageClassRoleDescription(selectedRole),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       const Text('允许存储的多媒体类型:',
@@ -242,8 +266,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       const SizedBox(height: 4),
                       Wrap(
                         spacing: 8,
-                        children: ['image', 'video', 'audio', 'document', '*']
-                            .map((type) {
+                        children: _mediaTypes.map((type) {
                           final isSelected = selectedSupportedTypes.contains(
                               type);
                           return FilterChip(
@@ -270,7 +293,27 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                         }).toList(),
                       ),
                       const SizedBox(height: 16),
+                      const Text('所属区域:',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 4),
+                      _buildRegionChips(
+                        selectedRegions: selectedStorageRegions,
+                        onChanged: (regions) {
+                          setDialogState(() {
+                            selectedStorageRegions = regions;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       if (showCloudFields) ...[
+                        TextField(
+                          controller: ossRegionController,
+                          decoration: const InputDecoration(
+                            labelText: 'OSS Region',
+                            hintText: '如 cn-hangzhou',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         TextField(
                           controller: endpointController,
                           decoration: const InputDecoration(
@@ -303,28 +346,22 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                         ),
                       ] else
                         ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                            child: Text(
-                              '本地文件系统存储将使用应用配置的 storage.path 目录',
-                              style: TextStyle(
-                                  color: Colors.grey, fontSize: 12),
+                          TextField(
+                            controller: localBaseUrlController,
+                            decoration: const InputDecoration(
+                              labelText: '访问前缀 baseUrl',
+                              hintText: '/uploads',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: localRootPathController,
+                            decoration: const InputDecoration(
+                              labelText: '根目录 rootPath',
+                              hintText: 'uploads',
                             ),
                           ),
                         ],
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<BlogRegion>(
-                        initialValue: selectedRegion,
-                        decoration: const InputDecoration(labelText: '区域'),
-                        items: BlogRegion.values.map((r) =>
-                            DropdownMenuItem(
-                                value: r, child: Text(r.displayName))).toList(),
-                        onChanged: (v) {
-                          if (v != null) {
-                            setDialogState(() => selectedRegion = v);
-                          }
-                        },
-                      ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: cdnDomainController,
@@ -341,26 +378,12 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       ),
                       const SizedBox(height: 16),
                       CheckboxListTile(
-                        title: const Text('启用此节点'),
+                        title: const Text('启用此存储类'),
                         value: isEnabled,
                         onChanged: (value) {
                           if (value != null) {
                             setDialogState(() {
                               isEnabled = value;
-                            });
-                          }
-                        },
-                      ),
-                      CheckboxListTile(
-                        title: const Text('设为主节点 (Primary)'),
-                        value: isPrimary,
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() {
-                              isPrimary = value;
-                              if (value) {
-                                selectedRole = 'primary';
-                              }
                             });
                           }
                         },
@@ -419,47 +442,35 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
       return;
     }
 
-    String configJson = '{}';
-    if (selectedProviderType == 'aliyun_oss_v2') {
-      final endpoint = endpointController.text;
-      final accessKeyId = accessKeyIdController.text;
-      final accessKeySecret = accessKeySecretController.text;
-      final bucketName = bucketNameController.text;
-      final buffer = StringBuffer();
-      buffer.write('{');
-      buffer.write('"endpoint":"');
-      buffer.write(endpoint);
-      buffer.write('",');
-      buffer.write('"accessKeyId":"');
-      buffer.write(accessKeyId);
-      buffer.write('",');
-      buffer.write('"accessKeySecret":"');
-      buffer.write(accessKeySecret);
-      buffer.write('",');
-      buffer.write('"bucketName":"');
-      buffer.write(bucketName);
-      buffer.write('"}');
-      configJson = buffer.toString();
-    }
+    final configJson = _buildConfigJson(
+      providerType: selectedProviderType,
+      ossRegion: ossRegionController.text,
+      endpoint: endpointController.text,
+      accessKeyId: accessKeyIdController.text,
+      accessKeySecret: accessKeySecretController.text,
+      bucketName: bucketNameController.text,
+      localBaseUrl: localBaseUrlController.text,
+      localRootPath: localRootPathController.text,
+    );
 
-    final item = StorageProviderItem(
+    final item = StorageClassItem(
       id: null,
       name: name,
       displayName: displayName,
       providerType: selectedProviderType,
       isEnabled: isEnabled,
-      isPrimary: isPrimary,
+      isPrimary: selectedRole == 'primary',
       role: selectedRole,
       configJson: configJson,
       supportedTypes: selectedSupportedTypes.join(','),
       cdnDomain: cdnDomain.isNotEmpty ? cdnDomain : null,
       cdnEnabled: cdnEnabled,
-      region: selectedRegion.code,
+      serviceRegion: _buildRegionValue(selectedStorageRegions),
       priority: int.tryParse(priorityController.text) ?? 0,
     );
 
     try {
-      await widget.api.createStorageProvider(item);
+      await widget.api.createStorageClass(item);
       await _loadProviders();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -472,21 +483,35 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
     }
   }
 
-  Future<void> _showEditDialog(StorageProviderItem provider) async {
+  Future<void> _showEditDialog(StorageClassItem provider) async {
     final displayNameController = TextEditingController(
         text: provider.displayName);
     final cdnDomainController = TextEditingController(text: provider.cdnDomain);
-    final configController = TextEditingController(text: provider.configJson);
-    String selectedRole = provider.role ?? 'backup';
+    final configValues = _parseConfigValues(provider.configJson);
+    final ossRegionController = TextEditingController(
+        text: configValues['region'] ?? '');
+    final endpointController = TextEditingController(
+        text: configValues['endpoint'] ?? '');
+    final accessKeyIdController = TextEditingController(
+        text: configValues['accessKeyId'] ?? '');
+    final accessKeySecretController = TextEditingController(
+        text: configValues['accessKeySecret'] ?? '');
+    final bucketNameController = TextEditingController(
+        text: configValues['bucketName'] ?? '');
+    final localBaseUrlController = TextEditingController(
+        text: configValues['baseUrl'] ?? '/uploads');
+    final localRootPathController = TextEditingController(
+        text: configValues['rootPath'] ?? 'uploads');
+    String selectedRole = _normalizeSelectedStorageClassRole(provider);
     List<String> selectedSupportedTypes = (provider.supportedTypes ??
         'image,video').split(',').map((e) => e.trim()).where((e) =>
     e.isNotEmpty).toList();
+    List<String> selectedStorageRegions = _parseRegionValue(
+        provider.serviceRegion);
     bool isEnabled = provider.isEnabled;
-    bool isPrimary = provider.isPrimary;
     bool cdnEnabled = provider.cdnEnabled ?? false;
     int priority = provider.priority ?? 0;
     final priorityController = TextEditingController(text: priority.toString());
-    BlogRegion selectedRegion = BlogRegion.fromCode(provider.region ?? '');
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -494,7 +519,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
           StatefulBuilder(
             builder: (context, setDialogState) {
               return AlertDialog(
-                title: Text('编辑存储节点: ${provider.name}'),
+                title: Text('编辑存储类: ${provider.name}'),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -509,25 +534,40 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       DropdownButtonFormField<String>(
                         initialValue: selectedRole,
                         decoration: const InputDecoration(
-                            labelText: '角色 (Role)'),
+                            labelText: '存储类角色'),
                         items: const [
-                          DropdownMenuItem(value: 'primary', child: Text(
-                              '主存储 (Primary)')),
-                          DropdownMenuItem(value: 'backup', child: Text(
-                              '备份存储 (Backup)')),
-                          DropdownMenuItem(value: 'archive', child: Text(
-                              '归档存储 (Archive)')),
+                          DropdownMenuItem(
+                            value: 'primary',
+                            child: Text('主写入存储'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'origin',
+                            child: Text('对象存储同步源'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'backup',
+                            child: Text('普通副本'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'archive',
+                            child: Text('归档存储'),
+                          ),
                         ],
                         onChanged: (value) {
                           if (value != null) {
                             setDialogState(() {
                               selectedRole = value;
-                              if (value == 'primary') {
-                                isPrimary = true;
-                              }
                             });
                           }
                         },
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _storageClassRoleDescription(selectedRole),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       const Text('允许存储的多媒体类型:',
@@ -535,8 +575,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       const SizedBox(height: 4),
                       Wrap(
                         spacing: 8,
-                        children: ['image', 'video', 'audio', 'document', '*']
-                            .map((type) {
+                        children: _mediaTypes.map((type) {
                           final isSelected = selectedSupportedTypes.contains(
                               type);
                           return FilterChip(
@@ -563,27 +602,74 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                         }).toList(),
                       ),
                       const SizedBox(height: 16),
-                      TextField(
-                        controller: configController,
-                        maxLines: 5,
-                        decoration: const InputDecoration(
-                          labelText: '配置 JSON',
-                          hintText: '{"rootPath": "...", "baseUrl": "..."}',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<BlogRegion>(
-                        initialValue: selectedRegion,
-                        decoration: const InputDecoration(labelText: '区域'),
-                        items: BlogRegion.values.map((r) =>
-                            DropdownMenuItem(
-                                value: r, child: Text(r.displayName))).toList(),
-                        onChanged: (v) {
-                          if (v != null) {
-                            setDialogState(() => selectedRegion = v);
-                          }
+                      const Text('所属区域:',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 4),
+                      _buildRegionChips(
+                        selectedRegions: selectedStorageRegions,
+                        onChanged: (regions) {
+                          setDialogState(() {
+                            selectedStorageRegions = regions;
+                          });
                         },
                       ),
+                      const SizedBox(height: 16),
+                      if (provider.providerType == 'local_fs') ...[
+                        TextField(
+                          controller: localBaseUrlController,
+                          decoration: const InputDecoration(
+                            labelText: '访问前缀 baseUrl',
+                            hintText: '/uploads',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: localRootPathController,
+                          decoration: const InputDecoration(
+                            labelText: '根目录 rootPath',
+                            hintText: 'uploads',
+                          ),
+                        ),
+                      ] else
+                        ...[
+                          TextField(
+                            controller: ossRegionController,
+                            decoration: const InputDecoration(
+                              labelText: 'OSS Region',
+                              hintText: '如 cn-hangzhou',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: endpointController,
+                            decoration: const InputDecoration(
+                              labelText: 'Endpoint',
+                              hintText: '如 oss-cn-hangzhou.aliyuncs.com',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: accessKeyIdController,
+                            decoration: const InputDecoration(
+                              labelText: 'AccessKey ID',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: accessKeySecretController,
+                            decoration: const InputDecoration(
+                              labelText: 'AccessKey Secret',
+                            ),
+                            obscureText: true,
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: bucketNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Bucket 名称',
+                            ),
+                          ),
+                        ],
                       const SizedBox(height: 8),
                       TextField(
                         controller: cdnDomainController,
@@ -598,26 +684,12 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                       ),
                       const SizedBox(height: 16),
                       CheckboxListTile(
-                        title: const Text('启用此节点'),
+                        title: const Text('启用此存储类'),
                         value: isEnabled,
                         onChanged: (value) {
                           if (value != null) {
                             setDialogState(() {
                               isEnabled = value;
-                            });
-                          }
-                        },
-                      ),
-                      CheckboxListTile(
-                        title: const Text('设为主节点 (Primary)'),
-                        value: isPrimary,
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() {
-                              isPrimary = value;
-                              if (value) {
-                                selectedRole = 'primary';
-                              }
                             });
                           }
                         },
@@ -653,24 +725,36 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
 
     if (confirmed != true) return;
 
-    final updated = StorageProviderItem(
+    final configJson = _buildConfigJson(
+      providerType: provider.providerType,
+      ossRegion: ossRegionController.text,
+      endpoint: endpointController.text,
+      accessKeyId: accessKeyIdController.text,
+      accessKeySecret: accessKeySecretController.text,
+      bucketName: bucketNameController.text,
+      localBaseUrl: localBaseUrlController.text,
+      localRootPath: localRootPathController.text,
+      existingValues: configValues,
+    );
+
+    final updated = StorageClassItem(
       id: provider.id,
       name: provider.name,
       displayName: displayNameController.text,
       providerType: provider.providerType,
       isEnabled: isEnabled,
-      isPrimary: isPrimary,
+      isPrimary: selectedRole == 'primary',
       role: selectedRole,
-      configJson: configController.text,
+      configJson: configJson,
       supportedTypes: selectedSupportedTypes.join(','),
       cdnDomain: cdnDomainController.text,
       cdnEnabled: cdnEnabled,
-      region: selectedRegion.code,
+      serviceRegion: _buildRegionValue(selectedStorageRegions),
       priority: int.tryParse(priorityController.text) ?? 0,
     );
 
     try {
-      await widget.api.updateStorageProvider(provider.id!, updated);
+      await widget.api.updateStorageClass(provider.id!, updated);
       await _loadProviders();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -683,9 +767,182 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
     }
   }
 
+  Map<String, String> _parseConfigValues(String? configJson) {
+    final values = <String, String>{};
+    if (configJson == null || configJson.trim().isEmpty) {
+      return values;
+    }
+
+    try {
+      final decoded = jsonDecode(configJson);
+      if (decoded is! Map) {
+        return values;
+      }
+
+      for (final entry in decoded.entries) {
+        if (entry.value == null) {
+          continue;
+        }
+        values[entry.key.toString()] = entry.value.toString();
+      }
+    } catch (_) {
+      return values;
+    }
+
+    return values;
+  }
+
+  String _buildConfigJson({
+    required String providerType,
+    required String ossRegion,
+    required String endpoint,
+    required String accessKeyId,
+    required String accessKeySecret,
+    required String bucketName,
+    required String localBaseUrl,
+    required String localRootPath,
+    Map<String, String>? existingValues,
+  }) {
+    final values = <String, String>{};
+    if (existingValues != null) {
+      for (final entry in existingValues.entries) {
+        values[entry.key] = entry.value;
+      }
+    }
+
+    if (providerType == 'local_fs') {
+      _putConfigValue(values, 'baseUrl', localBaseUrl);
+      _putConfigValue(values, 'rootPath', localRootPath);
+    } else {
+      _putConfigValue(values, 'region', ossRegion);
+      _putConfigValue(values, 'endpoint', endpoint);
+      _putConfigValue(values, 'accessKeyId', accessKeyId);
+      _putConfigValue(values, 'accessKeySecret', accessKeySecret);
+      _putConfigValue(values, 'bucketName', bucketName);
+    }
+
+    return jsonEncode(values);
+  }
+
+  void _putConfigValue(
+    Map<String, String> values,
+    String key,
+    String value,
+  ) {
+    final normalizedValue = value.trim();
+    if (normalizedValue.isEmpty) {
+      values.remove(key);
+      return;
+    }
+    values[key] = normalizedValue;
+  }
+
+  List<String> _parseRegionValue(String? regionValue) {
+    final selectedRegions = <String>[];
+    if (regionValue == null || regionValue.trim().isEmpty) {
+      selectedRegions.add(BlogRegion.global.code);
+      return selectedRegions;
+    }
+
+    final knownRegionCodes = <String>{};
+    for (final region in BlogRegion.values) {
+      knownRegionCodes.add(region.code);
+    }
+
+    final parts = regionValue.split(',');
+    for (final part in parts) {
+      final regionCode = part.trim();
+      if (knownRegionCodes.contains(regionCode)) {
+        selectedRegions.add(regionCode);
+      }
+    }
+
+    if (selectedRegions.isEmpty) {
+      selectedRegions.add(BlogRegion.global.code);
+    }
+    return selectedRegions;
+  }
+
+  String? _buildRegionValue(List<String> selectedRegions) {
+    if (selectedRegions.isEmpty) {
+      return null;
+    }
+    return selectedRegions.join(',');
+  }
+
+  String _buildRegionDisplayText(String regionValue) {
+    final selectedRegions = _parseRegionValue(regionValue);
+    final names = <String>[];
+    for (final regionCode in selectedRegions) {
+      names.add(BlogRegion.fromCode(regionCode).displayName);
+    }
+    return names.join(', ');
+  }
+
+  String _normalizeSelectedStorageClassRole(StorageClassItem storageClass) {
+    if (storageClass.isPrimary) {
+      return 'primary';
+    }
+    final role = storageClass.role;
+    if (role == 'origin') {
+      return 'origin';
+    }
+    if (role == 'archive') {
+      return 'archive';
+    }
+    return 'backup';
+  }
+
+  String _storageClassRoleDescription(String role) {
+    if (role == 'primary') {
+      return '主节点收到写入请求后首先写入此存储类，通常是主节点本地磁盘。';
+    }
+    if (role == 'origin') {
+      return '主写入完成后同步到这里，其他存储类优先从这里拉取，适合阿里云 OSS。';
+    }
+    if (role == 'archive') {
+      return '用于长期保存或低频访问，也会从对象存储同步源拉取。';
+    }
+    return '普通副本或边缘缓存，会优先从对象存储同步源拉取。';
+  }
+
+  Widget _buildRegionChips({
+    required List<String> selectedRegions,
+    required ValueChanged<List<String>> onChanged,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: BlogRegion.values.map((region) {
+        final isSelected = selectedRegions.contains(region.code);
+        return FilterChip(
+          label: Text(region.displayName),
+          selected: isSelected,
+          onSelected: (selected) {
+            final newRegions = List<String>.from(selectedRegions);
+            if (selected) {
+              if (region == BlogRegion.global) {
+                newRegions.clear();
+              } else {
+                newRegions.remove(BlogRegion.global.code);
+              }
+              newRegions.add(region.code);
+            } else {
+              newRegions.remove(region.code);
+            }
+            if (newRegions.isEmpty) {
+              newRegions.add(BlogRegion.global.code);
+            }
+            onChanged(newRegions);
+          },
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildProviderList() {
     if (providers.isEmpty) {
-      return const Center(child: Text('暂无存储节点配置'));
+      return const Center(child: Text('暂无存储类配置'));
     }
     return ListView.builder(
       itemCount: providers.length,
@@ -719,7 +976,7 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
-                          '主节点',
+                          '主存储',
                           style: TextStyle(
                             color: Colors.blue,
                             fontSize: 12,
@@ -737,10 +994,10 @@ class _StorageProvidersPageState extends State<StorageProvidersPage> {
                 ),
                 const SizedBox(height: 8),
                 Text('名称: ${provider.name}'),
-                if (provider.region != null && provider.region!.isNotEmpty)
-                  Text('区域: ${BlogRegion
-                      .fromCode(provider.region!)
-                      .displayName}'),
+                if (provider.serviceRegion != null &&
+                    provider.serviceRegion!.isNotEmpty)
+                  Text('所属区域: ${_buildRegionDisplayText(
+                      provider.serviceRegion!)}'),
                 if (provider.role != null && provider.role!.isNotEmpty)
                   Text('角色: ${provider.roleText}'),
                 if (provider.supportedTypes != null &&

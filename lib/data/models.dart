@@ -856,6 +856,10 @@ class MediaItem {
     required this.referenced,
     required this.references,
     this.visibilityRegions = const [],
+    this.hiddenRegions = const [],
+    this.syncStorageClasses = const [],
+    this.skipStorageClasses = const [],
+    this.storageClasses = const {},
     this.metadata = const {},
     this.processingStatus,
     this.processingProgress,
@@ -880,6 +884,10 @@ class MediaItem {
   final bool referenced;
   final List<MediaReference> references;
   final List<String> visibilityRegions;
+  final List<String> hiddenRegions;
+  final List<String> syncStorageClasses;
+  final List<String> skipStorageClasses;
+  final Map<String, dynamic> storageClasses;
   final Map<String, dynamic> metadata;
   final String? processingStatus;
   final int? processingProgress;
@@ -918,6 +926,12 @@ class MediaItem {
       referenced: toBool(map['referenced']) ?? false,
       references: refList,
       visibilityRegions: toStringList(map['visibilityRegions']) ?? [],
+      hiddenRegions: toStringList(map['hiddenRegions']) ?? [],
+      syncStorageClasses: toStringList(map['syncStorageClasses']) ?? [],
+      skipStorageClasses: toStringList(map['skipStorageClasses']) ?? [],
+      storageClasses: map['storageClasses'] is Map
+          ? Map<String, dynamic>.from(map['storageClasses'] as Map)
+          : {},
       metadata: map['metadata'] is Map ? Map<String, dynamic>.from(
           map['metadata']) : {},
     );
@@ -2258,8 +2272,8 @@ class LinkReferenceItem {
 
 // ==================== 存储管理相关模型 ====================
 
-class StorageProviderItem {
-  StorageProviderItem({
+class StorageClassItem {
+  StorageClassItem({
     required this.id,
     required this.name,
     required this.displayName,
@@ -2271,7 +2285,7 @@ class StorageProviderItem {
     this.supportedTypes,
     this.cdnDomain,
     this.cdnEnabled,
-    this.region,
+    this.serviceRegion,
     this.priority,
   });
 
@@ -2286,12 +2300,13 @@ class StorageProviderItem {
   final String? supportedTypes;
   final String? cdnDomain;
   final bool? cdnEnabled;
-  final String? region;
+  final String? serviceRegion;
   final int? priority;
 
   String get providerTypeText {
     switch (providerType) {
       case 'aliyun_oss_v2':
+      case 'oss_aliyun':
         return '阿里云 OSS v2';
       case 'local_fs':
         return '本地文件系统';
@@ -2303,18 +2318,20 @@ class StorageProviderItem {
   String get roleText {
     switch (role) {
       case 'primary':
-        return '主存储 (Primary)';
+        return '主写入存储';
+      case 'origin':
+        return '对象存储同步源';
       case 'backup':
-        return '备份存储 (Backup)';
+        return '普通副本';
       case 'archive':
-        return '归档存储 (Archive)';
+        return '归档存储';
       default:
         return role ?? '未设置';
     }
   }
 
-  factory StorageProviderItem.fromMap(Map<String, dynamic> map) {
-    return StorageProviderItem(
+  factory StorageClassItem.fromMap(Map<String, dynamic> map) {
+    return StorageClassItem(
       id: toInt(map['id']),
       name: map['name']?.toString() ?? '',
       displayName: map['displayName']?.toString() ?? '',
@@ -2326,7 +2343,7 @@ class StorageProviderItem {
       supportedTypes: _parseSupportedTypes(map['supportedTypes']),
       cdnDomain: map['cdnDomain']?.toString(),
       cdnEnabled: toBool(map['cdnEnabled']),
-      region: map['region']?.toString(),
+      serviceRegion: map['serviceRegion']?.toString(),
       priority: toInt(map['priority']),
     );
   }
@@ -2343,7 +2360,7 @@ class StorageProviderItem {
       if (supportedTypes != null) 'supportedTypes': supportedTypes,
       if (cdnDomain != null) 'cdnDomain': cdnDomain,
       if (cdnEnabled != null) 'cdnEnabled': cdnEnabled,
-      if (region != null) 'region': region,
+      if (serviceRegion != null) 'serviceRegion': serviceRegion,
       if (priority != null) 'priority': priority,
     };
   }
@@ -2357,7 +2374,7 @@ class StorageProviderItem {
       if (supportedTypes != null) 'supportedTypes': supportedTypes,
       if (cdnDomain != null) 'cdnDomain': cdnDomain,
       if (cdnEnabled != null) 'cdnEnabled': cdnEnabled,
-      if (region != null) 'region': region,
+      if (serviceRegion != null) 'serviceRegion': serviceRegion,
       if (priority != null) 'priority': priority,
     };
   }
@@ -2414,21 +2431,21 @@ class MediaSyncDetail {
     required this.mediaId,
     required this.fileName,
     required this.mimeType,
-    this.storageNodes,
+    this.storageClasses,
   });
 
   final int mediaId;
   final String fileName;
   final String mimeType;
-  final Map<String, dynamic>? storageNodes;
+  final Map<String, dynamic>? storageClasses;
 
   factory MediaSyncDetail.fromMap(Map<String, dynamic> map) {
     return MediaSyncDetail(
       mediaId: toInt(map['mediaId']) ?? 0,
       fileName: map['fileName']?.toString() ?? '',
       mimeType: map['mimeType']?.toString() ?? '',
-      storageNodes: map['storageNodes'] is Map
-          ? Map<String, dynamic>.from(map['storageNodes'] as Map)
+      storageClasses: map['storageClasses'] is Map
+          ? Map<String, dynamic>.from(map['storageClasses'] as Map)
           : null,
     );
   }

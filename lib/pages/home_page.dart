@@ -69,7 +69,7 @@ class _HomePageState extends State<HomePage> {
                         NavigationRailDestination(
                           icon: const Icon(Icons.cloud_outlined),
                           selectedIcon: const Icon(Icons.cloud),
-                          label: const Text('存储节点'),
+                          label: const Text('存储类'),
                         ),
                         NavigationRailDestination(
                           icon: const Icon(Icons.sync_outlined),
@@ -178,7 +178,7 @@ class _HomePageState extends State<HomePage> {
                           3 => t(context, 'tags'),
                           4 => t(context, 'store_items'),
                           5 => t(context, 'media'),
-                          6 => '存储节点',
+                          6 => '存储类',
                           7 => '同步监控',
                           8 => '死信队列',
                           9 => '图片处理',
@@ -227,7 +227,7 @@ class _HomePageState extends State<HomePage> {
       3 => TagsPage(api: widget.api, onAuthError: widget.onLogout),
       4 => StoreItemsPage(api: widget.api, onAuthError: widget.onLogout),
       5 => MediaLibraryPage(api: widget.api, onAuthError: widget.onLogout),
-      6 => StorageProvidersPage(api: widget.api, onAuthError: widget.onLogout),
+      6 => StorageClassesPage(api: widget.api, onAuthError: widget.onLogout),
       7 => StorageSyncPanel(api: widget.api, onAuthError: widget.onLogout),
       8 => DeadLetterPage(api: widget.api, onAuthError: widget.onLogout),
       9 =>

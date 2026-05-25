@@ -770,11 +770,22 @@ class AdminApiClient {
     await _delete('/api/admin/regions/$id');
   }
 
-  Future<MediaItem> updateMedia(int id,
-      {List<String>? visibilityRegions}) async {
+  Future<MediaItem> updateMedia(
+    int id, {
+    List<String>? visibilityRegions,
+    List<String>? hiddenRegions,
+    List<String>? syncStorageClasses,
+    List<String>? skipStorageClasses,
+  }) async {
     final res = await _patch('/api/admin/media/$id', body: {
       // ignore: use_null_aware_elements
       if (visibilityRegions != null) 'visibilityRegions': visibilityRegions,
+      // ignore: use_null_aware_elements
+      if (hiddenRegions != null) 'hiddenRegions': hiddenRegions,
+      // ignore: use_null_aware_elements
+      if (syncStorageClasses != null) 'syncStorageClasses': syncStorageClasses,
+      // ignore: use_null_aware_elements
+      if (skipStorageClasses != null) 'skipStorageClasses': skipStorageClasses,
     });
     return MediaItem.fromMap(
         _normalizeMediaItemMap(_map(jsonDecode(res.body))));
@@ -782,40 +793,40 @@ class AdminApiClient {
 
   // ==================== Storage Management API ====================
 
-  Future<List<StorageProviderItem>> listStorageProviders() async {
-    final res = await _get('/api/admin/storage/providers');
+  Future<List<StorageClassItem>> listStorageClasses() async {
+    final res = await _get('/api/admin/storage/classes');
     final rawList = (jsonDecode(res.body) as List<dynamic>? ?? []);
-    final List<StorageProviderItem> items = [];
+    final List<StorageClassItem> items = [];
     for (int i = 0; i < rawList.length; i++) {
       final element = rawList[i];
-      final item = StorageProviderItem.fromMap(_map(element));
+      final item = StorageClassItem.fromMap(_map(element));
       items.add(item);
     }
     return items;
   }
 
-  Future<StorageProviderItem> createStorageProvider(
-      StorageProviderItem request) async {
+  Future<StorageClassItem> createStorageClass(
+      StorageClassItem request) async {
     final res = await _post(
-        '/api/admin/storage/providers', body: request.toCreateJson());
-    return StorageProviderItem.fromMap(_map(jsonDecode(res.body)));
+        '/api/admin/storage/classes', body: request.toCreateJson());
+    return StorageClassItem.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<StorageProviderItem> updateStorageProvider(int id,
-      StorageProviderItem request) async {
+  Future<StorageClassItem> updateStorageClass(int id,
+      StorageClassItem request) async {
     final res = await _put(
-        '/api/admin/storage/providers/$id', body: request.toUpdateJson());
-    return StorageProviderItem.fromMap(_map(jsonDecode(res.body)));
+        '/api/admin/storage/classes/$id', body: request.toUpdateJson());
+    return StorageClassItem.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<void> deleteStorageProvider(int id) async {
-    await _delete('/api/admin/storage/providers/$id');
+  Future<void> deleteStorageClass(int id) async {
+    await _delete('/api/admin/storage/classes/$id');
   }
 
-  Future<StorageProviderItem> testStorageProvider(String name) async {
+  Future<StorageTestResult> testStorageClass(String name) async {
     final res = await _post(
-        '/api/admin/storage/providers/test/$name', body: {});
-    return StorageProviderItem.fromMap(_map(jsonDecode(res.body)));
+        '/api/admin/storage/classes/test/$name', body: {});
+    return StorageTestResult.fromMap(_map(jsonDecode(res.body)));
   }
 
   Future<StorageSyncStatus> getStorageSyncStatus(

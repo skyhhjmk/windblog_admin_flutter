@@ -40,7 +40,9 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   bool _loadOriginal = false;
   late MediaItem _item;
   List<RegionRule> _regionRules = [];
+  List<StorageClassItem> _storageClasses = [];
   bool _loadingRegions = false;
+  bool _loadingStorageClasses = false;
 
   @override
   void initState() {
@@ -48,6 +50,7 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     _item = widget.item;
     _loadOriginal = !_item.requiresManualOriginal;
     _loadRegionRules();
+    _loadStorageClasses();
   }
 
   Future<void> _loadRegionRules() async {
@@ -65,6 +68,21 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     }
   }
 
+  Future<void> _loadStorageClasses() async {
+    setState(() => _loadingStorageClasses = true);
+    try {
+      final storageClasses = await widget.api.listStorageClasses();
+      if (mounted) {
+        setState(() {
+          _storageClasses = storageClasses;
+          _loadingStorageClasses = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingStorageClasses = false);
+    }
+  }
+
   Future<void> _updateVisibility(List<String> regions) async {
     try {
       final updated = await widget.api.updateMedia(
@@ -76,6 +94,56 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('可见性更新成功'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateHiddenRegions(List<String> regions) async {
+    try {
+      final updated = await widget.api.updateMedia(
+          _item.id, hiddenRegions: regions);
+      if (mounted) {
+        setState(() {
+          _item = updated;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('不可见区域更新成功'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateStorageSync({
+    List<String>? syncStorageClasses,
+    List<String>? skipStorageClasses,
+  }) async {
+    try {
+      final updated = await widget.api.updateMedia(
+        _item.id,
+        syncStorageClasses: syncStorageClasses,
+        skipStorageClasses: skipStorageClasses,
+      );
+      if (mounted) {
+        setState(() {
+          _item = updated;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('存储类同步策略更新成功'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -279,6 +347,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
                 const SizedBox(height: 24),
                 _buildVisibilityRegionsSection(),
                 const SizedBox(height: 24),
+                _buildHiddenRegionsSection(),
+                const SizedBox(height: 24),
+                _buildStorageSyncSection(),
+                const SizedBox(height: 24),
                 _buildImportSection(),
                 const SizedBox(height: 24),
                 _buildReferencesSection(),
@@ -335,7 +407,7 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
 
   Widget _buildVisibilityRegionsSection() {
     final currentRegions = _item.visibilityRegions;
-    final availableRegions = _regionRules.map((r) => r.region).toSet().toList();
+    final availableRegions = _availableRegionCodes();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,11 +475,172 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         Text(
           currentRegions.isEmpty
               ? '默认所有区域均可访问此媒体文件'
-              : '仅在匹配所选区域的节点/语言环境下可见',
+              : '仅在匹配所选区域的访问环境下可见',
           style: const TextStyle(fontSize: 11, color: Colors.grey),
         ),
       ],
     );
+  }
+
+  Widget _buildHiddenRegionsSection() {
+    final currentRegions = _item.hiddenRegions;
+    final availableRegions = _availableRegionCodes();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+            '不可见区域', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (_loadingRegions)
+          const LinearProgressIndicator()
+        else
+          DropdownButtonFormField<String?>(
+            isExpanded: true,
+            decoration: const InputDecoration(
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            hint: Text(currentRegions.isEmpty
+                ? '未排除任何区域'
+                : '已排除 ${currentRegions.length} 个区域'),
+            items: [
+              if (currentRegions.isNotEmpty)
+                const DropdownMenuItem<String?>(
+                  value: "__clear__",
+                  child: Text("清除所有排除",
+                      style: TextStyle(color: Colors.red, fontSize: 13)),
+                ),
+              ...availableRegions.map((region) =>
+                  DropdownMenuItem<String>(
+                    value: region,
+                    child: Row(
+                      children: [
+                        Icon(
+                          currentRegions.contains(region)
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(BlogRegion
+                            .fromCode(region)
+                            .displayName,
+                            style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  )),
+            ],
+            onChanged: (v) {
+              if (v == "__clear__") {
+                _updateHiddenRegions([]);
+                return;
+              }
+              if (v != null) {
+                final newRegions = List<String>.from(currentRegions);
+                if (newRegions.contains(v)) {
+                  newRegions.remove(v);
+                } else {
+                  newRegions.add(v);
+                }
+                _updateHiddenRegions(newRegions);
+              }
+            },
+          ),
+        const SizedBox(height: 4),
+        const Text(
+          '不可见区域优先级高于可见区域；可见区域包含 Global 时，表示除不可见区域外均可访问',
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStorageSyncSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('存储类同步', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (_loadingStorageClasses)
+          const LinearProgressIndicator()
+        else
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('同步到', style: TextStyle(fontSize: 12)),
+              const SizedBox(height: 4),
+              _buildStorageClassChips(
+                selectedNames: _item.syncStorageClasses,
+                disabledNames: _item.skipStorageClasses,
+                emptyText: '默认同步所有启用的非主存储类',
+                onChanged: (names) =>
+                    _updateStorageSync(syncStorageClasses: names),
+              ),
+              const SizedBox(height: 12),
+              const Text('不同步到', style: TextStyle(fontSize: 12)),
+              const SizedBox(height: 4),
+              _buildStorageClassChips(
+                selectedNames: _item.skipStorageClasses,
+                disabledNames: const [],
+                emptyText: '未排除存储类',
+                onChanged: (names) =>
+                    _updateStorageSync(skipStorageClasses: names),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStorageClassChips({
+    required List<String> selectedNames,
+    required List<String> disabledNames,
+    required String emptyText,
+    required Future<void> Function(List<String>) onChanged,
+  }) {
+    if (_storageClasses.isEmpty) {
+      return Text(emptyText,
+          style: const TextStyle(fontSize: 11, color: Colors.grey));
+    }
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: _storageClasses.map((storageClass) {
+        final selected = selectedNames.contains(storageClass.name);
+        final disabled = storageClass.isPrimary ||
+            disabledNames.contains(storageClass.name);
+        return FilterChip(
+          label: Text(storageClass.displayName),
+          selected: selected,
+          onSelected: disabled
+              ? null
+              : (value) {
+                  final newNames = List<String>.from(selectedNames);
+                  if (value) {
+                    newNames.add(storageClass.name);
+                  } else {
+                    newNames.remove(storageClass.name);
+                  }
+                  onChanged(newNames);
+                },
+        );
+      }).toList(),
+    );
+  }
+
+  List<String> _availableRegionCodes() {
+    final regionCodes = <String>[];
+    for (final region in BlogRegion.values) {
+      regionCodes.add(region.code);
+    }
+    for (final rule in _regionRules) {
+      if (!regionCodes.contains(rule.region)) {
+        regionCodes.add(rule.region);
+      }
+    }
+    return regionCodes;
   }
 
   Widget _buildImportSection() {
