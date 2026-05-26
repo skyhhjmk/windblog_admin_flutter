@@ -2286,6 +2286,7 @@ class StorageClassItem {
     this.cdnDomain,
     this.cdnEnabled,
     this.serviceRegion,
+    this.contentRegions = const [],
     this.priority,
   });
 
@@ -2301,6 +2302,7 @@ class StorageClassItem {
   final String? cdnDomain;
   final bool? cdnEnabled;
   final String? serviceRegion;
+  final List<String> contentRegions;
   final int? priority;
 
   String get providerTypeText {
@@ -2344,6 +2346,7 @@ class StorageClassItem {
       cdnDomain: map['cdnDomain']?.toString(),
       cdnEnabled: toBool(map['cdnEnabled']),
       serviceRegion: map['serviceRegion']?.toString(),
+      contentRegions: toStringList(map['contentRegions']) ?? [],
       priority: toInt(map['priority']),
     );
   }
@@ -2361,6 +2364,7 @@ class StorageClassItem {
       if (cdnDomain != null) 'cdnDomain': cdnDomain,
       if (cdnEnabled != null) 'cdnEnabled': cdnEnabled,
       if (serviceRegion != null) 'serviceRegion': serviceRegion,
+      'contentRegions': contentRegions,
       if (priority != null) 'priority': priority,
     };
   }
@@ -2375,6 +2379,7 @@ class StorageClassItem {
       if (cdnDomain != null) 'cdnDomain': cdnDomain,
       if (cdnEnabled != null) 'cdnEnabled': cdnEnabled,
       if (serviceRegion != null) 'serviceRegion': serviceRegion,
+      'contentRegions': contentRegions,
       if (priority != null) 'priority': priority,
     };
   }

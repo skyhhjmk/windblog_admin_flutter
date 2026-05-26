@@ -162,10 +162,11 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
     final bucketNameController = TextEditingController();
     final localBaseUrlController = TextEditingController(text: '/uploads');
     final localRootPathController = TextEditingController(text: 'uploads');
+    final serviceRegionController = TextEditingController();
     String selectedProviderType = 'oss_aliyun';
     String selectedRole = 'origin';
     List<String> selectedSupportedTypes = ['image', 'video'];
-    List<String> selectedStorageRegions = ['global'];
+    List<String> selectedContentRegions = ['global'];
     bool isEnabled = true;
     bool cdnEnabled = false;
     final priorityController = TextEditingController(text: '0');
@@ -293,16 +294,24 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
                         }).toList(),
                       ),
                       const SizedBox(height: 16),
-                      const Text('所属区域:',
+                      const Text('内容区域:',
                           style: TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(height: 4),
                       _buildRegionChips(
-                        selectedRegions: selectedStorageRegions,
+                        selectedRegions: selectedContentRegions,
                         onChanged: (regions) {
                           setDialogState(() {
-                            selectedStorageRegions = regions;
+                            selectedContentRegions = regions;
                           });
                         },
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: serviceRegionController,
+                        decoration: const InputDecoration(
+                          labelText: '存储服务区域',
+                          hintText: '如 cn-hangzhou，留空表示未指定',
+                        ),
                       ),
                       const SizedBox(height: 16),
                       if (showCloudFields) ...[
@@ -465,7 +474,8 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
       supportedTypes: selectedSupportedTypes.join(','),
       cdnDomain: cdnDomain.isNotEmpty ? cdnDomain : null,
       cdnEnabled: cdnEnabled,
-      serviceRegion: _buildRegionValue(selectedStorageRegions),
+      serviceRegion: _normalizeText(serviceRegionController.text),
+      contentRegions: selectedContentRegions,
       priority: int.tryParse(priorityController.text) ?? 0,
     );
 
@@ -502,12 +512,14 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
         text: configValues['baseUrl'] ?? '/uploads');
     final localRootPathController = TextEditingController(
         text: configValues['rootPath'] ?? 'uploads');
+    final serviceRegionController = TextEditingController(
+        text: provider.serviceRegion ?? '');
     String selectedRole = _normalizeSelectedStorageClassRole(provider);
     List<String> selectedSupportedTypes = (provider.supportedTypes ??
         'image,video').split(',').map((e) => e.trim()).where((e) =>
     e.isNotEmpty).toList();
-    List<String> selectedStorageRegions = _parseRegionValue(
-        provider.serviceRegion);
+    List<String> selectedContentRegions = _normalizeContentRegions(
+        provider.contentRegions);
     bool isEnabled = provider.isEnabled;
     bool cdnEnabled = provider.cdnEnabled ?? false;
     int priority = provider.priority ?? 0;
@@ -602,16 +614,24 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
                         }).toList(),
                       ),
                       const SizedBox(height: 16),
-                      const Text('所属区域:',
+                      const Text('内容区域:',
                           style: TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(height: 4),
                       _buildRegionChips(
-                        selectedRegions: selectedStorageRegions,
+                        selectedRegions: selectedContentRegions,
                         onChanged: (regions) {
                           setDialogState(() {
-                            selectedStorageRegions = regions;
+                            selectedContentRegions = regions;
                           });
                         },
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: serviceRegionController,
+                        decoration: const InputDecoration(
+                          labelText: '存储服务区域',
+                          hintText: '如 cn-hangzhou，留空表示未指定',
+                        ),
                       ),
                       const SizedBox(height: 16),
                       if (provider.providerType == 'local_fs') ...[
@@ -749,7 +769,8 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
       supportedTypes: selectedSupportedTypes.join(','),
       cdnDomain: cdnDomainController.text,
       cdnEnabled: cdnEnabled,
-      serviceRegion: _buildRegionValue(selectedStorageRegions),
+      serviceRegion: _normalizeText(serviceRegionController.text),
+      contentRegions: selectedContentRegions,
       priority: int.tryParse(priorityController.text) ?? 0,
     );
 
@@ -837,46 +858,27 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
     values[key] = normalizedValue;
   }
 
-  List<String> _parseRegionValue(String? regionValue) {
-    final selectedRegions = <String>[];
-    if (regionValue == null || regionValue.trim().isEmpty) {
-      selectedRegions.add(BlogRegion.global.code);
-      return selectedRegions;
+  List<String> _normalizeContentRegions(List<String>? selectedRegions) {
+    if (selectedRegions == null || selectedRegions.isEmpty) {
+      return [BlogRegion.global.code];
     }
-
-    final knownRegionCodes = <String>{};
-    for (final region in BlogRegion.values) {
-      knownRegionCodes.add(region.code);
-    }
-
-    final parts = regionValue.split(',');
-    for (final part in parts) {
-      final regionCode = part.trim();
-      if (knownRegionCodes.contains(regionCode)) {
-        selectedRegions.add(regionCode);
-      }
-    }
-
-    if (selectedRegions.isEmpty) {
-      selectedRegions.add(BlogRegion.global.code);
-    }
-    return selectedRegions;
+    return List<String>.from(selectedRegions);
   }
 
-  String? _buildRegionValue(List<String> selectedRegions) {
-    if (selectedRegions.isEmpty) {
-      return null;
-    }
-    return selectedRegions.join(',');
-  }
-
-  String _buildRegionDisplayText(String regionValue) {
-    final selectedRegions = _parseRegionValue(regionValue);
+  String _buildRegionDisplayText(List<String> selectedRegions) {
     final names = <String>[];
     for (final regionCode in selectedRegions) {
       names.add(BlogRegion.fromCode(regionCode).displayName);
     }
     return names.join(', ');
+  }
+
+  String? _normalizeText(String text) {
+    final normalizedText = text.trim();
+    if (normalizedText.isEmpty) {
+      return null;
+    }
+    return normalizedText;
   }
 
   String _normalizeSelectedStorageClassRole(StorageClassItem storageClass) {
@@ -994,10 +996,12 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
                 ),
                 const SizedBox(height: 8),
                 Text('名称: ${provider.name}'),
+                if (provider.contentRegions.isNotEmpty)
+                  Text('内容区域: ${_buildRegionDisplayText(
+                      provider.contentRegions)}'),
                 if (provider.serviceRegion != null &&
                     provider.serviceRegion!.isNotEmpty)
-                  Text('所属区域: ${_buildRegionDisplayText(
-                      provider.serviceRegion!)}'),
+                  Text('存储服务区域: ${provider.serviceRegion!}'),
                 if (provider.role != null && provider.role!.isNotEmpty)
                   Text('角色: ${provider.roleText}'),
                 if (provider.supportedTypes != null &&
