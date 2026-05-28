@@ -12,13 +12,15 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:mime/mime.dart';
 import 'package:diff_match_patch/diff_match_patch.dart' as diff_match_patch;
 
-
 import 'data/admin_api_client.dart';
 import 'data/models.dart';
 import 'l10n/app_localizations.dart';
-import 'components/web_stub.dart' if (dart.library.html) 'components/web_impl.dart' as web_helper;
+import 'components/web_stub.dart'
+    if (dart.library.html) 'components/web_impl.dart'
+    as web_helper;
 import 'utils/storage_service.dart';
 
+part 'components/admin_ui.dart';
 part 'pages/login_page.dart';
 part 'pages/home_page.dart';
 part 'pages/overview_page.dart';
@@ -77,7 +79,6 @@ part 'pages/edge_nodes_page.dart';
 
 part 'pages/region_management_page.dart';
 
-
 String _resolveMimeType(PlatformFile file) {
   final candidate = file.path ?? file.name;
   if (candidate.isEmpty) return 'application/octet-stream';
@@ -88,16 +89,18 @@ class SmoothScrollBehavior extends MaterialScrollBehavior {
   const SmoothScrollBehavior();
 
   @override
-  Set<PointerDeviceKind> get dragDevices =>
-      {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-      };
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+  };
 
   @override
-  Widget buildScrollbar(BuildContext context, Widget child,
-      ScrollableDetails details) {
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
     return Scrollbar(
       controller: details.controller,
       thickness: 8.0,
@@ -120,11 +123,7 @@ class WindblogAdminApp extends StatelessWidget {
     return MaterialApp(
       title: 'WindBlog Admin',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B5ED7)),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF5F7FB),
-      ),
+      theme: AdminTheme.build(),
       scrollBehavior: const SmoothScrollBehavior(),
       localizationsDelegates: [
         AppLocalizations.delegate,
@@ -132,10 +131,7 @@ class WindblogAdminApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en', ''),
-        Locale('zh', ''),
-      ],
+      supportedLocales: const [Locale('en', ''), Locale('zh', '')],
       home: const AdminRootPage(),
     );
   }
@@ -203,11 +199,7 @@ class _AdminRootPageState extends State<AdminRootPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (api.token == null) {
       return LoginPage(api: api, onLogin: onLogin);

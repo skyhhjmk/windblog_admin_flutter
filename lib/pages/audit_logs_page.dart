@@ -80,100 +80,77 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
   void _showDetail(AuditLogItem item) {
     showDialog(
       context: context,
-      builder: (context) =>
-          _AuditLogDetailDialog(
-            item: item,
-            api: widget.api,
-      ),
+      builder: (context) => _AuditLogDetailDialog(item: item, api: widget.api),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Text(t(context, 'audit_logs'),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              SizedBox(
-                width: 200,
-                child: TextField(
-                  controller: _entityTypeCtrl,
-                  decoration: InputDecoration(
-                    labelText: t(context, 'entity_type_hint'),
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _onSearch(),
-                ),
+    return AdminPageScaffold(
+      title: t(context, 'audit_logs'),
+      filters: AdminToolbar(
+        children: [
+          SizedBox(
+            width: AdminBreakpoints.isPhone(context) ? double.infinity : 220,
+            child: TextField(
+              controller: _entityTypeCtrl,
+              decoration: InputDecoration(
+                labelText: t(context, 'entity_type_hint'),
+                prefixIcon: const Icon(Icons.category_outlined),
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 200,
-                child: TextField(
-                  controller: _actionCtrl,
-                  decoration: InputDecoration(
-                    labelText: t(context, 'action_hint'),
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _onSearch(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _onSearch,
-                icon: const Icon(Icons.search),
-                label: Text(t(context, 'search')),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Card(
-            margin: const EdgeInsets.all(16),
-            child: _loading && _logs.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-              children: [
-                Expanded(
-                  child: ListView.separated(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: _logs.length,
-                    separatorBuilder: (context, index) =>
-                    const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final item = _logs[index];
-                      return ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.history, size: 20),
-                        ),
-                        title: Text('${item.action} - ${item.entityType} #${item
-                            .entityId}'),
-                        subtitle: Text(
-                          '${t(context, 'operator')}: ${item.performedByUsername ??
-                              t(context, 'system_unknown')} | ${t(context, 'time')}: ${item.createdAtFormatted ??
-                              item.createdAt}',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _showDetail(item),
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: _buildPagination(),
-                ),
-              ],
+              onSubmitted: (_) => _onSearch(),
             ),
           ),
-        ),
-      ],
+          SizedBox(
+            width: AdminBreakpoints.isPhone(context) ? double.infinity : 220,
+            child: TextField(
+              controller: _actionCtrl,
+              decoration: InputDecoration(
+                labelText: t(context, 'action_hint'),
+                prefixIcon: const Icon(Icons.bolt_outlined),
+              ),
+              onSubmitted: (_) => _onSearch(),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: _onSearch,
+            icon: const Icon(Icons.search),
+            label: Text(t(context, 'search')),
+          ),
+        ],
+      ),
+      body: _loading && _logs.isEmpty
+          ? const AdminStatusView.loading(title: '正在加载审计日志')
+          : _logs.isEmpty
+          ? AdminStatusView.empty(title: t(context, 'no_data'))
+          : Card(
+              child: ListView.separated(
+                physics: const BouncingScrollPhysics(),
+                itemCount: _logs.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final item = _logs[index];
+                  return ListTile(
+                    leading: const CircleAvatar(
+                      child: Icon(Icons.history, size: 20),
+                    ),
+                    title: Text(
+                      '${item.action} - ${item.entityType} #${item.entityId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '${t(context, 'operator')}: ${item.performedByUsername ?? t(context, 'system_unknown')} | ${t(context, 'time')}: ${item.createdAtFormatted ?? item.createdAt}',
+                      maxLines: AdminBreakpoints.isPhone(context) ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _showDetail(item),
+                  );
+                },
+              ),
+            ),
+      footer: _buildPagination(),
     );
   }
 
@@ -216,7 +193,8 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
   Future<void> _loadCurrentSetting() async {
     final newValue = widget.item.newValue;
     final oldValue = widget.item.oldValue;
-    final key = (newValue is Map ? newValue['key'] : null) ??
+    final key =
+        (newValue is Map ? newValue['key'] : null) ??
         (oldValue is Map ? oldValue['key'] : null);
     if (key == null) return;
 
@@ -234,23 +212,27 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
   Future<void> _applyValue(dynamic value, String label) async {
     final newValue = widget.item.newValue;
     final oldValue = widget.item.oldValue;
-    final key = (newValue is Map ? newValue['key'] : null) ??
+    final key =
+        (newValue is Map ? newValue['key'] : null) ??
         (oldValue is Map ? oldValue['key'] : null);
     if (key == null) return;
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: Text(t(context, 'confirm_action')),
-            content: Text('确定要将配置回滚/应用到 $label 吗？'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false),
-                  child: Text(t(context, 'cancel'))),
-              FilledButton(onPressed: () => Navigator.pop(context, true),
-                  child: Text(t(context, 'confirm'))),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text(t(context, 'confirm_action')),
+        content: Text('确定要将配置回滚/应用到 $label 吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t(context, 'cancel')),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t(context, 'confirm')),
+          ),
+        ],
+      ),
     );
 
     if (confirm != true) return;
@@ -265,8 +247,10 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('配置已应用并进入验证期'),
-              backgroundColor: Colors.orange),
+          const SnackBar(
+            content: Text('配置已应用并进入验证期'),
+            backgroundColor: Colors.orange,
+          ),
         );
       }
     } catch (e) {
@@ -284,11 +268,13 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
   Widget build(BuildContext context) {
     final item = widget.item;
     final isSetting = item.entityType == 'system_setting';
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final dialogWidth = max(280.0, min(800.0, screenWidth - 48.0));
 
     return AlertDialog(
       title: Text(t(context, 'audit_log_details')),
       content: SizedBox(
-        width: 800,
+        width: dialogWidth,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(
@@ -298,10 +284,14 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
               _buildDetailRow(t(context, 'entity_type'), item.entityType),
               _buildDetailRow(t(context, 'entity_id'), item.entityId),
               _buildDetailRow(t(context, 'action'), item.action),
-              _buildDetailRow(t(context, 'operator'),
-                  item.performedByUsername ?? t(context, 'system_unknown')),
-              _buildDetailRow(t(context, 'time'),
-                  item.createdAtFormatted ?? item.createdAt?.toString() ?? ''),
+              _buildDetailRow(
+                t(context, 'operator'),
+                item.performedByUsername ?? t(context, 'system_unknown'),
+              ),
+              _buildDetailRow(
+                t(context, 'time'),
+                item.createdAtFormatted ?? item.createdAt?.toString() ?? '',
+              ),
               const Divider(height: 32),
 
               if (isSetting) ...[
@@ -309,77 +299,35 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
                 const SizedBox(height: 24),
               ],
 
-              Text('${t(context, 'diff_view')}:',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                '${t(context, 'diff_view')}:',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               DiffViewer(
-                oldText: const JsonEncoder.withIndent('  ').convert(
-                    item.oldValue),
-                newText: const JsonEncoder.withIndent('  ').convert(
-                    item.newValue),
+                oldText: const JsonEncoder.withIndent(
+                  '  ',
+                ).convert(item.oldValue),
+                newText: const JsonEncoder.withIndent(
+                  '  ',
+                ).convert(item.newValue),
               ),
 
               if (item.extInfo != null && item.extInfo!.isNotEmpty) ...[
                 const SizedBox(height: 24),
-                Text('Ext Info (AI Output/Performance):',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  'Ext Info (AI Output/Performance):',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 _buildJsonBox(item.extInfo),
               ],
 
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${t(context, 'old_value')}:',
-                            style: const TextStyle(fontWeight: FontWeight
-                                .bold)),
-                        const SizedBox(height: 8),
-                        _buildJsonBox(item.oldValue),
-                        if (isSetting && item.oldValue is Map &&
-                            item.oldValue.containsKey('value'))
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: OutlinedButton.icon(
-                              onPressed: _applying ? null : () =>
-                                  _applyValue(
-                                      item.oldValue, t(context, 'old_value')),
-                              icon: const Icon(Icons.history, size: 16),
-                              label: const Text('回滚到此版本'),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${t(context, 'new_value')}:',
-                            style: const TextStyle(fontWeight: FontWeight
-                                .bold)),
-                        const SizedBox(height: 8),
-                        _buildJsonBox(item.newValue),
-                        if (isSetting && item.newValue is Map &&
-                            item.newValue.containsKey('value'))
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: OutlinedButton.icon(
-                              onPressed: _applying ? null : () =>
-                                  _applyValue(
-                                      item.newValue, t(context, 'new_value')),
-                              icon: const Icon(Icons.restore, size: 16),
-                              label: const Text('重新应用此版本'),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+              _buildValueComparison(
+                item: item,
+                isSetting: isSetting,
+                isNarrow: dialogWidth < 620,
               ),
             ],
           ),
@@ -389,9 +337,11 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
         if (_applying)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
-            child: SizedBox(width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2)),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ),
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -412,26 +362,112 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text('${t(context, 'current_value')}:', style: const TextStyle(
-                fontWeight: FontWeight.bold, color: Colors.blue)),
-            const SizedBox(width: 8),
+            Text(
+              '${t(context, 'current_value')}:',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
+            ),
             if (_currentSetting!.isFrozen)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: Colors.orange,
-                    borderRadius: BorderRadius.circular(4)),
-                child: const Text('验证锁定中',
-                    style: TextStyle(color: Colors.white, fontSize: 10)),
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  '验证锁定中',
+                  style: TextStyle(color: Colors.white, fontSize: 10),
+                ),
               ),
-            const Spacer(),
-            Text('Version: ${_currentSetting!.version}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              'Version: ${_currentSetting!.version}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         ),
         const SizedBox(height: 8),
         _buildJsonBox(_currentSetting!.configValue, color: Colors.blue.shade50),
+      ],
+    );
+  }
+
+  Widget _buildValueComparison({
+    required AuditLogItem item,
+    required bool isSetting,
+    required bool isNarrow,
+  }) {
+    Widget oldValueColumn = _buildValueColumn(
+      title: '${t(context, 'old_value')}:',
+      value: item.oldValue,
+      buttonText: '回滚到此版本',
+      buttonIcon: Icons.history,
+      onPressed:
+          isSetting &&
+              item.oldValue is Map &&
+              item.oldValue.containsKey('value')
+          ? () => _applyValue(item.oldValue, t(context, 'old_value'))
+          : null,
+    );
+
+    Widget newValueColumn = _buildValueColumn(
+      title: '${t(context, 'new_value')}:',
+      value: item.newValue,
+      buttonText: '重新应用此版本',
+      buttonIcon: Icons.restore,
+      onPressed:
+          isSetting &&
+              item.newValue is Map &&
+              item.newValue.containsKey('value')
+          ? () => _applyValue(item.newValue, t(context, 'new_value'))
+          : null,
+    );
+
+    if (isNarrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [oldValueColumn, const SizedBox(height: 16), newValueColumn],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: oldValueColumn),
+        const SizedBox(width: 16),
+        Expanded(child: newValueColumn),
+      ],
+    );
+  }
+
+  Widget _buildValueColumn({
+    required String title,
+    required dynamic value,
+    required String buttonText,
+    required IconData buttonIcon,
+    required VoidCallback? onPressed,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        _buildJsonBox(value),
+        if (onPressed != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: OutlinedButton.icon(
+              onPressed: _applying ? null : onPressed,
+              icon: Icon(buttonIcon, size: 16),
+              label: Text(buttonText),
+            ),
+          ),
       ],
     );
   }
@@ -461,7 +497,9 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
           SizedBox(
             width: 140,
             child: Text(
-                label, style: const TextStyle(fontWeight: FontWeight.w600)),
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
           Expanded(child: Text(value)),
         ],

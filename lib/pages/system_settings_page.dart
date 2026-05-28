@@ -53,69 +53,141 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   @override
   Widget build(BuildContext context) {
     if (_error != null && _settings.isEmpty) {
-      return Center(child: Text('错误: $_error'));
+      return AdminPageScaffold(
+        title: t(context, 'system_settings'),
+        body: AdminStatusView.error(
+          title: '加载系统设置失败',
+          message: _error,
+          action: FilledButton.icon(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh),
+            label: Text(t(context, 'refresh')),
+          ),
+        ),
+      );
     }
 
     final groups = _settings.map((s) => s.groupName).toSet().toList();
+    if (AdminBreakpoints.isPhone(context)) {
+      return _buildPhoneLayout(groups);
+    }
 
-    return Row(
-      children: [
-        // Sidebar for groups
-        Container(
-          width: 200,
-          color: Colors.white,
-          child: ListView(
-            children: groups.map((g) {
-              return ListTile(
-                title: Text(_getGroupLabel(g)),
-                selected: _selectedGroup == g,
-                onTap: () {
-                  setState(() {
-                    _selectedGroup = g;
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ),
-        const VerticalDivider(width: 1),
-        // Main content
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _selectedGroup == null
-              ? const Center(child: Text('请选择配置组'))
-              : SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.all(32),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 800),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      _getGroupLabel(_selectedGroup!),
-                      style: Theme
-                          .of(context)
-                          .textTheme
-                          .headlineMedium
-                          ?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    ..._settings
-                        .where((s) => s.groupName == _selectedGroup)
-                        .map((setting) => _buildSettingItem(setting)),
-                  ],
-                ),
+    return AdminPageScaffold(
+      title: t(context, 'system_settings'),
+      body: Row(
+        children: [
+          Card(
+            child: SizedBox(
+              width: AdminBreakpoints.isTablet(context) ? 180 : 220,
+              child: ListView(
+                children: groups.map((g) {
+                  return ListTile(
+                    title: Text(_getGroupLabel(g)),
+                    selected: _selectedGroup == g,
+                    onTap: () {
+                      setState(() {
+                        _selectedGroup = g;
+                      });
+                    },
+                  );
+                }).toList(),
               ),
             ),
           ),
+          const SizedBox(width: 12),
+          Expanded(child: _buildSettingsContent()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhoneLayout(List<String> groups) {
+    String? selectedGroupValue;
+    if (groups.contains(_selectedGroup)) {
+      selectedGroupValue = _selectedGroup;
+    }
+
+    return AdminPageScaffold(
+      title: t(context, 'system_settings'),
+      filters: groups.isEmpty
+          ? null
+          : AdminToolbar(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedGroupValue,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.tune),
+                    ),
+                    isExpanded: true,
+                    items: groups.map((groupName) {
+                      return DropdownMenuItem<String>(
+                        value: groupName,
+                        child: Text(
+                          _getGroupLabel(groupName),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (groupName) {
+                      if (groupName == null) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedGroup = groupName;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+      body: _buildSettingsContent(),
+    );
+  }
+
+  Widget _buildSettingsContent() {
+    if (_loading) {
+      return const AdminStatusView.loading(title: '正在加载系统设置');
+    }
+
+    if (_selectedGroup == null) {
+      return const AdminStatusView.empty(title: '请选择配置组');
+    }
+
+    List<SystemSetting> selectedSettings = [];
+    for (SystemSetting setting in _settings) {
+      if (setting.groupName == _selectedGroup) {
+        selectedSettings.add(setting);
+      }
+    }
+
+    if (selectedSettings.isEmpty) {
+      return const AdminStatusView.empty(title: '暂无配置项');
+    }
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 860),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                _getGroupLabel(_selectedGroup!),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 20),
+              for (SystemSetting setting in selectedSettings)
+                _buildSettingItem(setting),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 
@@ -124,28 +196,30 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     final subtitle = setting.description != null ? setting.configKey : null;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 48),
+      padding: const EdgeInsets.only(bottom: 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
             children: [
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
                 child: Text(
                   title,
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
-              const SizedBox(width: 16),
-              Text(
-                '${t(context, 'config_version')}: ${setting.version}',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              Chip(
+                label: Text(
+                  '${t(context, 'config_version')}: ${setting.version}',
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ],
           ),
@@ -163,15 +237,18 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               side: BorderSide(color: Colors.grey.shade200),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(
+                AdminBreakpoints.isPhone(context) ? 16 : 24,
+              ),
               child: ConfigDynamicForm(
                 key: ValueKey(setting.configKey),
                 schema: setting.uiSchema,
                 initialValues: Map<String, dynamic>.from(
-                    setting.configValue is Map ? setting.configValue : {}),
+                  setting.configValue is Map ? setting.configValue : {},
+                ),
                 isFrozen: setting.isFrozen,
                 onSave: (values) => _saveSetting(setting.configKey, values),
               ),
@@ -185,15 +262,19 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                 TextButton.icon(
                   onPressed: () => _rollbackSetting(setting.configKey),
                   icon: const Icon(Icons.history, size: 18, color: Colors.blue),
-                  label: Text(t(context, 'rollback_and_cancel'),
-                      style: const TextStyle(fontSize: 13)),
+                  label: Text(
+                    t(context, 'rollback_and_cancel'),
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 FilledButton.icon(
                   onPressed: () => _confirmSetting(setting.configKey),
                   icon: const Icon(Icons.check, size: 18),
-                  label: Text(t(context, 'confirm_and_unfreeze'),
-                      style: const TextStyle(fontSize: 13)),
+                  label: Text(
+                    t(context, 'confirm_and_unfreeze'),
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
               ],
             ),
@@ -205,11 +286,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
 
   Future<void> _saveSetting(String key, Map<String, dynamic> values) async {
     try {
-      await widget.api.updateSystemSetting(
-        key,
-        values,
-        reason: '管理员在后台手动修改',
-      );
+      await widget.api.updateSystemSetting(key, values, reason: '管理员在后台手动修改');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -37,9 +37,9 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -59,56 +59,41 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
     try {
       await widget.api.triggerBatchStorageSync();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('批量同步任务已提交')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('批量同步任务已提交')));
       }
       await _loadStatus();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('触发同步失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('触发同步失败: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Text(
-                '存储同步监控',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: _batchSync,
-                icon: const Icon(Icons.sync),
-                label: const Text('批量同步'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _loadStatus,
-                icon: const Icon(Icons.refresh),
-                label: const Text('刷新'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: loading
-                ? const Center(child: CircularProgressIndicator())
-                : _buildContent(),
-          ),
-        ],
-      ),
+    return AdminPageScaffold(
+      title: '存储同步监控',
+      actions: [
+        AdminActionButton(
+          label: '批量同步',
+          icon: Icons.sync,
+          onPressed: _batchSync,
+        ),
+        OutlinedButton.icon(
+          onPressed: _loadStatus,
+          icon: const Icon(Icons.refresh, size: 18),
+          label: const Text('刷新'),
+        ),
+      ],
+      body: loading
+          ? const AdminStatusView.loading(title: '正在加载同步状态')
+          : _buildContent(),
     );
   }
 
@@ -156,21 +141,27 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
               children: [
-                Expanded(child: _statItem(
-                    '媒体总数', syncStatus!.totalMedia.toString())),
-                Expanded(child: _statItem(
-                    '变体总数', syncStatus!.totalVariants.toString())),
-                Expanded(child: _statItem(
-                    '已同步', syncStatus!.syncedCount.toString(),
-                    color: Colors.green)),
-                Expanded(child: _statItem(
-                    '待同步', syncStatus!.pendingCount.toString(),
-                    color: Colors.orange)),
-                Expanded(child: _statItem(
-                    '失败', syncStatus!.failedCount.toString(),
-                    color: Colors.red)),
+                _statItem('媒体总数', syncStatus!.totalMedia.toString()),
+                _statItem('变体总数', syncStatus!.totalVariants.toString()),
+                _statItem(
+                  '已同步',
+                  syncStatus!.syncedCount.toString(),
+                  color: Colors.green,
+                ),
+                _statItem(
+                  '待同步',
+                  syncStatus!.pendingCount.toString(),
+                  color: Colors.orange,
+                ),
+                _statItem(
+                  '失败',
+                  syncStatus!.failedCount.toString(),
+                  color: Colors.red,
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -187,22 +178,30 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
   }
 
   Widget _statItem(String label, String value, {Color? color}) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: color,
+    return SizedBox(
+      width: AdminBreakpoints.isPhone(context) ? 130 : 150,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -229,9 +228,11 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
   }
 
   Widget _buildDetailsTable() {
-    return SizedBox(
-      width: double.infinity,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: DataTable(
+        dataRowMinHeight: 48,
+        dataRowMaxHeight: 72,
         columns: const [
           DataColumn(label: Text('媒体ID')),
           DataColumn(label: Text('文件名')),
@@ -247,11 +248,22 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
     final List<DataRow> rows = [];
     for (int i = 0; i < syncStatus!.details.length; i++) {
       final detail = syncStatus!.details[i];
-      final storageClassStatus = _getStorageClassStatusText(detail.storageClasses);
+      final storageClassStatus = _getStorageClassStatusText(
+        detail.storageClasses,
+      );
       final row = DataRow(
         cells: [
           DataCell(Text(detail.mediaId.toString())),
-          DataCell(Text(detail.fileName)),
+          DataCell(
+            SizedBox(
+              width: 220,
+              child: Text(
+                detail.fileName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
           DataCell(Text(detail.mimeType)),
           DataCell(Text(storageClassStatus)),
         ],

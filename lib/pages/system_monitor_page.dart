@@ -62,9 +62,9 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('解密失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('解密失败: $e')));
       }
     } finally {
       if (mounted) setState(() => _decrypting = false);
@@ -79,80 +79,75 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              FilledButton(
-                onPressed: _loadMonitorInfo,
-                child: Text(t(context, 'refresh')),
-              ),
-              if (lastUpdate != null) ...[
-                const SizedBox(width: 16),
-                Text(
-                  '${t(context, 'last_update')}: ${_formatTime(lastUpdate!)}',
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-              ],
-            ],
+    List<Widget> actionWidgets = [
+      OutlinedButton.icon(
+        onPressed: _loadMonitorInfo,
+        icon: const Icon(Icons.refresh, size: 18),
+        label: Text(t(context, 'refresh')),
+      ),
+    ];
+    if (lastUpdate != null) {
+      actionWidgets.add(
+        Chip(
+          label: Text(
+            '${t(context, 'last_update')}: ${_formatTime(lastUpdate!)}',
           ),
+        ),
+      );
+    }
+
+    return AdminPageScaffold(
+      title: t(context, 'system_monitoring'),
+      actions: actionWidgets,
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (loading) {
+      return const AdminStatusView.loading(title: '正在加载系统监控');
+    }
+
+    if (error != null) {
+      return AdminStatusView.error(
+        title: t(context, 'load_failed'),
+        message: error,
+        action: FilledButton.icon(
+          onPressed: _loadMonitorInfo,
+          icon: const Icon(Icons.refresh),
+          label: Text(t(context, 'refresh')),
+        ),
+      );
+    }
+
+    if (monitorInfo == null) {
+      return AdminStatusView.empty(title: t(context, 'no_data'));
+    }
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        children: [
+          _buildHealthCard(),
           const SizedBox(height: 16),
-          if (loading)
-            const Expanded(
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else
-            if (error != null)
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, color: Colors.red.shade300,
-                          size: 48),
-                      const SizedBox(height: 16),
-                      Text(
-                        '${t(context, 'load_failed')}$error',
-                        style: TextStyle(color: Colors.red.shade700),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              if (monitorInfo == null)
-                Expanded(
-                  child: Center(child: Text(t(context, 'no_data'))),
-                )
-              else
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      children: [
-                        _buildHealthCard(),
-                        const SizedBox(height: 16),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildJvmCard()),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildSystemCard()),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        const SizedBox(height: 16),
-                        _buildApplicationCard(),
-                        const SizedBox(height: 16),
-                        _buildDecryptionTool(),
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
-                ),
+          if (AdminBreakpoints.isPhone(context)) ...[
+            _buildJvmCard(),
+            const SizedBox(height: 16),
+            _buildSystemCard(),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildJvmCard()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildSystemCard()),
+              ],
+            ),
+          const SizedBox(height: 16),
+          _buildApplicationCard(),
+          const SizedBox(height: 16),
+          _buildDecryptionTool(),
+          const SizedBox(height: 32),
         ],
       ),
     );
@@ -166,53 +161,67 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
       color: isHealthy ? Colors.green.shade50 : Colors.red.shade50,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              isHealthy ? Icons.check_circle : Icons.error,
-              color: isHealthy ? Colors.green : Colors.red,
-              size: 48,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
+        child: AdminBreakpoints.isPhone(context)
+            ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${t(context, 'health_status')}: ${health.status}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isHealthy ? Colors.green.shade700 : Colors.red
-                          .shade700,
-                    ),
+                  Icon(
+                    isHealthy ? Icons.check_circle : Icons.error,
+                    color: isHealthy ? Colors.green : Colors.red,
+                    size: 40,
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: health.components.entries.map((entry) {
-                      final component = entry.value;
-                      final isComponentHealthy = component.isHealthy;
-                      return Chip(
-                        avatar: Icon(
-                          isComponentHealthy ? Icons.check : Icons.close,
-                          size: 16,
-                          color: isComponentHealthy ? Colors.green : Colors.red,
-                        ),
-                        label: Text(entry.key),
-                        backgroundColor: isComponentHealthy
-                            ? Colors.green.shade100
-                            : Colors.red.shade100,
-                      );
-                    }).toList(),
+                  const SizedBox(height: 12),
+                  _buildHealthText(health, isHealthy),
+                ],
+              )
+            : Row(
+                children: [
+                  Icon(
+                    isHealthy ? Icons.check_circle : Icons.error,
+                    color: isHealthy ? Colors.green : Colors.red,
+                    size: 48,
                   ),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildHealthText(health, isHealthy)),
                 ],
               ),
-            ),
-          ],
-        ),
       ),
+    );
+  }
+
+  Widget _buildHealthText(HealthInfo health, bool isHealthy) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${t(context, 'health_status')}: ${health.status}',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: isHealthy ? Colors.green.shade700 : Colors.red.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: health.components.entries.map((entry) {
+            final component = entry.value;
+            final isComponentHealthy = component.isHealthy;
+            return Chip(
+              avatar: Icon(
+                isComponentHealthy ? Icons.check : Icons.close,
+                size: 16,
+                color: isComponentHealthy ? Colors.green : Colors.red,
+              ),
+              label: Text(entry.key),
+              backgroundColor: isComponentHealthy
+                  ? Colors.green.shade100
+                  : Colors.red.shade100,
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -225,16 +234,15 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Icon(Icons.memory, color: Colors.blue),
-                const SizedBox(width: 8),
                 Text(
                   'JVM ${t(context, 'info')}',
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
             ),
@@ -247,7 +255,9 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
             const SizedBox(height: 16),
             _buildInfoGrid([
               _InfoItem(
-                  t(context, 'memory_committed'), jvm.memoryCommittedText),
+                t(context, 'memory_committed'),
+                jvm.memoryCommittedText,
+              ),
               _InfoItem(t(context, 'thread_count'), '${jvm.threadCount}'),
               _InfoItem(t(context, 'peak_threads'), '${jvm.peakThreadCount}'),
               _InfoItem(t(context, 'uptime'), jvm.uptimeText),
@@ -267,16 +277,15 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Icon(Icons.computer, color: Colors.purple),
-                const SizedBox(width: 8),
                 Text(
                   '${t(context, 'system')} ${t(context, 'info')}',
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
             ),
@@ -303,16 +312,15 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Icon(Icons.apps, color: Colors.orange),
-                const SizedBox(width: 8),
                 Text(
                   '${t(context, 'application')} ${t(context, 'info')}',
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
             ),
@@ -336,16 +344,15 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Icon(Icons.security, color: Colors.teal),
-                const SizedBox(width: 8),
                 Text(
                   '错误追踪解密工具',
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
             ),
@@ -366,13 +373,13 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
                 onPressed: _decrypting ? null : _decryptTrackingText,
                 icon: _decrypting
                     ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Icon(Icons.vpn_key),
                 label: const Text('解密追踪文本'),
               ),
@@ -394,10 +401,7 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
                 ),
                 child: SelectableText(
                   _decryptedText!,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
                 ),
               ),
             ],
@@ -415,8 +419,10 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          alignment: WrapAlignment.spaceBetween,
           children: [
             Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
             Text(
@@ -444,19 +450,26 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
       children: items.map((item) {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.start,
             children: [
-              SizedBox(
-                width: 120,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 130),
                 child: Text(
                   item.label,
                   style: TextStyle(color: Colors.grey.shade600),
                 ),
               ),
-              Expanded(
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: AdminBreakpoints.isPhone(context) ? 220 : 360,
+                ),
                 child: Text(
                   item.value,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
               ),

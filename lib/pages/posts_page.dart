@@ -69,7 +69,8 @@ class _PostsPageState extends State<PostsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('${t(context, 'load_categories_failed')}: $e')),
+            content: Text('${t(context, 'load_categories_failed')}: $e'),
+          ),
         );
       }
     }
@@ -80,8 +81,9 @@ class _PostsPageState extends State<PostsPage> {
 
     for (final category in _allCategories) {
       if (!_categoryTreeCache.containsKey(category.id)) {
-        _categoryTreeCache[category.id] =
-            CategoryTreeNode.fromCategory(category);
+        _categoryTreeCache[category.id] = CategoryTreeNode.fromCategory(
+          category,
+        );
       }
     }
 
@@ -96,8 +98,9 @@ class _PostsPageState extends State<PostsPage> {
       if (parentNode != null && childNode != null) {
         final updatedChildren = List<CategoryTreeNode>.from(parentNode.children)
           ..add(childNode);
-        _categoryTreeCache[category.parentId!] =
-            parentNode.copyWith(children: updatedChildren);
+        _categoryTreeCache[category.parentId!] = parentNode.copyWith(
+          children: updatedChildren,
+        );
       }
     }
   }
@@ -117,9 +120,9 @@ class _PostsPageState extends State<PostsPage> {
         categoryId: categoryId,
         page: 1,
         pageSize: 10,
-        keyword: keywordCtrl.text
-            .trim()
-            .isEmpty ? null : keywordCtrl.text.trim(),
+        keyword: keywordCtrl.text.trim().isEmpty
+            ? null
+            : keywordCtrl.text.trim(),
       );
 
       if (mounted) {
@@ -152,9 +155,7 @@ class _PostsPageState extends State<PostsPage> {
     final willExpand = !node.isExpanded;
 
     setState(() {
-      _categoryTreeCache[categoryId] = node.copyWith(
-        isExpanded: willExpand,
-      );
+      _categoryTreeCache[categoryId] = node.copyWith(isExpanded: willExpand);
     });
 
     if (willExpand && node.posts.isEmpty && !node.isLoading) {
@@ -199,8 +200,9 @@ class _PostsPageState extends State<PostsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -219,11 +221,7 @@ class _PostsPageState extends State<PostsPage> {
       await Navigator.push<PostEditRequest?>(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              PostEditorPage(
-                detail: detail,
-                api: widget.api,
-              ),
+          builder: (_) => PostEditorPage(detail: detail, api: widget.api),
         ),
       );
 
@@ -240,6 +238,10 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Widget _buildListView() {
+    if (items.isEmpty) {
+      return AdminStatusView.empty(title: t(context, 'no_posts'));
+    }
+
     return Card(
       child: ListView.separated(
         physics: const BouncingScrollPhysics(),
@@ -262,34 +264,19 @@ class _PostsPageState extends State<PostsPage> {
         ),
         title: Text(
           it.zhTitle.isEmpty ? it.slug : it.zhTitle,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade700,
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'slug: ${it.slug} | ${t(context, 'author')}: ${it.userName ??
-                  t(context, 'unknown')} | ${t(context, 'status_text')}: ${it
-                  .status == 0 ? t(context, 'draft') : (it.status == 1 ? t(
-                  context, 'published') : t(context, 'archived'))}',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 12,
-              ),
+              'slug: ${it.slug} | ${t(context, 'author')}: ${it.userName ?? t(context, 'unknown')} | ${t(context, 'status_text')}: ${it.status == 0 ? t(context, 'draft') : (it.status == 1 ? t(context, 'published') : t(context, 'archived'))}',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
             const SizedBox(height: 4),
             Text(
-              '${t(context, 'visibility_label')}: ${it.visibility == 0 ? t(
-                  context, 'public_visibility') : (it.visibility == 1 ? t(
-                  context, 'private_visibility') : t(
-                  context, 'password_protected'))}',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 12,
-              ),
+              '${t(context, 'visibility_label')}: ${it.visibility == 0 ? t(context, 'public_visibility') : (it.visibility == 1 ? t(context, 'private_visibility') : t(context, 'password_protected'))}',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
             if (it.aiSummaryStatus != 2)
               Padding(
@@ -298,14 +285,18 @@ class _PostsPageState extends State<PostsPage> {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 0.5),
+                        horizontal: 4,
+                        vertical: 0.5,
+                      ),
                       decoration: BoxDecoration(
                         color: it.aiSummaryStatus == 0
                             ? Colors.blue.shade50
                             : Colors.green.shade50,
                         border: Border.all(
-                            color: it.aiSummaryStatus == 0 ? Colors.blue
-                                .shade200 : Colors.green.shade200),
+                          color: it.aiSummaryStatus == 0
+                              ? Colors.blue.shade200
+                              : Colors.green.shade200,
+                        ),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
@@ -332,7 +323,9 @@ class _PostsPageState extends State<PostsPage> {
             TextButton(
               onPressed: () => createOrEdit(item: it),
               child: Text(
-                  t(context, 'edit'), style: const TextStyle(fontSize: 12)),
+                t(context, 'edit'),
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
             TextButton(
               onPressed: () async {
@@ -346,37 +339,39 @@ class _PostsPageState extends State<PostsPage> {
                   if (mounted) {
                     scaffoldMessenger.showSnackBar(
                       SnackBar(
-                          content: Text('${t(
-                              context, 'operation_failed')}: $e')),
+                        content: Text('${t(context, 'operation_failed')}: $e'),
+                      ),
                     );
                   }
                 }
               },
               child: Text(
-                  t(context, 'publish_latest_draft'),
-                  style: const TextStyle(fontSize: 12)),
+                t(context, 'publish_latest_draft'),
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
             TextButton(
               onPressed: () async {
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
                 final confirmed = await showDialog<bool>(
                   context: context,
-                  builder: (ctx) =>
-                      AlertDialog(
-                        title: Text(t(context, 'confirm_delete')),
-                        content: Text(t(context, 'confirm_delete_post_msg')),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: Text(t(context, 'cancel')),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: Text(t(context, 'delete'),
-                                style: const TextStyle(color: Colors.red)),
-                          ),
-                        ],
+                  builder: (ctx) => AlertDialog(
+                    title: Text(t(context, 'confirm_delete')),
+                    content: Text(t(context, 'confirm_delete_post_msg')),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(t(context, 'cancel')),
                       ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(
+                          t(context, 'delete'),
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
 
                 if (confirmed != true) return;
@@ -390,15 +385,16 @@ class _PostsPageState extends State<PostsPage> {
                   if (mounted) {
                     scaffoldMessenger.showSnackBar(
                       SnackBar(
-                          content: Text('${t(
-                              context, 'operation_failed')}: $e')),
+                        content: Text('${t(context, 'operation_failed')}: $e'),
+                      ),
                     );
                   }
                 }
               },
               child: Text(
-                  t(context, 'delete'),
-                  style: const TextStyle(fontSize: 12, color: Colors.red)),
+                t(context, 'delete'),
+                style: const TextStyle(fontSize: 12, color: Colors.red),
+              ),
             ),
           ],
         ),
@@ -412,8 +408,11 @@ class _PostsPageState extends State<PostsPage> {
         .toList();
   }
 
-  Widget _buildCategoryNode(int categoryId,
-      {int depth = 0, required Color lineColor}) {
+  Widget _buildCategoryNode(
+    int categoryId, {
+    int depth = 0,
+    required Color lineColor,
+  }) {
     final node = _categoryTreeCache[categoryId];
     if (node == null) return const SizedBox.shrink();
 
@@ -427,28 +426,20 @@ class _PostsPageState extends State<PostsPage> {
       children: [
         Container(
           decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: categoryColor,
-                width: 3,
-              ),
-            ),
+            border: Border(left: BorderSide(color: categoryColor, width: 3)),
           ),
           child: ListTile(
-            contentPadding: EdgeInsets.only(
-              left: 12 + indent,
-              right: 16,
-            ),
+            contentPadding: EdgeInsets.only(left: 12 + indent, right: 16),
             leading: node.isLoading
                 ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : Icon(
-              node.isExpanded ? Icons.folder_open : Icons.folder,
-              color: hasChildren ? categoryColor : Colors.grey,
-            ),
+                    node.isExpanded ? Icons.folder_open : Icons.folder,
+                    color: hasChildren ? categoryColor : Colors.grey,
+                  ),
             title: Row(
               children: [
                 Flexible(
@@ -464,7 +455,9 @@ class _PostsPageState extends State<PostsPage> {
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: categoryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
@@ -482,21 +475,18 @@ class _PostsPageState extends State<PostsPage> {
             ),
             subtitle: Text(
               node.category.slug,
-              style: TextStyle(
-                color: Colors.grey.shade500,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
             ),
             onTap: () => _toggleCategory(categoryId),
             trailing: hasChildren
                 ? IconButton(
-              icon: Icon(
-                node.isExpanded
-                    ? Icons.keyboard_arrow_down
-                    : Icons.keyboard_arrow_right,
-              ),
-              onPressed: () => _toggleCategory(categoryId),
-            )
+                    icon: Icon(
+                      node.isExpanded
+                          ? Icons.keyboard_arrow_down
+                          : Icons.keyboard_arrow_right,
+                    ),
+                    onPressed: () => _toggleCategory(categoryId),
+                  )
                 : null,
           ),
         ),
@@ -505,9 +495,15 @@ class _PostsPageState extends State<PostsPage> {
             key: ValueKey('children_$categoryId'),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: node.children.map((child) =>
-                  _buildCategoryNode(child.category.id, depth: depth + 1,
-                      lineColor: categoryColor)).toList(),
+              children: node.children
+                  .map(
+                    (child) => _buildCategoryNode(
+                      child.category.id,
+                      depth: depth + 1,
+                      lineColor: categoryColor,
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         if (node.isExpanded && node.posts.isNotEmpty)
@@ -526,8 +522,11 @@ class _PostsPageState extends State<PostsPage> {
                         color: lineColor.withValues(alpha: 0.4),
                       ),
                       const SizedBox(width: 8),
-                      Icon(Icons.article_outlined, size: 16,
-                          color: Colors.grey.shade600),
+                      Icon(
+                        Icons.article_outlined,
+                        size: 16,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         t(context, 'articles'),
@@ -540,13 +539,18 @@ class _PostsPageState extends State<PostsPage> {
                     ],
                   ),
                 ),
-                ...node.posts.map((post) =>
-                    _buildPostTileWithLine(
-                        post, indent: 24 + indent, lineColor: lineColor)),
+                ...node.posts.map(
+                  (post) => _buildPostTileWithLine(
+                    post,
+                    indent: 24 + indent,
+                    lineColor: lineColor,
+                  ),
+                ),
               ],
             ),
           ),
-        if (node.isExpanded && node.posts.isNotEmpty &&
+        if (node.isExpanded &&
+            node.posts.isNotEmpty &&
             node.category.postCount > node.posts.length)
           Padding(
             padding: EdgeInsets.only(left: 48 + indent),
@@ -557,9 +561,7 @@ class _PostsPageState extends State<PostsPage> {
                   categoryId: categoryId,
                   page: nextPage,
                   pageSize: 10,
-                  keyword: keywordCtrl.text
-                      .trim()
-                      .isEmpty
+                  keyword: keywordCtrl.text.trim().isEmpty
                       ? null
                       : keywordCtrl.text.trim(),
                 );
@@ -579,8 +581,11 @@ class _PostsPageState extends State<PostsPage> {
     );
   }
 
-  Widget _buildPostTileWithLine(PostItem it,
-      {required double indent, required Color lineColor}) {
+  Widget _buildPostTileWithLine(
+    PostItem it, {
+    required double indent,
+    required Color lineColor,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: Padding(
@@ -605,9 +610,7 @@ class _PostsPageState extends State<PostsPage> {
               ),
             ),
             const SizedBox(width: 4),
-            Expanded(
-              child: _buildPostTile(it, indent: 0),
-            ),
+            Expanded(child: _buildPostTile(it, indent: 0)),
           ],
         ),
       ),
@@ -634,16 +637,18 @@ class _PostsPageState extends State<PostsPage> {
               physics: const BouncingScrollPhysics(),
               scrollDirection: Axis.vertical,
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: constraints.maxWidth,
-                ),
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: rootCategories.map((root) {
-                    final rootColor = _generateColorFromSlug(root.category
-                        .slug);
-                    return _buildCategoryNode(root.category.id, depth: 0,
-                        lineColor: rootColor);
+                    final rootColor = _generateColorFromSlug(
+                      root.category.slug,
+                    );
+                    return _buildCategoryNode(
+                      root.category.id,
+                      depth: 0,
+                      lineColor: rootColor,
+                    );
                   }).toList(),
                 ),
               ),
@@ -656,73 +661,84 @@ class _PostsPageState extends State<PostsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    Widget searchField = SizedBox(
+      width: AdminBreakpoints.isPhone(context) ? double.infinity : 260,
+      child: TextField(
+        controller: keywordCtrl,
+        decoration: InputDecoration(
+          hintText: t(context, 'search_hint'),
+          border: const OutlineInputBorder(),
+          prefixIcon: const Icon(Icons.search),
+          isDense: true,
+        ),
+        onSubmitted: (value) {
+          page = 1;
+          if (_isTreeView) {
+            _clearCategoryPostsCache();
+          }
+          load();
+        },
+      ),
+    );
+
+    return AdminPageScaffold(
+      title: t(context, 'posts'),
+      actions: [
+        AdminActionButton(
+          label: t(context, 'create'),
+          icon: Icons.add,
+          onPressed: () => createOrEdit(),
+        ),
+      ],
+      filters: AdminToolbar(
         children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 240,
-                child: TextField(
-                  controller: keywordCtrl,
-                  decoration: InputDecoration(
-                    hintText: t(context, 'search_hint'),
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: () {
-                  page = 1;
-                  if (_isTreeView) {
-                    _clearCategoryPostsCache();
-                  }
-                  load();
-                },
-                child: Text(t(context, 'search')),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                icon: Icon(_isTreeView ? Icons.view_list : Icons.account_tree),
-                onPressed: () {
-                  setState(() {
-                    _isTreeView = !_isTreeView;
-                  });
-                  if (!_isTreeView) {
-                    load();
-                  }
-                },
-                tooltip: _isTreeView ? t(context, 'list_view') : t(context, 'tree_view'),
-              ),
-              const Spacer(),
-              FilledButton(
-                onPressed: () => createOrEdit(),
-                child: Text(t(context, 'create')),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _loading && items.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _isTreeView
-                    ? _buildTreeView()
-                    : _buildListView(),
-          ),
-          const SizedBox(height: 8),
-          PaginationBar(
-            currentPage: page,
-            totalPages: (total / 10).ceil().clamp(1, 999999),
-            totalItems: total,
-            onPageChanged: (newPage) {
-              setState(() => page = newPage);
+          searchField,
+          FilledButton.icon(
+            onPressed: () {
+              page = 1;
+              if (_isTreeView) {
+                _clearCategoryPostsCache();
+              }
               load();
             },
+            icon: const Icon(Icons.search, size: 18),
+            label: Text(t(context, 'search')),
+          ),
+          OutlinedButton.icon(
+            icon: Icon(_isTreeView ? Icons.view_list : Icons.account_tree),
+            onPressed: () {
+              setState(() {
+                _isTreeView = !_isTreeView;
+              });
+              if (!_isTreeView) {
+                load();
+              }
+            },
+            label: Text(
+              _isTreeView ? t(context, 'list_view') : t(context, 'tree_view'),
+            ),
           ),
         ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: _loading && items.isEmpty
+                ? const AdminStatusView.loading(title: '正在加载文章')
+                : _isTreeView
+                ? _buildTreeView()
+                : _buildListView(),
+          ),
+        ],
+      ),
+      footer: PaginationBar(
+        currentPage: page,
+        totalPages: (total / 10).ceil().clamp(1, 999999),
+        totalItems: total,
+        onPageChanged: (newPage) {
+          setState(() => page = newPage);
+          load();
+        },
       ),
     );
   }
@@ -730,7 +746,7 @@ class _PostsPageState extends State<PostsPage> {
 
 class PostEditorPage extends StatefulWidget {
   const PostEditorPage({super.key, PostDetail? detail, required this.api})
-      : _detail = detail;
+    : _detail = detail;
 
   final PostDetail? _detail;
   final AdminApiClient api;
@@ -752,8 +768,6 @@ class _PostEditorPageState extends State<PostEditorPage>
   late final TextEditingController passwordCtrl;
   late final TabController _sidebarTabController;
   final ScrollController _contentScrollController = ScrollController();
-
-
 
   int status = 0;
   int visibility = 0;
@@ -811,17 +825,14 @@ class _PostEditorPageState extends State<PostEditorPage>
     }
 
     if (renderType == 1) {
-      contentCtrl = HtmlSyntaxController(
-        text: d?.zhContent ?? '',
-      );
+      contentCtrl = HtmlSyntaxController(text: d?.zhContent ?? '');
     } else {
-      contentCtrl = MarkdownSyntaxController(
-        text: d?.zhContent ?? '',
-      );
+      contentCtrl = MarkdownSyntaxController(text: d?.zhContent ?? '');
     }
     aiSummaryStatus = d?.aiSummaryStatus ?? 0;
-    pointsPriceCtrl =
-        TextEditingController(text: d?.pointsPrice?.toString() ?? '');
+    pointsPriceCtrl = TextEditingController(
+      text: d?.pointsPrice?.toString() ?? '',
+    );
     freeLinesCtrl = TextEditingController(text: d?.freeLines?.toString() ?? '');
     passwordCtrl = TextEditingController();
     categoryId = d?.categoryId;
@@ -862,7 +873,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   void _onTitleChanged() {
-    if (widget.detail == null || _initialSlug == null ||
+    if (widget.detail == null ||
+        _initialSlug == null ||
         _initialSlug!.isEmpty) {
       final newSlug = _generateSlug(titleCtrl.text);
       if (slugCtrl.text != newSlug) {
@@ -874,9 +886,10 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   String _generateSlug(String title) {
     if (title.isEmpty) return '';
-    return title.toLowerCase().replaceAll(
-        RegExp(r'[^a-z0-9]+'), '-').replaceAll(
-        RegExp(r'^-+|-+$'), '');
+    return title
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
   }
 
   void _markDirty() {
@@ -895,12 +908,15 @@ class _PostEditorPageState extends State<PostEditorPage>
     final currentContent = contentCtrl.text.trim();
 
     if (d == null) {
-      return currentSlug.isNotEmpty || currentTitle.isNotEmpty ||
-          currentSummary.isNotEmpty || currentContent.isNotEmpty ||
-          status != 0 || visibility != 0 || passwordCtrl.text
-          .trim()
-          .isNotEmpty ||
-          categoryId != null || tagIds.isNotEmpty;
+      return currentSlug.isNotEmpty ||
+          currentTitle.isNotEmpty ||
+          currentSummary.isNotEmpty ||
+          currentContent.isNotEmpty ||
+          status != 0 ||
+          visibility != 0 ||
+          passwordCtrl.text.trim().isNotEmpty ||
+          categoryId != null ||
+          tagIds.isNotEmpty;
     }
 
     return currentSlug != _initialSlug ||
@@ -955,7 +971,8 @@ class _PostEditorPageState extends State<PostEditorPage>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text('${t(context, 'load_revisions_failed')}: $e')),
+              content: Text('${t(context, 'load_revisions_failed')}: $e'),
+            ),
           );
         }
       }
@@ -1022,7 +1039,9 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (!mounted) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'media_inserted')}${media.fileName}')),
+          SnackBar(
+            content: Text('${t(context, 'media_inserted')}${media.fileName}'),
+          ),
         );
       }
     } catch (e) {
@@ -1058,30 +1077,29 @@ class _PostEditorPageState extends State<PostEditorPage>
     final navigator = Navigator.of(context);
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: Text(t(context, 'unsaved_changes')),
-            content: Text(t(context, 'unsaved_changes_desc')),
-            actions: [
-              TextButton(
-                onPressed: () => navigator.pop(false),
-                child: Text(t(context, 'cancel')),
-              ),
-              TextButton(
-                onPressed: () => navigator.pop(true),
-                child: Text(t(context, 'dont_save')),
-              ),
-              FilledButton(
-                onPressed: () async {
-                  final success = await _save();
-                  if (success) {
-                    navigator.pop(true);
-                  }
-                },
-                child: Text(t(context, 'save')),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text(t(context, 'unsaved_changes')),
+        content: Text(t(context, 'unsaved_changes_desc')),
+        actions: [
+          TextButton(
+            onPressed: () => navigator.pop(false),
+            child: Text(t(context, 'cancel')),
           ),
+          TextButton(
+            onPressed: () => navigator.pop(true),
+            child: Text(t(context, 'dont_save')),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final success = await _save();
+              if (success) {
+                navigator.pop(true);
+              }
+            },
+            child: Text(t(context, 'save')),
+          ),
+        ],
+      ),
     );
     return result ?? false;
   }
@@ -1090,9 +1108,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final finalContent = contentCtrl.text.trim();
 
-    if (titleCtrl.text
-        .trim()
-        .isEmpty) {
+    if (titleCtrl.text.trim().isEmpty) {
       scaffoldMessenger.showSnackBar(
         SnackBar(content: Text(t(context, 'fill_required_fields'))),
       );
@@ -1111,9 +1127,9 @@ class _PostEditorPageState extends State<PostEditorPage>
         contentMarkdown: {'zh-cn': finalContent},
         status: status,
         visibility: visibility,
-        password: passwordCtrl.text
-            .trim()
-            .isEmpty ? null : passwordCtrl.text.trim(),
+        password: passwordCtrl.text.trim().isEmpty
+            ? null
+            : passwordCtrl.text.trim(),
         renderType: renderType,
         editorType: editorType,
         aiSummaryStatus: aiSummaryStatus,
@@ -1202,23 +1218,25 @@ class _PostEditorPageState extends State<PostEditorPage>
     final operationFailedText = t(context, 'operation_failed');
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: Text(t(context, 'publish_revision_title')),
-            content: Text(
-                t(context, 'publish_revision_confirm').replaceAll(
-                    '%d', revisionNumber.toString())),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(t(context, 'cancel')),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(t(context, 'publish_this_revision')),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text(t(context, 'publish_revision_title')),
+        content: Text(
+          t(
+            context,
+            'publish_revision_confirm',
+          ).replaceAll('%d', revisionNumber.toString()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t(context, 'cancel')),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t(context, 'publish_this_revision')),
+          ),
+        ],
+      ),
     );
 
     if (confirm != true) return;
@@ -1250,23 +1268,25 @@ class _PostEditorPageState extends State<PostEditorPage>
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: Text(t(context, 'set_current_draft_title')),
-            content: Text(
-                t(context, 'set_current_draft_confirm').replaceAll(
-                    '%d', revisionNumber.toString())),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(t(context, 'cancel')),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(t(context, 'set_current_draft')),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text(t(context, 'set_current_draft_title')),
+        content: Text(
+          t(
+            context,
+            'set_current_draft_confirm',
+          ).replaceAll('%d', revisionNumber.toString()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t(context, 'cancel')),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t(context, 'set_current_draft')),
+          ),
+        ],
+      ),
     );
 
     if (confirm != true) return;
@@ -1308,8 +1328,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           _initialAiSummaryStatus = newDetail.aiSummaryStatus;
           _initialCategoryId = newDetail.categoryId;
           _initialTagIds = List<int>.from(newDetail.tagIds);
-          _initialVisibilityRegions =
-          List<String>.from(newDetail.visibilityRegions);
+          _initialVisibilityRegions = List<String>.from(
+            newDetail.visibilityRegions,
+          );
 
           _isDirty = false;
         });
@@ -1326,7 +1347,8 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('${t(context, 'set_current_draft_failed')}: $e')),
+            content: Text('${t(context, 'set_current_draft_failed')}: $e'),
+          ),
         );
       }
     }
@@ -1363,8 +1385,12 @@ class _PostEditorPageState extends State<PostEditorPage>
           builder: (context) {
             final screenSize = MediaQuery.of(context).size;
             return AlertDialog(
-              title: Text(t(context, 'diff_with_version').replaceAll(
-                  '%d', revisionNumber.toString())),
+              title: Text(
+                t(
+                  context,
+                  'diff_with_version',
+                ).replaceAll('%d', revisionNumber.toString()),
+              ),
               content: SizedBox(
                 width: screenSize.width * 0.8,
                 height: screenSize.height * 0.8,
@@ -1380,13 +1406,22 @@ class _PostEditorPageState extends State<PostEditorPage>
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                          const Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: Colors.amber,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              t(context, 'diff_tip').replaceAll(
-                                  '%d', revisionNumber.toString()),
-                              style: const TextStyle(fontSize: 12, color: Colors.black87),
+                              t(
+                                context,
+                                'diff_tip',
+                              ).replaceAll('%d', revisionNumber.toString()),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.black87,
+                              ),
                             ),
                           ),
                         ],
@@ -1466,44 +1501,52 @@ class _PostEditorPageState extends State<PostEditorPage>
         appBar: AppBar(
           scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
-          title: Text(_currentDetail == null ? t(context, 'new_post') : t(
-              context, 'edit_post')),
+          title: Text(
+            _currentDetail == null
+                ? t(context, 'new_post')
+                : t(context, 'edit_post'),
+          ),
           actions: [
             if (_isDirty)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Chip(
-                  label: Text(t(context, 'unsaved'), style: const TextStyle(fontSize: 12)),
+                  label: Text(
+                    t(context, 'unsaved'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   backgroundColor: Colors.orange.shade100,
                   labelStyle: TextStyle(color: Colors.orange.shade800),
                 ),
               ),
             TextButton(
-              onPressed: _isSaving ? null : () async {
-                final shouldPop = await _onWillPop();
-                if (shouldPop && mounted) {
-                  navigator.pop();
-                }
-              },
+              onPressed: _isSaving
+                  ? null
+                  : () async {
+                      final shouldPop = await _onWillPop();
+                      if (shouldPop && mounted) {
+                        navigator.pop();
+                      }
+                    },
               child: Text(t(context, 'cancel')),
             ),
             FilledButton(
               onPressed: _isSaving
                   ? null
                   : () async {
-                final success = await _save();
-                if (success) {
-                  if (mounted) {
-                    navigator.pop(null);
-                  }
-                }
-              },
+                      final success = await _save();
+                      if (success) {
+                        if (mounted) {
+                          navigator.pop(null);
+                        }
+                      }
+                    },
               child: _isSaving
                   ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : Text(t(context, 'save')),
             ),
             const SizedBox(width: 8),
@@ -1511,9 +1554,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         ),
         body: Row(
           children: [
-            Expanded(
-              child: _buildEditorPane(),
-            ),
+            Expanded(child: _buildEditorPane()),
             Container(
               width: 320,
               decoration: BoxDecoration(
@@ -1584,10 +1625,7 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   Widget _buildEditor() {
     if (renderType == 1) {
-      return HtmlSyntaxEditor(
-        controller: contentCtrl,
-        onChanged: _markDirty,
-      );
+      return HtmlSyntaxEditor(controller: contentCtrl, onChanged: _markDirty);
     }
     return MarkdownPlusEditor(
       controller: contentCtrl,
@@ -1685,25 +1723,30 @@ class _PostEditorPageState extends State<PostEditorPage>
                       await widget.api.triggerAiSummary(_currentDetail!.id);
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(
-                              t(context, 'trigger_ai_success')),
-                              backgroundColor: Colors
-                              .green),
+                          SnackBar(
+                            content: Text(t(context, 'trigger_ai_success')),
+                            backgroundColor: Colors.green,
+                          ),
                         );
                       }
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(
-                              '${t(context, 'trigger_ai_failed')}: $e'),
-                              backgroundColor: Colors.red),
+                          SnackBar(
+                            content: Text(
+                              '${t(context, 'trigger_ai_failed')}: $e',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
                         );
                       }
                     }
                   },
                   icon: const Icon(Icons.refresh, size: 14),
-                  label: Text(t(context, 'trigger_ai_gen'),
-                      style: const TextStyle(fontSize: 12)),
+                  label: Text(
+                    t(context, 'trigger_ai_gen'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -1720,22 +1763,30 @@ class _PostEditorPageState extends State<PostEditorPage>
                 child: Text(
                   _currentDetail!.zhAiSummary,
                   style: const TextStyle(
-                      fontSize: 13, height: 1.5, fontStyle: FontStyle.italic),
+                    fontSize: 13,
+                    height: 1.5,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               )
             else
               Center(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Text(t(context, 'no_ai_summary'),
-                      style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  child: Text(
+                    t(context, 'no_ai_summary'),
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
                 ),
               ),
             const SizedBox(height: 16),
             Text(
               t(context, 'ai_summary_desc'),
               style: const TextStyle(
-                  fontSize: 11, color: Colors.grey, height: 1.5),
+                fontSize: 11,
+                color: Colors.grey,
+                height: 1.5,
+              ),
             ),
           ] else
             Center(
@@ -1743,11 +1794,16 @@ class _PostEditorPageState extends State<PostEditorPage>
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Column(
                   children: [
-                    const Icon(Icons.visibility_off_outlined, size: 48,
-                        color: Colors.grey),
+                    const Icon(
+                      Icons.visibility_off_outlined,
+                      size: 48,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(height: 16),
-                    Text(t(context, 'ai_summary_disabled_status'),
-                        style: const TextStyle(color: Colors.grey)),
+                    Text(
+                      t(context, 'ai_summary_disabled_status'),
+                      style: const TextStyle(color: Colors.grey),
+                    ),
                   ],
                 ),
               ),
@@ -1782,9 +1838,10 @@ class _PostEditorPageState extends State<PostEditorPage>
               suffixIcon: IconButton(
                 icon: const Icon(Icons.autorenew),
                 onPressed: () {
-                  final text = titleCtrl.text.toLowerCase().replaceAll(
-                      RegExp(r'[^a-z0-9]+'), '-').replaceAll(
-                      RegExp(r'^-+|-+$'), '');
+                  final text = titleCtrl.text
+                      .toLowerCase()
+                      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+                      .replaceAll(RegExp(r'^-+|-+$'), '');
                   slugCtrl.text = text;
                 },
                 tooltip: t(context, 'auto_gen_from_title'),
@@ -1795,9 +1852,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           const SizedBox(height: 16),
           TextField(
             controller: summaryCtrl,
-            decoration: InputDecoration(
-              labelText: t(context, 'summary'),
-            ),
+            decoration: InputDecoration(labelText: t(context, 'summary')),
             minLines: 3,
             maxLines: 5,
             style: const TextStyle(fontSize: 13),
@@ -1805,7 +1860,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           const SizedBox(height: 16),
           DropdownButtonFormField<int?>(
             // ignore: deprecated_member_use
-            initialValue: _categories.any((c) => c.id == categoryId) ? categoryId : null,
+            initialValue: _categories.any((c) => c.id == categoryId)
+                ? categoryId
+                : null,
             decoration: InputDecoration(
               labelText: t(context, 'category'),
               isDense: true,
@@ -1815,10 +1872,12 @@ class _PostEditorPageState extends State<PostEditorPage>
                 value: null,
                 child: Text(t(context, 'select_category')),
               ),
-              ..._categories.map((cat) => DropdownMenuItem<int?>(
-                    value: cat.id,
-                    child: Text(cat.displayName),
-                  )),
+              ..._categories.map(
+                (cat) => DropdownMenuItem<int?>(
+                  value: cat.id,
+                  child: Text(cat.displayName),
+                ),
+              ),
             ],
             onChanged: (v) => setState(() {
               categoryId = v;
@@ -1833,23 +1892,32 @@ class _PostEditorPageState extends State<PostEditorPage>
               labelText: t(context, 'tags'),
               isDense: true,
             ),
-            hint: Text(tagIds.isEmpty ? t(context, 'select_tags') : t(
-                context, 'tags_selected_count').replaceFirst(
-                '%d', tagIds.length.toString())),
+            hint: Text(
+              tagIds.isEmpty
+                  ? t(context, 'select_tags')
+                  : t(
+                      context,
+                      'tags_selected_count',
+                    ).replaceFirst('%d', tagIds.length.toString()),
+            ),
             items: [
-              ..._tags.map((tag) => DropdownMenuItem<int>(
-                    value: tag.id,
-                    child: Row(
-                      children: [
-                        Icon(
-                          tagIds.contains(tag.id) ? Icons.check_box : Icons.check_box_outline_blank,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(tag.displayName),
-                      ],
-                    ),
-                  )),
+              ..._tags.map(
+                (tag) => DropdownMenuItem<int>(
+                  value: tag.id,
+                  child: Row(
+                    children: [
+                      Icon(
+                        tagIds.contains(tag.id)
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(tag.displayName),
+                    ],
+                  ),
+                ),
+              ),
             ],
             onChanged: (v) {
               if (v != null) {
@@ -1873,7 +1941,9 @@ class _PostEditorPageState extends State<PostEditorPage>
             ),
             items: [
               DropdownMenuItem(
-                  value: 6, child: Text(t(context, 'block_markdown'))),
+                value: 6,
+                child: Text(t(context, 'block_markdown')),
+              ),
               const DropdownMenuItem(value: 1, child: Text('HTML')),
             ],
             onChanged: (v) {
@@ -1903,31 +1973,38 @@ class _PostEditorPageState extends State<PostEditorPage>
             ),
             items: [
               DropdownMenuItem(
-                  value: 0, child: Text(t(context, 'public_visibility'))),
+                value: 0,
+                child: Text(t(context, 'public_visibility')),
+              ),
               DropdownMenuItem(
-                  value: 1, child: Text(t(context, 'private_visibility'))),
+                value: 1,
+                child: Text(t(context, 'private_visibility')),
+              ),
               DropdownMenuItem(
-                  value: 2, child: Text(t(context, 'password_protected'))),
+                value: 2,
+                child: Text(t(context, 'password_protected')),
+              ),
             ],
-            onChanged: (v) =>
-                setState(() {
-                  visibility = v ?? 0;
-                  _markDirty();
-                }),
+            onChanged: (v) => setState(() {
+              visibility = v ?? 0;
+              _markDirty();
+            }),
           ),
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: visibilityRegions.map((region) =>
-                Chip(
-                  label: Text(region.toUpperCase()),
-                  onDeleted: () =>
-                      setState(() {
-                        visibilityRegions.remove(region);
-                        _markDirty();
-                      }),
-                )).toList(),
+            children: visibilityRegions
+                .map(
+                  (region) => Chip(
+                    label: Text(region.toUpperCase()),
+                    onDeleted: () => setState(() {
+                      visibilityRegions.remove(region);
+                      _markDirty();
+                    }),
+                  ),
+                )
+                .toList(),
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String?>(
@@ -1943,8 +2020,7 @@ class _PostEditorPageState extends State<PostEditorPage>
               if (visibilityRegions.isNotEmpty)
                 const DropdownMenuItem(
                   value: "__clear__",
-                  child: Text(
-                      "清除所有区域限制", style: TextStyle(color: Colors.red)),
+                  child: Text("清除所有区域限制", style: TextStyle(color: Colors.red)),
                 ),
               ...BlogRegion.values.map((e) {
                 final bool isSelected = visibilityRegions.contains(e.code);
@@ -2037,20 +2113,26 @@ class _PostEditorPageState extends State<PostEditorPage>
           if (d != null) ...[
             MetadataItem(t(context, 'post_id'), '${d.id}'),
             MetadataItem(
-                t(context, 'current_revision'), '${d.currentRevisionNumber}'),
+              t(context, 'current_revision'),
+              '${d.currentRevisionNumber}',
+            ),
             MetadataItem(
-                t(context, 'published_revision'),
-                d.hasPublishedRevision
-                    ? '${d.publishedRevisionNumber}'
-                    : t(context, 'not_published')),
+              t(context, 'published_revision'),
+              d.hasPublishedRevision
+                  ? '${d.publishedRevisionNumber}'
+                  : t(context, 'not_published'),
+            ),
             MetadataItem(t(context, 'data_version'), '${d.version}'),
             const Divider(height: 24),
-            if (d.createdAt != null) MetadataItem(
-                t(context, 'created_at'), _formatDate(d.createdAt!)),
-            if (d.updatedAt != null) MetadataItem(
-                t(context, 'updated_at'), _formatDate(d.updatedAt!)),
-            if (d.publishedAt != null) MetadataItem(
-                t(context, 'published_at'), _formatDate(d.publishedAt!)),
+            if (d.createdAt != null)
+              MetadataItem(t(context, 'created_at'), _formatDate(d.createdAt!)),
+            if (d.updatedAt != null)
+              MetadataItem(t(context, 'updated_at'), _formatDate(d.updatedAt!)),
+            if (d.publishedAt != null)
+              MetadataItem(
+                t(context, 'published_at'),
+                _formatDate(d.publishedAt!),
+              ),
           ] else ...[
             Center(
               child: Padding(
@@ -2093,30 +2175,30 @@ class _PostEditorPageState extends State<PostEditorPage>
       separatorBuilder: (context, index) => const Divider(height: 1),
       itemBuilder: (context, i) {
         final revision = _revisions[i];
-        final isCurrent = revision.revisionNumber ==
-            _currentDetail!.currentRevisionNumber;
+        final isCurrent =
+            revision.revisionNumber == _currentDetail!.currentRevisionNumber;
         final isPublished = revision.isPublishedRevision;
         return ListTile(
           title: Text(
-            t(context, 'revision_text').replaceAll(
-                '%d', revision.revisionNumber.toString()),
-            style: TextStyle(
-              fontWeight: isCurrent ? FontWeight.bold : null,
-            ),
+            t(
+              context,
+              'revision_text',
+            ).replaceAll('%d', revision.revisionNumber.toString()),
+            style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : null),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                revision.zhTitle.isEmpty ? t(context, 'no_title') : revision
-                    .zhTitle,
+                revision.zhTitle.isEmpty
+                    ? t(context, 'no_title')
+                    : revision.zhTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
               Text(
-                '${revision.createdByName} · ${_formatDate(
-                    revision.createdAt)}',
+                '${revision.createdByName} · ${_formatDate(revision.createdAt)}',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
@@ -2126,30 +2208,37 @@ class _PostEditorPageState extends State<PostEditorPage>
             children: [
               if (isCurrent)
                 Chip(
-                  label: Text(t(context, 'current_draft'),
-                      style: const TextStyle(fontSize: 10)),
+                  label: Text(
+                    t(context, 'current_draft'),
+                    style: const TextStyle(fontSize: 10),
+                  ),
                   backgroundColor: Colors.green.shade100,
                   labelStyle: TextStyle(color: Colors.green.shade800),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 0),
+                    horizontal: 4,
+                    vertical: 0,
+                  ),
                 ),
               if (isPublished)
                 Chip(
-                  label: Text(t(context, 'published_revision_badge'),
-                      style: const TextStyle(fontSize: 10)),
+                  label: Text(
+                    t(context, 'published_revision_badge'),
+                    style: const TextStyle(fontSize: 10),
+                  ),
                   backgroundColor: Colors.blue.shade100,
                   labelStyle: TextStyle(color: Colors.blue.shade800),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 0),
-                ),
-                  TextButton(
-                    onPressed: () => _showDiff(revision.revisionNumber),
-                    child: Text(t(context, 'compare')),
+                    horizontal: 4,
+                    vertical: 0,
                   ),
+                ),
+              TextButton(
+                onPressed: () => _showDiff(revision.revisionNumber),
+                child: Text(t(context, 'compare')),
+              ),
               if (!isCurrent)
                 TextButton(
-                  onPressed: () =>
-                      _switchToRevision(revision.revisionNumber),
+                  onPressed: () => _switchToRevision(revision.revisionNumber),
                   child: Text(t(context, 'set_current_draft')),
                 ),
               if (!isPublished)
@@ -2157,8 +2246,8 @@ class _PostEditorPageState extends State<PostEditorPage>
                   onPressed: () => _publishRevision(revision.revisionNumber),
                   child: Text(t(context, 'publish_this_revision')),
                 ),
-                ],
-              ),
+            ],
+          ),
           dense: true,
         );
       },
@@ -2167,10 +2256,7 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   String _formatDate(DateTime date) {
     final localDate = date.toLocal();
-    return '${localDate.year}-${localDate.month.toString().padLeft(
-        2, '0')}-${localDate.day
-        .toString().padLeft(2, '0')} ${localDate.hour.toString().padLeft(
-        2, '0')}:${localDate.minute.toString().padLeft(2, '0')}';
+    return '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')} ${localDate.hour.toString().padLeft(2, '0')}:${localDate.minute.toString().padLeft(2, '0')}';
   }
 }
 
@@ -2189,18 +2275,12 @@ class MetadataItem extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
         ],
       ),
