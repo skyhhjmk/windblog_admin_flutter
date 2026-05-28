@@ -3,32 +3,42 @@ part of 'package:windblog_admin_flutter/main.dart';
 // Regex for markdown image syntax: ![alt](url)
 final _imageRegExp = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
 final _markdownLinkRegExp = RegExp(
-    r'(?<!!)\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)');
+  r'(?<!!)\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)',
+);
 
 class MarkdownSyntaxController extends TextEditingController {
   MarkdownSyntaxController({super.text});
 
   @override
-  TextSpan buildTextSpan(
-      {required BuildContext context, TextStyle? style, required bool withComposing}) {
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
     final List<InlineSpan> spans = [];
     int lastMatchEnd = 0;
 
     for (final match in _imageRegExp.allMatches(text)) {
       if (match.start > lastMatchEnd) {
-        spans.add(TextSpan(
-            text: text.substring(lastMatchEnd, match.start), style: style));
+        spans.add(
+          TextSpan(
+            text: text.substring(lastMatchEnd, match.start),
+            style: style,
+          ),
+        );
       }
 
-      spans.add(TextSpan(
-        text: match.group(0),
-        // Style only — no recognizer attached here
-        style: style?.copyWith(
-          color: Colors.blue.shade600,
-          decoration: TextDecoration.underline,
-          decorationColor: Colors.blue.shade400,
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          // Style only — no recognizer attached here
+          style: style?.copyWith(
+            color: Colors.blue.shade600,
+            decoration: TextDecoration.underline,
+            decorationColor: Colors.blue.shade400,
+          ),
         ),
-      ));
+      );
 
       lastMatchEnd = match.end;
     }
@@ -85,16 +95,15 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   bool isPreviewVisible = true;
   bool isFullScreen = false;
   bool isOutlineVisible = false;
+  int _mobileEditorMode = 0;
   final FocusNode _focusNode = FocusNode();
   ScrollController? _internalScrollController;
   final ScrollController _previewScrollController = ScrollController();
   dynamic _pasteSubscription;
-  
-
 
   ScrollController get _editorScrollController =>
       widget.scrollController ?? _internalScrollController!;
-  
+
   List<String> _outline = [];
   Map<String, int> _blockStats = {};
   int _lastSyncedLine = -1;
@@ -116,10 +125,13 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     _updateOutline();
     if (kIsWeb) {
       web_helper.disableBrowserContextMenu();
-      _pasteSubscription =
-          web_helper.listenToNativePaste((bytes, fileName, mimeType) {
-            _uploadPastedImageBytes(bytes, fileName, mimeType);
-          });
+      _pasteSubscription = web_helper.listenToNativePaste((
+        bytes,
+        fileName,
+        mimeType,
+      ) {
+        _uploadPastedImageBytes(bytes, fileName, mimeType);
+      });
     }
   }
 
@@ -169,15 +181,17 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     await _showMarkdownLinkDialog(rawUrl, link, references);
   }
 
-  Future<void> _showMarkdownLinkDialog(String rawUrl,
-      AdminLinkItem? link,
-      List<LinkReferenceItem> references,) {
+  Future<void> _showMarkdownLinkDialog(
+    String rawUrl,
+    AdminLinkItem? link,
+    List<LinkReferenceItem> references,
+  ) {
     return showDialog<void>(
       context: context,
       builder: (context) {
         final title = link?.name ?? '未登记文章外链';
-        final description = link?.description ??
-            '保存文章后，系统会自动把这个 Markdown 链接登记到“文章外链”。';
+        final description =
+            link?.description ?? '保存文章后，系统会自动把这个 Markdown 链接登记到“文章外链”。';
         final hasNoReference = link != null && link.referencedPostCount == 0;
         return AlertDialog(
           title: Row(
@@ -233,7 +247,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                       child: ListView.separated(
                         itemCount: references.length,
                         separatorBuilder: (context, index) =>
-                        const Divider(height: 1),
+                            const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final reference = references[index];
                           final postTitle = reference.postTitle.isEmpty
@@ -243,8 +257,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             title: Text(postTitle),
-                            subtitle: Text(reference.anchorText ??
-                                reference.normalizedUrl),
+                            subtitle: Text(
+                              reference.anchorText ?? reference.normalizedUrl,
+                            ),
                             trailing: Text('x${reference.referenceCount}'),
                           );
                         },
@@ -264,8 +279,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                     builder: (confirmContext) {
                       return AlertDialog(
                         title: const Text('删除文章外链'),
-                        content: const Text(
-                            '这个链接当前没有文章引用，确定删除吗？'),
+                        content: const Text('这个链接当前没有文章引用，确定删除吗？'),
                         actions: [
                           TextButton(
                             onPressed: () =>
@@ -288,9 +302,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                   await widget.api.deleteLink(link.id);
                   if (!context.mounted) return;
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('已删除无引用文章外链')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('已删除无引用文章外链')));
                 },
                 child: const Text('删除', style: TextStyle(color: Colors.red)),
               ),
@@ -316,7 +330,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     final nameController = TextEditingController(text: link.name);
     final urlController = TextEditingController(text: link.url);
     final descriptionController = TextEditingController(
-        text: link.description ?? '');
+      text: link.description ?? '',
+    );
     final iconController = TextEditingController(text: link.icon ?? '');
     bool enabled = link.status == 1;
 
@@ -400,14 +415,12 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     final request = LinkCreateRequest(
       name: nameController.text.trim(),
       url: urlController.text.trim(),
-      description: descriptionController.text
-          .trim()
-          .isEmpty
+      description: descriptionController.text.trim().isEmpty
           ? null
           : descriptionController.text.trim(),
-      icon: iconController.text
-          .trim()
-          .isEmpty ? null : iconController.text.trim(),
+      icon: iconController.text.trim().isEmpty
+          ? null
+          : iconController.text.trim(),
       image: link.image,
       sortOrder: link.sortOrder,
       status: enabled ? 1 : 0,
@@ -424,9 +437,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
     await widget.api.updateLink(link.id, request);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('文章外链已更新')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('文章外链已更新')));
   }
 
   Future<void> _handleImageTap(String rawUrl) async {
@@ -453,11 +466,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     } else {
       // 降级逻辑：处理外部链接或未收录的媒体
       final url = widget.api.normalizeUrl(rawUrl);
-      final fileName = url
-          .split('/')
-          .last
-          .split('?')
-          .first;
+      final fileName = url.split('/').last.split('?').first;
       final mimeType = lookupMimeType(fileName) ?? 'image/jpeg';
       final fallbackItem = MediaItem(
         id: 0,
@@ -476,8 +485,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     }
   }
 
-  Future<void> _uploadPastedImageBytes(Uint8List bytes, String fileName,
-      String mimeType) async {
+  Future<void> _uploadPastedImageBytes(
+    Uint8List bytes,
+    String fileName,
+    String mimeType,
+  ) async {
     final placeholder = '![上传中...]()';
     _insertText(placeholder, '\n');
 
@@ -491,28 +503,32 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       if (mounted) {
         final text = widget.controller.text;
         final newText = text.replaceFirst(
-            placeholder, '![${uploaded.fileName}](${uploaded.url})');
+          placeholder,
+          '![${uploaded.fileName}](${uploaded.url})',
+        );
         widget.controller.value = widget.controller.value.copyWith(
           text: newText,
           selection: TextSelection.collapsed(
-              offset: widget.controller.selection.baseOffset -
-                  placeholder.length +
-                  '![${uploaded.fileName}](${uploaded.url})'.length
+            offset:
+                widget.controller.selection.baseOffset -
+                placeholder.length +
+                '![${uploaded.fileName}](${uploaded.url})'.length,
           ),
         );
         widget.onChanged?.call();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('图片上传失败: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('图片上传失败: $e')));
         final text = widget.controller.text;
         final newText = text.replaceFirst(placeholder, '');
         widget.controller.value = widget.controller.value.copyWith(
           text: newText,
           selection: TextSelection.collapsed(
-              offset: widget.controller.selection.baseOffset -
-                  placeholder.length - 1
+            offset:
+                widget.controller.selection.baseOffset - placeholder.length - 1,
           ),
         );
         widget.onChanged?.call();
@@ -526,15 +542,15 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     final text = widget.controller.text;
     final isTextEdit = text != _lastText;
     _lastText = text;
-    
+
     final selection = widget.controller.selection;
     if (!selection.isValid) return;
-    
+
     if (selection.baseOffset > text.length) return;
-    
+
     final textBefore = text.substring(0, selection.baseOffset);
     final currentLine = textBefore.split('\n').length;
-    
+
     if (currentLine != _lastSyncedLine) {
       _lastSyncedLine = currentLine;
       _syncPreview(shouldHighlight: _isPointerDown && !isTextEdit);
@@ -560,7 +576,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
         if (mounted && _editorScrollController.hasClients) {
           _editorScrollController.animateTo(
             targetOffset.clamp(
-                0.0, _editorScrollController.position.maxScrollExtent),
+              0.0,
+              _editorScrollController.position.maxScrollExtent,
+            ),
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
           );
@@ -571,19 +589,19 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
   void _syncPreview({bool shouldHighlight = true}) {
     if (!_previewScrollController.hasClients) return;
-    
+
     final text = widget.controller.text;
     final lines = text.split('\n');
     final totalLines = lines.length;
     if (totalLines <= 1) return;
-    
+
     // Calculate ratio based on cursor line
     double ratio = (_lastSyncedLine - 1) / (totalLines - 1);
     // Clamp ratio between 0 and 1
     ratio = ratio.clamp(0.0, 1.0);
-    
+
     final target = ratio * _previewScrollController.position.maxScrollExtent;
-    
+
     _previewScrollController.animateTo(
       target,
       duration: const Duration(milliseconds: 200),
@@ -633,7 +651,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   void didUpdateWidget(MarkdownPlusEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.scrollController != oldWidget.scrollController) {
-      if (oldWidget.scrollController == null && _internalScrollController != null) {
+      if (oldWidget.scrollController == null &&
+          _internalScrollController != null) {
         _internalScrollController!.dispose();
         _internalScrollController = null;
       }
@@ -711,7 +730,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   void _insertText(String prefix, [String suffix = '']) {
     final selection = widget.controller.selection;
     final text = widget.controller.text;
-    
+
     if (selection.isValid) {
       final selectedText = text.substring(selection.start, selection.end);
       final newText = text.replaceRange(
@@ -722,7 +741,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       widget.controller.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(
-          offset: selection.start + prefix.length + selectedText.length + suffix.length,
+          offset:
+              selection.start +
+              prefix.length +
+              selectedText.length +
+              suffix.length,
         ),
       );
     } else {
@@ -787,29 +810,33 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
               TextField(
                 controller: priceCtrl,
                 decoration: const InputDecoration(
-                    labelText: '购买价格 (0表示跟随文章买断价格)',
-                    suffixText: '积分'),
+                  labelText: '购买价格 (0表示跟随文章买断价格)',
+                  suffixText: '积分',
+                ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: showCtrl,
                 decoration: const InputDecoration(
-                    labelText: '显示文本 (可选)',
-                    hintText: '例如：付费后解锁'),
+                  labelText: '显示文本 (可选)',
+                  hintText: '例如：付费后解锁',
+                ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context),
-                child: const Text('取消')),
             TextButton(
-                onPressed: () =>
-                    Navigator.pop(context, {
-                      'price': priceCtrl.text.trim(),
-                      'show': showCtrl.text.trim(),
-                    }),
-                child: const Text('确定')),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, {
+                'price': priceCtrl.text.trim(),
+                'show': showCtrl.text.trim(),
+              }),
+              child: const Text('确定'),
+            ),
           ],
         );
       },
@@ -818,7 +845,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
     final priceStr = result['price'] ?? '0';
     final showText = result['show'] ?? '';
-    
+
     final price = int.tryParse(priceStr) ?? 0;
     String attributes = '';
     if (price > 0) attributes += ' price=$price';
@@ -830,36 +857,38 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   void _showSyntaxHints() {
     showDialog(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: const Text('Markdown 扩展语法提示'),
-            content: SizedBox(
-              width: 500,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHintItem('自定义容器',
-                        '::: info\n内容\n::: /info\n(支持 info, warning, danger, success, tip 等)'),
-                    _buildHintItem('提示框 (Callouts)',
-                        '>! 警告内容\n>i 信息内容\n>? 疑问内容\n>!! 危险内容'),
-                    _buildHintItem('文本高亮', '==被高亮的文字=='),
-                    _buildHintItem('键盘按键', '[[Ctrl]] + [[C]]'),
-                    _buildHintItem('进度条', '[% 85 %]'),
-                    _buildHintItem('状态标签',
-                        '[!! p | 已发布 ] (p: 成功, w: 警告, e: 错误)'),
-                  ],
+      builder: (context) => AlertDialog(
+        title: const Text('Markdown 扩展语法提示'),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHintItem(
+                  '自定义容器',
+                  '::: info\n内容\n::: /info\n(支持 info, warning, danger, success, tip 等)',
                 ),
-              ),
+                _buildHintItem(
+                  '提示框 (Callouts)',
+                  '>! 警告内容\n>i 信息内容\n>? 疑问内容\n>!! 危险内容',
+                ),
+                _buildHintItem('文本高亮', '==被高亮的文字=='),
+                _buildHintItem('键盘按键', '[[Ctrl]] + [[C]]'),
+                _buildHintItem('进度条', '[% 85 %]'),
+                _buildHintItem('状态标签', '[!! p | 已发布 ] (p: 成功, w: 警告, e: 错误)'),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('知道了'),
-              ),
-            ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -869,8 +898,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(
-              fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
           const SizedBox(height: 4),
           Container(
             width: double.infinity,
@@ -892,93 +923,150 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final isPhone = AdminBreakpoints.isPhone(context);
     Widget editor = Column(
       children: [
         _buildToolbar(),
         const Divider(height: 1),
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (isOutlineVisible || widget.isBlockMode) _buildOutlineSidebar(),
-              if (isOutlineVisible || widget.isBlockMode) const VerticalDivider(width: 1),
-              Expanded(
-                flex: 1,
-                child: Container(
-                  color: Colors.white,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1000),
-                      child: Listener(
-                        onPointerDown: (_) => _isPointerDown = true,
-                        onPointerUp: (_) =>
-                            Future.delayed(const Duration(
-                                milliseconds: 100), () {
-                              if (mounted) _isPointerDown = false;
-                            }),
-                        onPointerCancel: (_) => _isPointerDown = false,
-                        child: TextField(
-                          controller: widget.controller,
-                          focusNode: _focusNode,
-                          maxLines: null,
-                          expands: true,
-                          scrollController: _editorScrollController,
-                          onTap: _checkImageTap,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 32, vertical: 24),
-                            hintText: '开始你的创作...',
-                          ),
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 15,
-                            height: 1.6,
-                          ),
-                          onChanged: (_) => widget.onChanged?.call(),
-                        ),
-                    ),
-                  ),
-                  ),
-              ),
-              ),
-              if (isPreviewVisible) const VerticalDivider(width: 1),
-              if (isPreviewVisible)
-                Expanded(
-                  flex: 1,
-                  child: Container(
-                    color: Colors.grey.shade50,
-                    child: SelectionArea(
-                      child: SingleChildScrollView(
-                        controller: _previewScrollController,
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1000),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                  48, 32, 48, 300),
-                              // Added bottom padding for preview
-                              child: _buildPreviewBlocks(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+        if (isPhone) _buildMobileModeBar(),
+        Expanded(child: isPhone ? _buildMobileBody() : _buildDesktopBody()),
       ],
     );
 
     if (isFullScreen) {
-      return Scaffold(
-        body: SafeArea(child: editor),
-      );
+      return Scaffold(body: SafeArea(child: editor));
     }
 
     return editor;
+  }
+
+  Widget _buildDesktopBody() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (isOutlineVisible || widget.isBlockMode)
+          ExcludeSemantics(child: _buildOutlineSidebar()),
+        if (isOutlineVisible || widget.isBlockMode)
+          const VerticalDivider(width: 1),
+        Expanded(child: _buildEditorSurface()),
+        if (isPreviewVisible) const VerticalDivider(width: 1),
+        if (isPreviewVisible)
+          Expanded(child: ExcludeSemantics(child: _buildPreviewSurface())),
+      ],
+    );
+  }
+
+  Widget _buildMobileBody() {
+    if (_mobileEditorMode == 1) {
+      return ExcludeSemantics(child: _buildPreviewSurface());
+    }
+    if (_mobileEditorMode == 2) {
+      return ExcludeSemantics(child: _buildOutlineSidebar(expanded: true));
+    }
+    return _buildEditorSurface();
+  }
+
+  Widget _buildMobileModeBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      child: SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<int>(
+          segments: const [
+            ButtonSegment(
+              value: 0,
+              icon: Icon(Icons.edit_outlined, size: 16),
+              label: Text('编辑'),
+            ),
+            ButtonSegment(
+              value: 1,
+              icon: Icon(Icons.visibility_outlined, size: 16),
+              label: Text('预览'),
+            ),
+            ButtonSegment(
+              value: 2,
+              icon: Icon(Icons.toc_outlined, size: 16),
+              label: Text('大纲'),
+            ),
+          ],
+          selected: {_mobileEditorMode},
+          onSelectionChanged: (selection) {
+            setState(() {
+              _mobileEditorMode = selection.first;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditorSurface() {
+    final isPhone = AdminBreakpoints.isPhone(context);
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: Listener(
+            onPointerDown: (_) => _isPointerDown = true,
+            onPointerUp: (_) =>
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (mounted) _isPointerDown = false;
+                }),
+            onPointerCancel: (_) => _isPointerDown = false,
+            child: TextField(
+              controller: widget.controller,
+              focusNode: _focusNode,
+              maxLines: null,
+              expands: true,
+              scrollController: _editorScrollController,
+              onTap: _checkImageTap,
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: isPhone ? 14 : 32,
+                  vertical: isPhone ? 16 : 24,
+                ),
+                hintText: '开始你的创作...',
+              ),
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: isPhone ? 14 : 15,
+                height: 1.6,
+              ),
+              onChanged: (_) => widget.onChanged?.call(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreviewSurface() {
+    final isPhone = AdminBreakpoints.isPhone(context);
+    return Container(
+      color: Colors.grey.shade50,
+      child: SelectionArea(
+        child: SingleChildScrollView(
+          controller: _previewScrollController,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  isPhone ? 16 : 48,
+                  isPhone ? 16 : 32,
+                  isPhone ? 16 : 48,
+                  300,
+                ),
+                child: _buildPreviewBlocks(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildToolbar() {
@@ -1059,18 +1147,21 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
           _ToolbarButton(
             icon: Icons.table_chart_outlined,
             tooltip: '表格',
-            onPressed: () => _insertText('\n| 标题 | 标题 |\n| --- | --- |\n| 内容 | 内容 |\n'),
+            onPressed: () =>
+                _insertText('\n| 标题 | 标题 |\n| --- | --- |\n| 内容 | 内容 |\n'),
           ),
           const VerticalDivider(width: 16, indent: 12, endIndent: 12),
           _ToolbarButton(
             icon: isOutlineVisible ? Icons.toc : Icons.toc_outlined,
             tooltip: '大纲',
-            onPressed: () => setState(() => isOutlineVisible = !isOutlineVisible),
+            onPressed: () =>
+                setState(() => isOutlineVisible = !isOutlineVisible),
           ),
           _ToolbarButton(
             icon: isPreviewVisible ? Icons.visibility : Icons.visibility_off,
             tooltip: '预览',
-            onPressed: () => setState(() => isPreviewVisible = !isPreviewVisible),
+            onPressed: () =>
+                setState(() => isPreviewVisible = !isPreviewVisible),
           ),
           _ToolbarButton(
             icon: isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
@@ -1090,14 +1181,14 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   Widget _buildPreviewBlocks() {
     final text = widget.controller.text;
     final blocks = _splitMarkdownBlocks(text);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: List.generate(blocks.length, (index) {
         final block = blocks[index];
 
         final isHighlighted = _activeHighlightIndex == index;
-        
+
         return MarkdownBlockWrapper(
           key: ValueKey('block-$index-${block.content.hashCode}'),
           block: block,
@@ -1116,9 +1207,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   List<MarkdownBlock> _splitMarkdownBlocks(String text) {
     final lines = text.split('\n');
     final blocks = <MarkdownBlock>[];
-    
+
     if (lines.isEmpty) return [];
-    
+
     List<String> currentBlockLines = [];
     int blockStartLine = 1;
     bool inCodeBlock = false;
@@ -1126,28 +1217,32 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     String customBlockName = '';
     bool inHideBlock = false;
     String hideBlockType = '';
-    
+
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
       final trimmed = line.trim();
-      
+
       // Handle code block boundaries
       if (trimmed.startsWith('```')) {
         if (!inCodeBlock && currentBlockLines.isNotEmpty) {
-          blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+          blocks.add(
+            MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
+          );
           currentBlockLines = [];
           blockStartLine = i + 1;
         }
         inCodeBlock = !inCodeBlock;
         currentBlockLines.add(line);
         if (!inCodeBlock) {
-          blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+          blocks.add(
+            MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
+          );
           currentBlockLines = [];
           blockStartLine = i + 2;
         }
         continue;
       }
-      
+
       if (inCodeBlock) {
         currentBlockLines.add(line);
         continue;
@@ -1160,7 +1255,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
           if (name.isNotEmpty) {
             if (currentBlockLines.isNotEmpty) {
               blocks.add(
-                  MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+                MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
+              );
               currentBlockLines = [];
             }
             inCustomBlock = true;
@@ -1172,7 +1268,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
         } else if (inCustomBlock && trimmed == '::: /$customBlockName') {
           currentBlockLines.add(line);
           blocks.add(
-              MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+            MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
+          );
           currentBlockLines = [];
           blockStartLine = i + 2;
           inCustomBlock = false;
@@ -1189,12 +1286,14 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       // Handle hide block boundaries
       if (trimmed.startsWith('[hide-') && !inHideBlock) {
         final match = RegExp(
-            r'^\[(hide-text|hide-attachment)(.*)\]$',
-            caseSensitive: false).firstMatch(trimmed);
+          r'^\[(hide-text|hide-attachment)(.*)\]$',
+          caseSensitive: false,
+        ).firstMatch(trimmed);
         if (match != null) {
           if (currentBlockLines.isNotEmpty) {
             blocks.add(
-                MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+              MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
+            );
             currentBlockLines = [];
           }
           inHideBlock = true;
@@ -1209,7 +1308,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
         currentBlockLines.add(line);
         if (trimmed.toLowerCase() == '[/$hideBlockType]') {
           blocks.add(
-              MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+            MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
+          );
           currentBlockLines = [];
           blockStartLine = i + 2;
           inHideBlock = false;
@@ -1217,25 +1317,30 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
         }
         continue;
       }
-      
+
       // Handle block starters
-      final isBlockStarter = trimmed.startsWith('#') || 
-                            trimmed.startsWith('- ') || 
-                            trimmed.startsWith('* ') || 
-                            trimmed.startsWith('> ') || 
-                            trimmed.startsWith('|') ||
-                            RegExp(r'^\d+\. ').hasMatch(trimmed);
-                            
-      if (isBlockStarter && currentBlockLines.isNotEmpty && trimmed.isNotEmpty) {
-          blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
-          currentBlockLines = [line];
-          blockStartLine = i + 1;
-          continue;
+      final isBlockStarter =
+          trimmed.startsWith('#') ||
+          trimmed.startsWith('- ') ||
+          trimmed.startsWith('* ') ||
+          trimmed.startsWith('> ') ||
+          trimmed.startsWith('|') ||
+          RegExp(r'^\d+\. ').hasMatch(trimmed);
+
+      if (isBlockStarter &&
+          currentBlockLines.isNotEmpty &&
+          trimmed.isNotEmpty) {
+        blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+        currentBlockLines = [line];
+        blockStartLine = i + 1;
+        continue;
       }
 
       if (trimmed.isEmpty) {
         if (currentBlockLines.isNotEmpty) {
-          blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
+          blocks.add(
+            MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
+          );
           currentBlockLines = [];
         }
         blockStartLine = i + 2;
@@ -1244,40 +1349,42 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
         currentBlockLines.add(line);
       }
     }
-    
+
     if (currentBlockLines.isNotEmpty) {
       blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
     }
-    
+
     return blocks;
   }
 
   void _jumpToEditorLine(int line) {
     if (!_focusNode.hasFocus) _focusNode.requestFocus();
-    
+
     const double lineHeight = 24.0; // font size 15 * 1.6 height
     final targetOffset = (line - 1) * lineHeight;
-    
+
     _editorScrollController.animateTo(
       targetOffset.clamp(0.0, _editorScrollController.position.maxScrollExtent),
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
-    
+
     final text = widget.controller.text;
     final lines = text.split('\n');
     int offset = 0;
     for (int i = 0; i < line - 1 && i < lines.length; i++) {
       offset += lines[i].length + 1;
     }
-    
+
     widget.controller.selection = TextSelection.collapsed(offset: offset);
   }
 
   void _copyBlockAsHtml(String markdown, bool styled) {
     final htmlContent = md.markdownToHtml(markdown);
-    final finalHtml = styled ? '<div style="font-family: sans-serif; line-height: 1.6;">$htmlContent</div>' : htmlContent;
-    
+    final finalHtml = styled
+        ? '<div style="font-family: sans-serif; line-height: 1.6;">$htmlContent</div>'
+        : htmlContent;
+
     Clipboard.setData(ClipboardData(text: finalHtml));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(styled ? '已复制带样式 HTML' : '已复制原始 HTML')),
@@ -1286,14 +1393,14 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
   void _copyBlockAsMarkdown(String markdown) {
     Clipboard.setData(ClipboardData(text: markdown));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制 Markdown 源码')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已复制 Markdown 源码')));
   }
 
-  Widget _buildOutlineSidebar() {
+  Widget _buildOutlineSidebar({bool expanded = false}) {
     return Container(
-      width: 200,
+      width: expanded ? double.infinity : 200,
       color: Colors.grey.shade100,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1314,14 +1421,21 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
               itemCount: _outline.length,
               itemBuilder: (context, index) {
                 final item = _outline[index];
-                final level = !item.contains(' ') ? item.length : item.split(' ')[0].length;
+                final level = !item.contains(' ')
+                    ? item.length
+                    : item.split(' ')[0].length;
                 final text = item.replaceFirst(RegExp(r'^#+\s*'), '');
                 return InkWell(
                   onTap: () {
                     // TODO: Scroll to line
                   },
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(12 + (level - 1) * 12, 8, 12, 8),
+                    padding: EdgeInsets.fromLTRB(
+                      12 + (level - 1) * 12,
+                      8,
+                      12,
+                      8,
+                    ),
                     child: Text(
                       text,
                       style: TextStyle(
@@ -1350,8 +1464,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12).copyWith(
-                  bottom: 12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+              ).copyWith(bottom: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: _blockStats.entries.map((e) {
@@ -1360,19 +1475,30 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(e.key, style: TextStyle(
-                            fontSize: 13, color: Colors.grey.shade800)),
+                        Text(
+                          e.key,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Text('${e.value}', style: TextStyle(
+                          child: Text(
+                            '${e.value}',
+                            style: TextStyle(
                               fontSize: 11,
                               color: Colors.blue.shade700,
-                              fontWeight: FontWeight.bold)),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -1432,11 +1558,13 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
-    _flashAnimation = ColorTween(
-      begin: Colors.transparent,
-      end: Colors.blue.withAlpha(80),
-    ).animate(
-        CurvedAnimation(parent: _flashController, curve: Curves.easeInOut));
+    _flashAnimation =
+        ColorTween(
+          begin: Colors.transparent,
+          end: Colors.blue.withAlpha(80),
+        ).animate(
+          CurvedAnimation(parent: _flashController, curve: Curves.easeInOut),
+        );
 
     if (widget.isHighlighted) {
       _flashController.repeat(reverse: true);
@@ -1467,12 +1595,14 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+        onSecondaryTapDown: (details) =>
+            _showContextMenu(context, details.globalPosition),
         child: AnimatedBuilder(
           animation: _flashAnimation,
           builder: (context, child) {
-            final hoverColor = _isHovered ? Colors.blue.withAlpha(15) : Colors
-                .transparent;
+            final hoverColor = _isHovered
+                ? Colors.blue.withAlpha(15)
+                : Colors.transparent;
             final color = widget.isHighlighted
                 ? _flashAnimation.value
                 : hoverColor;
@@ -1527,29 +1657,33 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                     child: Image.network(
                       widget.api.normalizeUrl(url),
                       headers: const {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'User-Agent':
+                            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                       },
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            color: Colors.grey.shade100,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.broken_image,
-                                    size: 48, color: Colors.grey),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '图片加载失败\n错误: $error\nURL: $url',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.grey.shade600),
-                                ),
-                              ],
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        padding: const EdgeInsets.all(16),
+                        color: Colors.grey.shade100,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.broken_image,
+                              size: 48,
+                              color: Colors.grey,
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '图片加载失败\n错误: $error\nURL: $url',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return Container(
@@ -1559,7 +1693,7 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                             child: CircularProgressIndicator(
                               value: loadingProgress.expectedTotalBytes != null
                                   ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
+                                        loadingProgress.expectedTotalBytes!
                                   : null,
                             ),
                           ),
@@ -1595,8 +1729,9 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
   }
 
   void _showContextMenu(BuildContext context, Offset position) {
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
     showMenu(
       context: context,
       position: RelativeRect.fromRect(
@@ -1712,8 +1847,9 @@ class _StoreItemPickerDialogState extends State<_StoreItemPickerDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('加载失败: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
     }
   }
@@ -1730,18 +1866,19 @@ class _StoreItemPickerDialogState extends State<_StoreItemPickerDialog> {
             : items.isEmpty
             ? const Center(child: Text('无可用物品'))
             : ListView.builder(
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-            return ListTile(
-              leading: const Icon(Icons.inventory_2),
-              title: Text(item.name),
-              subtitle: Text(
-                  '${item.price} 积分 | 类型: ${item.type ?? "未知"}'),
-              onTap: () => Navigator.pop(context, item),
-            );
-          },
-        ),
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return ListTile(
+                    leading: const Icon(Icons.inventory_2),
+                    title: Text(item.name),
+                    subtitle: Text(
+                      '${item.price} 积分 | 类型: ${item.type ?? "未知"}',
+                    ),
+                    onTap: () => Navigator.pop(context, item),
+                  );
+                },
+              ),
       ),
       actions: [
         TextButton(

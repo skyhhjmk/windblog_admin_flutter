@@ -1488,6 +1488,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   @override
   Widget build(BuildContext context) {
     final navigator = Navigator.of(context);
+    final isPhone = AdminBreakpoints.isPhone(context);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -1505,75 +1506,155 @@ class _PostEditorPageState extends State<PostEditorPage>
             _currentDetail == null
                 ? t(context, 'new_post')
                 : t(context, 'edit_post'),
+            overflow: TextOverflow.ellipsis,
           ),
           actions: [
             if (_isDirty)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: Chip(
-                  label: Text(
-                    t(context, 'unsaved'),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  backgroundColor: Colors.orange.shade100,
-                  labelStyle: TextStyle(color: Colors.orange.shade800),
-                ),
+                child: isPhone
+                    ? Icon(
+                        Icons.circle,
+                        size: 10,
+                        color: Colors.orange.shade600,
+                      )
+                    : Chip(
+                        label: Text(
+                          t(context, 'unsaved'),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        backgroundColor: Colors.orange.shade100,
+                        labelStyle: TextStyle(color: Colors.orange.shade800),
+                      ),
               ),
-            TextButton(
-              onPressed: _isSaving
-                  ? null
-                  : () async {
-                      final shouldPop = await _onWillPop();
-                      if (shouldPop && mounted) {
-                        navigator.pop();
-                      }
-                    },
-              child: Text(t(context, 'cancel')),
-            ),
-            FilledButton(
-              onPressed: _isSaving
-                  ? null
-                  : () async {
-                      final success = await _save();
-                      if (success) {
+            if (isPhone)
+              IconButton(
+                onPressed: _isSaving
+                    ? null
+                    : () async {
+                        final shouldPop = await _onWillPop();
+                        if (shouldPop && mounted) {
+                          navigator.pop();
+                        }
+                      },
+                icon: const Icon(Icons.close),
+                tooltip: t(context, 'cancel'),
+              )
+            else
+              TextButton(
+                onPressed: _isSaving
+                    ? null
+                    : () async {
+                        final shouldPop = await _onWillPop();
                         if (mounted) {
+                          if (shouldPop) {
+                            navigator.pop();
+                          }
+                        }
+                      },
+                child: Text(t(context, 'cancel')),
+              ),
+            if (isPhone)
+              IconButton(
+                onPressed: _isSaving
+                    ? null
+                    : () async {
+                        final success = await _save();
+                        if (success && mounted) {
                           navigator.pop(null);
                         }
-                      }
-                    },
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(t(context, 'save')),
-            ),
+                      },
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                tooltip: t(context, 'save'),
+              )
+            else
+              FilledButton(
+                onPressed: _isSaving
+                    ? null
+                    : () async {
+                        final success = await _save();
+                        if (success && mounted) {
+                          navigator.pop(null);
+                        }
+                      },
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(t(context, 'save')),
+              ),
+            if (isPhone)
+              IconButton(
+                onPressed: _openMobileSidebar,
+                icon: const Icon(Icons.tune),
+                tooltip: t(context, 'basic_info'),
+              ),
             const SizedBox(width: 8),
           ],
         ),
-        body: Row(
-          children: [
-            Expanded(child: _buildEditorPane()),
-            Container(
-              width: 320,
-              decoration: BoxDecoration(
-                border: Border(left: BorderSide(color: Colors.grey.shade300)),
-              ),
-              child: _buildSidebar(),
-            ),
-          ],
-        ),
+        body: isPhone ? _buildEditorPane() : _buildWideEditorLayout(),
+        floatingActionButton: isPhone
+            ? FloatingActionButton.extended(
+                onPressed: _openMobileSidebar,
+                icon: const Icon(Icons.tune),
+                label: Text(t(context, 'basic_info')),
+              )
+            : null,
       ),
     );
   }
 
+  Widget _buildWideEditorLayout() {
+    return Row(
+      children: [
+        Expanded(child: _buildEditorPane()),
+        Container(
+          width: 320,
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: Colors.grey.shade300)),
+          ),
+          child: _buildSidebar(),
+        ),
+      ],
+    );
+  }
+
+  void _openMobileSidebar() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (bottomSheetContext) {
+        return SizedBox(
+          height: MediaQuery.sizeOf(bottomSheetContext).height * 0.9,
+          child: _buildSidebar(),
+        );
+      },
+    );
+  }
+
   Widget _buildEditorPane() {
+    final isPhone = AdminBreakpoints.isPhone(context);
+    final horizontalPadding = isPhone ? 12.0 : 24.0;
+    final bottomPadding = isPhone ? 92.0 : 24.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            8,
+            horizontalPadding,
+            0,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1200),
@@ -1584,8 +1665,8 @@ class _PostEditorPageState extends State<PostEditorPage>
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
                 ),
-                style: const TextStyle(
-                  fontSize: 22,
+                style: TextStyle(
+                  fontSize: isPhone ? 18 : 22,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
@@ -1596,7 +1677,12 @@ class _PostEditorPageState extends State<PostEditorPage>
         const Divider(height: 1),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              8,
+              horizontalPadding,
+              bottomPadding,
+            ),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1200),
@@ -1677,36 +1763,42 @@ class _PostEditorPageState extends State<PostEditorPage>
             ),
           ),
           const SizedBox(height: 12),
-          SegmentedButton<int>(
-            segments: [
-              ButtonSegment(
-                value: 0,
-                label: Text(t(context, 'ai_auto')),
-                icon: const Icon(Icons.auto_awesome, size: 16),
-              ),
-              ButtonSegment(
-                value: 1,
-                label: Text(t(context, 'ai_locked')),
-                icon: const Icon(Icons.lock_outline, size: 16),
-              ),
-              ButtonSegment(
-                value: 2,
-                label: Text(t(context, 'ai_disabled')),
-                icon: const Icon(Icons.block, size: 16),
-              ),
-            ],
-            selected: {aiSummaryStatus},
-            onSelectionChanged: (Set<int> newSelection) {
-              setState(() {
-                aiSummaryStatus = newSelection.first;
-                _markDirty();
-              });
-            },
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<int>(
+              segments: [
+                ButtonSegment(
+                  value: 0,
+                  label: Text(t(context, 'ai_auto')),
+                  icon: const Icon(Icons.auto_awesome, size: 16),
+                ),
+                ButtonSegment(
+                  value: 1,
+                  label: Text(t(context, 'ai_locked')),
+                  icon: const Icon(Icons.lock_outline, size: 16),
+                ),
+                ButtonSegment(
+                  value: 2,
+                  label: Text(t(context, 'ai_disabled')),
+                  icon: const Icon(Icons.block, size: 16),
+                ),
+              ],
+              selected: {aiSummaryStatus},
+              onSelectionChanged: (Set<int> newSelection) {
+                setState(() {
+                  aiSummaryStatus = newSelection.first;
+                  _markDirty();
+                });
+              },
+            ),
           ),
           const SizedBox(height: 24),
           if (aiSummaryStatus != 2) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
                   t(context, 'ai_summary_content'),
@@ -1913,7 +2005,12 @@ class _PostEditorPageState extends State<PostEditorPage>
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      Text(tag.displayName),
+                      Expanded(
+                        child: Text(
+                          tag.displayName,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2008,8 +2105,6 @@ class _PostEditorPageState extends State<PostEditorPage>
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String?>(
-            key: UniqueKey(),
-            // Force reset after selection
             initialValue: null,
             decoration: const InputDecoration(
               labelText: "添加可见区域",
@@ -2178,22 +2273,26 @@ class _PostEditorPageState extends State<PostEditorPage>
         final isCurrent =
             revision.revisionNumber == _currentDetail!.currentRevisionNumber;
         final isPublished = revision.isPublishedRevision;
-        return ListTile(
-          title: Text(
-            t(
-              context,
-              'revision_text',
-            ).replaceAll('%d', revision.revisionNumber.toString()),
-            style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : null),
-          ),
-          subtitle: Column(
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(
+                t(
+                  context,
+                  'revision_text',
+                ).replaceAll('%d', revision.revisionNumber.toString()),
+                style: TextStyle(
+                  fontWeight: isCurrent ? FontWeight.bold : null,
+                ),
+              ),
+              const SizedBox(height: 4),
               Text(
                 revision.zhTitle.isEmpty
                     ? t(context, 'no_title')
                     : revision.zhTitle,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
@@ -2201,54 +2300,58 @@ class _PostEditorPageState extends State<PostEditorPage>
                 '${revision.createdByName} · ${_formatDate(revision.createdAt)}',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
-            ],
-          ),
-          trailing: Wrap(
-            spacing: 4,
-            children: [
-              if (isCurrent)
-                Chip(
-                  label: Text(
-                    t(context, 'current_draft'),
-                    style: const TextStyle(fontSize: 10),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (isCurrent)
+                    Chip(
+                      label: Text(
+                        t(context, 'current_draft'),
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                      backgroundColor: Colors.green.shade100,
+                      labelStyle: TextStyle(color: Colors.green.shade800),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 0,
+                      ),
+                    ),
+                  if (isPublished)
+                    Chip(
+                      label: Text(
+                        t(context, 'published_revision_badge'),
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                      backgroundColor: Colors.blue.shade100,
+                      labelStyle: TextStyle(color: Colors.blue.shade800),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 0,
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: () => _showDiff(revision.revisionNumber),
+                    child: Text(t(context, 'compare')),
                   ),
-                  backgroundColor: Colors.green.shade100,
-                  labelStyle: TextStyle(color: Colors.green.shade800),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 0,
-                  ),
-                ),
-              if (isPublished)
-                Chip(
-                  label: Text(
-                    t(context, 'published_revision_badge'),
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                  backgroundColor: Colors.blue.shade100,
-                  labelStyle: TextStyle(color: Colors.blue.shade800),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 0,
-                  ),
-                ),
-              TextButton(
-                onPressed: () => _showDiff(revision.revisionNumber),
-                child: Text(t(context, 'compare')),
+                  if (!isCurrent)
+                    TextButton(
+                      onPressed: () =>
+                          _switchToRevision(revision.revisionNumber),
+                      child: Text(t(context, 'set_current_draft')),
+                    ),
+                  if (!isPublished)
+                    TextButton(
+                      onPressed: () =>
+                          _publishRevision(revision.revisionNumber),
+                      child: Text(t(context, 'publish_this_revision')),
+                    ),
+                ],
               ),
-              if (!isCurrent)
-                TextButton(
-                  onPressed: () => _switchToRevision(revision.revisionNumber),
-                  child: Text(t(context, 'set_current_draft')),
-                ),
-              if (!isPublished)
-                TextButton(
-                  onPressed: () => _publishRevision(revision.revisionNumber),
-                  child: Text(t(context, 'publish_this_revision')),
-                ),
             ],
           ),
-          dense: true,
         );
       },
     );
