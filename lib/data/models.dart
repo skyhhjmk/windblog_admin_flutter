@@ -1946,6 +1946,11 @@ class AuditLogItem {
     this.extInfo,
     this.performedById,
     this.performedByUsername,
+    this.requestId,
+    this.requestMethod,
+    this.requestPath,
+    this.clientIp,
+    this.userAgent,
     this.createdAt,
     this.createdAtFormatted,
   });
@@ -1959,6 +1964,11 @@ class AuditLogItem {
   final Map<String, dynamic>? extInfo;
   final int? performedById;
   final String? performedByUsername;
+  final String? requestId;
+  final String? requestMethod;
+  final String? requestPath;
+  final String? clientIp;
+  final String? userAgent;
   final DateTime? createdAt;
   final String? createdAtFormatted;
 
@@ -1974,6 +1984,11 @@ class AuditLogItem {
           map['extInfo'] as Map) : null,
       performedById: toInt(map['performedById']),
       performedByUsername: map['performedByUsername']?.toString(),
+      requestId: map['requestId']?.toString(),
+      requestMethod: map['requestMethod']?.toString(),
+      requestPath: map['requestPath']?.toString(),
+      clientIp: map['clientIp']?.toString(),
+      userAgent: map['userAgent']?.toString(),
       createdAt: map['createdAt'] != null ? DateTime.tryParse(
           map['createdAt'].toString()) : null,
       createdAtFormatted: map['createdAtFormatted']?.toString(),

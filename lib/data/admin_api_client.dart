@@ -577,12 +577,14 @@ class AdminApiClient {
     int pageSize = 20,
     String? entityType,
     String? action,
+    String? requestId,
   }) async {
     final query = {
       'page': '$page',
       'pageSize': '$pageSize',
       if (entityType != null && entityType.isNotEmpty) 'entityType': entityType,
       if (action != null && action.isNotEmpty) 'action': action,
+      if (requestId != null && requestId.isNotEmpty) 'requestId': requestId,
     };
     final res = await _get('/api/admin/audit-logs', query: query);
     return PaginatedAuditLogResult.fromMap(_map(jsonDecode(res.body)));

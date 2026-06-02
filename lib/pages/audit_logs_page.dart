@@ -19,6 +19,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
   final int _pageSize = 20;
   String _entityType = '';
   String _action = '';
+  String _requestId = '';
 
   List<AuditLogItem> _logs = [];
   int _total = 0;
@@ -26,6 +27,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
 
   final _entityTypeCtrl = TextEditingController();
   final _actionCtrl = TextEditingController();
+  final _requestIdCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
   void dispose() {
     _entityTypeCtrl.dispose();
     _actionCtrl.dispose();
+    _requestIdCtrl.dispose();
     super.dispose();
   }
 
@@ -48,6 +51,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
         pageSize: _pageSize,
         entityType: _entityType,
         action: _action,
+        requestId: _requestId,
       );
       setState(() {
         _logs = res.items;
@@ -69,11 +73,12 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
   }
 
   void _onSearch() {
-    setState(() {
-      _entityType = _entityTypeCtrl.text.trim();
-      _action = _actionCtrl.text.trim();
-      _page = 1;
-    });
+      setState(() {
+        _entityType = _entityTypeCtrl.text.trim();
+        _action = _actionCtrl.text.trim();
+        _requestId = _requestIdCtrl.text.trim();
+        _page = 1;
+      });
     _loadData();
   }
 
@@ -112,6 +117,17 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
               onSubmitted: (_) => _onSearch(),
             ),
           ),
+          SizedBox(
+            width: AdminBreakpoints.isPhone(context) ? double.infinity : 260,
+            child: TextField(
+              controller: _requestIdCtrl,
+              decoration: const InputDecoration(
+                labelText: '请求 ID',
+                prefixIcon: Icon(Icons.numbers_outlined),
+              ),
+              onSubmitted: (_) => _onSearch(),
+            ),
+          ),
           FilledButton.icon(
             onPressed: _onSearch,
             icon: const Icon(Icons.search),
@@ -140,8 +156,8 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      '${t(context, 'operator')}: ${item.performedByUsername ?? t(context, 'system_unknown')} | ${t(context, 'time')}: ${item.createdAtFormatted ?? item.createdAt}',
-                      maxLines: AdminBreakpoints.isPhone(context) ? 2 : 1,
+                      _buildSubtitle(context, item),
+                      maxLines: AdminBreakpoints.isPhone(context) ? 3 : 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: const Icon(Icons.chevron_right),
@@ -164,6 +180,48 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
         _loadData();
       },
     );
+  }
+
+  String _buildSubtitle(BuildContext context, AuditLogItem item) {
+    final parts = <String>[];
+
+    final operatorName = item.performedByUsername == null || item.performedByUsername!.isEmpty
+        ? t(context, 'system_unknown')
+        : item.performedByUsername!;
+    parts.add('${t(context, 'operator')}: $operatorName');
+
+    final timeText = item.createdAtFormatted ??
+        item.createdAt?.toString() ??
+        '';
+    if (timeText.isNotEmpty) {
+      parts.add('${t(context, 'time')}: $timeText');
+    }
+
+    final requestLine = _buildRequestLine(item);
+    if (requestLine.isNotEmpty) {
+      parts.add(requestLine);
+    }
+
+    return parts.join(' | ');
+  }
+
+  String _buildRequestLine(AuditLogItem item) {
+    final parts = <String>[];
+
+    if (item.requestMethod != null && item.requestMethod!.isNotEmpty) {
+      final requestPath = item.requestPath == null ? '' : item.requestPath!;
+      if (requestPath.isNotEmpty) {
+        parts.add('${item.requestMethod} $requestPath');
+      } else {
+        parts.add(item.requestMethod!);
+      }
+    }
+
+    if (item.requestId != null && item.requestId!.isNotEmpty) {
+      parts.add('请求ID: ${item.requestId}');
+    }
+
+    return parts.join(' | ');
   }
 }
 
@@ -292,6 +350,19 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
                 t(context, 'time'),
                 item.createdAtFormatted ?? item.createdAt?.toString() ?? '',
               ),
+              if (_hasRequestContext(item)) ...[
+                const Divider(height: 32),
+                Text(
+                  '请求上下文',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow('请求 ID', item.requestId ?? ''),
+                _buildDetailRow('请求方法', item.requestMethod ?? ''),
+                _buildDetailRow('请求路径', item.requestPath ?? ''),
+                _buildDetailRow('客户端 IP', item.clientIp ?? ''),
+                _buildDetailRow('User-Agent', item.userAgent ?? ''),
+              ],
               const Divider(height: 32),
 
               if (isSetting) ...[
@@ -505,5 +576,24 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
         ],
       ),
     );
+  }
+
+  bool _hasRequestContext(AuditLogItem item) {
+    if (item.requestId != null && item.requestId!.isNotEmpty) {
+      return true;
+    }
+    if (item.requestMethod != null && item.requestMethod!.isNotEmpty) {
+      return true;
+    }
+    if (item.requestPath != null && item.requestPath!.isNotEmpty) {
+      return true;
+    }
+    if (item.clientIp != null && item.clientIp!.isNotEmpty) {
+      return true;
+    }
+    if (item.userAgent != null && item.userAgent!.isNotEmpty) {
+      return true;
+    }
+    return false;
   }
 }
