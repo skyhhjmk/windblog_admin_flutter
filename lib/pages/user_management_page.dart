@@ -332,22 +332,22 @@ class _UserEditDialogState extends State<_UserEditDialog> {
               controller: emailCtrl,
               decoration: InputDecoration(labelText: t(context, 'email')),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             TextField(
               controller: avatarCtrl,
               decoration: InputDecoration(labelText: t(context, 'avatar')),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             TextField(
               controller: nicknameCtrl,
               decoration: InputDecoration(labelText: t(context, 'nickname')),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             TextField(
               controller: phoneCtrl,
               decoration: InputDecoration(labelText: t(context, 'phone')),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             DropdownButtonFormField<int>(
               initialValue: status,
               decoration: InputDecoration(labelText: t(context, 'status')),
@@ -358,7 +358,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
               ],
               onChanged: (v) => setState(() => status = v ?? 1),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: roleName,
               decoration: InputDecoration(labelText: t(context, 'role_name')),

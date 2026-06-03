@@ -313,24 +313,28 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                             decoration: const InputDecoration(
                                 labelText: '节点 ID (唯一标识)'),
                           ),
+                          const SizedBox(height: 16),
                           TextField(
                             controller: nameController,
                             decoration: const InputDecoration(
                                 labelText: '节点名称'),
                           ),
                           if (isEdit) ...[
+                            const SizedBox(height: 16),
                             TextField(
                               controller: externalUrlController,
                               decoration: const InputDecoration(
                                   labelText: '外部访问地址',
                                   hintText: 'https://edge.example.com'),
                             ),
+                            const SizedBox(height: 16),
                             TextField(
                               controller: apiUrlController,
                               decoration: const InputDecoration(
                                   labelText: 'API 通信地址',
                                   hintText: 'http://edge-node:8081'),
                             ),
+                            const SizedBox(height: 16),
                             TextField(
                               controller: grpcAddressController,
                               decoration: const InputDecoration(
@@ -340,6 +344,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                           ],
                           if (!isEdit && selectedConn ==
                               EdgeConnectionType.activePoll) ...[
+                            const SizedBox(height: 16),
                             TextField(
                               controller: ipController,
                               decoration: const InputDecoration(
@@ -347,7 +352,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                                   hintText: '例如: 192.168.1.100'),
                             ),
                           ],
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 16),
                           Row(
                             children: [
                               Expanded(
@@ -385,7 +390,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 16),
                           DropdownButtonFormField<EdgeConnectionType>(
                             initialValue: selectedConn,
                             decoration: const InputDecoration(
@@ -402,13 +407,15 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                             onChanged: (v) =>
                                 setDialogState(() => selectedConn = v!),
                           ),
-                          if (isEdit)
+                          if (isEdit) ...[
+                            const SizedBox(height: 16),
                             SwitchListTile(
                               title: const Text('是否启用'),
                               value: isEnabled,
                               onChanged: (v) =>
                                   setDialogState(() => isEnabled = v),
                             ),
+                          ],
                         ],
                       ),
                     ),

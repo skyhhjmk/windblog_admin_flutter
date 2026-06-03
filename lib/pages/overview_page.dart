@@ -56,22 +56,58 @@ class _OverviewPageState extends State<OverviewPage> {
       );
     }
 
-    Widget card(String label, Object value) {
+    Widget card(String label, Object value, IconData icon, Color color) {
       return SizedBox(
-        width: AdminBreakpoints.isPhone(context) ? double.infinity : 180,
+        width: AdminBreakpoints.isPhone(context) ? double.infinity : 200,
         child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          elevation: 3,
+          shadowColor: color.withValues(alpha: 0.1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: color.withValues(alpha: 0.15), width: 1.5),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color.withValues(alpha: 0.06), color.withValues(alpha: 0.01)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Row(
               children: [
-                Text(label, style: const TextStyle(color: Color(0xFF6B7280))),
-                const SizedBox(height: 10),
-                Text(
-                  '$value',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: color.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '$value',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF1E293B),
+                          height: 1,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
                 ),
               ],
             ),
@@ -96,19 +132,58 @@ class _OverviewPageState extends State<OverviewPage> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              card(t(context, 'users_count'), map['users'] ?? 0),
-              card(t(context, 'posts_count'), map['posts'] ?? 0),
-              card(t(context, 'comments_count'), map['comments'] ?? 0),
-              card(t(context, 'tags_count'), map['tags'] ?? 0),
-              card(t(context, 'categories_count'), map['categories'] ?? 0),
+              card(t(context, 'users_count'), map['users'] ?? 0, Icons.people_alt, const Color(0xFFF43F5E)),
+              card(t(context, 'posts_count'), map['posts'] ?? 0, Icons.article, const Color(0xFFF97316)),
+              card(t(context, 'comments_count'), map['comments'] ?? 0, Icons.comment, const Color(0xFF10B981)),
+              card(t(context, 'tags_count'), map['tags'] ?? 0, Icons.local_offer, const Color(0xFF84CC16)),
+              card(t(context, 'categories_count'), map['categories'] ?? 0, Icons.folder, const Color(0xFF06B6D4)),
             ],
           ),
           const SizedBox(height: 12),
           Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                '${t(context, 'api_docs')}${widget.api.baseUrl}/api/admin/docs',
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.code, color: Color(0xFF6366F1)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'API Documentation / 接口文档',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        SelectableText(
+                          '${widget.api.baseUrl}/api/admin/docs',
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            color: Color(0xFF475569),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

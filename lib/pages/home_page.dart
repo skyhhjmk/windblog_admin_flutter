@@ -176,6 +176,32 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
+  static const Map<int, Color> tabColors = {
+    0: Color(0xFFF43F5E), // Overview: Rose
+    1: Color(0xFFF97316), // Posts: Orange
+    2: Color(0xFFF59E0B), // Categories: Amber
+    3: Color(0xFF84CC16), // Tags: Lime
+    4: Color(0xFF10B981), // Store: Emerald
+    5: Color(0xFF06B6D4), // Media: Cyan
+    6: Color(0xFF3B82F6), // Storage Classes: Blue
+    7: Color(0xFF6366F1), // Sync Panel: Indigo
+    8: Color(0xFFEF4444), // Dead Letter: Red
+    9: Color(0xFF8B5CF6), // Image Processing: Violet
+    10: Color(0xFFD946EF), // Edge Monitor: Fuchsia
+    11: Color(0xFFEC4899), // Links: Pink
+    12: Color(0xFF059669), // Users: Green
+    13: Color(0xFF14B8A6), // Permissions: Teal
+    14: Color(0xFF6366F1), // AI Providers: Indigo
+    15: Color(0xFF2563EB), // Database: Blue
+    16: Color(0xFFF43F5E), // Comments: Rose
+    17: Color(0xFF06B6D4), // Queues: Cyan
+    18: Color(0xFFEF4444), // System Monitor: Red
+    19: Color(0xFFF97316), // System Logs: Orange
+    20: Color(0xFF8B5CF6), // System Settings: Violet
+    21: Color(0xFF10B981), // Edge Nodes: Emerald
+    22: Color(0xFFF59E0B), // Region Rules: Amber
+  };
+
   @override
   Widget build(BuildContext context) {
     bool isSuperAdmin = widget.user?.roleName == 'SUPER_ADMIN';
@@ -196,7 +222,7 @@ class _HomePageState extends State<HomePage> {
       body: Row(
         children: [
           _buildNavigationRail(context, isDesktop),
-          const VerticalDivider(width: 1),
+          const VerticalDivider(width: 1, color: Color(0xFF1E293B)),
           Expanded(
             child: Column(
               children: [
@@ -211,13 +237,29 @@ class _HomePageState extends State<HomePage> {
   }
 
   AppBar _buildAppBar(BuildContext context, String pageTitle, bool showMenu) {
+    final themeColor = tabColors[tab] ?? const Color(0xFF2563EB);
     return AppBar(
-      title: Text(pageTitle),
+      title: Text(
+        pageTitle,
+        style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(2),
+        child: Container(
+          color: themeColor,
+          height: 2,
+        ),
+      ),
       actions: [
         if (widget.user != null)
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: Center(child: Text(widget.user!.username)),
+            child: Chip(
+              label: Text(widget.user!.username),
+              backgroundColor: themeColor.withValues(alpha: 0.1),
+              side: BorderSide.none,
+              labelStyle: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
           ),
         IconButton(
           onPressed: widget.onLogout,
@@ -229,32 +271,80 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTopBar(BuildContext context, String pageTitle) {
+    final themeColor = tabColors[tab] ?? const Color(0xFF2563EB);
     return Container(
       height: 60,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border(bottom: BorderSide(color: themeColor.withValues(alpha: 0.15), width: 1.5)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          Text(
-            pageTitle,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: themeColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              pageTitle,
+              style: TextStyle(
+                color: themeColor,
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+                letterSpacing: 0.5,
+              ),
+            ),
           ),
           const Spacer(),
-          if (widget.user != null)
+          if (widget.user != null) ...[
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: themeColor, width: 2),
+              ),
+              child: CircleAvatar(
+                radius: 14,
+                backgroundColor: themeColor.withValues(alpha: 0.2),
+                child: Text(
+                  widget.user!.username.substring(0, min(2, widget.user!.username.length)).toUpperCase(),
+                  style: TextStyle(
+                    color: themeColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
             Text(
               widget.user!.username,
-              style: const TextStyle(color: Color(0xFF4B5563)),
+              style: const TextStyle(
+                color: Color(0xFF334155),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
-          const SizedBox(width: 8),
+          ],
+          const SizedBox(width: 16),
           OutlinedButton.icon(
             onPressed: widget.onLogout,
-            icon: const Icon(Icons.logout, size: 18),
+            icon: const Icon(Icons.logout, size: 16),
             label: Text(t(context, 'logout')),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              side: const BorderSide(color: Colors.redAccent, width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
           ),
         ],
       ),
@@ -266,10 +356,11 @@ class _HomePageState extends State<HomePage> {
     List<_AdminNavigationItem> items = _navigationItems;
     for (int index = 0; index < items.length; index++) {
       _AdminNavigationItem item = items[index];
+      final itemColor = tabColors[index] ?? const Color(0xFF2563EB);
       destinations.add(
         NavigationRailDestination(
-          icon: Icon(item.icon),
-          selectedIcon: Icon(item.selectedIcon),
+          icon: Icon(item.icon, color: const Color(0xFF94A3B8)),
+          selectedIcon: Icon(item.selectedIcon, color: itemColor),
           label: Text(_itemLabel(context, item)),
         ),
       );
@@ -283,12 +374,33 @@ class _HomePageState extends State<HomePage> {
           ),
           child: IntrinsicHeight(
             child: NavigationRail(
+              backgroundColor: const Color(0xFF0F172A), // Modern dark background
               extended: extended,
               minExtendedWidth: 188,
               selectedIndex: tab,
               onDestinationSelected: _selectTab,
+              useIndicator: true,
+              indicatorColor: (tabColors[tab] ?? const Color(0xFF2563EB)).withValues(alpha: 0.25),
+              selectedIconTheme: IconThemeData(
+                color: tabColors[tab] ?? const Color(0xFF2563EB),
+                size: 24,
+              ),
+              unselectedIconTheme: const IconThemeData(
+                color: Color(0xFF94A3B8),
+                size: 22,
+              ),
+              selectedLabelTextStyle: TextStyle(
+                color: tabColors[tab] ?? const Color(0xFF2563EB),
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+              unselectedLabelTextStyle: const TextStyle(
+                color: Color(0xFF94A3B8),
+                fontWeight: FontWeight.normal,
+                fontSize: 13,
+              ),
               leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 child: _buildBrand(extended),
               ),
               destinations: destinations,
@@ -302,6 +414,9 @@ class _HomePageState extends State<HomePage> {
   Widget _buildDrawer(BuildContext context) {
     List<Widget> children = [
       DrawerHeader(
+        decoration: const BoxDecoration(
+          color: Color(0xFF0F172A),
+        ),
         margin: EdgeInsets.zero,
         child: Align(alignment: Alignment.bottomLeft, child: _buildBrand(true)),
       ),
@@ -311,11 +426,22 @@ class _HomePageState extends State<HomePage> {
     for (int index = 0; index < items.length; index++) {
       _AdminNavigationItem item = items[index];
       bool selected = index == tab;
+      final itemColor = tabColors[index] ?? const Color(0xFF2563EB);
       children.add(
         ListTile(
           selected: selected,
-          leading: Icon(selected ? item.selectedIcon : item.icon),
-          title: Text(_itemLabel(context, item)),
+          selectedColor: itemColor,
+          selectedTileColor: itemColor.withValues(alpha: 0.08),
+          leading: Icon(
+            selected ? item.selectedIcon : item.icon,
+            color: selected ? itemColor : const Color(0xFF64748B),
+          ),
+          title: Text(
+            _itemLabel(context, item),
+            style: TextStyle(
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
           onTap: () {
             Navigator.pop(context);
             _selectTab(index);
@@ -330,6 +456,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBrand(bool showText) {
+    final themeColor = tabColors[tab] ?? const Color(0xFF2563EB);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
@@ -339,8 +466,19 @@ class _HomePageState extends State<HomePage> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF2563EB),
-              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                colors: [themeColor, themeColor.withValues(alpha: 0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: themeColor.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: const Icon(Icons.air, color: Colors.white, size: 20),
           ),
@@ -348,7 +486,12 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(width: 10),
             const Text(
               'WindBlog',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+                color: Colors.white,
+                letterSpacing: 0.5,
+              ),
             ),
           ],
         ],
@@ -357,11 +500,86 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildAnimatedPage(Widget page) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      child: KeyedSubtree(key: ValueKey<int>(tab), child: page),
+    final themeColor = tabColors[tab] ?? const Color(0xFF2563EB);
+
+    final pageTheme = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: themeColor,
+        primary: themeColor,
+        brightness: Brightness.light,
+      ),
+      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+      cardTheme: CardThemeData(
+        elevation: 3,
+        margin: EdgeInsets.zero,
+        color: Colors.white,
+        shadowColor: themeColor.withValues(alpha: 0.08),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: themeColor.withValues(alpha: 0.15),
+            width: 1.5,
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        isDense: false,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: themeColor.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: themeColor.withValues(alpha: 0.2)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: themeColor, width: 2),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: themeColor,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(40, 40),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 2,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: themeColor,
+          side: BorderSide(color: themeColor, width: 1.5),
+          minimumSize: const Size(40, 40),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingTextStyle: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: themeColor,
+        ),
+        headingRowColor: WidgetStateProperty.all(themeColor.withValues(alpha: 0.05)),
+      ),
+      dividerTheme: DividerThemeData(
+        color: themeColor.withValues(alpha: 0.15),
+        thickness: 1,
+      ),
+    );
+
+    return Theme(
+      data: pageTheme,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        child: KeyedSubtree(key: ValueKey<int>(tab), child: page),
+      ),
     );
   }
 

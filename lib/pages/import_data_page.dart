@@ -205,22 +205,26 @@ class _ImportDataPageState extends State<ImportDataPage> {
                         decoration: InputDecoration(
                             labelText: t(context, 'db_type')),
                       ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _urlController,
                         decoration: const InputDecoration(
                             labelText: 'JDBC URL'),
                       ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _usernameController,
                         decoration: InputDecoration(labelText: t(context,
                             'username')),
                       ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _passwordController,
                         decoration: InputDecoration(labelText: t(context,
                             'password')),
                         obscureText: true,
                       ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _assetPrefixController,
                         decoration: const InputDecoration(

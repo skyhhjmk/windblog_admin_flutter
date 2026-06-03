@@ -356,7 +356,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                     labelText: '${t(context, 'item_name')} *',
                     hintText: t(context, 'item_name_hint')),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: descCtrl,
                 decoration: InputDecoration(
@@ -365,7 +365,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                 minLines: 2,
                 maxLines: 4,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -387,7 +387,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -430,7 +430,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                   hintText: t(context, 'download_url_hint'),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: extractCodeCtrl,
                 decoration: InputDecoration(
@@ -438,7 +438,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                   prefixIcon: const Icon(Icons.vpn_key_outlined, size: 20),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: cdkCtrl,
                 decoration: InputDecoration(
@@ -448,7 +448,7 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
                 ),
                 maxLines: 3,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: noticeCtrl,
                 decoration: InputDecoration(

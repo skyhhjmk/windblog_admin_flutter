@@ -259,12 +259,12 @@ class _TagEditDialogState extends State<_TagEditDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             TextField(
               controller: nameCtrl,
               decoration: InputDecoration(labelText: t(context, 'name')),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             TextField(
               controller: descCtrl,
               decoration: InputDecoration(labelText: t(context, 'description')),
