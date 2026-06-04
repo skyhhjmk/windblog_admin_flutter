@@ -56,7 +56,12 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
 
   Future<void> _loadMedia() async {
     setState(() => loading = true);
-    try {
+    final String loadFailedMessage = _loadMediaFailedMessage(context);
+    await AdminRequestRunner.runVoid(
+      context: context,
+      mounted: mounted,
+      onAuthError: widget.onAuthError,
+      task: () async {
       bool failedOnly = false;
       bool unreferenced = false;
 
@@ -95,40 +100,47 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
           pageSize: pageSize,
         );
       }
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'load_media_failed')}$e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => loading = false);
+    },
+      errorMessageBuilder: (error) {
+        return '$loadFailedMessage$error';
+      },
+    );
+    if (mounted) {
+      setState(() => loading = false);
     }
   }
 
   Future<void> _retryImport(MediaItem item) async {
-    try {
+    final ScaffoldMessengerState scaffoldMessenger = ScaffoldMessenger.of(context);
+    final String retrySuccessMessage = _retrySuccessMessage(context);
+    final String retryFailedMessage = _retryFailedMessage(context);
+    await AdminRequestRunner.runVoid(
+      context: context,
+      mounted: mounted,
+      onAuthError: widget.onAuthError,
+      task: () async {
       await widget.api.retryMedia(item.id);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(t(context, 'retry_success'))));
-      }
-      await _loadMedia();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'retry_failed')}$e')),
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text(retrySuccessMessage)),
         );
       }
-    }
+      await _loadMedia();
+      },
+      errorMessageBuilder: (error) {
+        return '$retryFailedMessage$error';
+      },
+    );
   }
 
   Future<void> _batchRetry() async {
     setState(() => batchRetrying = true);
-    try {
+    final String batchRetryFailedMessage = _batchRetryFailedMessage(context);
+    await AdminRequestRunner.runVoid(
+      context: context,
+      mounted: mounted,
+      onAuthError: widget.onAuthError,
+      task: () async {
       int retriedCount = await widget.api.batchRetryMedia();
       await _loadMedia();
       if (mounted) {
@@ -148,33 +160,54 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
           ),
         );
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'batch_retry_failed')}$e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => batchRetrying = false);
+      },
+      errorMessageBuilder: (error) {
+        return '$batchRetryFailedMessage$error';
+      },
+    );
+    if (mounted) {
+      setState(() => batchRetrying = false);
     }
   }
 
   Future<void> _scanReferences() async {
     setState(() => scanning = true);
-    try {
+    final String rescanFailedMessage = _rescanFailedMessage(context);
+    await AdminRequestRunner.runVoid(
+      context: context,
+      mounted: mounted,
+      onAuthError: widget.onAuthError,
+      task: () async {
       scanResult = await widget.api.scanMedia();
       await _loadMedia();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'rescan_failed')}$e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => scanning = false);
+      },
+      errorMessageBuilder: (error) {
+        return '$rescanFailedMessage$error';
+      },
+    );
+    if (mounted) {
+      setState(() => scanning = false);
     }
+  }
+
+  String _loadMediaFailedMessage(BuildContext context) {
+    return t(context, 'load_media_failed');
+  }
+
+  String _retrySuccessMessage(BuildContext context) {
+    return t(context, 'retry_success');
+  }
+
+  String _retryFailedMessage(BuildContext context) {
+    return t(context, 'retry_failed');
+  }
+
+  String _batchRetryFailedMessage(BuildContext context) {
+    return t(context, 'batch_retry_failed');
+  }
+
+  String _rescanFailedMessage(BuildContext context) {
+    return t(context, 'rescan_failed');
   }
 
   Future<void> _uploadMedia() async {

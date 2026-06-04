@@ -148,10 +148,13 @@ class _AdminRootPageState extends State<AdminRootPage> {
   final api = AdminApiClient();
   AdminUser? user;
   bool _loading = true;
+  bool _showSessionExpiredLogin = false;
+  bool _showSessionExpiredNotice = false;
 
   @override
   void initState() {
     super.initState();
+    api.onSessionExpired = _handleSessionExpired;
     _loadSession();
   }
 
@@ -166,11 +169,23 @@ class _AdminRootPageState extends State<AdminRootPage> {
 
     if (token != null && token.isNotEmpty) {
       api.token = token;
+      VoidCallback? savedSessionExpiredHandler = api.onSessionExpired;
+      api.onSessionExpired = null;
       try {
         user = await api.me();
+      } on UnauthorizedException {
+        api.token = null;
+        await StorageService.clearSession();
+        if (mounted) {
+          setState(() {
+            _showSessionExpiredNotice = true;
+          });
+        }
       } catch (e) {
         api.token = null;
         await StorageService.clearSession();
+      } finally {
+        api.onSessionExpired = savedSessionExpiredHandler;
       }
     }
 
@@ -186,14 +201,34 @@ class _AdminRootPageState extends State<AdminRootPage> {
     api.token = token;
     user = await api.me();
     await StorageService.saveSession(baseUrl, token);
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {
+        _showSessionExpiredLogin = false;
+        _showSessionExpiredNotice = false;
+      });
+    }
   }
 
   void onLogout() async {
     api.token = null;
     user = null;
+    _showSessionExpiredLogin = false;
+    _showSessionExpiredNotice = false;
     await StorageService.clearSession();
     if (mounted) setState(() {});
+  }
+
+  void _handleSessionExpired() {
+    if (!mounted) {
+      return;
+    }
+
+    api.token = null;
+    user = null;
+    _showSessionExpiredLogin = true;
+    _showSessionExpiredNotice = true;
+    setState(() {});
+    unawaited(StorageService.clearSession());
   }
 
   @override
@@ -201,9 +236,37 @@ class _AdminRootPageState extends State<AdminRootPage> {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (api.token == null) {
-      return LoginPage(api: api, onLogin: onLogin);
+    if (api.token == null && !_showSessionExpiredLogin) {
+      return LoginPage(
+        api: api,
+        onLogin: onLogin,
+        showSessionExpiredNotice: _showSessionExpiredNotice,
+      );
     }
-    return HomePage(api: api, user: user, onLogout: onLogout);
+    if (_showSessionExpiredLogin) {
+      return Stack(
+        children: [
+          HomePage(
+            api: api,
+            user: user,
+            onLogout: onLogout,
+            onAuthError: _handleSessionExpired,
+          ),
+          Positioned.fill(
+            child: LoginPage(
+              api: api,
+              onLogin: onLogin,
+              showSessionExpiredNotice: true,
+            ),
+          ),
+        ],
+      );
+    }
+    return HomePage(
+      api: api,
+      user: user,
+      onLogout: onLogout,
+      onAuthError: _handleSessionExpired,
+    );
   }
 }

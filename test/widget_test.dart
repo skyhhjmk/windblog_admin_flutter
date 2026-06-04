@@ -30,6 +30,6 @@ void main() {
     );
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(LoginPage), findsOneWidget);
-    expect(find.textContaining('WindBlog'), findsOneWidget);
+    expect(find.text('WindBlog Admin Panel'), findsOneWidget);
   });
 }

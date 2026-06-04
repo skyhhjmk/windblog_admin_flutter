@@ -1,10 +1,16 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.api, required this.onLogin});
+  const LoginPage({
+    super.key,
+    required this.api,
+    required this.onLogin,
+    this.showSessionExpiredNotice = false,
+  });
 
   final AdminApiClient api;
   final Future<void> Function(String baseUrl, String token) onLogin;
+  final bool showSessionExpiredNotice;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -164,6 +170,44 @@ class _LoginPageState extends State<LoginPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                            if (widget.showSessionExpiredNotice) ...[
+                              const SizedBox(height: 14),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.info_outline,
+                                      size: 18,
+                                      color: Color(0xFFB45309),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        t(context, 'token_expired'),
+                                        style: const TextStyle(
+                                          color: Color(0xFF92400E),
+                                          fontSize: 13,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 32),
                             TextFormField(
                               controller: baseUrlCtrl,

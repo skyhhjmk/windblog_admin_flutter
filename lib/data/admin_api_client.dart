@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
@@ -9,6 +10,8 @@ import 'models.dart';
 class AdminApiClient {
   String baseUrl = 'http://localhost:8080';
   String? token;
+  VoidCallback? onSessionExpired;
+  bool _sessionExpiredNotified = false;
 
   String normalizeBaseUrl(String rawBaseUrl) {
     String normalizedBaseUrl = rawBaseUrl.trim();
@@ -53,6 +56,7 @@ class AdminApiClient {
     required String password,
   }) async {
     baseUrl = normalizeBaseUrl(baseUrl);
+    _sessionExpiredNotified = false;
     final res = await _post(
       '/api/admin/auth/login',
       body: {'account': account, 'password': password},
@@ -119,7 +123,8 @@ class AdminApiClient {
   Stream<String> testAiStream(int id,
       {required String prompt, String? systemPrompt, bool stream = true}) async* {
     if (token == null || token!.isEmpty) {
-      throw UnauthorizedException('Session expired');
+      _notifySessionExpired();
+      throw UnauthorizedException('登录已过期，请重新登录');
     }
     final uri = Uri.parse('$baseUrl/api/admin/ai/test/$id');
     final request = http.Request('POST', uri);
@@ -157,7 +162,8 @@ class AdminApiClient {
 
   Stream<Map<String, dynamic>> importStream() async* {
     if (token == null || token!.isEmpty) {
-      throw UnauthorizedException('Session expired');
+      _notifySessionExpired();
+      throw UnauthorizedException('登录已过期，请重新登录');
     }
     final uri = Uri.parse('$baseUrl/api/admin/import/stream');
     final request = http.Request('GET', uri);
@@ -1125,7 +1131,10 @@ class AdminApiClient {
       headers['Content-Type'] = 'application/json';
     }
     if (auth) {
-      if (token == null || token!.isEmpty) throw UnauthorizedException('Session expired');
+      if (token == null || token!.isEmpty) {
+        _notifySessionExpired();
+        throw UnauthorizedException('登录已过期，请重新登录');
+      }
       headers['Authorization'] = 'Bearer $token';
     }
     return headers;
@@ -1143,9 +1152,22 @@ class AdminApiClient {
 
     if ((res.statusCode == 401 || res.statusCode == 403) &&
         authFailureAsSessionExpired) {
-      throw UnauthorizedException('Session expired');
+      _notifySessionExpired();
+      throw UnauthorizedException('登录已过期，请重新登录');
     }
     throw Exception(message);
+  }
+
+  void _notifySessionExpired() {
+    if (_sessionExpiredNotified) {
+      return;
+    }
+
+    _sessionExpiredNotified = true;
+    token = null;
+    if (onSessionExpired != null) {
+      onSessionExpired!();
+    }
   }
 
   Map<String, dynamic> _map(Object? obj) {

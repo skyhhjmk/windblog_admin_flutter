@@ -6,11 +6,13 @@ class HomePage extends StatefulWidget {
     required this.api,
     required this.user,
     required this.onLogout,
+    required this.onAuthError,
   });
 
   final AdminApiClient api;
   final AdminUser? user;
   final VoidCallback onLogout;
+  final VoidCallback onAuthError;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -612,73 +614,73 @@ class _HomePageState extends State<HomePage> {
   Widget _pageForIndex(int index, bool isSuperAdmin) {
     switch (index) {
       case 0:
-        return OverviewPage(api: widget.api, onAuthError: widget.onLogout);
+        return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);
       case 1:
-        return PostsPage(api: widget.api, onAuthError: widget.onLogout);
+        return PostsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 2:
-        return CategoriesPage(api: widget.api, onAuthError: widget.onLogout);
+        return CategoriesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 3:
-        return TagsPage(api: widget.api, onAuthError: widget.onLogout);
+        return TagsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 4:
-        return StoreItemsPage(api: widget.api, onAuthError: widget.onLogout);
+        return StoreItemsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 5:
-        return MediaLibraryPage(api: widget.api, onAuthError: widget.onLogout);
+        return MediaLibraryPage(api: widget.api, onAuthError: widget.onAuthError);
       case 6:
         return StorageClassesPage(
           api: widget.api,
-          onAuthError: widget.onLogout,
+          onAuthError: widget.onAuthError,
         );
       case 7:
-        return StorageSyncPanel(api: widget.api, onAuthError: widget.onLogout);
+        return StorageSyncPanel(api: widget.api, onAuthError: widget.onAuthError);
       case 8:
-        return DeadLetterPage(api: widget.api, onAuthError: widget.onLogout);
+        return DeadLetterPage(api: widget.api, onAuthError: widget.onAuthError);
       case 9:
         return ImageProcessingConfigPage(
           api: widget.api,
-          onAuthError: widget.onLogout,
+          onAuthError: widget.onAuthError,
         );
       case 10:
-        return EdgeMonitorPage(api: widget.api, onAuthError: widget.onLogout);
+        return EdgeMonitorPage(api: widget.api, onAuthError: widget.onAuthError);
       case 11:
-        return LinksPage(api: widget.api, onAuthError: widget.onLogout);
+        return LinksPage(api: widget.api, onAuthError: widget.onAuthError);
       case 12:
         return UserManagementPage(
           api: widget.api,
-          onAuthError: widget.onLogout,
+          onAuthError: widget.onAuthError,
           isSuperAdmin: isSuperAdmin,
         );
       case 13:
         return PermissionManagementPage(
           api: widget.api,
           isSuperAdmin: isSuperAdmin,
-          onAuthError: widget.onLogout,
+          onAuthError: widget.onAuthError,
         );
       case 14:
-        return AiProvidersPage(api: widget.api, onAuthError: widget.onLogout);
+        return AiProvidersPage(api: widget.api, onAuthError: widget.onAuthError);
       case 15:
         return DatabaseManagementPage(
           api: widget.api,
-          onAuthError: widget.onLogout,
+          onAuthError: widget.onAuthError,
         );
       case 16:
-        return CommentsPage(api: widget.api, onAuthError: widget.onLogout);
+        return CommentsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 17:
-        return QueuesPage(api: widget.api, onAuthError: widget.onLogout);
+        return QueuesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 18:
-        return SystemMonitorPage(api: widget.api, onAuthError: widget.onLogout);
+        return SystemMonitorPage(api: widget.api, onAuthError: widget.onAuthError);
       case 19:
-        return AuditLogsPage(api: widget.api, onAuthError: widget.onLogout);
+        return AuditLogsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 20:
         return SystemSettingsPage(
           api: widget.api,
-          onAuthError: widget.onLogout,
+          onAuthError: widget.onAuthError,
         );
       case 21:
-        return EdgeNodesPage(api: widget.api, onAuthError: widget.onLogout);
+        return EdgeNodesPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return RegionManagementPage(
           api: widget.api,
-          onAuthError: widget.onLogout,
+          onAuthError: widget.onAuthError,
         );
     }
   }

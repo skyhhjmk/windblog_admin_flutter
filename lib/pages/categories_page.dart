@@ -26,18 +26,22 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
   Future<void> _loadCategories() async {
     setState(() => loading = true);
-    try {
-      categories = await widget.api.listCategories();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'load_failed')}$e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => loading = false);
+    // ignore: use_build_context_synchronously
+    final String loadFailedMessage = _loadFailedMessage(context);
+    await AdminRequestRunner.runVoid(
+      // ignore: use_build_context_synchronously
+      context: context,
+      mounted: mounted,
+      onAuthError: widget.onAuthError,
+      task: () async {
+        categories = await widget.api.listCategories();
+      },
+      errorMessageBuilder: (error) {
+        return '$loadFailedMessage$error';
+      },
+    );
+    if (mounted) {
+      setState(() => loading = false);
     }
   }
 
@@ -51,17 +55,21 @@ class _CategoriesPageState extends State<CategoriesPage> {
     );
     if (result == null) return;
 
-    try {
-      await widget.api.createCategory(result);
-      await _loadCategories();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${t(context, 'save_failed')}$e')),
-      );
-    }
+    // ignore: use_build_context_synchronously
+    final String saveFailedMessage = _saveFailedMessage(context);
+    await AdminRequestRunner.runVoid(
+      // ignore: use_build_context_synchronously
+      context: context,
+      mounted: mounted,
+      onAuthError: widget.onAuthError,
+      task: () async {
+        await widget.api.createCategory(result);
+        await _loadCategories();
+      },
+      errorMessageBuilder: (error) {
+        return '$saveFailedMessage$error';
+      },
+    );
   }
 
   Future<void> _editCategory(CategoryItem category) async {
@@ -75,17 +83,21 @@ class _CategoriesPageState extends State<CategoriesPage> {
     );
     if (result == null) return;
 
-    try {
-      await widget.api.updateCategory(category.id, result);
-      await _loadCategories();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${t(context, 'save_failed')}$e')),
-      );
-    }
+    // ignore: use_build_context_synchronously
+    final String saveFailedMessage = _saveFailedMessage(context);
+    await AdminRequestRunner.runVoid(
+      // ignore: use_build_context_synchronously
+      context: context,
+      mounted: mounted,
+      onAuthError: widget.onAuthError,
+      task: () async {
+        await widget.api.updateCategory(category.id, result);
+        await _loadCategories();
+      },
+      errorMessageBuilder: (error) {
+        return '$saveFailedMessage$error';
+      },
+    );
   }
 
   Future<void> _deleteCategory(CategoryItem category) async {
@@ -110,40 +122,72 @@ class _CategoriesPageState extends State<CategoriesPage> {
     );
     if (confirmed != true) return;
 
-    try {
-      await widget.api.deleteCategory(category.id);
-      await _loadCategories();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
-      );
-    }
+    // ignore: use_build_context_synchronously
+    final String deleteFailedMessage = _deleteFailedMessage(context);
+    await AdminRequestRunner.runVoid(
+      // ignore: use_build_context_synchronously
+      context: context,
+      mounted: mounted,
+      onAuthError: widget.onAuthError,
+      task: () async {
+        await widget.api.deleteCategory(category.id);
+        await _loadCategories();
+      },
+      errorMessageBuilder: (error) {
+        return '$deleteFailedMessage$error';
+      },
+    );
   }
 
   Future<void> _reScanCategories() async {
     setState(() => loading = true);
-    try {
-      await widget.api.reScanCategories();
-      await _loadCategories();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(t(context, 're_scan_success'))),
-        );
-      }
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 're_scan_failed')}$e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => loading = false);
+    // ignore: use_build_context_synchronously
+    final ScaffoldMessengerState scaffoldMessenger = ScaffoldMessenger.of(context);
+    // ignore: use_build_context_synchronously
+    final String successMessage = _reScanSuccessMessage(context);
+    // ignore: use_build_context_synchronously
+    final String errorMessage = _reScanFailedMessage(context);
+    await AdminRequestRunner.runVoid(
+      // ignore: use_build_context_synchronously
+      context: context,
+      mounted: mounted,
+      onAuthError: widget.onAuthError,
+      task: () async {
+        await widget.api.reScanCategories();
+        await _loadCategories();
+        if (mounted) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text(successMessage)),
+          );
+        }
+      },
+      errorMessageBuilder: (error) {
+        return '$errorMessage$error';
+      },
+    );
+    if (mounted) {
+      setState(() => loading = false);
     }
+  }
+
+  String _loadFailedMessage(BuildContext context) {
+    return t(context, 'load_failed');
+  }
+
+  String _saveFailedMessage(BuildContext context) {
+    return t(context, 'save_failed');
+  }
+
+  String _deleteFailedMessage(BuildContext context) {
+    return t(context, 'delete_failed');
+  }
+
+  String _reScanSuccessMessage(BuildContext context) {
+    return t(context, 're_scan_success');
+  }
+
+  String _reScanFailedMessage(BuildContext context) {
+    return t(context, 're_scan_failed');
   }
 
   List<CategoryItem> _buildTree(List<CategoryItem> flatList) {

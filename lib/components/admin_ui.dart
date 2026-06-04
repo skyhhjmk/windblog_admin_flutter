@@ -380,6 +380,46 @@ class AdminFeedback {
   }
 }
 
+class AdminRequestRunner {
+  const AdminRequestRunner._();
+
+  static Future<T?> run<T>({
+    required BuildContext context,
+    required bool mounted,
+    required VoidCallback onAuthError,
+    required Future<T> Function() task,
+    required String Function(Object error) errorMessageBuilder,
+  }) async {
+    try {
+      return await task();
+    } on UnauthorizedException {
+      onAuthError();
+      return null;
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.error(context, errorMessageBuilder(error));
+      }
+      return null;
+    }
+  }
+
+  static Future<void> runVoid({
+    required BuildContext context,
+    required bool mounted,
+    required VoidCallback onAuthError,
+    required Future<void> Function() task,
+    required String Function(Object error) errorMessageBuilder,
+  }) async {
+    await run<void>(
+      context: context,
+      mounted: mounted,
+      onAuthError: onAuthError,
+      task: task,
+      errorMessageBuilder: errorMessageBuilder,
+    );
+  }
+}
+
 class AdminConfirmDialog {
   const AdminConfirmDialog._();
 
