@@ -25,10 +25,21 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
   bool batchRetrying = false;
   int page = 1;
   static const int pageSize = 24;
+  bool hasLoadedInitialMedia = false;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (hasLoadedInitialMedia) {
+      return;
+    }
+
+    hasLoadedInitialMedia = true;
     _loadMedia();
   }
 

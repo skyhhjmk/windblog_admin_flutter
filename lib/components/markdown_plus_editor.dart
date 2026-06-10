@@ -1012,63 +1012,63 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
               if (mounted) _isPointerDown = false;
             }),
         onPointerCancel: (_) => _isPointerDown = false,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isPhone ? 12 : 20,
-            vertical: isPhone ? 12 : 18,
-          ),
-          child: AnimatedBuilder(
-            animation: widget.controller,
-            builder: (context, _) {
-              bool isEmpty = widget.controller.text.isEmpty;
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: IgnorePointer(
-                        child: Opacity(
-                          opacity: isEmpty ? 1.0 : 0.0,
-                          child: Text(
-                            '开始你的创作...',
-                            style: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontFamily: 'monospace',
-                              fontSize: isPhone ? 14 : 15,
-                              height: 1.6,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _checkImageTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isPhone ? 12 : 20,
+              vertical: isPhone ? 12 : 18,
+            ),
+            child: AnimatedBuilder(
+              animation: widget.controller,
+              builder: (context, _) {
+                bool isEmpty = widget.controller.text.isEmpty;
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: isEmpty ? 1.0 : 0.0,
+                            child: Text(
+                              '开始你的创作...',
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontFamily: 'monospace',
+                                fontSize: isPhone ? 14 : 15,
+                                height: 1.6,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned.fill(
-                    child: EditableText(
-                      controller: widget.controller,
-                      focusNode: _focusNode,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: isPhone ? 14 : 15,
-                        height: 1.6,
-                        color: Colors.black87,
+                    Positioned.fill(
+                      child: EditableText(
+                        controller: widget.controller,
+                        focusNode: _focusNode,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: isPhone ? 14 : 15,
+                          height: 1.6,
+                          color: Colors.black87,
+                        ),
+                        cursorColor: Theme.of(context).colorScheme.primary,
+                        backgroundCursorColor: Colors.grey,
+                        maxLines: null,
+                        expands: true,
+                        scrollController: _editorScrollController,
+                        keyboardType: TextInputType.multiline,
+                        onChanged: (_) => widget.onChanged?.call(),
+                        selectionControls: materialTextSelectionControls,
                       ),
-                      cursorColor: Theme
-                          .of(context)
-                          .colorScheme
-                          .primary,
-                      backgroundCursorColor: Colors.grey,
-                      maxLines: null,
-                      expands: true,
-                      scrollController: _editorScrollController,
-                      keyboardType: TextInputType.multiline,
-                      onChanged: (_) => widget.onChanged?.call(),
-                      selectionControls:
-                      materialTextSelectionControls,
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),

@@ -17,10 +17,21 @@ class CategoriesPage extends StatefulWidget {
 class _CategoriesPageState extends State<CategoriesPage> {
   List<CategoryItem> categories = [];
   bool loading = true;
+  bool hasLoadedInitialCategories = false;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (hasLoadedInitialCategories) {
+      return;
+    }
+
+    hasLoadedInitialCategories = true;
     _loadCategories();
   }
 

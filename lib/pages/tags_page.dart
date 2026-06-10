@@ -17,10 +17,21 @@ class TagsPage extends StatefulWidget {
 class _TagsPageState extends State<TagsPage> {
   List<TagItem> tags = [];
   bool loading = false;
+  bool hasLoadedInitialTags = false;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (hasLoadedInitialTags) {
+      return;
+    }
+
+    hasLoadedInitialTags = true;
     _loadTags();
   }
 
