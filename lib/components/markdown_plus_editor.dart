@@ -1005,38 +1005,70 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     final isPhone = AdminBreakpoints.isPhone(context);
     return Container(
       color: Colors.white,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: Listener(
-            onPointerDown: (_) => _isPointerDown = true,
-            onPointerUp: (_) =>
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  if (mounted) _isPointerDown = false;
-                }),
-            onPointerCancel: (_) => _isPointerDown = false,
-            child: TextField(
-              controller: widget.controller,
-              focusNode: _focusNode,
-              maxLines: null,
-              expands: true,
-              scrollController: _editorScrollController,
-              onTap: _checkImageTap,
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: isPhone ? 14 : 32,
-                  vertical: isPhone ? 16 : 24,
-                ),
-                hintText: '开始你的创作...',
-              ),
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: isPhone ? 14 : 15,
-                height: 1.6,
-              ),
-              onChanged: (_) => widget.onChanged?.call(),
-            ),
+      child: Listener(
+        onPointerDown: (_) => _isPointerDown = true,
+        onPointerUp: (_) =>
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (mounted) _isPointerDown = false;
+            }),
+        onPointerCancel: (_) => _isPointerDown = false,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isPhone ? 12 : 20,
+            vertical: isPhone ? 12 : 18,
+          ),
+          child: AnimatedBuilder(
+            animation: widget.controller,
+            builder: (context, _) {
+              bool isEmpty = widget.controller.text.isEmpty;
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: IgnorePointer(
+                        child: Opacity(
+                          opacity: isEmpty ? 1.0 : 0.0,
+                          child: Text(
+                            '开始你的创作...',
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontFamily: 'monospace',
+                              fontSize: isPhone ? 14 : 15,
+                              height: 1.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: EditableText(
+                      controller: widget.controller,
+                      focusNode: _focusNode,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: isPhone ? 14 : 15,
+                        height: 1.6,
+                        color: Colors.black87,
+                      ),
+                      cursorColor: Theme
+                          .of(context)
+                          .colorScheme
+                          .primary,
+                      backgroundCursorColor: Colors.grey,
+                      maxLines: null,
+                      expands: true,
+                      scrollController: _editorScrollController,
+                      keyboardType: TextInputType.multiline,
+                      onChanged: (_) => widget.onChanged?.call(),
+                      selectionControls:
+                      materialTextSelectionControls,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

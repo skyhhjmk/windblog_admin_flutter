@@ -1683,26 +1683,7 @@ class _PostEditorPageState extends State<PostEditorPage>
               horizontalPadding,
               bottomPadding,
             ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: _buildEditor(),
-                ),
-              ),
-            ),
+            child: _buildEditor(),
           ),
         ),
       ],
