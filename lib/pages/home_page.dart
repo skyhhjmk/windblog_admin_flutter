@@ -24,16 +24,19 @@ class _AdminNavigationItem {
     required this.fallbackLabel,
     required this.icon,
     required this.selectedIcon,
+    this.submenuParent,
   });
 
   final String? labelKey;
   final String fallbackLabel;
   final IconData icon;
   final IconData selectedIcon;
+  final String? submenuParent;
 }
 
 class _HomePageState extends State<HomePage> {
   int tab = 0;
+  bool systemMenuExpanded = true;
 
   List<_AdminNavigationItem> get _navigationItems {
     return const [
@@ -158,10 +161,18 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.history,
       ),
       _AdminNavigationItem(
-        labelKey: 'system_settings',
-        fallbackLabel: '系统设置',
-        icon: Icons.settings_outlined,
-        selectedIcon: Icons.settings,
+        labelKey: null,
+        fallbackLabel: '功能设置',
+        icon: Icons.tune_outlined,
+        selectedIcon: Icons.tune,
+        submenuParent: '系统设置',
+      ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: 'Elasticsearch',
+        icon: Icons.manage_search_outlined,
+        selectedIcon: Icons.manage_search,
+        submenuParent: '系统设置',
       ),
       _AdminNavigationItem(
         labelKey: null,
@@ -199,9 +210,10 @@ class _HomePageState extends State<HomePage> {
     17: Color(0xFF06B6D4), // Queues: Cyan
     18: Color(0xFFEF4444), // System Monitor: Red
     19: Color(0xFFF97316), // System Logs: Orange
-    20: Color(0xFF8B5CF6), // System Settings: Violet
-    21: Color(0xFF10B981), // Edge Nodes: Emerald
-    22: Color(0xFFF59E0B), // Region Rules: Amber
+    20: Color(0xFF8B5CF6), // Feature Settings: Violet
+    21: Color(0xFF0EA5E9), // Elasticsearch: Sky
+    22: Color(0xFF10B981), // Edge Nodes: Emerald
+    23: Color(0xFFF59E0B), // Region Rules: Amber
   };
 
   @override
@@ -247,10 +259,7 @@ class _HomePageState extends State<HomePage> {
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(2),
-        child: Container(
-          color: themeColor,
-          height: 2,
-        ),
+        child: Container(color: themeColor, height: 2),
       ),
       actions: [
         if (widget.user != null)
@@ -260,7 +269,11 @@ class _HomePageState extends State<HomePage> {
               label: Text(widget.user!.username),
               backgroundColor: themeColor.withValues(alpha: 0.1),
               side: BorderSide.none,
-              labelStyle: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12),
+              labelStyle: TextStyle(
+                color: themeColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
             ),
           ),
         IconButton(
@@ -285,7 +298,12 @@ class _HomePageState extends State<HomePage> {
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border(bottom: BorderSide(color: themeColor.withValues(alpha: 0.15), width: 1.5)),
+        border: Border(
+          bottom: BorderSide(
+            color: themeColor.withValues(alpha: 0.15),
+            width: 1.5,
+          ),
+        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
@@ -318,7 +336,9 @@ class _HomePageState extends State<HomePage> {
                 radius: 14,
                 backgroundColor: themeColor.withValues(alpha: 0.2),
                 child: Text(
-                  widget.user!.username.substring(0, min(2, widget.user!.username.length)).toUpperCase(),
+                  widget.user!.username
+                      .substring(0, min(2, widget.user!.username.length))
+                      .toUpperCase(),
                   style: TextStyle(
                     color: themeColor,
                     fontSize: 11,
@@ -345,7 +365,9 @@ class _HomePageState extends State<HomePage> {
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.redAccent,
               side: const BorderSide(color: Colors.redAccent, width: 1.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ],
@@ -354,58 +376,183 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildNavigationRail(BuildContext context, bool extended) {
-    List<NavigationRailDestination> destinations = [];
+    List<Widget> navigationChildren = [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: _buildBrand(extended),
+      ),
+    ];
     List<_AdminNavigationItem> items = _navigationItems;
     for (int index = 0; index < items.length; index++) {
       _AdminNavigationItem item = items[index];
-      final itemColor = tabColors[index] ?? const Color(0xFF2563EB);
-      destinations.add(
-        NavigationRailDestination(
-          icon: Icon(item.icon, color: const Color(0xFF94A3B8)),
-          selectedIcon: Icon(item.selectedIcon, color: itemColor),
-          label: Text(_itemLabel(context, item)),
+      if (item.submenuParent == null) {
+        navigationChildren.add(
+          _buildDesktopNavigationTile(context, index, item, extended, false),
+        );
+        continue;
+      }
+      if (index > 0 && items[index - 1].submenuParent == item.submenuParent) {
+        continue;
+      }
+      navigationChildren.add(_buildDesktopSubmenu(context, index, extended));
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      width: extended ? 210 : 72,
+      color: const Color(0xFF0F172A),
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          children: navigationChildren,
         ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopSubmenu(
+    BuildContext context,
+    int firstChildIndex,
+    bool extended,
+  ) {
+    List<_AdminNavigationItem> items = _navigationItems;
+    List<Widget> children = [];
+    for (int index = firstChildIndex; index < items.length; index++) {
+      _AdminNavigationItem item = items[index];
+      if (item.submenuParent != items[firstChildIndex].submenuParent) {
+        break;
+      }
+      children.add(
+        _buildDesktopNavigationTile(context, index, item, extended, true),
       );
     }
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: MediaQuery.sizeOf(context).height,
+    bool childSelected = false;
+    for (
+      int index = firstChildIndex;
+      index < firstChildIndex + children.length;
+      index++
+    ) {
+      if (tab == index) {
+        childSelected = true;
+      }
+    }
+    Color parentColor = childSelected
+        ? tabColors[tab] ?? const Color(0xFF8B5CF6)
+        : const Color(0xFF94A3B8);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Tooltip(
+          message: '系统设置',
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              setState(() {
+                systemMenuExpanded = !systemMenuExpanded;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              child: Row(
+                mainAxisAlignment: extended
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.settings_outlined, color: parentColor, size: 22),
+                  if (extended) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '系统设置',
+                        style: TextStyle(
+                          color: parentColor,
+                          fontWeight: childSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: systemMenuExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: parentColor,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-          child: IntrinsicHeight(
-            child: NavigationRail(
-              backgroundColor: const Color(0xFF0F172A), // Modern dark background
-              extended: extended,
-              minExtendedWidth: 188,
-              selectedIndex: tab,
-              onDestinationSelected: _selectTab,
-              useIndicator: true,
-              indicatorColor: (tabColors[tab] ?? const Color(0xFF2563EB)).withValues(alpha: 0.25),
-              selectedIconTheme: IconThemeData(
-                color: tabColors[tab] ?? const Color(0xFF2563EB),
-                size: 24,
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Column(children: children),
+          crossFadeState: systemMenuExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 180),
+          sizeCurve: Curves.easeOut,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopNavigationTile(
+    BuildContext context,
+    int index,
+    _AdminNavigationItem item,
+    bool extended,
+    bool isSubmenu,
+  ) {
+    bool selected = index == tab;
+    Color itemColor = tabColors[index] ?? const Color(0xFF2563EB);
+    Color contentColor = selected ? itemColor : const Color(0xFF94A3B8);
+    return Padding(
+      padding: EdgeInsets.only(left: extended && isSubmenu ? 14 : 0, bottom: 2),
+      child: Tooltip(
+        message: _itemLabel(context, item),
+        child: Material(
+          color: selected
+              ? itemColor.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => _selectTab(index),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              child: Row(
+                mainAxisAlignment: extended
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    selected ? item.selectedIcon : item.icon,
+                    color: contentColor,
+                    size: 22,
+                  ),
+                  if (extended) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _itemLabel(context, item),
+                        style: TextStyle(
+                          color: contentColor,
+                          fontWeight: selected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              unselectedIconTheme: const IconThemeData(
-                color: Color(0xFF94A3B8),
-                size: 22,
-              ),
-              selectedLabelTextStyle: TextStyle(
-                color: tabColors[tab] ?? const Color(0xFF2563EB),
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-              unselectedLabelTextStyle: const TextStyle(
-                color: Color(0xFF94A3B8),
-                fontWeight: FontWeight.normal,
-                fontSize: 13,
-              ),
-              leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: _buildBrand(extended),
-              ),
-              destinations: destinations,
             ),
           ),
         ),
@@ -416,9 +563,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildDrawer(BuildContext context) {
     List<Widget> children = [
       DrawerHeader(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0F172A),
-        ),
+        decoration: const BoxDecoration(color: Color(0xFF0F172A)),
         margin: EdgeInsets.zero,
         child: Align(alignment: Alignment.bottomLeft, child: _buildBrand(true)),
       ),
@@ -427,6 +572,13 @@ class _HomePageState extends State<HomePage> {
     List<_AdminNavigationItem> items = _navigationItems;
     for (int index = 0; index < items.length; index++) {
       _AdminNavigationItem item = items[index];
+      if (item.submenuParent != null) {
+        if (index > 0 && items[index - 1].submenuParent == item.submenuParent) {
+          continue;
+        }
+        children.add(_buildDrawerSubmenu(context, index));
+        continue;
+      }
       bool selected = index == tab;
       final itemColor = tabColors[index] ?? const Color(0xFF2563EB);
       children.add(
@@ -454,6 +606,51 @@ class _HomePageState extends State<HomePage> {
 
     return Drawer(
       child: SafeArea(child: ListView(children: children)),
+    );
+  }
+
+  Widget _buildDrawerSubmenu(BuildContext context, int firstChildIndex) {
+    List<_AdminNavigationItem> items = _navigationItems;
+    List<Widget> children = [];
+    bool childSelected = false;
+    for (int index = firstChildIndex; index < items.length; index++) {
+      _AdminNavigationItem item = items[index];
+      if (item.submenuParent != items[firstChildIndex].submenuParent) {
+        break;
+      }
+      bool selected = index == tab;
+      if (selected) {
+        childSelected = true;
+      }
+      Color itemColor = tabColors[index] ?? const Color(0xFF2563EB);
+      children.add(
+        ListTile(
+          selected: selected,
+          selectedColor: itemColor,
+          selectedTileColor: itemColor.withValues(alpha: 0.08),
+          leading: Icon(selected ? item.selectedIcon : item.icon),
+          title: Text(
+            _itemLabel(context, item),
+            style: TextStyle(
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          onTap: () {
+            Navigator.pop(context);
+            _selectTab(index);
+          },
+        ),
+      );
+    }
+    return ExpansionTile(
+      initiallyExpanded: systemMenuExpanded || childSelected,
+      leading: const Icon(Icons.settings_outlined),
+      title: const Text('系统设置'),
+      onExpansionChanged: (expanded) {
+        systemMenuExpanded = expanded;
+      },
+      childrenPadding: const EdgeInsets.only(left: 16),
+      children: children,
     );
   }
 
@@ -530,7 +727,10 @@ class _HomePageState extends State<HomePage> {
         filled: true,
         fillColor: Colors.white,
         isDense: false,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: themeColor.withValues(alpha: 0.3)),
@@ -549,7 +749,9 @@ class _HomePageState extends State<HomePage> {
           backgroundColor: themeColor,
           foregroundColor: Colors.white,
           minimumSize: const Size(40, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 2,
         ),
       ),
@@ -558,7 +760,9 @@ class _HomePageState extends State<HomePage> {
           foregroundColor: themeColor,
           side: BorderSide(color: themeColor, width: 1.5),
           minimumSize: const Size(40, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       dataTableTheme: DataTableThemeData(
@@ -566,7 +770,9 @@ class _HomePageState extends State<HomePage> {
           fontWeight: FontWeight.bold,
           color: themeColor,
         ),
-        headingRowColor: WidgetStateProperty.all(themeColor.withValues(alpha: 0.05)),
+        headingRowColor: WidgetStateProperty.all(
+          themeColor.withValues(alpha: 0.05),
+        ),
       ),
       dividerTheme: DividerThemeData(
         color: themeColor.withValues(alpha: 0.15),
@@ -624,14 +830,20 @@ class _HomePageState extends State<HomePage> {
       case 4:
         return StoreItemsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 5:
-        return MediaLibraryPage(api: widget.api, onAuthError: widget.onAuthError);
+        return MediaLibraryPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
       case 6:
         return StorageClassesPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
       case 7:
-        return StorageSyncPanel(api: widget.api, onAuthError: widget.onAuthError);
+        return StorageSyncPanel(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
       case 8:
         return DeadLetterPage(api: widget.api, onAuthError: widget.onAuthError);
       case 9:
@@ -640,7 +852,10 @@ class _HomePageState extends State<HomePage> {
           onAuthError: widget.onAuthError,
         );
       case 10:
-        return EdgeMonitorPage(api: widget.api, onAuthError: widget.onAuthError);
+        return EdgeMonitorPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
       case 11:
         return LinksPage(api: widget.api, onAuthError: widget.onAuthError);
       case 12:
@@ -656,7 +871,10 @@ class _HomePageState extends State<HomePage> {
           onAuthError: widget.onAuthError,
         );
       case 14:
-        return AiProvidersPage(api: widget.api, onAuthError: widget.onAuthError);
+        return AiProvidersPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
       case 15:
         return DatabaseManagementPage(
           api: widget.api,
@@ -667,7 +885,10 @@ class _HomePageState extends State<HomePage> {
       case 17:
         return QueuesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 18:
-        return SystemMonitorPage(api: widget.api, onAuthError: widget.onAuthError);
+        return SystemMonitorPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
       case 19:
         return AuditLogsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 20:
@@ -676,6 +897,11 @@ class _HomePageState extends State<HomePage> {
           onAuthError: widget.onAuthError,
         );
       case 21:
+        return ElasticsearchSettingsPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
+      case 22:
         return EdgeNodesPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return RegionManagementPage(

@@ -53,6 +53,7 @@ part 'pages/queues_page.dart';
 part 'pages/system_monitor_page.dart';
 
 part 'pages/system_settings_page.dart';
+part 'pages/elasticsearch_settings_page.dart';
 
 part 'pages/add_link_page.dart';
 
@@ -199,10 +200,11 @@ class _AdminRootPageState extends State<AdminRootPage> {
   Future<void> onLogin(String baseUrl, String token) async {
     api.baseUrl = baseUrl;
     api.token = token;
-    user = await api.me();
+    AdminUser authenticatedUser = await api.me();
     await StorageService.saveSession(baseUrl, token);
     if (mounted) {
       setState(() {
+        user = authenticatedUser;
         _showSessionExpiredLogin = false;
         _showSessionExpiredNotice = false;
       });
@@ -219,15 +221,15 @@ class _AdminRootPageState extends State<AdminRootPage> {
   }
 
   void _handleSessionExpired() {
-    if (!mounted) {
+    if (!mounted || _showSessionExpiredLogin) {
       return;
     }
 
     api.token = null;
-    user = null;
-    _showSessionExpiredLogin = true;
-    _showSessionExpiredNotice = true;
-    setState(() {});
+    setState(() {
+      _showSessionExpiredLogin = true;
+      _showSessionExpiredNotice = true;
+    });
     unawaited(StorageService.clearSession());
   }
 
@@ -243,30 +245,38 @@ class _AdminRootPageState extends State<AdminRootPage> {
         showSessionExpiredNotice: _showSessionExpiredNotice,
       );
     }
-    if (_showSessionExpiredLogin) {
-      return Stack(
-        children: [
-          HomePage(
-            api: api,
-            user: user,
-            onLogout: onLogout,
-            onAuthError: _handleSessionExpired,
-          ),
-          Positioned.fill(
-            child: LoginPage(
-              api: api,
-              onLogin: onLogin,
-              showSessionExpiredNotice: true,
-            ),
-          ),
-        ],
-      );
-    }
-    return HomePage(
-      api: api,
-      user: user,
-      onLogout: onLogout,
-      onAuthError: _handleSessionExpired,
+    return AdminAuthenticatedWorkspace(
+      showSessionExpiredLogin: _showSessionExpiredLogin,
+      workspace: HomePage(
+        api: api,
+        user: user,
+        onLogout: onLogout,
+        onAuthError: _handleSessionExpired,
+      ),
+      sessionExpiredLogin: SessionExpiredLoginDialog(
+        api: api,
+        onLogin: onLogin,
+      ),
+    );
+  }
+}
+
+class AdminAuthenticatedWorkspace extends StatelessWidget {
+  const AdminAuthenticatedWorkspace({
+    super.key,
+    required this.workspace,
+    required this.sessionExpiredLogin,
+    required this.showSessionExpiredLogin,
+  });
+
+  final Widget workspace;
+  final Widget sessionExpiredLogin;
+  final bool showSessionExpiredLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [workspace, if (showSessionExpiredLogin) sessionExpiredLogin],
     );
   }
 }

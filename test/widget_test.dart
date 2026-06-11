@@ -32,4 +32,121 @@ void main() {
     expect(find.byType(LoginPage), findsOneWidget);
     expect(find.text('WindBlog Admin Panel'), findsOneWidget);
   });
+
+  testWidgets('session expired login keeps authenticated workspace state', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_SessionWorkspaceHarnessState> harnessKey =
+        GlobalKey<_SessionWorkspaceHarnessState>();
+
+    await tester.pumpWidget(
+      MaterialApp(home: _SessionWorkspaceHarness(key: harnessKey)),
+    );
+
+    await tester.tap(find.text('Increase'));
+    await tester.pump();
+    expect(find.text('Count: 1'), findsOneWidget);
+
+    harnessKey.currentState!.showSessionExpiredLogin();
+    await tester.pump();
+    expect(find.text('Re-login'), findsOneWidget);
+    expect(find.text('Count: 1'), findsOneWidget);
+
+    harnessKey.currentState!.hideSessionExpiredLogin();
+    await tester.pump();
+    expect(find.text('Re-login'), findsNothing);
+    expect(find.text('Count: 1'), findsOneWidget);
+  });
+
+  testWidgets('structured form renders synonym rule cards', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SynonymRuleEditor(
+            initialValue: const <Map<String, dynamic>>[],
+            onChanged: (rules) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('新增规则卡片'));
+    await tester.pump();
+    expect(find.text('规则卡片 1'), findsOneWidget);
+    expect(find.text('等价组'), findsOneWidget);
+    expect(find.text('输入词条后按回车添加'), findsOneWidget);
+  });
+}
+
+class _SessionWorkspaceHarness extends StatefulWidget {
+  const _SessionWorkspaceHarness({super.key});
+
+  @override
+  State<_SessionWorkspaceHarness> createState() {
+    return _SessionWorkspaceHarnessState();
+  }
+}
+
+class _SessionWorkspaceHarnessState extends State<_SessionWorkspaceHarness> {
+  bool isSessionExpired = false;
+
+  void showSessionExpiredLogin() {
+    setState(() {
+      isSessionExpired = true;
+    });
+  }
+
+  void hideSessionExpiredLogin() {
+    setState(() {
+      isSessionExpired = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminAuthenticatedWorkspace(
+      showSessionExpiredLogin: isSessionExpired,
+      workspace: const _WorkspaceStateProbe(),
+      sessionExpiredLogin: const Positioned.fill(
+        child: ColoredBox(
+          color: Colors.black54,
+          child: Center(child: Text('Re-login')),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceStateProbe extends StatefulWidget {
+  const _WorkspaceStateProbe();
+
+  @override
+  State<_WorkspaceStateProbe> createState() {
+    return _WorkspaceStateProbeState();
+  }
+}
+
+class _WorkspaceStateProbeState extends State<_WorkspaceStateProbe> {
+  int count = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          Text('Count: $count'),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                count = count + 1;
+              });
+            },
+            child: const Text('Increase'),
+          ),
+        ],
+      ),
+    );
+  }
 }

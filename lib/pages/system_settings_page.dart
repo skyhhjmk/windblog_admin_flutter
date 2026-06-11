@@ -18,7 +18,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   bool _loading = true;
   String? _error;
   List<SystemSetting> _settings = [];
-  String? _selectedGroup = 'general';
+  String? _selectedGroup;
 
   @override
   void initState() {
@@ -32,12 +32,26 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       _error = null;
     });
     try {
-      final list = await widget.api.listSystemSettings();
+      final loadedSettings = await widget.api.listSystemSettings();
+      List<SystemSetting> list = [];
+      for (SystemSetting loadedSetting in loadedSettings) {
+        if (loadedSetting.configKey != 'elasticsearch') {
+          list.add(loadedSetting);
+        }
+      }
       if (mounted) {
         setState(() {
           _settings = list;
           if (_settings.isNotEmpty) {
-            _selectedGroup = _selectedGroup ?? _settings.first.groupName;
+            bool selectedGroupExists = false;
+            for (SystemSetting loadedSetting in _settings) {
+              if (loadedSetting.groupName == _selectedGroup) {
+                selectedGroupExists = true;
+              }
+            }
+            if (!selectedGroupExists) {
+              _selectedGroup = _settings.first.groupName;
+            }
           }
         });
       }
@@ -348,11 +362,6 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   }
 
   String _getGroupLabel(String g) {
-    final key = 'setting_group_$g';
-    final label = t(context, key);
-    if (label == key) {
-      return g.toUpperCase();
-    }
-    return label;
+    return g;
   }
 }

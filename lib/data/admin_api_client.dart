@@ -65,7 +65,9 @@ class AdminApiClient {
     );
     final map = _map(jsonDecode(res.body));
     final t = map['token'] as String?;
-    if (t == null || t.isEmpty) throw Exception('Missing token in login response');
+    if (t == null || t.isEmpty) {
+      throw Exception('Missing token in login response');
+    }
     token = t;
     return t;
   }
@@ -95,16 +97,20 @@ class AdminApiClient {
   }
 
   Future<AiProviderConfig> createAiProvider(
-      AiProviderConfigUpdateRequest request,) async {
+    AiProviderConfigUpdateRequest request,
+  ) async {
     final res = await _post('/api/admin/ai/providers', body: request.toJson());
     return AiProviderConfig.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<AiProviderConfig> updateAiProvider(int id,
+  Future<AiProviderConfig> updateAiProvider(
+    int id,
     AiProviderConfigUpdateRequest request,
   ) async {
     final res = await _put(
-        '/api/admin/ai/providers/$id', body: request.toJson());
+      '/api/admin/ai/providers/$id',
+      body: request.toJson(),
+    );
     return AiProviderConfig.fromMap(_map(jsonDecode(res.body)));
   }
 
@@ -113,15 +119,22 @@ class AdminApiClient {
   }
 
   Future<List<String>> fetchAiModels(
-      AiProviderConfigUpdateRequest request) async {
+    AiProviderConfigUpdateRequest request,
+  ) async {
     final res = await _post(
-        '/api/admin/ai/providers/fetch-models', body: request.toJson());
+      '/api/admin/ai/providers/fetch-models',
+      body: request.toJson(),
+    );
     final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
     return list.map((e) => e.toString()).toList();
   }
 
-  Stream<String> testAiStream(int id,
-      {required String prompt, String? systemPrompt, bool stream = true}) async* {
+  Stream<String> testAiStream(
+    int id, {
+    required String prompt,
+    String? systemPrompt,
+    bool stream = true,
+  }) async* {
     if (token == null || token!.isEmpty) {
       _notifySessionExpired();
       throw UnauthorizedException('登录已过期，请重新登录');
@@ -142,10 +155,10 @@ class AdminApiClient {
         final body = await response.stream.bytesToString();
         throw Exception('测试失败: $body');
       }
-      await for (final line in response.stream
-          .transform(utf8.decoder)
-          .transform(
-          const LineSplitter())) {
+      await for (final line
+          in response.stream
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
         final trimmed = line.trim();
         if (trimmed.isEmpty || trimmed.startsWith(':')) continue;
 
@@ -177,9 +190,10 @@ class AdminApiClient {
         final body = await response.stream.bytesToString();
         throw Exception('连接导入流失败: $body');
       }
-      await for (final line in response.stream
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())) {
+      await for (final line
+          in response.stream
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
         final trimmed = line.trim();
         if (trimmed.isEmpty || trimmed.startsWith(':')) continue;
 
@@ -240,8 +254,10 @@ class AdminApiClient {
       _post('/api/admin/posts/$id/publish', body: const {});
 
   Future<void> publishPostRevision(int postId, int revisionNumber) async =>
-      _post('/api/admin/posts/$postId/revisions/$revisionNumber/publish',
-          body: const {});
+      _post(
+        '/api/admin/posts/$postId/revisions/$revisionNumber/publish',
+        body: const {},
+      );
 
   Future<void> deletePost(int id) async => _delete('/api/admin/posts/$id');
 
@@ -256,15 +272,19 @@ class AdminApiClient {
 
   Future<PostDetail> getPostRevision(int postId, int revisionNumber) async {
     final res = await _get(
-        '/api/admin/posts/$postId/revisions/$revisionNumber');
+      '/api/admin/posts/$postId/revisions/$revisionNumber',
+    );
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<PostDetail> activatePostRevision(int postId,
-      int revisionNumber) async {
+  Future<PostDetail> activatePostRevision(
+    int postId,
+    int revisionNumber,
+  ) async {
     final res = await _post(
-        '/api/admin/posts/$postId/revisions/$revisionNumber/activate',
-        body: const {});
+      '/api/admin/posts/$postId/revisions/$revisionNumber/activate',
+      body: const {},
+    );
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
   }
 
@@ -274,12 +294,15 @@ class AdminApiClient {
     bool unreferenced = false,
     bool failedOnly = false,
   }) async {
-    final res = await _get('/api/admin/media', query: {
-      'page': '$page',
-      'pageSize': '$pageSize',
-      'unreferenced': unreferenced ? 'true' : 'false',
-      'failedOnly': failedOnly ? 'true' : 'false',
-    });
+    final res = await _get(
+      '/api/admin/media',
+      query: {
+        'page': '$page',
+        'pageSize': '$pageSize',
+        'unreferenced': unreferenced ? 'true' : 'false',
+        'failedOnly': failedOnly ? 'true' : 'false',
+      },
+    );
     final map = _normalizeMediaListMap(_map(jsonDecode(res.body)));
     return MediaListResult.fromMap(map);
   }
@@ -287,7 +310,8 @@ class AdminApiClient {
   Future<MediaItem> findMedia(String url) async {
     final res = await _get('/api/admin/media/find', query: {'url': url});
     return MediaItem.fromMap(
-        _normalizeMediaItemMap(_map(jsonDecode(res.body))));
+      _normalizeMediaItemMap(_map(jsonDecode(res.body))),
+    );
   }
 
   Future<MediaScanResult> scanMedia() async {
@@ -298,7 +322,8 @@ class AdminApiClient {
   Future<MediaItem> retryMedia(int id) async {
     final res = await _post('/api/admin/media/$id/retry', body: {});
     return MediaItem.fromMap(
-        _normalizeMediaItemMap(_map(jsonDecode(res.body))));
+      _normalizeMediaItemMap(_map(jsonDecode(res.body))),
+    );
   }
 
   Future<int> batchRetryMedia() async {
@@ -310,7 +335,8 @@ class AdminApiClient {
   Future<MediaItem> getMediaItem(int id) async {
     final res = await _get('/api/admin/media/$id');
     return MediaItem.fromMap(
-        _normalizeMediaItemMap(_map(jsonDecode(res.body))));
+      _normalizeMediaItemMap(_map(jsonDecode(res.body))),
+    );
   }
 
   Future<MediaItem> uploadMedia({
@@ -327,17 +353,20 @@ class AdminApiClient {
     final contentType = parts.length == 2
         ? MediaType(parts[0], parts[1])
         : MediaType('application', 'octet-stream');
-    request.files.add(http.MultipartFile.fromBytes(
-      'file',
-      bytes,
-      filename: fileName,
-      contentType: contentType,
-    ));
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+        contentType: contentType,
+      ),
+    );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     _check(response, authFailureAsSessionExpired: true);
     return MediaItem.fromMap(
-        _normalizeMediaItemMap(_map(jsonDecode(response.body))));
+      _normalizeMediaItemMap(_map(jsonDecode(response.body))),
+    );
   }
 
   Future<PageResult<UserListItem>> listUsers({
@@ -345,11 +374,14 @@ class AdminApiClient {
     int pageSize = 20,
     String? keyword,
   }) async {
-    final res = await _get('/api/admin/users', query: {
-      'page': '$page',
-      'pageSize': '$pageSize',
-      if ((keyword?.isNotEmpty ?? false)) 'keyword': keyword!,
-    });
+    final res = await _get(
+      '/api/admin/users',
+      query: {
+        'page': '$page',
+        'pageSize': '$pageSize',
+        if ((keyword?.isNotEmpty ?? false)) 'keyword': keyword!,
+      },
+    );
     final map = _map(jsonDecode(res.body));
     return PageResult.fromMap(map, (item) => UserListItem.fromMap(item));
   }
@@ -357,9 +389,9 @@ class AdminApiClient {
   Future<UserListItem> updateUser(
     int id, {
     String? email,
-        String? avatar,
-        String? nickname,
-        String? phone,
+    String? avatar,
+    String? nickname,
+    String? phone,
     int? status,
     String? roleName,
   }) async {
@@ -387,30 +419,28 @@ class AdminApiClient {
     required int pageSize,
   }) async {
     final res = await _get(
-        '/api/admin/users/$userId/wallet/transactions', query: {
-      'page': '$page',
-      'pageSize': '$pageSize',
-    });
+      '/api/admin/users/$userId/wallet/transactions',
+      query: {'page': '$page', 'pageSize': '$pageSize'},
+    );
     return WalletTransactionHistory.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<WalletInfo> adjustUserWallet(int userId, {
+  Future<WalletInfo> adjustUserWallet(
+    int userId, {
     required int newBalance,
     String? description,
   }) async {
-    final res = await _post('/api/admin/users/$userId/wallet/adjust', body: {
-      'newBalance': newBalance,
-      'description': description ?? '管理员手动调整',
-    });
+    final res = await _post(
+      '/api/admin/users/$userId/wallet/adjust',
+      body: {'newBalance': newBalance, 'description': description ?? '管理员手动调整'},
+    );
     return WalletInfo.fromMap(_map(jsonDecode(res.body)));
   }
 
   Future<List<PermissionRoleItem>> listRoles() async {
     final res = await _get('/api/admin/permissions/roles');
     final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
-    return list
-        .map((e) => PermissionRoleItem.fromMap(_map(e)))
-        .toList();
+    return list.map((e) => PermissionRoleItem.fromMap(_map(e))).toList();
   }
 
   Future<PermissionRoleItem> createRole(PermissionRoleRequest request) async {
@@ -447,8 +477,10 @@ class AdminApiClient {
     return CategoryItem.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<CategoryItem> updateCategory(int id,
-      CategoryUpdateRequest request) async {
+  Future<CategoryItem> updateCategory(
+    int id,
+    CategoryUpdateRequest request,
+  ) async {
     final res = await _put('/api/admin/categories/$id', body: request.toJson());
     return CategoryItem.fromMap(_map(jsonDecode(res.body)));
   }
@@ -494,7 +526,8 @@ class AdminApiClient {
   }
 
   Future<Map<String, dynamic>> testImportConnection(
-      Map<String, dynamic> body) async {
+    Map<String, dynamic> body,
+  ) async {
     final res = await _post('/api/admin/import/test-connection', body: body);
     return _map(jsonDecode(res.body));
   }
@@ -512,10 +545,7 @@ class AdminApiClient {
     String? status,
     String? keyword,
   }) async {
-    final query = <String, String>{
-      'page': '$page',
-      'pageSize': '$pageSize',
-    };
+    final query = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
     if (status != null && status.isNotEmpty) query['status'] = status;
     if (keyword != null && keyword.isNotEmpty) query['keyword'] = keyword;
     final res = await _get('/api/admin/comments', query: query);
@@ -545,20 +575,28 @@ class AdminApiClient {
 
   Future<QueueInfo> getQueueInfo(String queueName) async {
     final res = await _get(
-        '/api/admin/queues/${Uri.encodeComponent(queueName)}');
+      '/api/admin/queues/${Uri.encodeComponent(queueName)}',
+    );
     final map = _map(jsonDecode(res.body));
     return QueueInfo.fromMap(_map(map['data']));
   }
 
-  Future<void> publishTestMessage(String queueName,
-      {int? postId, int? commentId, int? priority, String? content}) async {
+  Future<void> publishTestMessage(
+    String queueName, {
+    int? postId,
+    int? commentId,
+    int? priority,
+    String? content,
+  }) async {
     final body = <String, dynamic>{};
     if (postId != null) body['postId'] = postId;
     if (commentId != null) body['commentId'] = commentId;
     if (priority != null) body['priority'] = priority;
     if (content != null) body['content'] = content;
-    await _post('/api/admin/queues/${Uri.encodeComponent(queueName)}/publish',
-        body: body);
+    await _post(
+      '/api/admin/queues/${Uri.encodeComponent(queueName)}/publish',
+      body: body,
+    );
   }
 
   // ==================== 系统监控 API ====================
@@ -569,9 +607,10 @@ class AdminApiClient {
   }
 
   Future<String> decryptError(String trackingText) async {
-    final res = await _post('/api/admin/system/decrypt-error', body: {
-      'trackingText': trackingText,
-    });
+    final res = await _post(
+      '/api/admin/system/decrypt-error',
+      body: {'trackingText': trackingText},
+    );
     final map = _map(jsonDecode(res.body));
     return map['decrypted']?.toString() ?? '解密失败';
   }
@@ -599,21 +638,22 @@ class AdminApiClient {
   // ==================== 系统设置 API ====================
 
   Future<List<SystemSetting>> listSystemSettings({String? group}) async {
-    final query = {
-      if (group != null && group.isNotEmpty) 'group': group,
-    };
+    final query = {if (group != null && group.isNotEmpty) 'group': group};
     final res = await _get('/api/admin/settings', query: query);
     final map = _map(jsonDecode(res.body));
     final list = (map['data'] as List<dynamic>? ?? []);
     return list.map((e) => SystemSetting.fromMap(_map(e))).toList();
   }
 
-  Future<SystemSetting> updateSystemSetting(String key, dynamic value,
-      {String? reason}) async {
-    final res = await _put('/api/admin/settings/$key', body: {
-      'configValue': value,
-      'reason': reason,
-    });
+  Future<SystemSetting> updateSystemSetting(
+    String key,
+    dynamic value, {
+    String? reason,
+  }) async {
+    final res = await _put(
+      '/api/admin/settings/$key',
+      body: {'configValue': value, 'reason': reason},
+    );
     final map = _map(jsonDecode(res.body));
     return SystemSetting.fromMap(_map(map['data']));
   }
@@ -627,7 +667,8 @@ class AdminApiClient {
   }
 
   Future<List<SystemSettingHistory>> listSystemSettingHistory(
-      String key) async {
+    String key,
+  ) async {
     final res = await _get('/api/admin/settings/$key/history');
     final map = _map(jsonDecode(res.body));
     final list = (map['data'] as List<dynamic>? ?? []);
@@ -641,10 +682,57 @@ class AdminApiClient {
   }
 
   Future<void> applyAuditSettingValue(String key, dynamic value) async {
-    await _post('/api/admin/settings/apply-audit-value', body: {
-      'key': key,
-      'value': value,
-    });
+    await _post(
+      '/api/admin/settings/apply-audit-value',
+      body: {'key': key, 'value': value},
+    );
+  }
+
+  Future<Map<String, dynamic>> getElasticsearchStatus() async {
+    final response = await _get('/api/admin/elasticsearch/status');
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<Map<String, dynamic>> testElasticsearchConnection() async {
+    final response = await _post(
+      '/api/admin/elasticsearch/test-connection',
+      body: const {},
+    );
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<Map<String, dynamic>> applyElasticsearchIndexConfiguration() async {
+    final response = await _post(
+      '/api/admin/elasticsearch/apply-index-configuration',
+      body: const {},
+    );
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<Map<String, dynamic>> rebuildElasticsearchIndex() async {
+    final response = await _post(
+      '/api/admin/elasticsearch/rebuild',
+      body: const {},
+    );
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<Map<String, dynamic>> syncElasticsearchIndex() async {
+    final response = await _post(
+      '/api/admin/elasticsearch/posts/reindex-all',
+      body: const {},
+    );
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<List<String>> analyzeElasticsearchText(String text) async {
+    final response = await _post(
+      '/api/admin/elasticsearch/analyze',
+      body: {'text': text},
+    );
+    Map<String, dynamic> responseBody = _map(jsonDecode(response.body));
+    List<dynamic> rawTokens = responseBody['tokens'] as List<dynamic>? ?? [];
+    return rawTokens.map((token) => token.toString()).toList();
   }
 
   Future<PostListResult> listPostsByCategory({
@@ -689,7 +777,7 @@ class AdminApiClient {
     final res = await _get('/api/admin/store', query: queryParams);
     return PageResult<StoreItem>.fromMap(
       _map(jsonDecode(res.body)),
-          (m) => StoreItem.fromMap(m),
+      (m) => StoreItem.fromMap(m),
     );
   }
 
@@ -736,7 +824,9 @@ class AdminApiClient {
   Future<AdminLinkItem?> findArticleLink(String url) async {
     try {
       final res = await _get(
-          '/api/admin/links/article-link', query: {'url': url});
+        '/api/admin/links/article-link',
+        query: {'url': url},
+      );
       return AdminLinkItem.fromMap(_map(jsonDecode(res.body)));
     } catch (error) {
       if (error is UnauthorizedException) {
@@ -785,18 +875,24 @@ class AdminApiClient {
     List<String>? syncStorageClasses,
     List<String>? skipStorageClasses,
   }) async {
-    final res = await _patch('/api/admin/media/$id', body: {
-      // ignore: use_null_aware_elements
-      if (visibilityRegions != null) 'visibilityRegions': visibilityRegions,
-      // ignore: use_null_aware_elements
-      if (hiddenRegions != null) 'hiddenRegions': hiddenRegions,
-      // ignore: use_null_aware_elements
-      if (syncStorageClasses != null) 'syncStorageClasses': syncStorageClasses,
-      // ignore: use_null_aware_elements
-      if (skipStorageClasses != null) 'skipStorageClasses': skipStorageClasses,
-    });
+    final res = await _patch(
+      '/api/admin/media/$id',
+      body: {
+        // ignore: use_null_aware_elements
+        if (visibilityRegions != null) 'visibilityRegions': visibilityRegions,
+        // ignore: use_null_aware_elements
+        if (hiddenRegions != null) 'hiddenRegions': hiddenRegions,
+        // ignore: use_null_aware_elements
+        if (syncStorageClasses != null)
+          'syncStorageClasses': syncStorageClasses,
+        // ignore: use_null_aware_elements
+        if (skipStorageClasses != null)
+          'skipStorageClasses': skipStorageClasses,
+      },
+    );
     return MediaItem.fromMap(
-        _normalizeMediaItemMap(_map(jsonDecode(res.body))));
+      _normalizeMediaItemMap(_map(jsonDecode(res.body))),
+    );
   }
 
   // ==================== Storage Management API ====================
@@ -813,17 +909,22 @@ class AdminApiClient {
     return items;
   }
 
-  Future<StorageClassItem> createStorageClass(
-      StorageClassItem request) async {
+  Future<StorageClassItem> createStorageClass(StorageClassItem request) async {
     final res = await _post(
-        '/api/admin/storage/classes', body: request.toCreateJson());
+      '/api/admin/storage/classes',
+      body: request.toCreateJson(),
+    );
     return StorageClassItem.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<StorageClassItem> updateStorageClass(int id,
-      StorageClassItem request) async {
+  Future<StorageClassItem> updateStorageClass(
+    int id,
+    StorageClassItem request,
+  ) async {
     final res = await _put(
-        '/api/admin/storage/classes/$id', body: request.toUpdateJson());
+      '/api/admin/storage/classes/$id',
+      body: request.toUpdateJson(),
+    );
     return StorageClassItem.fromMap(_map(jsonDecode(res.body)));
   }
 
@@ -832,17 +933,18 @@ class AdminApiClient {
   }
 
   Future<StorageTestResult> testStorageClass(String name) async {
-    final res = await _post(
-        '/api/admin/storage/classes/test/$name', body: {});
+    final res = await _post('/api/admin/storage/classes/test/$name', body: {});
     return StorageTestResult.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<StorageSyncStatus> getStorageSyncStatus(
-      {int page = 0, int size = 20}) async {
-    final res = await _get('/api/admin/storage/sync/status', query: {
-      'page': page.toString(),
-      'size': size.toString(),
-    });
+  Future<StorageSyncStatus> getStorageSyncStatus({
+    int page = 0,
+    int size = 20,
+  }) async {
+    final res = await _get(
+      '/api/admin/storage/sync/status',
+      query: {'page': page.toString(), 'size': size.toString()},
+    );
     return StorageSyncStatus.fromMap(_map(jsonDecode(res.body)));
   }
 
@@ -874,16 +976,19 @@ class AdminApiClient {
   }
 
   Future<ImageProcessingConfigItem> updateImageProcessingConfig(
-      ImageProcessingConfigItem request) async {
+    ImageProcessingConfigItem request,
+  ) async {
     final res = await _put(
-        '/api/admin/storage/image-processing/configs',
-        body: request.toJson());
+      '/api/admin/storage/image-processing/configs',
+      body: request.toJson(),
+    );
     return ImageProcessingConfigItem.fromMap(_map(jsonDecode(res.body)));
   }
 
   Future<List<ImageProcessingMetadata>> getImageProcessingMetadata() async {
     final res = await _get(
-        '/api/admin/storage/image-processing/configs/metadata');
+      '/api/admin/storage/image-processing/configs/metadata',
+    );
     final rawList = (jsonDecode(res.body) as List<dynamic>? ?? []);
     return rawList
         .map((e) => ImageProcessingMetadata.fromMap(_map(e)))
@@ -901,10 +1006,10 @@ class AdminApiClient {
     int page = 1,
     int pageSize = 20,
   }) async {
-    final res = await _get('/api/admin/storage/dead-letter', query: {
-      'page': '$page',
-      'pageSize': '$pageSize',
-    });
+    final res = await _get(
+      '/api/admin/storage/dead-letter',
+      query: {'page': '$page', 'pageSize': '$pageSize'},
+    );
     final map = _map(jsonDecode(res.body));
     final rawList = (map['items'] as List<dynamic>? ?? []);
     final List<DeadLetterMessageItem> items = [];
@@ -929,20 +1034,25 @@ class AdminApiClient {
   }
 
   Future<EdgeNode> createEdgeNode(EdgeNode node, {String? nodeIp}) async {
-    final res = await _post('/api/admin/edge-nodes', body: {
-      'nodeId': node.nodeId,
-      'nodeName': node.name,
-      'region': node.region.code,
-      'connectionType': node.connectionType.name,
-      'edgeGrpcPort': node.edgeGrpcPort,
-      if (nodeIp != null && nodeIp.isNotEmpty) 'nodeIp': nodeIp,
-    });
+    final res = await _post(
+      '/api/admin/edge-nodes',
+      body: {
+        'nodeId': node.nodeId,
+        'nodeName': node.name,
+        'region': node.region.code,
+        'connectionType': node.connectionType.name,
+        'edgeGrpcPort': node.edgeGrpcPort,
+        if (nodeIp != null && nodeIp.isNotEmpty) 'nodeIp': nodeIp,
+      },
+    );
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
   Future<EdgeNode> updateEdgeNode(String nodeId, EdgeNode node) async {
     final res = await _put(
-        '/api/admin/edge-nodes/$nodeId', body: node.toJson());
+      '/api/admin/edge-nodes/$nodeId',
+      body: node.toJson(),
+    );
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
@@ -952,7 +1062,9 @@ class AdminApiClient {
 
   Future<void> toggleEdgeNode(String nodeId, bool enabled) async {
     await _put(
-        '/api/admin/edge-nodes/$nodeId/toggle', query: {'enabled': '$enabled'});
+      '/api/admin/edge-nodes/$nodeId/toggle',
+      query: {'enabled': '$enabled'},
+    );
   }
 
   Future<EdgeNode> getEdgeNode(String nodeId) async {
@@ -960,10 +1072,12 @@ class AdminApiClient {
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
-
   Future<void> triggerEdgeNodeSync(String nodeId, {bool force = false}) async {
-    await _post('/api/admin/edge-nodes/$nodeId/sync', body: {},
-        query: {'force': force.toString()});
+    await _post(
+      '/api/admin/edge-nodes/$nodeId/sync',
+      body: {},
+      query: {'force': force.toString()},
+    );
   }
 
   Future<EdgeSyncStatus?> getEdgeNodeSyncStatus(String nodeId) async {
@@ -980,9 +1094,9 @@ class AdminApiClient {
   }
 
   Future<EdgeNodeAvailabilityHistory> getEdgeNodeAvailabilityHistory(
-      String nodeId, {
-        int days = 30,
-      }) async {
+    String nodeId, {
+    int days = 30,
+  }) async {
     final res = await _get(
       '/api/admin/edge-nodes/$nodeId/availability-history?days=$days',
     );
@@ -993,24 +1107,29 @@ class AdminApiClient {
 
   Future<EdgeNode> issueEdgeNodeCertificate(String nodeId) async {
     final res = await _post(
-        '/api/admin/edge-nodes/$nodeId/issue-certificate', body: {});
+      '/api/admin/edge-nodes/$nodeId/issue-certificate',
+      body: {},
+    );
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
   Future<Uint8List> downloadDeploymentZip(String nodeId) async {
     final uri = Uri.parse(
-        '$baseUrl/api/admin/edge-nodes/$nodeId/deployment-zip');
+      '$baseUrl/api/admin/edge-nodes/$nodeId/deployment-zip',
+    );
     final res = await http.get(uri, headers: _headers(true));
     _check(res, authFailureAsSessionExpired: true);
     return res.bodyBytes;
   }
 
-  Future<Uint8List> downloadDeploymentZipWithProgress(String nodeId, {
+  Future<Uint8List> downloadDeploymentZipWithProgress(
+    String nodeId, {
     void Function(double progress)? onProgress,
     void Function(String status)? onStatus,
   }) async {
     final uri = Uri.parse(
-        '$baseUrl/api/admin/edge-nodes/$nodeId/deployment-zip');
+      '$baseUrl/api/admin/edge-nodes/$nodeId/deployment-zip',
+    );
     final request = http.Request('GET', uri);
     request.headers.addAll(_headers(true));
 
@@ -1057,7 +1176,9 @@ class AdminApiClient {
 
   Future<void> revokeEdgeNodeCertificate(String nodeId) async {
     await _put(
-        '/api/admin/edge-nodes/$nodeId', body: {'certificateRevoked': true});
+      '/api/admin/edge-nodes/$nodeId',
+      body: {'certificateRevoked': true},
+    );
   }
 
   Future<void> deleteDeadLetterMessage(int id) async {
@@ -1076,7 +1197,7 @@ class AdminApiClient {
   Future<http.Response> _post(
     String path, {
     required Map<String, dynamic> body,
-        Map<String, String>? query,
+    Map<String, String>? query,
     bool auth = true,
     bool authFailureAsSessionExpired = true,
   }) async {
@@ -1092,8 +1213,8 @@ class AdminApiClient {
 
   Future<http.Response> _put(
     String path, {
-        Map<String, dynamic> body = const {},
-        Map<String, String>? query,
+    Map<String, dynamic> body = const {},
+    Map<String, String>? query,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.put(
@@ -1105,7 +1226,8 @@ class AdminApiClient {
     return res;
   }
 
-  Future<http.Response> _patch(String path, {
+  Future<http.Response> _patch(
+    String path, {
     Map<String, dynamic> body = const {},
   }) async {
     final uri = Uri.parse('$baseUrl$path');
@@ -1190,17 +1312,17 @@ class AdminApiClient {
   Map<String, dynamic> _normalizeMediaItemMap(Map<String, dynamic> map) {
     final normalized = Map<String, dynamic>.from(map);
     normalized['url'] = normalizeUrl(normalized['url']?.toString());
-    normalized['thumbnailUrl'] =
-        normalizeUrl(normalized['thumbnailUrl']?.toString());
-    normalized['previewUrl'] =
-        normalizeUrl(normalized['previewUrl']?.toString());
+    normalized['thumbnailUrl'] = normalizeUrl(
+      normalized['thumbnailUrl']?.toString(),
+    );
+    normalized['previewUrl'] = normalizeUrl(
+      normalized['previewUrl']?.toString(),
+    );
     return normalized;
   }
 
   String normalizeUrl(String? rawUrl) {
-    if (rawUrl == null || rawUrl
-        .trim()
-        .isEmpty) {
+    if (rawUrl == null || rawUrl.trim().isEmpty) {
       return '';
     }
     final trimmed = rawUrl.trim();

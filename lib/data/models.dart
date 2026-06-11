@@ -16,7 +16,7 @@ enum BlogRegion {
 
   static BlogRegion fromCode(String code) {
     return values.firstWhere(
-          (r) => r.code == code,
+      (r) => r.code == code,
       orElse: () => BlogRegion.global,
     );
   }
@@ -83,17 +83,16 @@ class PostItem {
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
 
-  String get statusText =>
-      status == 0 ? 'Draft' : (status == 1 ? 'Published' : (status == 2
-          ? 'Archived'
-          : 'Unknown'));
+  String get statusText => status == 0
+      ? 'Draft'
+      : (status == 1 ? 'Published' : (status == 2 ? 'Archived' : 'Unknown'));
   String get renderTypeText => postRenderTypeText(renderType);
 
-  String get visibilityText =>
-      visibility == 0 ? 'Public' : (visibility == 1 ? 'Private' : (visibility ==
-          2
-          ? 'Protected'
-          : 'Unknown'));
+  String get visibilityText => visibility == 0
+      ? 'Public'
+      : (visibility == 1
+            ? 'Private'
+            : (visibility == 2 ? 'Protected' : 'Unknown'));
 
   factory PostItem.fromMap(Map<String, dynamic> map) {
     return PostItem(
@@ -187,11 +186,10 @@ class PostDetail {
 
   String get zhContent =>
       contentMarkdown['zh-cn'] ??
-          (contentMarkdown.isEmpty ? '' : contentMarkdown.values.first);
+      (contentMarkdown.isEmpty ? '' : contentMarkdown.values.first);
 
   String get zhAiSummary =>
       aiSummary['zh-cn'] ?? (aiSummary.isEmpty ? '' : aiSummary.values.first);
-
 
   factory PostDetail.fromMap(Map<String, dynamic> map) {
     return PostDetail(
@@ -319,7 +317,8 @@ class PostEditRequest {
       'aiSummary': aiSummary,
       'contentMarkdown': contentMarkdown,
       if (contentBlocks != null) 'contentBlocks': _blocksToJson(contentBlocks!),
-      if (tutorialLevelDefs != null) 'tutorialLevelDefs': tutorialLevelDefs!.map((e) => e.toJson()).toList(),
+      if (tutorialLevelDefs != null)
+        'tutorialLevelDefs': tutorialLevelDefs!.map((e) => e.toJson()).toList(),
       'status': status,
       'visibility': visibility,
       if (password != null) 'password': password,
@@ -342,7 +341,8 @@ class PostEditRequest {
       'aiSummary': aiSummary,
       'contentMarkdown': contentMarkdown,
       if (contentBlocks != null) 'contentBlocks': _blocksToJson(contentBlocks!),
-      if (tutorialLevelDefs != null) 'tutorialLevelDefs': tutorialLevelDefs!.map((e) => e.toJson()).toList(),
+      if (tutorialLevelDefs != null)
+        'tutorialLevelDefs': tutorialLevelDefs!.map((e) => e.toJson()).toList(),
       'status': status,
       'visibility': visibility,
       if (password != null) 'password': password,
@@ -410,12 +410,7 @@ String postRenderTypeText(int renderType) {
 }
 
 class TutorialBlock {
-  TutorialBlock({
-    required this.type,
-    this.level,
-    this.data,
-    this.children,
-  });
+  TutorialBlock({required this.type, this.level, this.data, this.children});
 
   final String type;
   final int? level;
@@ -427,9 +422,9 @@ class TutorialBlock {
       type: map['type']?.toString() ?? 'p',
       level: toInt(map['level']),
       data: map['data'] as Map<String, dynamic>?,
-      children: (asDynamicList(map['children']))
-          ?.map((e) => TutorialBlock.fromMap(e as Map<String, dynamic>))
-          .toList(),
+      children: (asDynamicList(
+        map['children'],
+      ))?.map((e) => TutorialBlock.fromMap(e as Map<String, dynamic>)).toList(),
     );
   }
 
@@ -438,17 +433,14 @@ class TutorialBlock {
       'type': type,
       if (level != null) 'level': level,
       if (data != null) 'data': data,
-      if (children != null) 'children': children!.map((e) => e.toJson()).toList(),
+      if (children != null)
+        'children': children!.map((e) => e.toJson()).toList(),
     };
   }
 }
 
 class TutorialLevelDef {
-  TutorialLevelDef({
-    required this.level,
-    required this.name,
-    this.color,
-  });
+  TutorialLevelDef({required this.level, required this.name, this.color});
 
   final int level;
   final String name;
@@ -463,18 +455,18 @@ class TutorialLevelDef {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'level': level,
-      'name': name,
-      if (color != null) 'color': color,
-    };
+    return {'level': level, 'name': name, if (color != null) 'color': color};
   }
 }
 
 Map<String, List<TutorialBlock>>? _parseContentBlocks(dynamic value) {
   if (value is Map<String, dynamic>) {
     return value.map((k, v) {
-      final list = asDynamicList(v)?.map((e) => TutorialBlock.fromMap(e as Map<String, dynamic>)).toList() ?? [];
+      final list =
+          asDynamicList(v)
+              ?.map((e) => TutorialBlock.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          [];
       return MapEntry(k, list);
     });
   }
@@ -482,7 +474,9 @@ Map<String, List<TutorialBlock>>? _parseContentBlocks(dynamic value) {
 }
 
 List<TutorialLevelDef>? _parseTutorialLevelDefs(dynamic value) {
-  return asDynamicList(value)?.map((e) => TutorialLevelDef.fromMap(e as Map<String, dynamic>)).toList();
+  return asDynamicList(
+    value,
+  )?.map((e) => TutorialLevelDef.fromMap(e as Map<String, dynamic>)).toList();
 }
 
 Map<String, dynamic> _blocksToJson(Map<String, List<TutorialBlock>> blocks) {
@@ -566,9 +560,9 @@ class AiProviderConfig {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-          other is AiProviderConfig &&
-              runtimeType == other.runtimeType &&
-              id == other.id;
+      other is AiProviderConfig &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;
@@ -634,9 +628,10 @@ class PageResult<T> {
     Map<String, dynamic> map,
     T Function(Map<String, dynamic>) converter,
   ) {
-    final list = asDynamicList(map['items'])
-            ?.map((e) => converter(toStringMap(e)))
-            .toList() ??
+    final list =
+        asDynamicList(
+          map['items'],
+        )?.map((e) => converter(toStringMap(e))).toList() ??
         [];
     return PageResult(
       items: list,
@@ -697,12 +692,13 @@ class UserListItem {
         }
       }
     }
-    
+
     return UserListItem(
       id: toInt(map['id']) ?? 0,
       username: map['username']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
-      avatar: map['avatar']?.toString() ?? 'https://ui-avatars.com/api/?name=User',
+      avatar:
+          map['avatar']?.toString() ?? 'https://ui-avatars.com/api/?name=User',
       nickname: map['nickname']?.toString(),
       phone: map['phone']?.toString(),
       roleName: map['roleName']?.toString() ?? '',
@@ -758,7 +754,11 @@ class PermissionRoleItem {
       description: map['description']?.toString() ?? '',
       canUpload: toBool(map['canUpload']) ?? false,
       allowedMimeTypes:
-          raw?.map((e) => e?.toString() ?? '').where((value) => value.isNotEmpty).toList() ?? [],
+          raw
+              ?.map((e) => e?.toString() ?? '')
+              .where((value) => value.isNotEmpty)
+              .toList() ??
+          [],
       maxSingleUploadBytes: toInt(map['maxSingleUploadBytes']),
       maxTotalUploadBytes: toInt(map['maxTotalUploadBytes']),
       createdAt: parseDate(map['createdAt']),
@@ -804,8 +804,10 @@ class PermissionRoleRequest {
       'description': description,
       'canUpload': canUpload,
       'allowedMimeTypes': allowedMimeTypes,
-      if (maxSingleUploadBytes != null) 'maxSingleUploadBytes': maxSingleUploadBytes,
-      if (maxTotalUploadBytes != null) 'maxTotalUploadBytes': maxTotalUploadBytes,
+      if (maxSingleUploadBytes != null)
+        'maxSingleUploadBytes': maxSingleUploadBytes,
+      if (maxTotalUploadBytes != null)
+        'maxTotalUploadBytes': maxTotalUploadBytes,
     };
   }
 }
@@ -900,9 +902,10 @@ class MediaItem {
   bool get isVideo => mimeType.toLowerCase().startsWith('video/');
 
   factory MediaItem.fromMap(Map<String, dynamic> map) {
-    final refList = asDynamicList(map['references'])
-            ?.map((e) => MediaReference.fromMap(toStringMap(e)))
-            .toList() ??
+    final refList =
+        asDynamicList(
+          map['references'],
+        )?.map((e) => MediaReference.fromMap(toStringMap(e))).toList() ??
         [];
     return MediaItem(
       processingStatus: map['processingStatus']?.toString(),
@@ -932,8 +935,9 @@ class MediaItem {
       storageClasses: map['storageClasses'] is Map
           ? Map<String, dynamic>.from(map['storageClasses'] as Map)
           : {},
-      metadata: map['metadata'] is Map ? Map<String, dynamic>.from(
-          map['metadata']) : {},
+      metadata: map['metadata'] is Map
+          ? Map<String, dynamic>.from(map['metadata'])
+          : {},
     );
   }
 }
@@ -1018,8 +1022,9 @@ class CategoryItem {
 
   String get zhDescription =>
       description?['zh-cn'] ??
-          (description == null || description!.isEmpty ? '' : description!
-              .values.first);
+      (description == null || description!.isEmpty
+          ? ''
+          : description!.values.first);
 
   String get displayName => zhName.isEmpty ? slug : zhName;
 
@@ -1053,10 +1058,7 @@ class CategoryCreateRequest {
   final Map<String, String>? description;
 
   Map<String, dynamic> toJson() {
-    final payload = <String, dynamic>{
-      'slug': slug,
-      'name': name,
-    };
+    final payload = <String, dynamic>{'slug': slug, 'name': name};
     if (parentId != null) {
       payload['parentId'] = parentId;
     }
@@ -1081,10 +1083,7 @@ class CategoryUpdateRequest {
   final Map<String, String>? description;
 
   Map<String, dynamic> toJson() {
-    final payload = <String, dynamic>{
-      'slug': slug,
-      'name': name,
-    };
+    final payload = <String, dynamic>{'slug': slug, 'name': name};
     if (parentId != null) {
       payload['parentId'] = parentId;
     }
@@ -1116,8 +1115,9 @@ class TagItem {
 
   String get zhDescription =>
       description?['zh-cn'] ??
-          (description == null || description!.isEmpty ? '' : description!
-              .values.first);
+      (description == null || description!.isEmpty
+          ? ''
+          : description!.values.first);
 
   String get displayName => zhName.isEmpty ? slug : zhName;
 
@@ -1136,21 +1136,14 @@ class TagItem {
 }
 
 class TagCreateRequest {
-  TagCreateRequest({
-    required this.slug,
-    required this.name,
-    this.description,
-  });
+  TagCreateRequest({required this.slug, required this.name, this.description});
 
   final String slug;
   final Map<String, String> name;
   final Map<String, String>? description;
 
   Map<String, dynamic> toJson() {
-    final payload = <String, dynamic>{
-      'slug': slug,
-      'name': name,
-    };
+    final payload = <String, dynamic>{'slug': slug, 'name': name};
     if (description != null) {
       payload['description'] = description;
     }
@@ -1159,21 +1152,14 @@ class TagCreateRequest {
 }
 
 class TagUpdateRequest {
-  TagUpdateRequest({
-    required this.slug,
-    required this.name,
-    this.description,
-  });
+  TagUpdateRequest({required this.slug, required this.name, this.description});
 
   final String slug;
   final Map<String, String> name;
   final Map<String, String>? description;
 
   Map<String, dynamic> toJson() {
-    final payload = <String, dynamic>{
-      'slug': slug,
-      'name': name,
-    };
+    final payload = <String, dynamic>{'slug': slug, 'name': name};
     if (description != null) {
       payload['description'] = description;
     }
@@ -1267,8 +1253,10 @@ class SystemSetting {
       configType: map['configType']?.toString() ?? 'string',
       groupName: map['groupName']?.toString() ?? 'general',
       uiSchema: UISchema.fromMap(
-          map['uiSchema'] is Map ? Map<String, dynamic>.from(
-              map['uiSchema'] as Map) : {}),
+        map['uiSchema'] is Map
+            ? Map<String, dynamic>.from(map['uiSchema'] as Map)
+            : {},
+      ),
       description: map['description']?.toString(),
       version: toInt(map['version']) ?? 1,
       isFrozen: toBool(map['isFrozen']) ?? false,
@@ -1279,10 +1267,7 @@ class SystemSetting {
 }
 
 class UISchema {
-  UISchema({
-    required this.type,
-    required this.fields,
-  });
+  UISchema({required this.type, required this.fields});
 
   final String type;
   final List<UISchemaField> fields;
@@ -1291,8 +1276,9 @@ class UISchema {
     return UISchema(
       type: map['type']?.toString() ?? 'object',
       fields: (asDynamicList(map['fields']) ?? [])
-          .map((e) =>
-          UISchemaField.fromMap(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => UISchemaField.fromMap(Map<String, dynamic>.from(e as Map)),
+          )
           .toList(),
     );
   }
@@ -1306,6 +1292,8 @@ class UISchemaField {
     this.required = false,
     this.options,
     this.validation,
+    this.section,
+    this.hint,
   });
 
   final String key;
@@ -1314,6 +1302,8 @@ class UISchemaField {
   final bool required;
   final List<Map<String, dynamic>>? options;
   final Map<String, dynamic>? validation;
+  final String? section;
+  final String? hint;
 
   factory UISchemaField.fromMap(Map<String, dynamic> map) {
     return UISchemaField(
@@ -1321,11 +1311,14 @@ class UISchemaField {
       label: map['label']?.toString() ?? '',
       widget: map['widget']?.toString() ?? 'input',
       required: toBool(map['required']) ?? false,
-      options: (asDynamicList(map['options']))
-          ?.map((e) => Map<String, dynamic>.from(e as Map))
-          .toList(),
-      validation: map['validation'] is Map ? Map<String, dynamic>.from(
-          map['validation'] as Map) : null,
+      options: (asDynamicList(
+        map['options'],
+      ))?.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+      validation: map['validation'] is Map
+          ? Map<String, dynamic>.from(map['validation'] as Map)
+          : null,
+      section: map['section']?.toString(),
+      hint: map['hint']?.toString(),
     );
   }
 }
@@ -1364,7 +1357,6 @@ class SystemSettingHistory {
     );
   }
 }
-
 
 int? toInt(Object? value) {
   if (value == null) {
@@ -1559,8 +1551,9 @@ class WalletTransactionHistory {
   factory WalletTransactionHistory.fromMap(Map<String, dynamic> map) {
     final list = (map['items'] as List<dynamic>?) ?? [];
     return WalletTransactionHistory(
-      items: list.map((e) =>
-          WalletTransactionItem.fromMap(e as Map<String, dynamic>)).toList(),
+      items: list
+          .map((e) => WalletTransactionItem.fromMap(e as Map<String, dynamic>))
+          .toList(),
       total: toInt(map['total']) ?? 0,
       page: toInt(map['page']) ?? 1,
       pageSize: toInt(map['pageSize']) ?? list.length,
@@ -1887,10 +1880,7 @@ class ApplicationInfo {
 }
 
 class HealthInfo {
-  HealthInfo({
-    required this.status,
-    required this.components,
-  });
+  HealthInfo({required this.status, required this.components});
 
   final String status;
   final Map<String, HealthComponent> components;
@@ -1917,10 +1907,7 @@ class HealthInfo {
 }
 
 class HealthComponent {
-  HealthComponent({
-    required this.status,
-    this.details,
-  });
+  HealthComponent({required this.status, this.details});
 
   final String status;
   final Map<String, dynamic>? details;
@@ -1980,8 +1967,9 @@ class AuditLogItem {
       action: map['action']?.toString() ?? '',
       oldValue: map['oldValue'],
       newValue: map['newValue'],
-      extInfo: (map['extInfo'] is Map) ? Map<String, dynamic>.from(
-          map['extInfo'] as Map) : null,
+      extInfo: (map['extInfo'] is Map)
+          ? Map<String, dynamic>.from(map['extInfo'] as Map)
+          : null,
       performedById: toInt(map['performedById']),
       performedByUsername: map['performedByUsername']?.toString(),
       requestId: map['requestId']?.toString(),
@@ -1989,13 +1977,13 @@ class AuditLogItem {
       requestPath: map['requestPath']?.toString(),
       clientIp: map['clientIp']?.toString(),
       userAgent: map['userAgent']?.toString(),
-      createdAt: map['createdAt'] != null ? DateTime.tryParse(
-          map['createdAt'].toString()) : null,
+      createdAt: map['createdAt'] != null
+          ? DateTime.tryParse(map['createdAt'].toString())
+          : null,
       createdAtFormatted: map['createdAtFormatted']?.toString(),
     );
   }
 }
-
 
 class PaginatedAuditLogResult {
   PaginatedAuditLogResult({
@@ -2012,9 +2000,10 @@ class PaginatedAuditLogResult {
 
   factory PaginatedAuditLogResult.fromMap(Map<String, dynamic> map) {
     return PaginatedAuditLogResult(
-      items: (map['items'] as List?)
-          ?.map((e) => AuditLogItem.fromMap(e as Map<String, dynamic>))
-          .toList() ??
+      items:
+          (map['items'] as List?)
+              ?.map((e) => AuditLogItem.fromMap(e as Map<String, dynamic>))
+              .toList() ??
           [],
       total: toInt(map['total']) ?? 0,
       page: toInt(map['page']) ?? 1,
@@ -2058,10 +2047,12 @@ class StoreItem {
       type: map['type']?.toString(),
       extraInfo: map['extraInfo'],
       status: toInt(map['status']) ?? 1,
-      createdAt: map['createdAt'] != null ? DateTime.tryParse(
-          map['createdAt'].toString()) : null,
-      updatedAt: map['updatedAt'] != null ? DateTime.tryParse(
-          map['updatedAt'].toString()) : null,
+      createdAt: map['createdAt'] != null
+          ? DateTime.tryParse(map['createdAt'].toString())
+          : null,
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.tryParse(map['updatedAt'].toString())
+          : null,
     );
   }
 }
@@ -2156,10 +2147,7 @@ class LinkCreateRequest {
   final int? type;
 
   Map<String, dynamic> toJson() {
-    final payload = <String, dynamic>{
-      'name': name,
-      'url': url,
-    };
+    final payload = <String, dynamic>{'name': name, 'url': url};
     if (description != null) payload['description'] = description;
     if (image != null) payload['image'] = image;
     if (icon != null) payload['icon'] = icon;
@@ -2472,10 +2460,7 @@ class MediaSyncDetail {
 }
 
 class StorageTestResult {
-  StorageTestResult({
-    required this.success,
-    required this.message,
-  });
+  StorageTestResult({required this.success, required this.message});
 
   final bool success;
   final String message;
@@ -2598,10 +2583,7 @@ class ImageProcessingMetadata {
   }
 }
 
-enum EdgeConnectionType {
-  heartbeat,
-  activePoll,
-}
+enum EdgeConnectionType { heartbeat, activePoll }
 
 class EdgeNode {
   final String nodeId;
@@ -2653,15 +2635,18 @@ class EdgeNode {
       name: json['name']?.toString() ?? '',
       externalUrl: json['externalUrl']?.toString(),
       apiUrl: json['apiUrl']?.toString(),
-      grpcAddress: json['grpcAddress']?.toString() ??
-          json['address']?.toString(),
+      grpcAddress:
+          json['grpcAddress']?.toString() ?? json['address']?.toString(),
       // ignore: deprecated_member_use_from_same_package
       address: json['address']?.toString(),
       region: BlogRegion.fromCode(json['region']?.toString() ?? 'global'),
       connectionType: _parseConnectionType(json['connectionType']),
       lastHeartbeat: parseDate(json['lastHeartbeat']),
-      metrics: (json['metrics'] as Map?)?.map((k, v) =>
-          MapEntry(k.toString(), v.toString())) ?? {},
+      metrics:
+          (json['metrics'] as Map?)?.map(
+            (k, v) => MapEntry(k.toString(), v.toString()),
+          ) ??
+          {},
       status: json['status']?.toString() ?? 'OFFLINE',
       isEnabled: json['isEnabled'] == true || json['enabled'] == true,
       certificateSerial: json['certificateSerial']?.toString(),
@@ -2670,8 +2655,9 @@ class EdgeNode {
       certificateBackupSerial: json['certificateBackupSerial']?.toString(),
       certificateBackupExpiry: parseDate(json['certificateBackupExpiry']),
       isTrusted: json['isTrusted'] == true,
-      edgeGrpcPort: json['edgeGrpcPort'] != null ? int.tryParse(
-          json['edgeGrpcPort'].toString()) : null,
+      edgeGrpcPort: json['edgeGrpcPort'] != null
+          ? int.tryParse(json['edgeGrpcPort'].toString())
+          : null,
     );
   }
 
@@ -2813,9 +2799,10 @@ class EdgeNodeDataStatus {
       readOnlyMessage: map['readOnlyMessage']?.toString() ?? '',
       channelConnectedAt: parseDate(map['channelConnectedAt']),
       lastHeartbeat: parseDate(map['lastHeartbeat']),
-      metrics: (map['metrics'] as Map?)?.map(
+      metrics:
+          (map['metrics'] as Map?)?.map(
             (key, value) => MapEntry(key.toString(), value.toString()),
-      ) ??
+          ) ??
           {},
       availability: parsedAvailability,
       syncProgress: parsedSyncProgress,
@@ -2912,9 +2899,11 @@ class EdgeNodeAvailabilityHistory {
     for (int index = 0; index < rawSamples.length; index++) {
       final rawSample = rawSamples[index];
       if (rawSample is Map) {
-        parsedSamples.add(EdgeNodeAvailabilitySamplePoint.fromMap(
-          rawSample.map((key, value) => MapEntry(key.toString(), value)),
-        ));
+        parsedSamples.add(
+          EdgeNodeAvailabilitySamplePoint.fromMap(
+            rawSample.map((key, value) => MapEntry(key.toString(), value)),
+          ),
+        );
       }
     }
 
@@ -2923,9 +2912,11 @@ class EdgeNodeAvailabilityHistory {
     for (int index = 0; index < rawOnlinePeriods.length; index++) {
       final rawPeriod = rawOnlinePeriods[index];
       if (rawPeriod is Map) {
-        parsedOnlinePeriods.add(EdgeNodeOnlinePeriod.fromMap(
-          rawPeriod.map((key, value) => MapEntry(key.toString(), value)),
-        ));
+        parsedOnlinePeriods.add(
+          EdgeNodeOnlinePeriod.fromMap(
+            rawPeriod.map((key, value) => MapEntry(key.toString(), value)),
+          ),
+        );
       }
     }
 
@@ -2934,9 +2925,11 @@ class EdgeNodeAvailabilityHistory {
     for (int index = 0; index < rawCalendarDays.length; index++) {
       final rawDay = rawCalendarDays[index];
       if (rawDay is Map) {
-        parsedCalendarDays.add(EdgeNodeAvailabilityCalendarDay.fromMap(
-          rawDay.map((key, value) => MapEntry(key.toString(), value)),
-        ));
+        parsedCalendarDays.add(
+          EdgeNodeAvailabilityCalendarDay.fromMap(
+            rawDay.map((key, value) => MapEntry(key.toString(), value)),
+          ),
+        );
       }
     }
 
@@ -2972,10 +2965,7 @@ class EdgeNodeAvailabilitySamplePoint {
 }
 
 class EdgeNodeOnlinePeriod {
-  EdgeNodeOnlinePeriod({
-    required this.startAt,
-    required this.endAt,
-  });
+  EdgeNodeOnlinePeriod({required this.startAt, required this.endAt});
 
   final DateTime? startAt;
   final DateTime? endAt;
@@ -3051,7 +3041,6 @@ class NodeCertificateResponse {
     );
   }
 }
-
 
 class RegionRule {
   final int? id;

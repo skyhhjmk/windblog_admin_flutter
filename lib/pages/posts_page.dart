@@ -1018,57 +1018,6 @@ class _PostEditorPageState extends State<PostEditorPage>
     super.dispose();
   }
 
-  Future<void> _uploadMedia() async {
-    final result = await FilePicker.pickFiles(withData: true);
-    if (result == null || result.files.isEmpty) {
-      return;
-    }
-    final file = result.files.first;
-    final bytes = file.bytes;
-    if (bytes == null) {
-      return;
-    }
-    final mimeType = _resolveMimeType(file);
-    try {
-      final media = await widget.api.uploadMedia(
-        fileName: file.name,
-        bytes: bytes,
-        mimeType: mimeType,
-      );
-      _insertMedia(media.fileName, media.url);
-      if (!mounted) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${t(context, 'media_inserted')}${media.fileName}'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'upload_failed')}$e')),
-        );
-      }
-    }
-  }
-
-  void _insertMedia(String fileName, String url) {
-    final insertText = '![$fileName]($url)\n';
-    final currentText = contentCtrl.text;
-    final selection = contentCtrl.selection;
-    final newText = currentText.replaceRange(
-      selection.baseOffset,
-      selection.extentOffset,
-      insertText,
-    );
-    contentCtrl.text = newText;
-    contentCtrl.selection = TextSelection.collapsed(
-      offset: selection.baseOffset + insertText.length,
-    );
-  }
-
   Future<bool> _onWillPop() async {
     if (_isSaving) return false;
     final isDirty = _checkIfDirty();
@@ -1705,23 +1654,26 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   Widget _buildSidebar() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TabBar(
           controller: _sidebarTabController,
           tabs: [
-            Tab(text: t(context, 'basic_info')),
-            Tab(text: t(context, 'revisions')),
+            Tab(text: t(context, 'publish_settings')),
             Tab(text: t(context, 'ai_summary')),
+            Tab(text: t(context, 'revisions')),
           ],
         ),
         Expanded(
           child: TabBarView(
             controller: _sidebarTabController,
-            physics: const NeverScrollableScrollPhysics(),
             children: [
-              _buildBasicInfoTab(),
-              _buildRevisionsTab(),
-              _buildAiSummaryTab(),
+              _buildPublishSettingsContent(),
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: _buildAiSummaryCard(),
+              ),
+              _buildRevisionsContent(),
             ],
           ),
         ),
@@ -1729,330 +1681,299 @@ class _PostEditorPageState extends State<PostEditorPage>
     );
   }
 
-  Widget _buildAiSummaryTab() {
+  Widget _buildPublishSettingsContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            t(context, 'ai_summary_settings'),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
+          _buildContentStatsCard(),
+          const SizedBox(height: 16),
+          _buildPublishSettingsCard(),
+          const SizedBox(height: 16),
+          _buildCategoryCard(),
+          const SizedBox(height: 16),
+          _buildTagsCard(),
+          const SizedBox(height: 16),
+          _buildMetadataCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRevisionsContent() {
+    return _buildRevisionsCard();
+  }
+
+  Widget _buildContentStatsCard() {
+    return _ContentStatsCard(
+      contentCtrl: contentCtrl,
+      lastSavedText: _formatLastSaved(),
+    );
+  }
+
+  String _formatLastSaved() {
+    final d = _currentDetail;
+    if (d == null || d.updatedAt == null) return '—';
+    return _formatDate(d.updatedAt!);
+  }
+
+  Widget _buildMetadataCard() {
+    final d = _currentDetail;
+    if (d == null) {
+      return SectionCard(
+        icon: Icons.info_outline,
+        title: t(context, 'system_info_after_save'),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              t(context, 'system_info_after_save'),
+              style: TextStyle(color: Colors.grey.shade500),
             ),
           ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SegmentedButton<int>(
-              segments: [
-                ButtonSegment(
-                  value: 0,
-                  label: Text(t(context, 'ai_auto')),
-                  icon: const Icon(Icons.auto_awesome, size: 16),
-                ),
-                ButtonSegment(
-                  value: 1,
-                  label: Text(t(context, 'ai_locked')),
-                  icon: const Icon(Icons.lock_outline, size: 16),
-                ),
-                ButtonSegment(
-                  value: 2,
-                  label: Text(t(context, 'ai_disabled')),
-                  icon: const Icon(Icons.block, size: 16),
-                ),
-              ],
-              selected: {aiSummaryStatus},
-              onSelectionChanged: (Set<int> newSelection) {
-                setState(() {
-                  aiSummaryStatus = newSelection.first;
-                  _markDirty();
-                });
-              },
-            ),
+        ),
+      );
+    }
+    return SectionCard(
+      icon: Icons.info_outline,
+      title: t(context, 'article_metadata'),
+      child: Column(
+        children: [
+          MetadataItem(t(context, 'post_id'), '${d.id}'),
+          MetadataItem(
+            t(context, 'author'),
+            d.userName ?? t(context, 'unknown'),
           ),
-          const SizedBox(height: 24),
-          if (aiSummaryStatus != 2) ...[
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  t(context, 'ai_summary_content'),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade800,
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () async {
-                    if (_currentDetail == null) return;
-                    try {
-                      await widget.api.triggerAiSummary(_currentDetail!.id);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(t(context, 'trigger_ai_success')),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '${t(context, 'trigger_ai_failed')}: $e',
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.refresh, size: 14),
-                  label: Text(
-                    t(context, 'trigger_ai_gen'),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (_currentDetail?.zhAiSummary != null &&
-                _currentDetail!.zhAiSummary.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  border: Border.all(color: Colors.blue.shade100),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _currentDetail!.zhAiSummary,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.5,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              )
-            else
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Text(
-                    t(context, 'no_ai_summary'),
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 16),
-            Text(
-              t(context, 'ai_summary_desc'),
-              style: const TextStyle(
-                fontSize: 11,
-                color: Colors.grey,
-                height: 1.5,
-              ),
-            ),
-          ] else
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.visibility_off_outlined,
-                      size: 48,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      t(context, 'ai_summary_disabled_status'),
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
+          MetadataItem(
+            t(context, 'current_revision'),
+            '${d.currentRevisionNumber}',
+          ),
+          MetadataItem(
+            t(context, 'published_revision'),
+            d.hasPublishedRevision
+                ? '${d.publishedRevisionNumber}'
+                : t(context, 'not_published'),
+          ),
+          MetadataItem(t(context, 'data_version'), '${d.version}'),
+          if (d.createdAt != null)
+            MetadataItem(t(context, 'created_at'), _formatDate(d.createdAt!)),
+          if (d.updatedAt != null)
+            MetadataItem(t(context, 'updated_at'), _formatDate(d.updatedAt!)),
+          if (d.publishedAt != null)
+            MetadataItem(
+              t(context, 'published_at'),
+              _formatDate(d.publishedAt!),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildBasicInfoTab() {
-    final d = _currentDetail;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (d != null) ...[
-            Text(
-              '${t(context, 'author')}: ${d.userName ?? t(context, 'unknown')}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
+  Widget _buildRevisionsCard() {
+    if (_currentDetail == null) {
+      return SectionCard(
+        icon: Icons.history,
+        title: t(context, 'revisions'),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              t(context, 'history_after_save'),
+              style: TextStyle(color: Colors.grey.shade500),
             ),
-            const SizedBox(height: 12),
-          ],
-          TextField(
-            controller: slugCtrl,
-            decoration: InputDecoration(
-              labelText: 'Slug',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.autorenew),
-                onPressed: () {
-                  final text = titleCtrl.text
-                      .toLowerCase()
-                      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
-                      .replaceAll(RegExp(r'^-+|-+$'), '');
-                  slugCtrl.text = text;
-                },
-                tooltip: t(context, 'auto_gen_from_title'),
-              ),
-            ),
-            style: const TextStyle(fontSize: 13),
           ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: summaryCtrl,
-            decoration: InputDecoration(labelText: t(context, 'summary')),
-            minLines: 3,
-            maxLines: 5,
-            style: const TextStyle(fontSize: 13),
+        ),
+      );
+    }
+
+    if (_isLoadingRevisions) {
+      return SectionCard(
+        icon: Icons.history,
+        title: t(context, 'revisions'),
+        child: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: CircularProgressIndicator(),
           ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<int?>(
-            // ignore: deprecated_member_use
-            initialValue: _categories.any((c) => c.id == categoryId)
-                ? categoryId
-                : null,
-            decoration: InputDecoration(
-              labelText: t(context, 'category'),
-              isDense: true,
+        ),
+      );
+    }
+
+    if (_revisions.isEmpty) {
+      return SectionCard(
+        icon: Icons.history,
+        title: t(context, 'revisions'),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              t(context, 'no_history'),
+              style: TextStyle(color: Colors.grey.shade500),
             ),
-            items: [
-              DropdownMenuItem<int?>(
-                value: null,
-                child: Text(t(context, 'select_category')),
-              ),
-              ..._categories.map(
-                (cat) => DropdownMenuItem<int?>(
-                  value: cat.id,
-                  child: Text(cat.displayName),
+          ),
+        ),
+      );
+    }
+
+    return SectionCard(
+      icon: Icons.history,
+      title: t(context, 'revisions'),
+      child: SizedBox(
+        height: 400,
+        child: ListView.separated(
+          padding: EdgeInsets.zero,
+          itemCount: _revisions.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemBuilder: (context, i) {
+            final revision = _revisions[i];
+            final isCurrent =
+                revision.revisionNumber ==
+                _currentDetail!.currentRevisionNumber;
+            final isPublished = revision.isPublishedRevision;
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isCurrent ? Colors.green.shade50 : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isCurrent
+                      ? Colors.green.shade200
+                      : Colors.grey.shade200,
                 ),
               ),
-            ],
-            onChanged: (v) => setState(() {
-              categoryId = v;
-              _markDirty();
-            }),
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<int?>(
-            // ignore: deprecated_member_use
-            initialValue: null,
-            decoration: InputDecoration(
-              labelText: t(context, 'tags'),
-              isDense: true,
-            ),
-            hint: Text(
-              tagIds.isEmpty
-                  ? t(context, 'select_tags')
-                  : t(
-                      context,
-                      'tags_selected_count',
-                    ).replaceFirst('%d', tagIds.length.toString()),
-            ),
-            items: [
-              ..._tags.map(
-                (tag) => DropdownMenuItem<int>(
-                  value: tag.id,
-                  child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Icon(
-                        tagIds.contains(tag.id)
-                            ? Icons.check_box
-                            : Icons.check_box_outline_blank,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          tag.displayName,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        t(
+                          context,
+                          'revision_text',
+                        ).replaceAll('%d', revision.revisionNumber.toString()),
+                        style: TextStyle(
+                          fontWeight: isCurrent
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                          fontSize: 13,
                         ),
                       ),
+                      if (isCurrent) ...[
+                        const SizedBox(width: 8),
+                        Chip(
+                          label: Text(
+                            t(context, 'current_draft'),
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                          backgroundColor: Colors.green.shade100,
+                          labelStyle: TextStyle(color: Colors.green.shade800),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 0,
+                          ),
+                        ),
+                      ],
+                      if (isPublished) ...[
+                        const SizedBox(width: 8),
+                        Chip(
+                          label: Text(
+                            t(context, 'published_revision_badge'),
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                          backgroundColor: Colors.blue.shade100,
+                          labelStyle: TextStyle(color: Colors.blue.shade800),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 0,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    revision.zhTitle.isEmpty
+                        ? t(context, 'no_title')
+                        : revision.zhTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${revision.createdByName} · ${_formatDate(revision.createdAt)}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      TextButton(
+                        onPressed: () => _showDiff(revision.revisionNumber),
+                        child: Text(t(context, 'compare')),
+                      ),
+                      if (!isCurrent)
+                        TextButton(
+                          onPressed: () =>
+                              _switchToRevision(revision.revisionNumber),
+                          child: Text(t(context, 'set_current_draft')),
+                        ),
+                      if (!isPublished)
+                        TextButton(
+                          onPressed: () =>
+                              _publishRevision(revision.revisionNumber),
+                          child: Text(t(context, 'publish_this_revision')),
+                        ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-            onChanged: (v) {
-              if (v != null) {
-                setState(() {
-                  if (tagIds.contains(v)) {
-                    tagIds.remove(v);
-                  } else {
-                    tagIds.add(v);
-                  }
-                  _markDirty();
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<int>(
-            initialValue: renderType,
-            decoration: InputDecoration(
-              labelText: t(context, 'editor_mode'),
-              isDense: true,
-            ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPublishSettingsCard() {
+    return SectionCard(
+      icon: Icons.settings,
+      title: t(context, 'publish_settings'),
+      child: Column(
+        children: [
+          _buildDropdownRow(
+            label: t(context, 'status'),
+            value: status,
             items: [
-              DropdownMenuItem(
-                value: 6,
-                child: Text(t(context, 'block_markdown')),
-              ),
-              const DropdownMenuItem(value: 1, child: Text('HTML')),
+              DropdownMenuItem(value: 0, child: Text(t(context, 'draft'))),
+              DropdownMenuItem(value: 1, child: Text(t(context, 'published'))),
+              DropdownMenuItem(value: 2, child: Text(t(context, 'archived'))),
             ],
             onChanged: (v) {
               if (v != null) {
                 setState(() {
-                  renderType = v;
-                  editorType = v;
-                  // 根据模式切换 Controller 类型以实现语法染色
-                  final currentText = contentCtrl.text;
-                  if (v == 1) {
-                    contentCtrl = HtmlSyntaxController(text: currentText);
-                  } else {
-                    contentCtrl = MarkdownSyntaxController(text: currentText);
-                  }
-                  contentCtrl.addListener(_markDirty);
+                  status = v;
                   _markDirty();
                 });
               }
             },
           ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<int>(
-            initialValue: visibility,
-            decoration: InputDecoration(
-              labelText: t(context, 'visibility_label'),
-              isDense: true,
-            ),
+          const SizedBox(height: 12),
+          _buildDropdownRow(
+            label: t(context, 'visibility_label'),
+            value: visibility,
             items: [
               DropdownMenuItem(
                 value: 0,
-                child: Text(t(context, 'public_visibility')),
+                child: Row(
+                  children: [
+                    const Icon(Icons.public, size: 16),
+                    const SizedBox(width: 8),
+                    Text(t(context, 'public_visibility')),
+                  ],
+                ),
               ),
               DropdownMenuItem(
                 value: 1,
@@ -2063,284 +1984,518 @@ class _PostEditorPageState extends State<PostEditorPage>
                 child: Text(t(context, 'password_protected')),
               ),
             ],
-            onChanged: (v) => setState(() {
-              visibility = v ?? 0;
-              _markDirty();
-            }),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: visibilityRegions
-                .map(
-                  (region) => Chip(
-                    label: Text(region.toUpperCase()),
-                    onDeleted: () => setState(() {
-                      visibilityRegions.remove(region);
-                      _markDirty();
-                    }),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String?>(
-            initialValue: null,
-            decoration: const InputDecoration(
-              labelText: "添加可见区域",
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.add_location_alt_outlined),
-            ),
-            items: [
-              if (visibilityRegions.isNotEmpty)
-                const DropdownMenuItem(
-                  value: "__clear__",
-                  child: Text("清除所有区域限制", style: TextStyle(color: Colors.red)),
-                ),
-              ...BlogRegion.values.map((e) {
-                final bool isSelected = visibilityRegions.contains(e.code);
-                return DropdownMenuItem(
-                  value: e.code,
-                  enabled: !isSelected,
-                  child: Text(
-                    e.displayName + (isSelected ? " (已选)" : ""),
-                    style: TextStyle(
-                      color: isSelected ? Colors.grey : null,
-                      fontWeight: isSelected ? FontWeight.bold : null,
-                    ),
-                  ),
-                );
-              }),
-            ],
-            onChanged: (val) {
-              if (val == null) return;
-              if (val == "__clear__") {
+            onChanged: (v) {
+              if (v != null) {
                 setState(() {
-                  visibilityRegions.clear();
-                  _markDirty();
-                });
-                return;
-              }
-              if (!visibilityRegions.contains(val)) {
-                setState(() {
-                  visibilityRegions.add(val);
+                  visibility = v;
                   _markDirty();
                 });
               }
             },
           ),
-          if (visibility == 2) ...[
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordCtrl,
-              decoration: InputDecoration(
-                labelText: t(context, 'access_password'),
-                helperText: _currentDetail?.hasPassword == true
-                    ? '已设置访问密码，留空表示不修改'
-                    : null,
-                prefixIcon: const Icon(Icons.lock_outline, size: 18),
-                isDense: true,
-              ),
-              style: const TextStyle(fontSize: 13),
-            ),
-          ],
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _uploadMedia,
-              icon: const Icon(Icons.photo_library_outlined),
-              label: Text(t(context, 'upload_media')),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            t(context, 'monetization'),
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: pointsPriceCtrl,
-            decoration: InputDecoration(
-              labelText: t(context, 'points_price'),
-              prefixIcon: const Icon(Icons.monetization_on_outlined, size: 18),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.number,
-            style: const TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: freeLinesCtrl,
-            decoration: InputDecoration(
-              labelText: t(context, 'free_lines'),
-              prefixIcon: const Icon(Icons.visibility_outlined, size: 18),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.number,
-            style: const TextStyle(fontSize: 13),
-          ),
-          const Divider(height: 32),
-          if (d != null) ...[
-            MetadataItem(t(context, 'post_id'), '${d.id}'),
-            MetadataItem(
-              t(context, 'current_revision'),
-              '${d.currentRevisionNumber}',
-            ),
-            MetadataItem(
-              t(context, 'published_revision'),
-              d.hasPublishedRevision
-                  ? '${d.publishedRevisionNumber}'
-                  : t(context, 'not_published'),
-            ),
-            MetadataItem(t(context, 'data_version'), '${d.version}'),
-            const Divider(height: 24),
-            if (d.createdAt != null)
-              MetadataItem(t(context, 'created_at'), _formatDate(d.createdAt!)),
-            if (d.updatedAt != null)
-              MetadataItem(t(context, 'updated_at'), _formatDate(d.updatedAt!)),
-            if (d.publishedAt != null)
-              MetadataItem(
-                t(context, 'published_at'),
-                _formatDate(d.publishedAt!),
-              ),
-          ] else ...[
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(t(context, 'system_info_after_save')),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildRevisionsTab() {
-    if (_currentDetail == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(t(context, 'history_after_save')),
+  Widget _buildDropdownRow<T>({
+    required String label,
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
-      );
-    }
-
-    if (_isLoadingRevisions) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_revisions.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(t(context, 'no_history')),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<T>(
+              value: value,
+              isExpanded: true,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              items: items,
+              onChanged: onChanged,
+            ),
+          ),
         ),
-      );
-    }
+      ],
+    );
+  }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _revisions.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
-      itemBuilder: (context, i) {
-        final revision = _revisions[i];
-        final isCurrent =
-            revision.revisionNumber == _currentDetail!.currentRevisionNumber;
-        final isPublished = revision.isPublishedRevision;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                t(
-                  context,
-                  'revision_text',
-                ).replaceAll('%d', revision.revisionNumber.toString()),
-                style: TextStyle(
-                  fontWeight: isCurrent ? FontWeight.bold : null,
-                ),
+  Widget _buildAiSummaryCard() {
+    return SectionCard(
+      icon: Icons.auto_awesome,
+      title: t(context, 'ai_summary'),
+      headerColor: Colors.orange.shade700,
+      headerBgColor: Colors.orange.shade50,
+      trailing: Switch(
+        value: aiSummaryStatus != 2,
+        onChanged: (v) {
+          setState(() {
+            aiSummaryStatus = v ? 0 : 2;
+            _markDirty();
+          });
+        },
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (aiSummaryStatus != 2) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.green.shade200),
               ),
-              const SizedBox(height: 4),
-              Text(
-                revision.zhTitle.isEmpty
-                    ? t(context, 'no_title')
-                    : revision.zhTitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${revision.createdByName} · ${_formatDate(revision.createdAt)}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              child: Row(
                 children: [
-                  if (isCurrent)
-                    Chip(
-                      label: Text(
-                        t(context, 'current_draft'),
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                      backgroundColor: Colors.green.shade100,
-                      labelStyle: TextStyle(color: Colors.green.shade800),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 0,
-                      ),
-                    ),
-                  if (isPublished)
-                    Chip(
-                      label: Text(
-                        t(context, 'published_revision_badge'),
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                      backgroundColor: Colors.blue.shade100,
-                      labelStyle: TextStyle(color: Colors.blue.shade800),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 0,
-                      ),
-                    ),
-                  TextButton(
-                    onPressed: () => _showDiff(revision.revisionNumber),
-                    child: Text(t(context, 'compare')),
+                  Icon(
+                    Icons.check_circle,
+                    size: 16,
+                    color: Colors.green.shade700,
                   ),
-                  if (!isCurrent)
-                    TextButton(
-                      onPressed: () =>
-                          _switchToRevision(revision.revisionNumber),
-                      child: Text(t(context, 'set_current_draft')),
+                  const SizedBox(width: 6),
+                  Text(
+                    aiSummaryStatus == 1
+                        ? t(context, 'ai_locked')
+                        : t(context, 'ai_auto'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.w500,
                     ),
-                  if (!isPublished)
-                    TextButton(
-                      onPressed: () =>
-                          _publishRevision(revision.revisionNumber),
-                      child: Text(t(context, 'publish_this_revision')),
-                    ),
+                  ),
                 ],
               ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  t(context, 'persistent_summary'),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                const Spacer(),
+                Switch(
+                  value: aiSummaryStatus == 1,
+                  onChanged: (v) {
+                    setState(() {
+                      aiSummaryStatus = v ? 1 : 0;
+                      _markDirty();
+                    });
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              t(context, 'ai_summary_content'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 150),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: TextField(
+                controller: _currentDetail?.zhAiSummary != null
+                    ? TextEditingController(text: _currentDetail!.zhAiSummary)
+                    : TextEditingController(),
+                maxLines: null,
+                minLines: 4,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.all(12),
+                ),
+                style: const TextStyle(fontSize: 13, height: 1.5),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _currentDetail == null
+                        ? null
+                        : () async {
+                            if (_currentDetail == null) return;
+                            try {
+                              await widget.api.triggerAiSummary(
+                                _currentDetail!.id,
+                              );
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      t(context, 'trigger_ai_success'),
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '${t(context, 'trigger_ai_failed')}: $e',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    icon: const Icon(Icons.auto_awesome, size: 16),
+                    label: Text(
+                      t(context, 'generate_summary'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.orange.shade600,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _currentDetail == null
+                        ? null
+                        : () async {
+                            // 保存摘要逻辑
+                          },
+                    icon: const Icon(Icons.save, size: 16),
+                    label: Text(
+                      t(context, 'save_summary'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.green.shade600,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.visibility_off_outlined,
+                      size: 36,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      t(context, 'ai_summary_disabled_status'),
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard() {
+    return SectionCard(
+      icon: Icons.category,
+      title: t(context, 'category'),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<int?>(
+            value: _categories.any((c) => c.id == categoryId)
+                ? categoryId
+                : null,
+            isExpanded: true,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            hint: Text(t(context, 'select_category')),
+            items: [
+              ..._categories.map(
+                (cat) => DropdownMenuItem<int?>(
+                  value: cat.id,
+                  child: Text(cat.displayName),
+                ),
+              ),
             ],
+            onChanged: (v) {
+              setState(() {
+                categoryId = v;
+                _markDirty();
+              });
+            },
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTagsCard() {
+    return SectionCard(
+      icon: Icons.label,
+      title: t(context, 'tags'),
+      child: Column(
+        children: [
+          if (tagIds.isNotEmpty)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: tagIds.map((tagId) {
+                final tag = _tags.firstWhere(
+                  (t) => t.id == tagId,
+                  orElse: () => TagItem(
+                    id: 0,
+                    slug: '',
+                    name: const {},
+                    createdAt: DateTime.now(),
+                  ),
+                );
+                return Chip(
+                  label: Text(tag.zhName, style: const TextStyle(fontSize: 11)),
+                  deleteIcon: const Icon(Icons.close, size: 14),
+                  onDeleted: () {
+                    setState(() {
+                      tagIds.remove(tagId);
+                      _markDirty();
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int?>(
+                value: null,
+                isExpanded: true,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                hint: Text(t(context, 'add_tags')),
+                items: _tags
+                    .where((tag) => !tagIds.contains(tag.id))
+                    .map(
+                      (tag) => DropdownMenuItem<int>(
+                        value: tag.id,
+                        child: Text(tag.zhName),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      tagIds.add(v);
+                      _markDirty();
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   String _formatDate(DateTime date) {
     final localDate = date.toLocal();
     return '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')} ${localDate.hour.toString().padLeft(2, '0')}:${localDate.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class SectionCard extends StatelessWidget {
+  const SectionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.trailing,
+    this.headerColor,
+    this.headerBgColor,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+  final Color? headerColor;
+  final Color? headerBgColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveHeaderColor = headerColor ?? Colors.grey.shade700;
+    final effectiveHeaderBgColor = headerBgColor ?? Colors.grey.shade50;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            decoration: BoxDecoration(
+              color: effectiveHeaderBgColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: effectiveHeaderColor),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: effectiveHeaderColor,
+                  ),
+                ),
+                if (trailing != null) ...[const Spacer(), trailing!],
+              ],
+            ),
+          ),
+          Padding(padding: const EdgeInsets.all(16), child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContentStatsCard extends StatefulWidget {
+  const _ContentStatsCard({
+    required this.contentCtrl,
+    required this.lastSavedText,
+  });
+
+  final TextEditingController contentCtrl;
+  final String lastSavedText;
+
+  @override
+  State<_ContentStatsCard> createState() => _ContentStatsCardState();
+}
+
+class _ContentStatsCardState extends State<_ContentStatsCard> {
+  late BuildContext _localContext;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.contentCtrl.addListener(_onContentChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.contentCtrl.removeListener(_onContentChanged);
+    super.dispose();
+  }
+
+  void _onContentChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _localContext = context;
+    final contentText = widget.contentCtrl.text;
+    final characterCount = contentText.length;
+    final wordCount = _countWords(contentText);
+    final readingTimeMinutes = _estimateReadingTime(wordCount);
+
+    return SectionCard(
+      icon: Icons.bar_chart,
+      title: t(_localContext, 'content_stats'),
+      child: Column(
+        children: [
+          _buildStatRow(t(_localContext, 'word_count'), wordCount.toString()),
+          _buildStatRow(
+            t(_localContext, 'character_count'),
+            characterCount.toString(),
+          ),
+          _buildStatRow(
+            t(_localContext, 'estimated_reading_time'),
+            '$readingTimeMinutes分钟',
+          ),
+          const Divider(height: 24),
+          _buildStatRow(
+            t(_localContext, 'last_saved'),
+            widget.lastSavedText,
+            showBorder: false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _countWords(String text) {
+    if (text.isEmpty) return 0;
+    final words = text.trim().split(RegExp(r'\s+'));
+    return words.where((word) => word.isNotEmpty).length;
+  }
+
+  int _estimateReadingTime(int wordCount) {
+    if (wordCount == 0) return 0;
+    const wordsPerMinute = 200;
+    final minutes = wordCount ~/ wordsPerMinute;
+    if (minutes < 1 && wordCount > 0) return 1;
+    return minutes;
+  }
+
+  Widget _buildStatRow(String label, String value, {bool showBorder = true}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
   }
 }
 

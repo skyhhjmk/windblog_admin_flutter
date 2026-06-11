@@ -121,7 +121,10 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 40,
+                      ),
                       child: Form(
                         key: formKey,
                         child: Column(
@@ -133,14 +136,19 @@ class _LoginPageState extends State<LoginPage> {
                               height: 64,
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFFEC4899), Color(0xFF8B5CF6)],
+                                  colors: [
+                                    Color(0xFFEC4899),
+                                    Color(0xFF8B5CF6),
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                                 borderRadius: BorderRadius.circular(18),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
+                                    color: const Color(
+                                      0xFF8B5CF6,
+                                    ).withValues(alpha: 0.4),
                                     blurRadius: 16,
                                     offset: const Offset(0, 8),
                                   ),
@@ -155,11 +163,12 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(height: 24),
                             Text(
                               t(context, 'login_title'),
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                color: const Color(0xFF1E293B),
-                                letterSpacing: 0.5,
-                              ),
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFF1E293B),
+                                    letterSpacing: 0.5,
+                                  ),
                             ),
                             const SizedBox(height: 8),
                             const Text(
@@ -182,7 +191,9 @@ class _LoginPageState extends State<LoginPage> {
                                   color: const Color(0xFFFEF3C7),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                                    color: const Color(
+                                      0xFFF59E0B,
+                                    ).withValues(alpha: 0.35),
                                   ),
                                 ),
                                 child: Row(
@@ -213,7 +224,10 @@ class _LoginPageState extends State<LoginPage> {
                               controller: baseUrlCtrl,
                               decoration: InputDecoration(
                                 labelText: t(context, 'api_base_url'),
-                                prefixIcon: const Icon(Icons.link, color: Color(0xFF8B5CF6)),
+                                prefixIcon: const Icon(
+                                  Icons.link,
+                                  color: Color(0xFF8B5CF6),
+                                ),
                                 filled: true,
                                 fillColor: Colors.white.withValues(alpha: 0.9),
                                 border: OutlineInputBorder(
@@ -222,22 +236,32 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: Colors.grey.shade200, width: 1.5),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade200,
+                                    width: 1.5,
+                                  ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF8B5CF6),
+                                    width: 2,
+                                  ),
                                 ),
                               ),
-                              validator: (v) =>
-                                  (v == null || v.trim().isEmpty) ? t(context, 'required') : null,
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? t(context, 'required')
+                                  : null,
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
                               controller: accountCtrl,
                               decoration: InputDecoration(
                                 labelText: t(context, 'username'),
-                                prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF8B5CF6)),
+                                prefixIcon: const Icon(
+                                  Icons.person_outline,
+                                  color: Color(0xFF8B5CF6),
+                                ),
                                 filled: true,
                                 fillColor: Colors.white.withValues(alpha: 0.9),
                                 border: OutlineInputBorder(
@@ -246,15 +270,22 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: Colors.grey.shade200, width: 1.5),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade200,
+                                    width: 1.5,
+                                  ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF8B5CF6),
+                                    width: 2,
+                                  ),
                                 ),
                               ),
-                              validator: (v) =>
-                                  (v == null || v.trim().isEmpty) ? t(context, 'required') : null,
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? t(context, 'required')
+                                  : null,
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
@@ -262,7 +293,10 @@ class _LoginPageState extends State<LoginPage> {
                               obscureText: true,
                               decoration: InputDecoration(
                                 labelText: t(context, 'password'),
-                                prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF8B5CF6)),
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline,
+                                  color: Color(0xFF8B5CF6),
+                                ),
                                 filled: true,
                                 fillColor: Colors.white.withValues(alpha: 0.9),
                                 border: OutlineInputBorder(
@@ -271,15 +305,22 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: Colors.grey.shade200, width: 1.5),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade200,
+                                    width: 1.5,
+                                  ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF8B5CF6),
+                                    width: 2,
+                                  ),
                                 ),
                               ),
-                              validator: (v) =>
-                                  (v == null || v.isEmpty) ? t(context, 'required') : null,
+                              validator: (v) => (v == null || v.isEmpty)
+                                  ? t(context, 'required')
+                                  : null,
                             ),
                             const SizedBox(height: 28),
                             Container(
@@ -288,13 +329,18 @@ class _LoginPageState extends State<LoginPage> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(14),
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+                                  colors: [
+                                    Color(0xFF8B5CF6),
+                                    Color(0xFFEC4899),
+                                  ],
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFEC4899).withValues(alpha: 0.3),
+                                    color: const Color(
+                                      0xFFEC4899,
+                                    ).withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 6),
                                   ),
@@ -339,6 +385,215 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class SessionExpiredLoginDialog extends StatefulWidget {
+  const SessionExpiredLoginDialog({
+    super.key,
+    required this.api,
+    required this.onLogin,
+  });
+
+  final AdminApiClient api;
+  final Future<void> Function(String baseUrl, String token) onLogin;
+
+  @override
+  State<SessionExpiredLoginDialog> createState() {
+    return _SessionExpiredLoginDialogState();
+  }
+}
+
+class _SessionExpiredLoginDialogState extends State<SessionExpiredLoginDialog> {
+  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+  late final TextEditingController baseUrlController;
+  final TextEditingController accountController = TextEditingController(
+    text: 'admin',
+  );
+  final TextEditingController passwordController = TextEditingController();
+  bool isSubmitting = false;
+  String? loginErrorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    baseUrlController = TextEditingController(text: widget.api.baseUrl);
+  }
+
+  @override
+  void dispose() {
+    baseUrlController.dispose();
+    accountController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    FormState? currentFormState = formKey.currentState;
+    if (currentFormState == null || !currentFormState.validate()) {
+      return;
+    }
+
+    setState(() {
+      isSubmitting = true;
+      loginErrorMessage = null;
+    });
+
+    try {
+      String normalizedBaseUrl = widget.api.normalizeBaseUrl(
+        baseUrlController.text,
+      );
+      widget.api.baseUrl = normalizedBaseUrl;
+      String token = await widget.api.login(
+        account: accountController.text.trim(),
+        password: passwordController.text,
+      );
+      await widget.onLogin(normalizedBaseUrl, token);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loginErrorMessage = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget loginButtonChild = Text(t(context, 'login'));
+    VoidCallback? loginButtonAction = submit;
+    if (isSubmitting) {
+      loginButtonChild = const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(strokeWidth: 2.5),
+      );
+      loginButtonAction = null;
+    }
+
+    return Positioned.fill(
+      key: const Key('sessionExpiredLoginDialog'),
+      child: PopScope(
+        canPop: false,
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.48),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Dialog(
+                insetPadding: EdgeInsets.zero,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Icon(
+                            Icons.lock_clock_outlined,
+                            size: 48,
+                            color: Color(0xFFF59E0B),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            t(context, 'token_expired'),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            t(context, 'session_relogin_preserves_progress'),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 24),
+                          TextFormField(
+                            controller: baseUrlController,
+                            enabled: !isSubmitting,
+                            decoration: InputDecoration(
+                              labelText: t(context, 'api_base_url'),
+                              prefixIcon: const Icon(Icons.link),
+                            ),
+                            validator: (String? baseUrl) {
+                              if (baseUrl == null || baseUrl.trim().isEmpty) {
+                                return t(context, 'required');
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: accountController,
+                            enabled: !isSubmitting,
+                            autofocus: true,
+                            decoration: InputDecoration(
+                              labelText: t(context, 'username'),
+                              prefixIcon: const Icon(Icons.person_outline),
+                            ),
+                            validator: (String? account) {
+                              if (account == null || account.trim().isEmpty) {
+                                return t(context, 'required');
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: passwordController,
+                            enabled: !isSubmitting,
+                            obscureText: true,
+                            onFieldSubmitted: (String password) {
+                              if (!isSubmitting) {
+                                submit();
+                              }
+                            },
+                            decoration: InputDecoration(
+                              labelText: t(context, 'password'),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                            ),
+                            validator: (String? password) {
+                              if (password == null || password.isEmpty) {
+                                return t(context, 'required');
+                              }
+                              return null;
+                            },
+                          ),
+                          if (loginErrorMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              loginErrorMessage!,
+                              key: const Key('sessionExpiredLoginError'),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          FilledButton(
+                            onPressed: loginButtonAction,
+                            child: loginButtonChild,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
