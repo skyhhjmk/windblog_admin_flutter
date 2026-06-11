@@ -176,6 +176,13 @@ class _HomePageState extends State<HomePage> {
       ),
       _AdminNavigationItem(
         labelKey: null,
+        fallbackLabel: '同义词规则',
+        icon: Icons.account_tree_outlined,
+        selectedIcon: Icons.account_tree,
+        submenuParent: '系统设置',
+      ),
+      _AdminNavigationItem(
+        labelKey: null,
         fallbackLabel: '边缘节点',
         icon: Icons.hub_outlined,
         selectedIcon: Icons.hub,
@@ -212,8 +219,9 @@ class _HomePageState extends State<HomePage> {
     19: Color(0xFFF97316), // System Logs: Orange
     20: Color(0xFF8B5CF6), // Feature Settings: Violet
     21: Color(0xFF0EA5E9), // Elasticsearch: Sky
-    22: Color(0xFF10B981), // Edge Nodes: Emerald
-    23: Color(0xFFF59E0B), // Region Rules: Amber
+    22: Color(0xFF14B8A6), // Synonym Rules: Teal
+    23: Color(0xFF10B981), // Edge Nodes: Emerald
+    24: Color(0xFFF59E0B), // Region Rules: Amber
   };
 
   @override
@@ -900,8 +908,15 @@ class _HomePageState extends State<HomePage> {
         return ElasticsearchSettingsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
+          onOpenSynonymRules: () => _selectTab(22),
         );
       case 22:
+        return ElasticsearchSynonymsPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+          onOpenElasticSettings: () => _selectTab(21),
+        );
+      case 23:
         return EdgeNodesPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return RegionManagementPage(

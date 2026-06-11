@@ -838,6 +838,25 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
                   label: const Text('管理证书与部署指引'),
                 ),
               ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  onPressed: dataStatus?.persistentChannelOnline == true
+                      ? () => _renewCertificate(node)
+                      : null,
+                  icon: const Icon(Icons.autorenew),
+                  label: const Text('手动续签证书'),
+                ),
+              ),
+              if (dataStatus?.persistentChannelOnline != true)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    '节点持久通道在线后才能安全续签',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ),
               const Divider(),
               _buildSectionTitle('运行指标'),
               if (_mergedMetrics(node).isEmpty)
@@ -1255,6 +1274,80 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
             },
           ),
     );
+  }
+
+  Future<void> _renewCertificate(EdgeNode node) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('手动续签证书'),
+        content: const Text(
+          '系统会通过当前安全通道下发新证书。安装成功后边缘节点会自动重启，并由 Docker 重新拉起。是否继续？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('开始续签'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => const AlertDialog(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Expanded(child: Text('正在下发并安装新证书...')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final renewedNode =
+          await widget.api.issueEdgeNodeCertificate(node.nodeId);
+      if (!mounted) {
+        return;
+      }
+      Navigator.pop(context);
+      await _refresh();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '证书续签成功，新证书有效期至 ${_formatDate(renewedNode.certificateExpiry)}',
+          ),
+        ),
+      );
+    } catch (exception) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('证书续签失败: $exception')),
+      );
+    }
   }
 
   Future<Uint8List?> _performCertDownload(EdgeNode node,

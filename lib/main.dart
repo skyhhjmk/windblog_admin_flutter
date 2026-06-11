@@ -54,6 +54,7 @@ part 'pages/system_monitor_page.dart';
 
 part 'pages/system_settings_page.dart';
 part 'pages/elasticsearch_settings_page.dart';
+part 'pages/elasticsearch_synonyms_page.dart';
 
 part 'pages/add_link_page.dart';
 

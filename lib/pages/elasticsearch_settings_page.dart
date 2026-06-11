@@ -5,10 +5,12 @@ class ElasticsearchSettingsPage extends StatefulWidget {
     super.key,
     required this.api,
     required this.onAuthError,
+    required this.onOpenSynonymRules,
   });
 
   final AdminApiClient api;
   final VoidCallback onAuthError;
+  final VoidCallback onOpenSynonymRules;
 
   @override
   State<ElasticsearchSettingsPage> createState() {
@@ -24,7 +26,6 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
   String? errorMessage;
   SystemSetting? setting;
   Map<String, dynamic> status = {};
-  String selectedSection = '基础设置';
 
   @override
   void initState() {
@@ -98,13 +99,17 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
     return AdminPageScaffold(
       title: 'Elasticsearch',
       actions: [
+        TextButton.icon(
+          onPressed: widget.onOpenSynonymRules,
+          icon: const Icon(Icons.account_tree_outlined),
+          label: const Text('同义词规则'),
+        ),
         OutlinedButton.icon(
           onPressed: actionRunning ? null : _load,
           icon: const Icon(Icons.refresh),
           label: const Text('刷新状态'),
         ),
       ],
-      filters: _buildSectionTabs(),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
@@ -114,36 +119,10 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
             const SizedBox(height: 12),
             _buildConfigurationCard(),
             const SizedBox(height: 12),
+            _buildSynonymRulesCard(),
+            const SizedBox(height: 12),
             _buildOperationCard(),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTabs() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: SegmentedButton<String>(
-          segments: const [
-            ButtonSegment<String>(
-              value: '基础设置',
-              icon: Icon(Icons.tune),
-              label: Text('基础设置'),
-            ),
-            ButtonSegment<String>(
-              value: '同义词',
-              icon: Icon(Icons.account_tree_outlined),
-              label: Text('同义词'),
-            ),
-          ],
-          selected: {selectedSection},
-          onSelectionChanged: (sections) {
-            setState(() {
-              selectedSection = sections.first;
-            });
-          },
         ),
       ),
     );
@@ -215,7 +194,7 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
 
     List<UISchemaField> sectionFields = [];
     for (UISchemaField field in currentSetting.uiSchema.fields) {
-      if (field.section == selectedSection) {
+      if (field.key != 'synonyms') {
         sectionFields.add(field);
       }
     }
@@ -236,8 +215,43 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.spaceBetween,
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 620),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '基础连接配置',
+                        style:
+                            Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '这里维护 Elasticsearch 的连接、认证和分词器。同义词规则已拆到单独页面，避免一张表单里混在一起。',
+                        style: TextStyle(color: Colors.grey.shade700),
+                      ),
+                    ],
+                  ),
+                ),
+                Chip(
+                  avatar: const Icon(Icons.tune, size: 18),
+                  label: Text(
+                    '${t(context, 'config_version')}: ${currentSetting.version}',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             ConfigDynamicForm(
-              key: ValueKey('${currentSetting.version}-$selectedSection'),
+              key: ValueKey('${currentSetting.version}-basic'),
               schema: sectionSchema,
               initialValues: currentValues,
               isFrozen: currentSetting.isFrozen,
@@ -245,26 +259,159 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
             ),
             if (currentSetting.isFrozen) ...[
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                alignment: WrapAlignment.end,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: actionRunning ? null : _rollbackSetting,
-                    icon: const Icon(Icons.history),
-                    label: const Text('回滚设置'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: actionRunning ? null : _confirmSetting,
-                    icon: const Icon(Icons.check),
-                    label: const Text('确认并解除冻结'),
-                  ),
-                ],
+              const AlertBanner(
+                message: '当前基础配置已冻结，确认后才会正式生效。',
+                type: AlertType.warning,
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSynonymRulesCard() {
+    SystemSetting? currentSetting = setting;
+    if (currentSetting == null) {
+      return const AdminStatusView.empty(title: '暂无同义词配置');
+    }
+
+    int synonymRuleCount = 0;
+    if (currentSetting.configValue is Map) {
+      dynamic rawSynonyms = (currentSetting.configValue as Map)['synonyms'];
+      if (rawSynonyms is List) {
+        synonymRuleCount = rawSynonyms.length;
+      }
+    }
+
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AdminBreakpoints.isPhone(context) ? 16 : 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.account_tree,
+                    color: Color(0xFF14B8A6),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '同义词规则',
+                        style:
+                            Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '独立维护词条关系，适合集中编辑、批量调整和检查归一效果。',
+                        style: TextStyle(color: Colors.grey.shade700),
+                      ),
+                    ],
+                  ),
+                ),
+                Chip(
+                  avatar: const Icon(Icons.rule, size: 18),
+                  label: Text('当前 $synonymRuleCount 条规则'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildSynonymFeatureTile(
+                  icon: Icons.sync_alt,
+                  title: '等价组',
+                  description: '一组词条互相等价，搜索会自动合并理解。',
+                  color: Colors.indigo,
+                ),
+                _buildSynonymFeatureTile(
+                  icon: Icons.arrow_right_alt,
+                  title: '单向映射',
+                  description: '把多个词统一映射到一个目标词，便于归一。',
+                  color: Colors.deepOrange,
+                ),
+                _buildSynonymFeatureTile(
+                  icon: Icons.layers_outlined,
+                  title: '可视化卡片',
+                  description: '每条规则独立成卡，关系和修改动作更清楚。',
+                  color: const Color(0xFF14B8A6),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: widget.onOpenSynonymRules,
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('打开同义词规则页面'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSynonymFeatureTile({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 330),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(color: Colors.grey.shade700, height: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -283,7 +430,7 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
-            const Text('修改分词器或同义词后，先保存设置，再应用配置。已有文章索引需要重建后才会使用新规则。'),
+            const Text('修改连接参数或分词器后，先保存设置，再应用配置。同义词规则已经拆到单独页面，保存并确认后再回到这里执行索引操作。已有文章索引需要重建后才会使用新规则。'),
             const SizedBox(height: 16),
             Wrap(
               spacing: 10,
@@ -293,6 +440,16 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
                   onPressed: actionRunning ? null : _testConnection,
                   icon: const Icon(Icons.cable),
                   label: const Text('测试连接'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: actionRunning ? null : _rollbackSetting,
+                  icon: const Icon(Icons.history),
+                  label: const Text('回滚设置'),
+                ),
+                FilledButton.icon(
+                  onPressed: actionRunning ? null : _confirmSetting,
+                  icon: const Icon(Icons.check),
+                  label: const Text('确认设置'),
                 ),
                 FilledButton.icon(
                   onPressed: actionRunning ? null : _applyIndexConfiguration,

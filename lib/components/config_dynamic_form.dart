@@ -263,36 +263,136 @@ class _SynonymRuleEditorState extends State<SynonymRuleEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          '同义词规则',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFF14B8A6).withValues(alpha: 0.16),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.account_tree,
+                      color: Color(0xFF14B8A6),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '同义词规则',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '等价组表示互换，映射规则表示归一到目标词。',
+                          style: TextStyle(color: Colors.grey.shade700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: const [
+                  Chip(
+                    avatar: Icon(Icons.sync_alt, size: 18),
+                    label: Text('等价组'),
+                  ),
+                  Chip(
+                    avatar: Icon(Icons.arrow_right_alt, size: 18),
+                    label: Text('单向映射'),
+                  ),
+                  Chip(
+                    avatar: Icon(Icons.drag_indicator, size: 18),
+                    label: Text('支持排序'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         if (rules.isEmpty) const AdminStatusView.empty(title: '暂无同义词规则'),
-        for (int index = 0; index < rules.length; index++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _SynonymRuleCard(
-              index: index,
-              rule: rules[index],
-              readOnly: widget.readOnly,
-              onChanged: (rule) {
-                rules[index] = rule;
-                widget.onChanged(rules);
-              },
-              onMoveUp: () => _moveRule(index, -1),
-              onMoveDown: () => _moveRule(index, 1),
-              onDelete: () => _removeRule(index),
+        if (rules.isNotEmpty)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              int columnCount = 1;
+              if (constraints.maxWidth >= 1200) {
+                columnCount = 3;
+              } else if (constraints.maxWidth >= 760) {
+                columnCount = 2;
+              }
+
+              double gap = 12;
+              double availableWidth = constraints.maxWidth;
+              double cardWidth = availableWidth;
+              if (columnCount > 1) {
+                cardWidth = (availableWidth - gap * (columnCount - 1)) /
+                    columnCount;
+              }
+
+              double maxCardWidth = 560;
+              if (cardWidth > maxCardWidth) {
+                cardWidth = maxCardWidth;
+              }
+
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (int index = 0; index < rules.length; index++)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _SynonymRuleCard(
+                        index: index,
+                        rule: rules[index],
+                        readOnly: widget.readOnly,
+                        onChanged: (rule) {
+                          rules[index] = rule;
+                          widget.onChanged(rules);
+                        },
+                        onMoveUp: () => _moveRule(index, -1),
+                        onMoveDown: () => _moveRule(index, 1),
+                        onDelete: () => _removeRule(index),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        if (!widget.readOnly) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonalIcon(
+              onPressed: _addRule,
+              icon: const Icon(Icons.add),
+              label: const Text('新增规则卡片'),
             ),
           ),
-        if (!widget.readOnly)
-          OutlinedButton.icon(
-            onPressed: _addRule,
-            icon: const Icon(Icons.add),
-            label: const Text('新增规则卡片'),
-          ),
+        ],
       ],
     );
   }
@@ -371,66 +471,189 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
 
   @override
   Widget build(BuildContext context) {
+    Color accentColor = mode == 'mapping' ? Colors.deepOrange : Colors.indigo;
+    String modeLabel = mode == 'mapping' ? '单向映射' : '等价组';
+    String modeDescription = mode == 'mapping'
+        ? '左侧词条统一归一到右侧目标词'
+        : '这些词条彼此互换，搜索视为同一概念';
+
     return Card(
       elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: accentColor.withValues(alpha: 0.16)),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                Text(
-                  '规则卡片 ${widget.index + 1}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${widget.index + 1}',
+                    style: TextStyle(
+                      color: accentColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                const Spacer(),
-                DropdownButton<String>(
-                  value: mode,
-                  items: const [
-                    DropdownMenuItem(value: 'equivalent', child: Text('等价组')),
-                    DropdownMenuItem(value: 'mapping', child: Text('单向映射')),
-                  ],
-                  onChanged: widget.readOnly
-                      ? null
-                      : (value) {
-                          if (value == null) {
-                            return;
-                          }
-                          setState(() {
-                            mode = value;
-                            _notifyChanged();
-                          });
-                        },
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '规则卡片 ${widget.index + 1}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        modeDescription,
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                IconButton(
-                  onPressed: widget.readOnly ? null : widget.onMoveUp,
-                  icon: const Icon(Icons.arrow_upward),
-                  tooltip: '上移',
-                ),
-                IconButton(
-                  onPressed: widget.readOnly ? null : widget.onMoveDown,
-                  icon: const Icon(Icons.arrow_downward),
-                  tooltip: '下移',
-                ),
-                IconButton(
-                  onPressed: widget.readOnly ? null : widget.onDelete,
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: '删除',
+                const SizedBox(width: 12),
+                Chip(
+                  avatar: Icon(
+                    mode == 'mapping'
+                        ? Icons.arrow_right_alt
+                        : Icons.sync_alt,
+                    size: 18,
+                    color: accentColor,
+                  ),
+                  label: Text(modeLabel),
+                  side: BorderSide(color: accentColor.withValues(alpha: 0.22)),
                 ),
               ],
             ),
-            if (mode == 'mapping') ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: targetController,
-                readOnly: widget.readOnly,
-                decoration: const InputDecoration(
-                  labelText: '映射到',
-                  hintText: '目标词',
-                ),
-                onChanged: (value) => _notifyChanged(),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(18),
               ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (mode == 'mapping') {
+                    if (constraints.maxWidth < 700) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildTermCloud(
+                            accentColor: accentColor,
+                            title: '源词条',
+                            terms: terms,
+                            alignCenter: false,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Center(
+                              child: Icon(
+                                Icons.arrow_downward,
+                                color: accentColor,
+                              ),
+                            ),
+                          ),
+                          _buildTargetPreview(accentColor),
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _buildTermCloud(
+                            accentColor: accentColor,
+                            title: '源词条',
+                            terms: terms,
+                            alignCenter: false,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Icon(
+                            Icons.arrow_forward_ios,
+                            color: accentColor,
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildTargetPreview(accentColor),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return _buildTermCloud(
+                    accentColor: accentColor,
+                    title: '等价词条',
+                    terms: terms,
+                    alignCenter: true,
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (!widget.readOnly) ...[
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment<String>(
+                    value: 'equivalent',
+                    icon: Icon(Icons.sync_alt),
+                    label: Text('等价组'),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'mapping',
+                    icon: Icon(Icons.arrow_right_alt),
+                    label: Text('单向映射'),
+                  ),
+                ],
+                selected: {mode},
+                onSelectionChanged: (selected) {
+                  if (selected.isEmpty) {
+                    return;
+                  }
+                  setState(() {
+                    mode = selected.first;
+                    _notifyChanged();
+                  });
+                },
+                showSelectedIcon: false,
+              ),
+              if (mode == 'mapping') ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: targetController,
+                  readOnly: widget.readOnly,
+                  decoration: const InputDecoration(
+                    labelText: '映射到',
+                    hintText: '目标词',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _notifyChanged();
+                    });
+                  },
+                ),
+              ],
+            ] else if (mode == 'mapping') ...[
+              const SizedBox(height: 12),
+              _buildReadOnlyTargetField(accentColor),
             ],
             const SizedBox(height: 12),
             Wrap(
@@ -461,8 +684,148 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
                 onSubmitted: _addTerm,
               ),
             ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: widget.readOnly ? null : widget.onMoveUp,
+                  icon: const Icon(Icons.arrow_upward),
+                  label: const Text('上移'),
+                ),
+                TextButton.icon(
+                  onPressed: widget.readOnly ? null : widget.onMoveDown,
+                  icon: const Icon(Icons.arrow_downward),
+                  label: const Text('下移'),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: widget.readOnly ? null : widget.onDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
+                ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTermCloud({
+    required Color accentColor,
+    required String title,
+    required List<String> terms,
+    required bool alignCenter,
+  }) {
+    return Column(
+      crossAxisAlignment:
+          alignCenter ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: accentColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (terms.isEmpty)
+          Text(
+            '暂无词条',
+            style: TextStyle(color: Colors.grey.shade600),
+          )
+        else
+          Wrap(
+            alignment: alignCenter ? WrapAlignment.center : WrapAlignment.start,
+            spacing: 8,
+            runSpacing: 8,
+            children: terms
+                .map(
+                  (term) => Chip(
+                    label: Text(term),
+                    side: BorderSide(
+                      color: accentColor.withValues(alpha: 0.18),
+                    ),
+                    backgroundColor: Colors.white,
+                  ),
+                )
+                .toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTargetPreview(Color accentColor) {
+    String targetText = targetController.text.trim();
+    if (targetText.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: accentColor.withValues(alpha: 0.16)),
+        ),
+        child: Text(
+          '目标词待填写',
+          style: TextStyle(color: Colors.grey.shade600),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '目标词',
+            style: TextStyle(
+              color: accentColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              targetText,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyTargetField(Color accentColor) {
+    String targetText = targetController.text.trim();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.flag_outlined, color: accentColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              targetText.isEmpty ? '目标词未填写' : '映射到：$targetText',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -40,7 +40,13 @@ void main() {
         GlobalKey<_SessionWorkspaceHarnessState>();
 
     await tester.pumpWidget(
-      MaterialApp(home: _SessionWorkspaceHarness(key: harnessKey)),
+      MaterialApp(
+        theme: ThemeData(
+          useMaterial3: false,
+          splashFactory: NoSplash.splashFactory,
+        ),
+        home: _SessionWorkspaceHarness(key: harnessKey),
+      ),
     );
 
     await tester.tap(find.text('Increase'));
@@ -63,6 +69,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        theme: ThemeData(
+          useMaterial3: false,
+          splashFactory: NoSplash.splashFactory,
+        ),
         home: Scaffold(
           body: SynonymRuleEditor(
             initialValue: const <Map<String, dynamic>>[],
@@ -75,7 +85,7 @@ void main() {
     await tester.tap(find.text('新增规则卡片'));
     await tester.pump();
     expect(find.text('规则卡片 1'), findsOneWidget);
-    expect(find.text('等价组'), findsOneWidget);
+    expect(find.text('等价组'), findsAtLeastNWidgets(1));
     expect(find.text('输入词条后按回车添加'), findsOneWidget);
   });
 }
