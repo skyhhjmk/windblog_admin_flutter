@@ -34,9 +34,9 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -64,9 +64,9 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       _loadData();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('操作失败: $e')));
       }
     }
   }
@@ -79,11 +79,14 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
             title: const Text('确认删除'),
             content: Text('确定要删除节点 $nodeId 吗？'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false),
-                  child: const Text('取消')),
-              TextButton(onPressed: () => Navigator.pop(context, true),
-                  child: const Text(
-                      '删除', style: TextStyle(color: Colors.red))),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('删除', style: TextStyle(color: Colors.red)),
+              ),
             ],
           ),
     );
@@ -94,8 +97,9 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       _loadData();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('删除失败: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
       }
     }
   }
@@ -157,14 +161,17 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                   children: [
                     Icon(
                       Icons.router,
-                      color: node.status == 'ONLINE' ? Colors.green : Colors
-                          .grey,
+                      color: node.status == 'ONLINE'
+                          ? Colors.green
+                          : Colors.grey,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       node.name.isNotEmpty ? node.name : node.nodeId,
                       style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     _buildBadge(node.region.code.toUpperCase(), Colors.blue),
@@ -173,18 +180,25 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                     const SizedBox(width: 4),
                     if (node.certificateSerial != null)
                       _buildBadge(
-                          node.certificateRevoked
-                              ? '已吊销'
-                              : (node.certificateExpiry != null &&
-                              node.certificateExpiry!.isBefore(DateTime.now())
-                              ? '已过期'
-                              : (node.isTrusted ? '可信' : '待连接')),
-                          node.certificateRevoked
-                              ? Colors.red
-                              : (node.certificateExpiry != null &&
-                              node.certificateExpiry!.isBefore(DateTime.now())
-                              ? Colors.orange
-                              : (node.isTrusted ? Colors.green : Colors.blue))),
+                        node.certificateRevoked
+                            ? '已吊销'
+                            : (node.certificateExpiry != null &&
+                            node.certificateExpiry!.isBefore(
+                              DateTime.now(),
+                            )
+                            ? '已过期'
+                            : (node.isTrusted ? '可信' : '待连接')),
+                        node.certificateRevoked
+                            ? Colors.red
+                            : (node.certificateExpiry != null &&
+                            node.certificateExpiry!.isBefore(
+                              DateTime.now(),
+                            )
+                            ? Colors.orange
+                            : (node.isTrusted
+                            ? Colors.green
+                            : Colors.blue)),
+                      ),
                     const SizedBox(width: 4),
                     if (dataStatus != null)
                       _buildBadge(
@@ -244,7 +258,9 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                       onPressed: () => _deleteNode(node.nodeId),
                       icon: const Icon(Icons.delete, color: Colors.red),
                       label: const Text(
-                          '删除', style: TextStyle(color: Colors.red)),
+                        '删除',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     FilledButton.icon(
@@ -273,7 +289,10 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       child: Text(
         text,
         style: TextStyle(
-            color: color, fontSize: 10, fontWeight: FontWeight.bold),
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -283,14 +302,16 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
     final idController = TextEditingController(text: node?.nodeId);
     final nameController = TextEditingController(text: node?.name ?? '');
     final externalUrlController = TextEditingController(
-        text: node?.externalUrl);
+      text: node?.externalUrl,
+    );
     final apiUrlController = TextEditingController(text: node?.apiUrl);
     final grpcAddressController = TextEditingController(
-        text: node?.grpcAddress);
+      text: node?.grpcAddress,
+    );
     final ipController = TextEditingController();
     BlogRegion selectedRegion = node?.region ?? BlogRegion.global;
-    EdgeConnectionType selectedConn = node?.connectionType ??
-        EdgeConnectionType.heartbeat;
+    EdgeConnectionType selectedConn =
+        node?.connectionType ?? EdgeConnectionType.heartbeat;
     bool isEnabled = node?.isEnabled ?? true;
     int selectedPort = node?.edgeGrpcPort ?? (9001 + Random().nextInt(999));
 
@@ -311,7 +332,8 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                             controller: idController,
                             enabled: !isEdit,
                             decoration: const InputDecoration(
-                                labelText: '节点 ID (唯一标识)'),
+                              labelText: '节点 ID (唯一标识)',
+                            ),
                           ),
                           const SizedBox(height: 16),
                           TextField(
@@ -324,32 +346,37 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                             TextField(
                               controller: externalUrlController,
                               decoration: const InputDecoration(
-                                  labelText: '外部访问地址',
-                                  hintText: 'https://edge.example.com'),
+                                labelText: '外部访问地址',
+                                hintText: 'https://edge.example.com',
+                              ),
                             ),
                             const SizedBox(height: 16),
                             TextField(
                               controller: apiUrlController,
                               decoration: const InputDecoration(
-                                  labelText: 'API 通信地址',
-                                  hintText: 'http://edge-node:8081'),
+                                labelText: 'API 通信地址',
+                                hintText: 'http://edge-node:8081',
+                              ),
                             ),
                             const SizedBox(height: 16),
                             TextField(
                               controller: grpcAddressController,
                               decoration: const InputDecoration(
-                                  labelText: 'gRPC 通信地址',
-                                  hintText: 'edge-node:9001 (主动连接模式必填)'),
+                                labelText: 'gRPC 通信地址',
+                                hintText: 'edge-node:9001 (主动连接模式必填)',
+                              ),
                             ),
                           ],
-                          if (!isEdit && selectedConn ==
-                              EdgeConnectionType.activePoll) ...[
+                          if (!isEdit &&
+                              selectedConn ==
+                                  EdgeConnectionType.activePoll) ...[
                             const SizedBox(height: 16),
                             TextField(
                               controller: ipController,
                               decoration: const InputDecoration(
-                                  labelText: '节点 IP (主动连接模式必填)',
-                                  hintText: '例如: 192.168.1.100'),
+                                labelText: '节点 IP (主动连接模式必填)',
+                                hintText: '例如: 192.168.1.100',
+                              ),
                             ),
                           ],
                           const SizedBox(height: 16),
@@ -362,9 +389,13 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                                   decoration: const InputDecoration(
                                       labelText: '所属区域'),
                                   items: BlogRegion.values
-                                      .map((e) =>
-                                      DropdownMenuItem(
-                                      value: e, child: Text(e.displayName)))
+                                      .map(
+                                        (e) =>
+                                        DropdownMenuItem(
+                                          value: e,
+                                          child: Text(e.displayName),
+                                        ),
+                                  )
                                       .toList(),
                                   onChanged: (v) =>
                                       setDialogState(() => selectedRegion = v!),
@@ -376,7 +407,8 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                                 child: TextFormField(
                                   initialValue: selectedPort.toString(),
                                   decoration: const InputDecoration(
-                                      labelText: 'gRPC 端口'),
+                                    labelText: 'gRPC 端口',
+                                  ),
                                   keyboardType: TextInputType.number,
                                   onChanged: (v) {
                                     int parsed = int.tryParse(v) ??
@@ -396,13 +428,17 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                             decoration: const InputDecoration(
                                 labelText: '连接模式'),
                             items: EdgeConnectionType.values
-                                .map((e) =>
-                                DropdownMenuItem(
+                                .map(
+                                  (e) =>
+                                  DropdownMenuItem(
                                     value: e,
                                     child: Text(
-                                        e == EdgeConnectionType.heartbeat
-                                            ? '心跳上报 (从→主)'
-                                            : '主动轮询 (主→从)')))
+                                      e == EdgeConnectionType.heartbeat
+                                          ? '心跳上报 (从→主)'
+                                          : '主动轮询 (主→从)',
+                                    ),
+                                  ),
+                            )
                                 .toList(),
                             onChanged: (v) =>
                                 setDialogState(() => selectedConn = v!),
@@ -421,8 +457,10 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                     ),
                   ),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context),
-                        child: const Text('取消')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('取消'),
+                    ),
                     FilledButton(
                       onPressed: () {
                         if (!isEdit &&
@@ -472,7 +510,9 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
         _loadData();
       } else {
         await widget.api.createEdgeNode(
-            newNode, nodeIp: ipController.text.trim());
+          newNode,
+          nodeIp: ipController.text.trim(),
+        );
         _loadData();
         if (mounted) {
           _offerDownloadZip(idController.text);
@@ -480,8 +520,9 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('提交失败: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('提交失败: $e')));
       }
     }
   }
@@ -493,10 +534,13 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
           AlertDialog(
             title: const Text('节点创建成功'),
             content: const Text(
-                '是否立即下载部署包？\n\n部署包包含证书、配置文件和 Docker Compose，解压后执行 docker compose up -d 即可启动边缘节点。'),
+              '是否立即下载部署包？\n\n部署包包含证书、配置文件和 Docker Compose，解压后执行 docker compose up -d 即可启动边缘节点。',
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false),
-                  child: const Text('稍后')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('稍后'),
+              ),
               FilledButton.icon(
                 onPressed: () => Navigator.pop(context, true),
                 icon: const Icon(Icons.download),
@@ -535,31 +579,44 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (!downloadDone) ...[
-                        LinearProgressIndicator(value: downloadProgress > 0
-                            ? downloadProgress
-                            : null),
+                        LinearProgressIndicator(
+                          value: downloadProgress > 0 ? downloadProgress : null,
+                        ),
                         const SizedBox(height: 12),
-                        Text(downloadStatus,
-                            style: const TextStyle(fontSize: 14, color: Colors
-                                .grey)),
+                        Text(
+                          downloadStatus,
+                          style: const TextStyle(fontSize: 14, color: Colors
+                              .grey),
+                        ),
                       ] else
                         if (downloadError != null) ...[
                           const Icon(
-                              Icons.error_outline, color: Colors.red, size: 48),
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 48,
+                          ),
                           const SizedBox(height: 12),
-                          Text(downloadError, style: const TextStyle(
-                              color: Colors.red)),
+                          Text(
+                            downloadError,
+                            style: const TextStyle(color: Colors.red),
+                          ),
                         ] else
                           ...[
                             const Icon(
-                                Icons.check_circle_outline, color: Colors.green,
-                                size: 48),
+                              Icons.check_circle_outline,
+                              color: Colors.green,
+                              size: 48,
+                            ),
                             const SizedBox(height: 12),
-                            const Text('部署包已就绪', style: TextStyle(
-                                fontWeight: FontWeight.bold)),
+                            const Text(
+                              '部署包已就绪',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                             const SizedBox(height: 4),
-                            const Text('请选择保存方式：', style: TextStyle(
-                                color: Colors.grey)),
+                            const Text(
+                              '请选择保存方式：',
+                              style: TextStyle(color: Colors.grey),
+                            ),
                             const SizedBox(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -567,9 +624,11 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                                 OutlinedButton.icon(
                                   onPressed: () {
                                     if (zipBytes != null) {
-                                      web_helper.downloadFile(zipBytes,
-                                          'windblog-edge-$nodeId.zip',
-                                          'application/zip');
+                                      web_helper.downloadFile(
+                                        zipBytes,
+                                        'windblog-edge-$nodeId.zip',
+                                        'application/zip',
+                                      );
                                     }
                                   },
                                   icon: const Icon(Icons.folder_open),
@@ -579,8 +638,10 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                                 FilledButton.icon(
                                   onPressed: () {
                                     if (zipBytes != null) {
-                                      web_helper.saveFileWithPicker(zipBytes,
-                                          'windblog-edge-$nodeId.zip');
+                                      web_helper.saveFileWithPicker(
+                                        zipBytes,
+                                        'windblog-edge-$nodeId.zip',
+                                      );
                                     }
                                   },
                                   icon: const Icon(Icons.folder),
@@ -640,11 +701,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
   Future<void> _showDetailDialog(EdgeNode node) async {
     showDialog(
       context: context,
-      builder: (context) =>
-          _EdgeNodeDetailDialog(
-            node: node,
-            api: widget.api,
-          ),
+      builder: (context) => _EdgeNodeDetailDialog(node: node, api: widget.api),
     );
   }
 }
@@ -687,8 +744,10 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
   void initState() {
     super.initState();
     _refresh();
-    _timer =
-        Timer.periodic(const Duration(seconds: 3), (_) => _refreshStatus());
+    _timer = Timer.periodic(
+      const Duration(seconds: 3),
+          (_) => _refreshStatus(),
+    );
   }
 
   @override
@@ -733,18 +792,20 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
   Future<void> _startSync() async {
     try {
       await widget.api.triggerEdgeNodeSync(
-          widget.node.nodeId, force: _forceSync);
+        widget.node.nodeId,
+        force: _forceSync,
+      );
       _refreshStatus();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已触发全量同步')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已触发全量同步')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('触发同步失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('触发同步失败: $e')));
       }
     }
   }
@@ -765,10 +826,12 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
               _buildInfoRow('节点 ID', node.nodeId),
               _buildInfoRow('外部访问', node.externalUrl ?? 'N/A'),
               _buildInfoRow('API 地址', node.apiUrl ?? 'N/A'),
+              _buildInfoRow('gRPC 地址', node.grpcAddress ?? 'N/A'),
               _buildInfoRow(
-                  'gRPC 地址', node.grpcAddress ?? 'N/A'),
-              _buildInfoRow('状态', node.status,
-                  color: node.status == 'ONLINE' ? Colors.green : Colors.red),
+                '状态',
+                node.status,
+                color: node.status == 'ONLINE' ? Colors.green : Colors.red,
+              ),
               _buildInfoRow('区域', node.region.displayName),
               _buildInfoRow('连接模式', node.connectionType.name),
               const Divider(),
@@ -787,9 +850,8 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
                   _buildInfoRow(
                     '主节点',
                     dataStatus!.primaryOnline ? '在线' : '离线',
-                    color: dataStatus!.primaryOnline
-                        ? Colors.green
-                        : Colors.red,
+                    color: dataStatus!.primaryOnline ? Colors.green : Colors
+                        .red,
                   ),
                   _buildInfoRow(
                     '写入模式',
@@ -810,15 +872,19 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
               _buildAvailabilitySection(),
               const Divider(),
               _buildSectionTitle('安全与证书'),
-              _buildInfoRow('可信状态',
-                  node.certificateSerial == null ? '未授信' : (node
-                      .certificateRevoked ? '已吊销' : (node.isTrusted
-                      ? '可信'
-                      : '已签发，待连接')),
-                  color: node.certificateRevoked ? Colors.red : (node
-                      .certificateSerial == null ? Colors.grey : (node.isTrusted
-                      ? Colors.green
-                      : Colors.blue))),
+              _buildInfoRow(
+                '可信状态',
+                node.certificateSerial == null
+                    ? '未授信'
+                    : (node.certificateRevoked
+                    ? '已吊销'
+                    : (node.isTrusted ? '可信' : '已签发，待连接')),
+                color: node.certificateRevoked
+                    ? Colors.red
+                    : (node.certificateSerial == null
+                    ? Colors.grey
+                    : (node.isTrusted ? Colors.green : Colors.blue)),
+              ),
               if (node.certificateSerial != null) ...[
                 _buildInfoRow('主证书序列号', node.certificateSerial!),
                 _buildInfoRow(
@@ -827,7 +893,9 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
               if (node.certificateBackupSerial != null) ...[
                 _buildInfoRow('备用证书序列号', node.certificateBackupSerial!),
                 _buildInfoRow(
-                    '备用证书过期', _formatDate(node.certificateBackupExpiry)),
+                  '备用证书过期',
+                  _formatDate(node.certificateBackupExpiry),
+                ),
               ],
               const SizedBox(height: 8),
               SizedBox(
@@ -862,8 +930,9 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
               if (_mergedMetrics(node).isEmpty)
                 const Text('暂无指标数据', style: TextStyle(color: Colors.grey))
               else
-                ..._mergedMetrics(node).entries.map((e) =>
-                    _buildInfoRow(e.key, e.value)),
+                ..._mergedMetrics(
+                  node,
+                ).entries.map((e) => _buildInfoRow(e.key, e.value)),
               const Divider(),
               _buildSectionTitle('同步状态'),
               if (syncStatus == null)
@@ -871,16 +940,19 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
               else
                 ...[
                   _buildInfoRow('当前阶段', syncStatus!.status),
-                  _buildInfoRow('进度',
-                      '${syncStatus!.processed} / ${syncStatus!.total}'),
+                  _buildInfoRow(
+                    '进度',
+                    '${syncStatus!.processed} / ${syncStatus!.total}',
+                  ),
                   const SizedBox(height: 8),
                   LinearProgressIndicator(value: syncStatus!.progress),
                   if (syncStatus!.lastError != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text('最后错误: ${syncStatus!.lastError}',
-                          style: const TextStyle(
-                              color: Colors.red, fontSize: 12)),
+                      child: Text(
+                        '最后错误: ${syncStatus!.lastError}',
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
                     ),
                 ],
               const SizedBox(height: 16),
@@ -901,7 +973,9 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('关闭'),
+        ),
         FilledButton.icon(
           onPressed: syncStatus?.status == 'SYNCING' ? null : _startSync,
           icon: const Icon(Icons.sync),
@@ -984,7 +1058,9 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: Theme
-                .of(context)
+                .of(
+              context,
+            )
                 .colorScheme
                 .surfaceContainerHighest
                 .withValues(alpha: 0.45),
@@ -1011,22 +1087,24 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
     final int startIndex = periods.length > 5 ? periods.length - 5 : 0;
     for (int index = periods.length - 1; index >= startIndex; index--) {
       final period = periods[index];
-      periodRows.add(Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Row(
-          children: [
-            const Icon(Icons.timeline, size: 16, color: Colors.green),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                '${_formatDate(period.startAt)}  至  ${_formatDate(
-                    period.endAt)}',
-                style: const TextStyle(fontSize: 12),
+      periodRows.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            children: [
+              const Icon(Icons.timeline, size: 16, color: Colors.green),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${_formatDate(period.startAt)}  至  ${_formatDate(
+                      period.endAt)}',
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ));
+      );
     }
 
     return Column(
@@ -1073,207 +1151,308 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
     Uint8List? zipBytes;
     String? downloadError;
     StateSetter? certDownloaderSetState;
+    String selectedImageVariant = 'native-micro';
+    final imageReferenceController = TextEditingController(
+      text: 'ghcr.io/hhjmk/windblog_quarkus:latest',
+    );
 
-    await showDialog(
-      context: context,
-      builder: (context) =>
-          StatefulBuilder(
-            builder: (context, setDialogState) {
-              certDownloaderSetState = setDialogState;
-              return AlertDialog(
-                title: Text(downloadDone ? '下载完成' : '部署包下载'),
-                content: SizedBox(
-                  width: 550,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                            '边缘节点需要通过 mTLS 双向认证才能与主节点通信。'),
-                        const SizedBox(height: 12),
-                        const Text('部署包包含以下内容：',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        const Text(
-                            '  certs/  — 24h 主证书 + 72h 备用证书 + CA 根证书'),
-                        const Text('  .env  — 预配置的环境变量'),
-                        const Text('  docker-compose.yml  — 一键启动配置'),
-                        const Text('  README.txt  — 部署步骤说明'),
-                        const SizedBox(height: 16),
-                        if (isDownloading) ...[
-                          LinearProgressIndicator(value: downloadProgress > 0
-                              ? downloadProgress
-                              : null),
+    try {
+      await showDialog(
+        context: context,
+        builder: (context) =>
+            StatefulBuilder(
+              builder: (context, setDialogState) {
+                certDownloaderSetState = setDialogState;
+                return AlertDialog(
+                  title: Text(downloadDone ? '下载完成' : '部署包下载'),
+                  content: SizedBox(
+                    width: 550,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                              '边缘节点需要通过 mTLS 双向认证才能与主节点通信。'),
                           const SizedBox(height: 12),
-                          Text(downloadStatus, style: const TextStyle(
-                              fontSize: 14, color: Colors.grey)),
-                        ] else
-                          if (downloadDone && downloadError == null) ...[
-                            const Icon(Icons.check_circle_outline,
-                                color: Colors.green, size: 32),
-                            const SizedBox(height: 8),
-                            const Text('部署包已就绪',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            const Text('请选择保存方式：',
-                                style: TextStyle(color: Colors.grey)),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                OutlinedButton.icon(
-                                  onPressed: () {
-                                    if (zipBytes != null) {
-                                      web_helper.downloadFile(zipBytes!,
-                                          'windblog-edge-${node.nodeId}.zip',
-                                          'application/zip');
-                                    }
-                                  },
-                                  icon: const Icon(Icons.folder_open),
-                                  label: const Text('保存到下载文件夹'),
-                                ),
-                                const SizedBox(width: 12),
-                                FilledButton.icon(
-                                  onPressed: () {
-                                    if (zipBytes != null) {
-                                      web_helper.saveFileWithPicker(zipBytes!,
-                                          'windblog-edge-${node.nodeId}.zip');
-                                    }
-                                  },
-                                  icon: const Icon(Icons.folder),
-                                  label: const Text('选择保存位置'),
-                                ),
-                              ],
+                          const Text(
+                            '部署包包含以下内容：',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                              '  certs/  — 24h 主证书 + 72h 备用证书 + CA 根证书'),
+                          const Text('  .env  — 预配置的环境变量'),
+                          const Text('  docker-compose.yml  — 一键启动配置'),
+                          const Text('  README.txt  — 部署步骤说明'),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedImageVariant,
+                            decoration: const InputDecoration(
+                              labelText: '镜像变体',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'native-micro',
+                                child: Text('Native Micro（推荐）'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'native',
+                                child: Text('Native'),
+                              ),
+                              DropdownMenuItem(
+                                  value: 'jvm', child: Text('JVM')),
+                            ],
+                            onChanged: isDownloading
+                                ? null
+                                : (value) {
+                              if (value == null) {
+                                return;
+                              }
+                              selectedImageVariant = value;
+                              imageReferenceController.text =
+                                  _defaultEdgeImageReference(value);
+                              setDialogState(() {});
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: imageReferenceController,
+                            enabled: !isDownloading,
+                            decoration: const InputDecoration(
+                              labelText: '镜像完全限定名称',
+                              hintText: 'ghcr.io/hhjmk/windblog_quarkus:latest',
+                              helperText: '必须包含注册表或命名空间，以及 tag 或 digest',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (isDownloading) ...[
+                            LinearProgressIndicator(
+                              value: downloadProgress > 0
+                                  ? downloadProgress
+                                  : null,
                             ),
                             const SizedBox(height: 12),
-                            const Text('部署步骤：',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            const Text('1. 将 ZIP 解压到目标服务器上'),
-                            const Text('2. 进入解压后的目录'),
-                            const Text(
-                                '3. 如主节点地址不是 localhost，编辑 .env'),
-                            const Text('4. 执行: docker compose up -d'),
-                          ] else
-                            if (downloadError != null) ...[
-                              const Icon(Icons.error_outline, color: Colors.red,
-                                  size: 32),
-                              const SizedBox(height: 8),
-                              Text(downloadError!,
-                                  style: const TextStyle(color: Colors.red)),
-                              const SizedBox(height: 8),
-                              FilledButton.icon(
-                                onPressed: () async {
-                                  downloadError = null;
-                                  isDownloading = true;
-                                  downloadProgress = 0;
-                                  setDialogState(() {});
-                                  zipBytes =
-                                  await _performCertDownload(node, (p, s) {
-                                    downloadProgress = p;
-                                    downloadStatus = s;
-                                    certDownloaderSetState?.call(() {});
-                                  });
-                                  isDownloading = false;
-                                  if (zipBytes == null) {
-                                    downloadError = '下载失败，请检查网络后重试';
-                                  } else {
-                                    downloadDone = true;
-                                    downloadProgress = 1.0;
-                                  }
-                                  certDownloaderSetState?.call(() {});
-                                },
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('重试'),
+                            Text(
+                              downloadStatus,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
                               ),
+                            ),
+                          ] else
+                            if (downloadDone && downloadError == null) ...[
+                              const Icon(
+                                Icons.check_circle_outline,
+                                color: Colors.green,
+                                size: 32,
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                '部署包已就绪',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                '请选择保存方式：',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  OutlinedButton.icon(
+                                    onPressed: () {
+                                      if (zipBytes != null) {
+                                        web_helper.downloadFile(
+                                          zipBytes!,
+                                          'windblog-edge-${node.nodeId}.zip',
+                                          'application/zip',
+                                        );
+                                      }
+                                    },
+                                    icon: const Icon(Icons.folder_open),
+                                    label: const Text('保存到下载文件夹'),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  FilledButton.icon(
+                                    onPressed: () {
+                                      if (zipBytes != null) {
+                                        web_helper.saveFileWithPicker(
+                                          zipBytes!,
+                                          'windblog-edge-${node.nodeId}.zip',
+                                        );
+                                      }
+                                    },
+                                    icon: const Icon(Icons.folder),
+                                    label: const Text('选择保存位置'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                '部署步骤：',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text('1. 将 ZIP 解压到目标服务器上'),
+                              const Text('2. 进入解压后的目录'),
+                              const Text(
+                                  '3. 如主节点地址不是 localhost，编辑 .env'),
+                              const Text('4. 执行: docker compose up -d'),
                             ] else
-                              ...[
-                                Center(
-                                  child: FilledButton.icon(
-                                    onPressed: () async {
-                                      isDownloading = true;
-                                      downloadProgress = 0;
-                                      downloadStatus = '正在生成部署包...';
-                                      setDialogState(() {});
-                                      zipBytes =
-                                      await _performCertDownload(node, (p, s) {
+                              if (downloadError != null) ...[
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red,
+                                  size: 32,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  downloadError!,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                                const SizedBox(height: 8),
+                                FilledButton.icon(
+                                  onPressed: () async {
+                                    downloadError = null;
+                                    isDownloading = true;
+                                    downloadProgress = 0;
+                                    setDialogState(() {});
+                                    zipBytes = await _performCertDownload(
+                                      node,
+                                          (p, s) {
                                         downloadProgress = p;
                                         downloadStatus = s;
                                         certDownloaderSetState?.call(() {});
-                                      });
-                                      isDownloading = false;
-                                      if (zipBytes == null) {
-                                        downloadError =
-                                        '下载失败，请检查网络后重试';
-                                      } else {
-                                        downloadDone = true;
-                                        downloadProgress = 1.0;
-                                        _refresh();
-                                      }
-                                      setDialogState(() {});
-                                      certDownloaderSetState?.call(() {});
-                                    },
-                                    icon: const Icon(Icons.download),
-                                    label: const Text('生成并下载部署 ZIP'),
-                                  ),
+                                      },
+                                      imageReference: imageReferenceController
+                                          .text,
+                                      imageVariant: selectedImageVariant,
+                                    );
+                                    isDownloading = false;
+                                    if (zipBytes == null) {
+                                      downloadError =
+                                      '下载失败，请检查网络后重试';
+                                    } else {
+                                      downloadDone = true;
+                                      downloadProgress = 1.0;
+                                    }
+                                    certDownloaderSetState?.call(() {});
+                                  },
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('重试'),
                                 ),
-                              ],
-                        if (node.certificateSerial != null &&
-                            !node.certificateRevoked) ...[
-                          const Divider(),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            onPressed: () async {
-                              final ok = await showDialog<bool>(
-                                context: context,
-                                builder: (context) =>
-                                    AlertDialog(
-                                      title: const Text('确认吊销'),
-                                      content: const Text(
-                                          '吊销证书后，该节点将无法再通过 mTLS 与主节点通信。确定要继续吗？'),
-                                      actions: [
-                                        TextButton(onPressed: () =>
-                                            Navigator.pop(context, false),
-                                            child: const Text('取消')),
-                                        TextButton(onPressed: () =>
-                                            Navigator.pop(context, true),
-                                            child: const Text('确定吊销',
-                                                style: TextStyle(
-                                                    color: Colors.red))),
-                                      ],
+                              ] else
+                                ...[
+                                  Center(
+                                    child: FilledButton.icon(
+                                      onPressed: () async {
+                                        isDownloading = true;
+                                        downloadProgress = 0;
+                                        downloadStatus = '正在生成部署包...';
+                                        setDialogState(() {});
+                                        zipBytes = await _performCertDownload(
+                                          node,
+                                              (p, s) {
+                                            downloadProgress = p;
+                                            downloadStatus = s;
+                                            certDownloaderSetState?.call(() {});
+                                          },
+                                          imageReference: imageReferenceController
+                                              .text,
+                                          imageVariant: selectedImageVariant,
+                                        );
+                                        isDownloading = false;
+                                        if (zipBytes == null) {
+                                          downloadError =
+                                          '下载失败，请检查网络后重试';
+                                        } else {
+                                          downloadDone = true;
+                                          downloadProgress = 1.0;
+                                          _refresh();
+                                        }
+                                        setDialogState(() {});
+                                        certDownloaderSetState?.call(() {});
+                                      },
+                                      icon: const Icon(Icons.download),
+                                      label: const Text('生成并下载部署 ZIP'),
                                     ),
-                              );
-                              if (ok == true) {
-                                try {
-                                  await widget.api.revokeEdgeNodeCertificate(
-                                      node.nodeId);
-                                  if (!context.mounted) return;
-                                  Navigator.pop(context);
-                                  _refresh();
-                                } catch (e) {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('吊销失败: $e')));
+                                  ),
+                                ],
+                          if (node.certificateSerial != null &&
+                              !node.certificateRevoked) ...[
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: () async {
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) =>
+                                      AlertDialog(
+                                        title: const Text('确认吊销'),
+                                        content: const Text(
+                                          '吊销证书后，该节点将无法再通过 mTLS 与主节点通信。确定要继续吗？',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('取消'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text(
+                                              '确定吊销',
+                                              style: TextStyle(
+                                                  color: Colors.red),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                );
+                                if (ok == true) {
+                                  try {
+                                    await widget.api.revokeEdgeNodeCertificate(
+                                      node.nodeId,
+                                    );
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    _refresh();
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('吊销失败: $e')),
+                                    );
+                                  }
                                 }
-                              }
-                            },
-                            icon: const Icon(Icons.block, color: Colors.red),
-                            label: const Text('吊销当前证书',
-                                style: TextStyle(color: Colors.red)),
-                          ),
+                              },
+                              icon: const Icon(Icons.block, color: Colors.red),
+                              label: const Text(
+                                '吊销当前证书',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(context),
-                      child: const Text('关闭')),
-                ],
-              );
-            },
-          ),
-    );
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('关闭'),
+                    ),
+                  ],
+                );
+              },
+            ),
+      );
+    } finally {
+      imageReferenceController.dispose();
+    }
   }
 
   Future<void> _renewCertificate(EdgeNode node) async {
@@ -1322,8 +1501,9 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
     );
 
     try {
-      final renewedNode =
-          await widget.api.issueEdgeNodeCertificate(node.nodeId);
+      final renewedNode = await widget.api.issueEdgeNodeCertificate(
+        node.nodeId,
+      );
       if (!mounted) {
         return;
       }
@@ -1344,17 +1524,22 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
         return;
       }
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('证书续签失败: $exception')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('证书续签失败: $exception')));
     }
   }
 
   Future<Uint8List?> _performCertDownload(EdgeNode node,
-      void Function(double progress, String status) onUpdate,) async {
+      void Function(double progress, String status) onUpdate, {
+        required String imageReference,
+        required String imageVariant,
+      }) async {
     try {
       final bytes = await widget.api.downloadDeploymentZipWithProgress(
         node.nodeId,
+        imageReference: imageReference,
+        imageVariant: imageVariant,
         onProgress: (p) => onUpdate(p, '正在下载 (${(p * 100).toInt()}%)'),
         onStatus: (s) => onUpdate(0, s),
       );
@@ -1364,11 +1549,23 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
     }
   }
 
+  String _defaultEdgeImageReference(String imageVariant) {
+    if (imageVariant == 'native') {
+      return 'ghcr.io/hhjmk/windblog_quarkus:latest-native';
+    }
+    if (imageVariant == 'jvm') {
+      return 'ghcr.io/hhjmk/windblog_quarkus:latest-jvm';
+    }
+    return 'ghcr.io/hhjmk/windblog_quarkus:latest';
+  }
+
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      child: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
     );
   }
 
@@ -1377,10 +1574,19 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          SizedBox(width: 100,
-              child: Text(label, style: const TextStyle(color: Colors.grey))),
-          Expanded(child: Text(value, style: TextStyle(color: color,
-              fontWeight: color != null ? FontWeight.bold : null))),
+          SizedBox(
+            width: 100,
+            child: Text(label, style: const TextStyle(color: Colors.grey)),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontWeight: color != null ? FontWeight.bold : null,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1473,18 +1679,13 @@ class _AvailabilityTimelinePainter extends CustomPainter {
         }
         double previousX = 0;
         if (totalMilliseconds > 0) {
-          final int previousOffset =
-              previousTime
-                  .difference(firstTime)
-                  .inMilliseconds;
+          final int previousOffset = previousTime
+              .difference(firstTime)
+              .inMilliseconds;
           previousX = size.width * previousOffset / totalMilliseconds;
         }
         final double previousY = previousSample.online ? onlineY : offlineY;
-        canvas.drawLine(
-          Offset(previousX, previousY),
-          Offset(x, y),
-          pointPaint,
-        );
+        canvas.drawLine(Offset(previousX, previousY), Offset(x, y), pointPaint);
       }
     }
 
@@ -1542,18 +1743,20 @@ class _AvailabilityCalendarGrid extends StatelessWidget {
     final List<Widget> cells = [];
     for (int index = 0; index < days.length; index++) {
       final day = days[index];
-      cells.add(Tooltip(
-        message: _tooltipText(day),
-        child: Container(
-          width: 18,
-          height: 18,
-          decoration: BoxDecoration(
-            color: _dayColor(day.onlineRate),
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+      cells.add(
+        Tooltip(
+          message: _tooltipText(day),
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: _dayColor(day.onlineRate),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+            ),
           ),
         ),
-      ));
+      );
     }
 
     return Column(

@@ -1113,9 +1113,14 @@ class AdminApiClient {
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
-  Future<Uint8List> downloadDeploymentZip(String nodeId) async {
-    final uri = Uri.parse(
-      '$baseUrl/api/admin/edge-nodes/$nodeId/deployment-zip',
+  Future<Uint8List> downloadDeploymentZip(String nodeId, {
+    String? imageReference,
+    String imageVariant = 'native-micro',
+  }) async {
+    final uri = _deploymentZipUri(
+      nodeId,
+      imageReference: imageReference,
+      imageVariant: imageVariant,
     );
     final res = await http.get(uri, headers: _headers(true));
     _check(res, authFailureAsSessionExpired: true);
@@ -1124,11 +1129,15 @@ class AdminApiClient {
 
   Future<Uint8List> downloadDeploymentZipWithProgress(
     String nodeId, {
+        String? imageReference,
+        String imageVariant = 'native-micro',
     void Function(double progress)? onProgress,
     void Function(String status)? onStatus,
   }) async {
-    final uri = Uri.parse(
-      '$baseUrl/api/admin/edge-nodes/$nodeId/deployment-zip',
+    final uri = _deploymentZipUri(
+      nodeId,
+      imageReference: imageReference,
+      imageVariant: imageVariant,
     );
     final request = http.Request('GET', uri);
     request.headers.addAll(_headers(true));
@@ -1172,6 +1181,22 @@ class AdminApiClient {
     } finally {
       client.close();
     }
+  }
+
+  Uri _deploymentZipUri(String nodeId, {
+    String? imageReference,
+    required String imageVariant,
+  }) {
+    final queryParameters = <String, String>{'variant': imageVariant};
+    if (imageReference != null && imageReference
+        .trim()
+        .isNotEmpty) {
+      queryParameters['image'] = imageReference.trim();
+    }
+
+    return Uri.parse(
+      '$baseUrl/api/admin/edge-nodes/$nodeId/deployment-zip',
+    ).replace(queryParameters: queryParameters);
   }
 
   Future<void> revokeEdgeNodeCertificate(String nodeId) async {
