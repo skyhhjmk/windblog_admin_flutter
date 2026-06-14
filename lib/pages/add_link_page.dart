@@ -38,7 +38,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
   int _redirectType = 1;
   int _linkType = 0;
   bool _showUrl = true;
-  bool _status = true; // true = 1, false = 0
+  bool _status = true;
 
   bool _isFetching = false;
   bool _isSaving = false;
@@ -95,9 +95,9 @@ class _AddLinkPageState extends State<AddLinkPage> {
     if (url.isEmpty || !Uri
         .parse(url)
         .isAbsolute) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t(context, 'invalid_url'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t(context, 'invalid_url'))));
       return;
     }
 
@@ -133,7 +133,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
   }
 
   Future<void> _uploadFile(TextEditingController controller,
-      bool isIcon) async {
+      bool isIcon,) async {
     if (isIcon) {
       setState(() => _isUploadingIcon = true);
     } else {
@@ -186,33 +186,49 @@ class _AddLinkPageState extends State<AddLinkPage> {
         url: _urlController.text.trim(),
         description: _descriptionController.text
             .trim()
-            .isEmpty ? null : _descriptionController.text.trim(),
+            .isEmpty
+            ? null
+            : _descriptionController.text.trim(),
         email: _emailController.text
             .trim()
-            .isEmpty ? null : _emailController.text.trim(),
+            .isEmpty
+            ? null
+            : _emailController.text.trim(),
         icon: _iconController.text
             .trim()
-            .isEmpty ? null : _iconController.text.trim(),
+            .isEmpty
+            ? null
+            : _iconController.text.trim(),
         image: _imageController.text
             .trim()
-            .isEmpty ? null : _imageController.text.trim(),
+            .isEmpty
+            ? null
+            : _imageController.text.trim(),
         sortOrder: int.tryParse(_sortOrderController.text) ?? 0,
-        status: _status ? 1 : 0,
+        status: _status ? 1 : 2,
         target: _target,
         redirectType: _redirectType,
         showUrl: _showUrl,
         note: _noteController.text
             .trim()
-            .isEmpty ? null : _noteController.text.trim(),
+            .isEmpty
+            ? null
+            : _noteController.text.trim(),
         seoTitle: _seoTitleController.text
             .trim()
-            .isEmpty ? null : _seoTitleController.text.trim(),
+            .isEmpty
+            ? null
+            : _seoTitleController.text.trim(),
         seoKeywords: _seoKeywordsController.text
             .trim()
-            .isEmpty ? null : _seoKeywordsController.text.trim(),
+            .isEmpty
+            ? null
+            : _seoKeywordsController.text.trim(),
         seoDescription: _seoDescriptionController.text
             .trim()
-            .isEmpty ? null : _seoDescriptionController.text.trim(),
+            .isEmpty
+            ? null
+            : _seoDescriptionController.text.trim(),
         type: _linkType,
       );
 
@@ -223,9 +239,9 @@ class _AddLinkPageState extends State<AddLinkPage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(t(context, 'save_success'))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(t(context, 'save_success'))));
         Navigator.of(context).pop(true);
       }
     } on UnauthorizedException {
@@ -245,8 +261,11 @@ class _AddLinkPageState extends State<AddLinkPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.initialLink != null ? t(context, 'edit_link') : t(
-            context, 'add_link')),
+        title: Text(
+          widget.initialLink != null
+              ? t(context, 'edit_link')
+              : t(context, 'add_link'),
+        ),
       ),
       body: Form(
         key: _formKey,
@@ -265,10 +284,12 @@ class _AddLinkPageState extends State<AddLinkPage> {
                       Card(
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(color: Theme
-                              .of(context)
-                              .colorScheme
-                              .outlineVariant),
+                          side: BorderSide(
+                            color: Theme
+                                .of(context)
+                                .colorScheme
+                                .outlineVariant,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Padding(
@@ -285,7 +306,9 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                 validator: (v) =>
                                 v == null || v
                                     .trim()
-                                    .isEmpty ? t(context, 'required') : null,
+                                    .isEmpty
+                                    ? t(context, 'required')
+                                    : null,
                               ),
                               const SizedBox(height: 16),
                               TextFormField(
@@ -298,13 +321,18 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                       ? const Padding(
                                     padding: EdgeInsets.all(12.0),
                                     child: SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2)),
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
                                   )
                                       : IconButton(
-                                    tooltip: t(context, 'link_auto_fetch'),
+                                    tooltip: t(
+                                      context,
+                                      'link_auto_fetch',
+                                    ),
                                     icon: const Icon(Icons.auto_awesome),
                                     onPressed: _fetchMeta,
                                   ),
@@ -349,17 +377,24 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   border: const OutlineInputBorder(),
                                 ),
                                 items: [
-                                  DropdownMenuItem(value: 0,
-                                      child: Text(
-                                          t(context, 'link_type_friendly'))),
-                                  DropdownMenuItem(value: 5,
-                                      child: Text(
-                                          t(context, 'link_type_tool'))),
-                                  const DropdownMenuItem(value: 3,
-                                      child: Text('文章外链')),
-                                  DropdownMenuItem(value: 99,
-                                      child: Text(
-                                          t(context, 'link_type_other'))),
+                                  DropdownMenuItem(
+                                    value: 0,
+                                    child: Text(
+                                      t(context, 'link_type_friendly'),
+                                    ),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 5,
+                                    child: Text(t(context, 'link_type_tool')),
+                                  ),
+                                  const DropdownMenuItem(
+                                    value: 3,
+                                    child: Text('文章外链'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 99,
+                                    child: Text(t(context, 'link_type_other')),
+                                  ),
                                 ],
                                 onChanged: (v) =>
                                     setState(() => _linkType = v ?? 0),
@@ -373,10 +408,12 @@ class _AddLinkPageState extends State<AddLinkPage> {
                       Card(
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(color: Theme
-                              .of(context)
-                              .colorScheme
-                              .outlineVariant),
+                          side: BorderSide(
+                            color: Theme
+                                .of(context)
+                                .colorScheme
+                                .outlineVariant,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Padding(
@@ -396,17 +433,24 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   ElevatedButton.icon(
-                                    onPressed: _isUploadingIcon ? null : () =>
-                                        _uploadFile(_iconController, true),
+                                    onPressed: _isUploadingIcon
+                                        ? null
+                                        : () =>
+                                        _uploadFile(
+                                          _iconController,
+                                          true,
+                                        ),
                                     icon: _isUploadingIcon
                                         ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2))
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
                                         : const Icon(Icons.upload),
                                     label: Text(t(context, 'upload')),
-                                  )
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 16),
@@ -423,17 +467,24 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   ElevatedButton.icon(
-                                    onPressed: _isUploadingImage ? null : () =>
-                                        _uploadFile(_imageController, false),
+                                    onPressed: _isUploadingImage
+                                        ? null
+                                        : () =>
+                                        _uploadFile(
+                                          _imageController,
+                                          false,
+                                        ),
                                     icon: _isUploadingImage
                                         ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2))
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
                                         : const Icon(Icons.upload),
                                     label: Text(t(context, 'upload')),
-                                  )
+                                  ),
                                 ],
                               ),
                             ],
@@ -445,10 +496,12 @@ class _AddLinkPageState extends State<AddLinkPage> {
                       Card(
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(color: Theme
-                              .of(context)
-                              .colorScheme
-                              .outlineVariant),
+                          side: BorderSide(
+                            color: Theme
+                                .of(context)
+                                .colorScheme
+                                .outlineVariant,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Padding(
@@ -463,12 +516,18 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
                                         labelText: t(
-                                            context, 'link_sort_order'),
+                                          context,
+                                          'link_sort_order',
+                                        ),
                                         hintText: t(
-                                            context, 'link_sort_order_hint'),
+                                          context,
+                                          'link_sort_order_hint',
+                                        ),
                                         border: const OutlineInputBorder(),
                                         helperText: t(
-                                            context, 'link_sort_order_hint'),
+                                          context,
+                                          'link_sort_order_hint',
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -481,14 +540,19 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                         border: const OutlineInputBorder(),
                                       ),
                                       items: const [
-                                        DropdownMenuItem(value: '_blank',
-                                            child: Text('新标签页 (_blank)')),
-                                        DropdownMenuItem(value: '_self',
-                                            child: Text('当前页 (_self)')),
+                                        DropdownMenuItem(
+                                          value: '_blank',
+                                          child: Text('新标签页 (_blank)'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: '_self',
+                                          child: Text('当前页 (_self)'),
+                                        ),
                                       ],
                                       onChanged: (v) =>
-                                          setState(() =>
-                                      _target = v ?? '_blank'),
+                                          setState(
+                                                () => _target = v ?? '_blank',
+                                          ),
                                     ),
                                   ),
                                   const SizedBox(width: 16),
@@ -497,23 +561,35 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                       initialValue: _redirectType,
                                       decoration: InputDecoration(
                                         labelText: t(
-                                            context, 'link_redirect_type'),
+                                          context,
+                                          'link_redirect_type',
+                                        ),
                                         border: const OutlineInputBorder(),
                                       ),
                                       items: [
-                                        DropdownMenuItem(value: 1,
-                                            child: Text(t(context,
-                                                'link_redirect_direct'))),
-                                        DropdownMenuItem(value: 2,
-                                            child: Text(t(context,
-                                                'link_redirect_goto'))),
-                                        DropdownMenuItem(value: 4,
-                                            child: Text(t(context,
-                                                'link_redirect_info'))),
+                                        DropdownMenuItem(
+                                          value: 1,
+                                          child: Text(
+                                            t(context, 'link_redirect_direct'),
+                                          ),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 2,
+                                          child: Text(
+                                            t(context, 'link_redirect_goto'),
+                                          ),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 4,
+                                          child: Text(
+                                            t(context, 'link_redirect_info'),
+                                          ),
+                                        ),
                                       ],
                                       onChanged: (v) =>
-                                          setState(() =>
-                                      _redirectType = v ?? 1),
+                                          setState(
+                                                () => _redirectType = v ?? 1,
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -544,7 +620,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                     ),
                                   ),
                                 ],
-                              )
+                              ),
                             ],
                           ),
                         ),
@@ -553,17 +629,20 @@ class _AddLinkPageState extends State<AddLinkPage> {
                       Card(
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(color: Theme
-                              .of(context)
-                              .colorScheme
-                              .outlineVariant),
+                          side: BorderSide(
+                            color: Theme
+                                .of(context)
+                                .colorScheme
+                                .outlineVariant,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: ExpansionTile(
-                          title: Text(t(context, 'link_advanced_seo'),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold)),
+                          title: Text(
+                            t(context, 'link_advanced_seo'),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           childrenPadding: const EdgeInsets.all(16.0),
                           children: [
                             TextFormField(
@@ -616,15 +695,19 @@ class _AddLinkPageState extends State<AddLinkPage> {
                           FilledButton.icon(
                             onPressed: _isSaving ? null : _save,
                             icon: _isSaving
-                                ? const SizedBox(width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white))
+                                ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                                 : const Icon(Icons.save),
                             label: Text(t(context, 'save')),
-                          )
+                          ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                 ),

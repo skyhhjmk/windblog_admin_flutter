@@ -2186,6 +2186,14 @@ class AdminLinkItem {
     this.seoKeywords,
     this.seoDescription,
     this.type,
+    this.applicationStatus = 1,
+    this.availabilityStatus = 'UNKNOWN',
+    this.backlinkStatus = 'UNKNOWN',
+    this.lastCheckedAt,
+    this.placementType,
+    this.placementUrl,
+    this.placementPageName,
+    this.placementDescription,
     this.referencedPostCount = 0,
     this.referenceCount = 0,
     this.createdAt,
@@ -2208,6 +2216,14 @@ class AdminLinkItem {
   final String? seoKeywords;
   final String? seoDescription;
   final int? type;
+  final int applicationStatus;
+  final String availabilityStatus;
+  final String backlinkStatus;
+  final DateTime? lastCheckedAt;
+  final String? placementType;
+  final String? placementUrl;
+  final String? placementPageName;
+  final String? placementDescription;
   final int referencedPostCount;
   final int referenceCount;
   final DateTime? createdAt;
@@ -2231,6 +2247,14 @@ class AdminLinkItem {
       seoKeywords: map["seoKeywords"]?.toString(),
       seoDescription: map["seoDescription"]?.toString(),
       type: toInt(map["type"]),
+      applicationStatus: toInt(map["applicationStatus"]) ?? 1,
+      availabilityStatus: map["availabilityStatus"]?.toString() ?? 'UNKNOWN',
+      backlinkStatus: map["backlinkStatus"]?.toString() ?? 'UNKNOWN',
+      lastCheckedAt: parseDate(map["lastCheckedAt"]),
+      placementType: map["placementType"]?.toString(),
+      placementUrl: map["placementUrl"]?.toString(),
+      placementPageName: map["placementPageName"]?.toString(),
+      placementDescription: map["placementDescription"]?.toString(),
       referencedPostCount: toInt(map["referencedPostCount"]) ?? 0,
       referenceCount: toInt(map["referenceCount"]) ?? 0,
       createdAt: parseDate(map["createdAt"]),
@@ -2269,6 +2293,53 @@ class LinkReferenceItem {
       normalizedUrl: map['normalizedUrl']?.toString() ?? '',
       referenceCount: toInt(map['referenceCount']) ?? 0,
       updatedAt: parseDate(map['updatedAt']),
+    );
+  }
+}
+
+class LinkMonitorLogItem {
+  LinkMonitorLogItem({
+    required this.id,
+    required this.linkId,
+    required this.linkName,
+    required this.checkTime,
+    required this.ok,
+    required this.loadTimeMs,
+    required this.backlinkFound,
+    required this.statusCode,
+    required this.checkBatchId,
+    required this.nodeId,
+    required this.nodeName,
+    this.errorMessage,
+  });
+
+  final int id;
+  final int linkId;
+  final String linkName;
+  final DateTime? checkTime;
+  final bool ok;
+  final int loadTimeMs;
+  final bool backlinkFound;
+  final int statusCode;
+  final String checkBatchId;
+  final String nodeId;
+  final String nodeName;
+  final String? errorMessage;
+
+  factory LinkMonitorLogItem.fromMap(Map<String, dynamic> map) {
+    return LinkMonitorLogItem(
+      id: toInt(map['id']) ?? 0,
+      linkId: toInt(map['linkId']) ?? 0,
+      linkName: map['linkName']?.toString() ?? '',
+      checkTime: parseDate(map['checkTime']),
+      ok: toBool(map['ok']) ?? false,
+      loadTimeMs: toInt(map['loadTimeMs']) ?? 0,
+      backlinkFound: toBool(map['backlinkFound']) ?? false,
+      statusCode: toInt(map['statusCode']) ?? 0,
+      checkBatchId: map['checkBatchId']?.toString() ?? '',
+      nodeId: map['nodeId']?.toString() ?? '',
+      nodeName: map['nodeName']?.toString() ?? '',
+      errorMessage: map['errorMessage']?.toString(),
     );
   }
 }

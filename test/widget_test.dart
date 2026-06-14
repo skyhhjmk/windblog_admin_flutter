@@ -88,6 +88,35 @@ void main() {
     expect(find.text('等价组'), findsAtLeastNWidgets(1));
     expect(find.text('输入词条后按回车添加'), findsOneWidget);
   });
+
+  testWidgets(
+      'links add button opens add link page', (WidgetTester tester,) async {
+    int? selectedLinkType;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          useMaterial3: false,
+          splashFactory: NoSplash.splashFactory,
+        ),
+        home: DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            body: LinksAddButton(
+              label: '添加链接',
+              onOpen: (defaultLinkType) {
+                selectedLinkType = defaultLinkType;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('linksAddButton')));
+    await tester.pump();
+
+    expect(selectedLinkType, 0);
+  });
 }
 
 class _SessionWorkspaceHarness extends StatefulWidget {

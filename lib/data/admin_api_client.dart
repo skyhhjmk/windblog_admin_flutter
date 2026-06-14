@@ -842,6 +842,39 @@ class AdminApiClient {
     return list.map((e) => LinkReferenceItem.fromMap(_map(e))).toList();
   }
 
+  Future<void> checkLink(int id) async {
+    await _post('/api/admin/links/$id/check', body: {});
+  }
+
+  Future<void> reviewLinkApplication(int id, {
+    required bool approved,
+    String? note,
+  }) async {
+    await _post(
+      '/api/admin/links/$id/review',
+      body: {
+        'approved': approved,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
+  }
+
+  Future<List<LinkMonitorLogItem>> listLinkMonitorLogs(int linkId) async {
+    final res = await _get(
+      '/api/admin/links/monitor-logs',
+      query: {
+        'linkId': linkId.toString(),
+        'page': '1',
+        'pageSize': '50',
+      },
+    );
+    final responseBody = _map(jsonDecode(res.body));
+    final items = responseBody['items'] as List? ?? [];
+    return items
+        .map((item) => LinkMonitorLogItem.fromMap(_map(item)))
+        .toList();
+  }
+
   Future<void> deleteLink(int id) async {
     await _delete('/api/admin/links/$id');
   }

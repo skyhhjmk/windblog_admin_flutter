@@ -1,11 +1,7 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
 class LinksPage extends StatefulWidget {
-  const LinksPage({
-    super.key,
-    required this.api,
-    required this.onAuthError,
-  });
+  const LinksPage({super.key, required this.api, required this.onAuthError});
 
   final AdminApiClient api;
   final VoidCallback onAuthError;
@@ -48,7 +44,8 @@ class _LinksPageState extends State<LinksPage> {
           AlertDialog(
             title: Text(t(context, 'confirm_delete')),
             content: Text(
-                t(context, 'confirm_delete_link').replaceAll('%s', link.name)),
+              t(context, 'confirm_delete_link').replaceAll('%s', link.name),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -82,6 +79,147 @@ class _LinksPageState extends State<LinksPage> {
     }
   }
 
+  Future<void> _checkLink(AdminLinkItem link) async {
+    try {
+      await widget.api.checkLink(link.id);
+      await _loadLinks();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('多节点检测已完成')));
+      }
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('检测失败：$error')));
+      }
+    }
+  }
+
+  Future<void> _reviewApplication(AdminLinkItem link, bool approved) async {
+    try {
+      await widget.api.reviewLinkApplication(link.id, approved: approved);
+      await _loadLinks();
+      if (mounted) {
+        String message = '申请已拒绝';
+        if (approved) {
+          message = '申请已通过，并完成首次检测';
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('审核失败：$error')));
+      }
+    }
+  }
+
+  Future<void> _showMonitorLogs(AdminLinkItem link) async {
+    try {
+      final logs = await widget.api.listLinkMonitorLogs(link.id);
+      if (!mounted) {
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Text('${link.name} 节点检测记录'),
+            content: SizedBox(
+              width: 760,
+              height: 480,
+              child: _buildMonitorLogList(logs),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('关闭'),
+              ),
+            ],
+          );
+        },
+      );
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('加载检测记录失败：$error')));
+      }
+    }
+  }
+
+  Future<void> _openLinkEditor({
+    AdminLinkItem? initialLink,
+    int? defaultLinkType,
+  }) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return AddLinkPage(
+            api: widget.api,
+            onAuthError: widget.onAuthError,
+            initialLink: initialLink,
+            defaultLinkType: defaultLinkType,
+          );
+        },
+      ),
+    );
+    await _loadLinks();
+  }
+
+  String _buildMonitorLogDescription(LinkMonitorLogItem log) {
+    String description =
+        '节点：${log.nodeId}  状态码：${log.statusCode}  耗时：${log
+        .loadTimeMs}ms';
+    if (log.errorMessage != null && log.errorMessage!.isNotEmpty) {
+      description = '$description\n失败原因：${log.errorMessage}';
+    }
+    return description;
+  }
+
+  Widget _buildMonitorLogList(List<LinkMonitorLogItem> logs) {
+    if (logs.isEmpty) {
+      return const Center(child: Text('暂无检测记录'));
+    }
+    return ListView.separated(
+      itemCount: logs.length,
+      separatorBuilder: (context, index) {
+        return const Divider(height: 1);
+      },
+      itemBuilder: (context, index) {
+        final log = logs[index];
+        IconData statusIcon = Icons.error_outline;
+        Color statusColor = Colors.red;
+        if (log.ok) {
+          statusIcon = Icons.check_circle;
+          statusColor = Colors.green;
+        }
+        String backlinkLabel = '无反链';
+        if (log.backlinkFound) {
+          backlinkLabel = '有反链';
+        }
+        return ListTile(
+          leading: Icon(statusIcon, color: statusColor),
+          title: Text(log.nodeName),
+          subtitle: Text(_buildMonitorLogDescription(log)),
+          trailing: Chip(label: Text(backlinkLabel)),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -102,30 +240,11 @@ class _LinksPageState extends State<LinksPage> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                FilledButton.icon(
-                  onPressed: () async {
-                    final tabIndex = DefaultTabController
-                        .of(context)
-                        .index;
-                    int defaultLinkType = 0;
-                    if (tabIndex == 1) {
-                      defaultLinkType = 3;
-                    }
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AddLinkPage(
-                              api: widget.api,
-                              onAuthError: widget.onAuthError,
-                              defaultLinkType: defaultLinkType,
-                            ),
-                      ),
-                    );
-                    _loadLinks();
+                LinksAddButton(
+                  label: t(context, 'add_link'),
+                  onOpen: (defaultLinkType) {
+                    _openLinkEditor(defaultLinkType: defaultLinkType);
                   },
-                  icon: const Icon(Icons.add),
-                  label: Text(t(context, 'add_link')),
                 ),
                 const SizedBox(width: 8),
                 FilledButton.icon(
@@ -141,8 +260,12 @@ class _LinksPageState extends State<LinksPage> {
                   ? const Center(child: CircularProgressIndicator())
                   : TabBarView(
                 children: [
-                  _buildLinkList(links.where((l) => l.type != 3).toList()),
-                  _buildLinkList(links.where((l) => l.type == 3).toList()),
+                  _buildLinkList(
+                    links.where((l) => l.type != 3).toList(),
+                  ),
+                  _buildLinkList(
+                    links.where((l) => l.type == 3).toList(),
+                  ),
                 ],
               ),
             ),
@@ -164,8 +287,9 @@ class _LinksPageState extends State<LinksPage> {
           final link = filteredLinks[index];
           return ListTile(
             leading: CircleAvatar(
-              backgroundImage:
-              link.icon != null ? NetworkImage(link.icon!) : null,
+              backgroundImage: link.icon != null
+                  ? NetworkImage(link.icon!)
+                  : null,
               child: link.icon == null ? const Icon(Icons.link) : null,
             ),
             title: Text(link.name),
@@ -179,6 +303,29 @@ class _LinksPageState extends State<LinksPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _buildApplicationStatusChip(link),
+                      _buildAvailabilityChip(link),
+                      _buildBacklinkChip(link),
+                    ],
+                  ),
+                ),
+                if (link.applicationStatus == 2 && link.placementType != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      _buildPlacementDescription(link),
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 if (link.type == 3)
                   Padding(
@@ -217,46 +364,56 @@ class _LinksPageState extends State<LinksPage> {
               ],
             ),
             onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      AddLinkPage(
-                        api: widget.api,
-                        onAuthError: widget.onAuthError,
-                        initialLink: link,
-                      ),
-                ),
-              );
-              _loadLinks();
+              await _openLinkEditor(initialLink: link);
             },
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (link.status == 0)
+                if (link.applicationStatus == 2)
+                  IconButton(
+                    tooltip: '通过申请',
+                    icon: const Icon(
+                      Icons.check_circle_outline,
+                      color: Colors.green,
+                    ),
+                    onPressed: () => _reviewApplication(link, true),
+                  ),
+                if (link.applicationStatus == 2)
+                  IconButton(
+                    tooltip: '拒绝申请',
+                    icon: const Icon(
+                      Icons.cancel_outlined,
+                      color: Colors.orange,
+                    ),
+                    onPressed: () => _reviewApplication(link, false),
+                  ),
+                if (link.type != 3 && link.applicationStatus == 1)
+                  IconButton(
+                    tooltip: '立即执行多节点检测',
+                    icon: const Icon(Icons.monitor_heart_outlined),
+                    onPressed: () => _checkLink(link),
+                  ),
+                if (link.type != 3)
+                  IconButton(
+                    tooltip: '查看节点检测记录',
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    onPressed: () => _showMonitorLogs(link),
+                  ),
+                if (link.status == 2)
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: Chip(
-                      label: Text(t(context, 'disabled'),
-                          style: const TextStyle(fontSize: 10)),
+                      label: Text(
+                        t(context, 'disabled'),
+                        style: const TextStyle(fontSize: 10),
+                      ),
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AddLinkPage(
-                              api: widget.api,
-                              onAuthError: widget.onAuthError,
-                              initialLink: link,
-                            ),
-                      ),
-                    );
-                    _loadLinks();
+                    await _openLinkEditor(initialLink: link);
                   },
                 ),
                 IconButton(
@@ -268,6 +425,110 @@ class _LinksPageState extends State<LinksPage> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildApplicationStatusChip(AdminLinkItem link) {
+    String label = '已通过';
+    Color color = Colors.green;
+    if (link.applicationStatus == 2) {
+      label = '待审核';
+      color = Colors.orange;
+    }
+    if (link.applicationStatus == 3) {
+      label = '已拒绝';
+      color = Colors.red;
+    }
+    return Chip(
+      label: Text(label, style: const TextStyle(fontSize: 10)),
+      backgroundColor: color.withValues(alpha: 0.1),
+      side: BorderSide(color: color.withValues(alpha: 0.35)),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _buildAvailabilityChip(AdminLinkItem link) {
+    String label = '未检测';
+    Color color = Colors.grey;
+    if (link.availabilityStatus == 'ONLINE') {
+      label = '在线';
+      color = Colors.green;
+    }
+    if (link.availabilityStatus == 'OFFLINE') {
+      label = '所有节点离线';
+      color = Colors.red;
+    }
+    return Chip(
+      avatar: Icon(Icons.public, size: 16, color: color),
+      label: Text(label, style: const TextStyle(fontSize: 10)),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _buildBacklinkChip(AdminLinkItem link) {
+    String label = '反链未检测';
+    Color color = Colors.grey;
+    if (link.backlinkStatus == 'FOUND') {
+      label = '已发现反链';
+      color = Colors.green;
+    }
+    if (link.backlinkStatus == 'MISSING') {
+      label = '缺少反链';
+      color = Colors.orange;
+    }
+    return Chip(
+      avatar: Icon(Icons.compare_arrows, size: 16, color: color),
+      label: Text(label, style: const TextStyle(fontSize: 10)),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  String _buildPlacementDescription(AdminLinkItem link) {
+    String placementLabel = '其他页面';
+    if (link.placementType == 'HOME_PAGE') {
+      placementLabel = '首页';
+    }
+    if (link.placementType == 'LINK_PAGE') {
+      placementLabel = '专用友链页';
+    }
+
+    String description = '放置位置：$placementLabel';
+    if (link.placementPageName != null && link.placementPageName!.isNotEmpty) {
+      description = '$description · ${link.placementPageName}';
+    }
+    if (link.placementUrl != null && link.placementUrl!.isNotEmpty) {
+      description = '$description\n${link.placementUrl}';
+    }
+    if (link.placementDescription != null &&
+        link.placementDescription!.isNotEmpty) {
+      description = '$description\n${link.placementDescription}';
+    }
+    return description;
+  }
+}
+
+class LinksAddButton extends StatelessWidget {
+  const LinksAddButton({super.key, required this.label, required this.onOpen});
+
+  final String label;
+  final ValueChanged<int> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      key: const Key('linksAddButton'),
+      onPressed: () {
+        int defaultLinkType = 0;
+        int tabIndex = DefaultTabController
+            .of(context)
+            .index;
+        if (tabIndex == 1) {
+          defaultLinkType = 3;
+        }
+        onOpen(defaultLinkType);
+      },
+      icon: const Icon(Icons.add),
+      label: Text(label),
     );
   }
 }
