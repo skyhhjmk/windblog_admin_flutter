@@ -25,6 +25,7 @@ part 'pages/login_page.dart';
 part 'pages/home_page.dart';
 part 'pages/overview_page.dart';
 part 'pages/posts_page.dart';
+part 'pages/post_editor_page.dart';
 part 'pages/ai_providers_page.dart';
 part 'pages/media_library_page.dart';
 part 'components/progressive_image.dart';
@@ -67,7 +68,7 @@ part 'components/html_syntax_editor.dart';
 
 part 'components/pagination_bar.dart';
 
-part 'pages/storage_providers_page.dart';
+part 'pages/storage_classes_page.dart';
 
 part 'pages/storage_sync_panel.dart';
 

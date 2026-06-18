@@ -36,7 +36,15 @@ class _AdminNavigationItem {
 
 class _HomePageState extends State<HomePage> {
   int tab = 0;
-  bool systemMenuExpanded = true;
+  int slideDirection = 1;
+  final Map<String, bool> submenuExpandedStates = {
+    '内容管理': false,
+    '运营管理': false,
+    '媒体与存储': false,
+    '边缘集群': false,
+    '系统运维': false,
+    '系统设置': false,
+  };
 
   List<_AdminNavigationItem> get _navigationItems {
     return const [
@@ -46,120 +54,145 @@ class _HomePageState extends State<HomePage> {
         icon: Icons.dashboard_outlined,
         selectedIcon: Icons.dashboard,
       ),
+      // 内容管理
       _AdminNavigationItem(
         labelKey: 'posts',
         fallbackLabel: '文章',
         icon: Icons.article_outlined,
         selectedIcon: Icons.article,
+        submenuParent: '内容管理',
       ),
       _AdminNavigationItem(
         labelKey: 'categories',
         fallbackLabel: '分类',
         icon: Icons.folder_outlined,
         selectedIcon: Icons.folder,
+        submenuParent: '内容管理',
       ),
       _AdminNavigationItem(
         labelKey: 'tags',
         fallbackLabel: '标签',
         icon: Icons.label_outlined,
         selectedIcon: Icons.label,
-      ),
-      _AdminNavigationItem(
-        labelKey: 'store_items',
-        fallbackLabel: '商店',
-        icon: Icons.storefront_outlined,
-        selectedIcon: Icons.storefront,
-      ),
-      _AdminNavigationItem(
-        labelKey: 'media',
-        fallbackLabel: '媒体',
-        icon: Icons.photo_library_outlined,
-        selectedIcon: Icons.photo_library,
-      ),
-      _AdminNavigationItem(
-        labelKey: null,
-        fallbackLabel: '存储类',
-        icon: Icons.cloud_outlined,
-        selectedIcon: Icons.cloud,
-      ),
-      _AdminNavigationItem(
-        labelKey: null,
-        fallbackLabel: '同步监控',
-        icon: Icons.sync_outlined,
-        selectedIcon: Icons.sync,
-      ),
-      _AdminNavigationItem(
-        labelKey: null,
-        fallbackLabel: '死信队列',
-        icon: Icons.warning_outlined,
-        selectedIcon: Icons.warning,
-      ),
-      _AdminNavigationItem(
-        labelKey: null,
-        fallbackLabel: '图片处理',
-        icon: Icons.image_outlined,
-        selectedIcon: Icons.image,
-      ),
-      _AdminNavigationItem(
-        labelKey: null,
-        fallbackLabel: '边缘监控',
-        icon: Icons.public_outlined,
-        selectedIcon: Icons.public,
-      ),
-      _AdminNavigationItem(
-        labelKey: 'links_management',
-        fallbackLabel: '链接管理',
-        icon: Icons.link_outlined,
-        selectedIcon: Icons.link,
-      ),
-      _AdminNavigationItem(
-        labelKey: 'users',
-        fallbackLabel: '用户',
-        icon: Icons.people_outlined,
-        selectedIcon: Icons.people,
-      ),
-      _AdminNavigationItem(
-        labelKey: 'permissions',
-        fallbackLabel: '权限',
-        icon: Icons.security_outlined,
-        selectedIcon: Icons.security,
-      ),
-      _AdminNavigationItem(
-        labelKey: 'ai_providers',
-        fallbackLabel: 'AI 供应商',
-        icon: Icons.memory_outlined,
-        selectedIcon: Icons.memory,
-      ),
-      _AdminNavigationItem(
-        labelKey: 'database',
-        fallbackLabel: '数据库',
-        icon: Icons.storage_outlined,
-        selectedIcon: Icons.storage,
+        submenuParent: '内容管理',
       ),
       _AdminNavigationItem(
         labelKey: 'comments',
         fallbackLabel: '评论',
         icon: Icons.comment_outlined,
         selectedIcon: Icons.comment,
+        submenuParent: '内容管理',
       ),
+      // 运营管理
+      _AdminNavigationItem(
+        labelKey: 'links_management',
+        fallbackLabel: '链接管理',
+        icon: Icons.link_outlined,
+        selectedIcon: Icons.link,
+        submenuParent: '运营管理',
+      ),
+      _AdminNavigationItem(
+        labelKey: 'users',
+        fallbackLabel: '用户',
+        icon: Icons.people_outlined,
+        selectedIcon: Icons.people,
+        submenuParent: '运营管理',
+      ),
+      _AdminNavigationItem(
+        labelKey: 'store_items',
+        fallbackLabel: '商店',
+        icon: Icons.storefront_outlined,
+        selectedIcon: Icons.storefront,
+        submenuParent: '运营管理',
+      ),
+      // 媒体与存储
+      _AdminNavigationItem(
+        labelKey: 'media',
+        fallbackLabel: '媒体',
+        icon: Icons.photo_library_outlined,
+        selectedIcon: Icons.photo_library,
+        submenuParent: '媒体与存储',
+      ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '存储类',
+        icon: Icons.cloud_outlined,
+        selectedIcon: Icons.cloud,
+        submenuParent: '媒体与存储',
+      ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '图片处理',
+        icon: Icons.image_outlined,
+        selectedIcon: Icons.image,
+        submenuParent: '媒体与存储',
+      ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '同步监控',
+        icon: Icons.sync_outlined,
+        selectedIcon: Icons.sync,
+        submenuParent: '媒体与存储',
+      ),
+      // 边缘集群
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '边缘节点',
+        icon: Icons.hub_outlined,
+        selectedIcon: Icons.hub,
+        submenuParent: '边缘集群',
+      ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '区域规则',
+        icon: Icons.language_outlined,
+        selectedIcon: Icons.language,
+        submenuParent: '边缘集群',
+      ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '边缘监控',
+        icon: Icons.public_outlined,
+        selectedIcon: Icons.public,
+        submenuParent: '边缘集群',
+      ),
+      // 系统运维
       _AdminNavigationItem(
         labelKey: 'queue_monitoring',
         fallbackLabel: '队列监控',
         icon: Icons.queue_outlined,
         selectedIcon: Icons.queue,
+        submenuParent: '系统运维',
+      ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '死信队列',
+        icon: Icons.warning_outlined,
+        selectedIcon: Icons.warning,
+        submenuParent: '系统运维',
       ),
       _AdminNavigationItem(
         labelKey: 'system_monitoring',
         fallbackLabel: '系统监控',
         icon: Icons.monitor_heart_outlined,
         selectedIcon: Icons.monitor_heart,
+        submenuParent: '系统运维',
+      ),
+      _AdminNavigationItem(
+        labelKey: 'database',
+        fallbackLabel: '数据库',
+        icon: Icons.storage_outlined,
+        selectedIcon: Icons.storage,
+        submenuParent: '系统运维',
       ),
       _AdminNavigationItem(
         labelKey: 'system_logs',
         fallbackLabel: '系统日志',
         icon: Icons.history_outlined,
         selectedIcon: Icons.history,
+        submenuParent: '系统运维',
       ),
+      // 系统设置
       _AdminNavigationItem(
         labelKey: null,
         fallbackLabel: '功能设置',
@@ -182,16 +215,18 @@ class _HomePageState extends State<HomePage> {
         submenuParent: '系统设置',
       ),
       _AdminNavigationItem(
-        labelKey: null,
-        fallbackLabel: '边缘节点',
-        icon: Icons.hub_outlined,
-        selectedIcon: Icons.hub,
+        labelKey: 'ai_providers',
+        fallbackLabel: 'AI 供应商',
+        icon: Icons.memory_outlined,
+        selectedIcon: Icons.memory,
+        submenuParent: '系统设置',
       ),
       _AdminNavigationItem(
-        labelKey: null,
-        fallbackLabel: '区域规则',
-        icon: Icons.language_outlined,
-        selectedIcon: Icons.language,
+        labelKey: 'permissions',
+        fallbackLabel: '权限',
+        icon: Icons.security_outlined,
+        selectedIcon: Icons.security,
+        submenuParent: '系统设置',
       ),
     ];
   }
@@ -201,27 +236,27 @@ class _HomePageState extends State<HomePage> {
     1: Color(0xFFF97316), // Posts: Orange
     2: Color(0xFFF59E0B), // Categories: Amber
     3: Color(0xFF84CC16), // Tags: Lime
-    4: Color(0xFF10B981), // Store: Emerald
-    5: Color(0xFF06B6D4), // Media: Cyan
-    6: Color(0xFF3B82F6), // Storage Classes: Blue
-    7: Color(0xFF6366F1), // Sync Panel: Indigo
-    8: Color(0xFFEF4444), // Dead Letter: Red
-    9: Color(0xFF8B5CF6), // Image Processing: Violet
-    10: Color(0xFFD946EF), // Edge Monitor: Fuchsia
-    11: Color(0xFFEC4899), // Links: Pink
-    12: Color(0xFF059669), // Users: Green
-    13: Color(0xFF14B8A6), // Permissions: Teal
-    14: Color(0xFF6366F1), // AI Providers: Indigo
-    15: Color(0xFF2563EB), // Database: Blue
-    16: Color(0xFFF43F5E), // Comments: Rose
-    17: Color(0xFF06B6D4), // Queues: Cyan
-    18: Color(0xFFEF4444), // System Monitor: Red
+    4: Color(0xFFEC4899), // Comments: Pink
+    5: Color(0xFFEF4444), // Links: Red
+    6: Color(0xFF059669), // Users: Green
+    7: Color(0xFF10B981), // Store: Emerald
+    8: Color(0xFF06B6D4), // Media: Cyan
+    9: Color(0xFF3B82F6), // Storage Classes: Blue
+    10: Color(0xFF8B5CF6), // Image Processing: Violet
+    11: Color(0xFF6366F1), // Sync Panel: Indigo
+    12: Color(0xFF10B981), // Edge Nodes: Emerald
+    13: Color(0xFFF59E0B), // Region Rules: Amber
+    14: Color(0xFFD946EF), // Edge Monitor: Fuchsia
+    15: Color(0xFF06B6D4), // Queues: Cyan
+    16: Color(0xFFEF4444), // Dead Letter: Red
+    17: Color(0xFFEF4444), // System Monitor: Red
+    18: Color(0xFF2563EB), // Database: Blue
     19: Color(0xFFF97316), // System Logs: Orange
     20: Color(0xFF8B5CF6), // Feature Settings: Violet
     21: Color(0xFF0EA5E9), // Elasticsearch: Sky
     22: Color(0xFF14B8A6), // Synonym Rules: Teal
-    23: Color(0xFF10B981), // Edge Nodes: Emerald
-    24: Color(0xFFF59E0B), // Region Rules: Amber
+    23: Color(0xFF6366F1), // AI Providers: Indigo
+    24: Color(0xFF14B8A6), // Permissions: Teal
   };
 
   @override
@@ -450,16 +485,43 @@ class _HomePageState extends State<HomePage> {
         ? tabColors[tab] ?? const Color(0xFF8B5CF6)
         : const Color(0xFF94A3B8);
 
+    String submenuName = items[firstChildIndex].submenuParent ?? '设置';
+    bool expanded = submenuExpandedStates[submenuName] == true;
+
+    IconData submenuIcon = Icons.settings_outlined;
+    if (submenuName == '内容管理') {
+      submenuIcon = Icons.edit_note_outlined;
+    } else if (submenuName == '运营管理') {
+      submenuIcon = Icons.business_center_outlined;
+    } else if (submenuName == '媒体与存储') {
+      submenuIcon = Icons.cloud_queue_outlined;
+    } else if (submenuName == '边缘集群') {
+      submenuIcon = Icons.hub_outlined;
+    } else if (submenuName == '系统运维') {
+      submenuIcon = Icons.analytics_outlined;
+    }
+
+    double rotationTurns = 0;
+    if (expanded) {
+      rotationTurns = 0.5;
+    }
+
+    CrossFadeState fadeState = CrossFadeState.showFirst;
+    if (expanded) {
+      fadeState = CrossFadeState.showSecond;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Tooltip(
-          message: '系统设置',
+          message: submenuName,
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: () {
               setState(() {
-                systemMenuExpanded = !systemMenuExpanded;
+                final currentVal = submenuExpandedStates[submenuName] == true;
+                submenuExpandedStates[submenuName] = !currentVal;
               });
             },
             child: Padding(
@@ -469,12 +531,12 @@ class _HomePageState extends State<HomePage> {
                     ? MainAxisAlignment.start
                     : MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.settings_outlined, color: parentColor, size: 22),
+                  Icon(submenuIcon, color: parentColor, size: 22),
                   if (extended) ...[
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        '系统设置',
+                        submenuName,
                         style: TextStyle(
                           color: parentColor,
                           fontWeight: childSelected
@@ -484,7 +546,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     AnimatedRotation(
-                      turns: systemMenuExpanded ? 0.5 : 0,
+                      turns: rotationTurns,
                       duration: const Duration(milliseconds: 180),
                       child: Icon(
                         Icons.keyboard_arrow_down,
@@ -500,9 +562,7 @@ class _HomePageState extends State<HomePage> {
         AnimatedCrossFade(
           firstChild: const SizedBox.shrink(),
           secondChild: Column(children: children),
-          crossFadeState: systemMenuExpanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
+          crossFadeState: fadeState,
           duration: const Duration(milliseconds: 180),
           sizeCurve: Curves.easeOut,
         ),
@@ -650,12 +710,29 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     }
+
+    String submenuName = items[firstChildIndex].submenuParent ?? '设置';
+    bool initiallyExpanded = submenuExpandedStates[submenuName] == true;
+
+    IconData submenuIcon = Icons.settings_outlined;
+    if (submenuName == '内容管理') {
+      submenuIcon = Icons.edit_note_outlined;
+    } else if (submenuName == '运营管理') {
+      submenuIcon = Icons.business_center_outlined;
+    } else if (submenuName == '媒体与存储') {
+      submenuIcon = Icons.cloud_queue_outlined;
+    } else if (submenuName == '边缘集群') {
+      submenuIcon = Icons.hub_outlined;
+    } else if (submenuName == '系统运维') {
+      submenuIcon = Icons.analytics_outlined;
+    }
+
     return ExpansionTile(
-      initiallyExpanded: systemMenuExpanded || childSelected,
-      leading: const Icon(Icons.settings_outlined),
-      title: const Text('系统设置'),
+      initiallyExpanded: initiallyExpanded || childSelected,
+      leading: Icon(submenuIcon),
+      title: Text(submenuName),
       onExpansionChanged: (expanded) {
-        systemMenuExpanded = expanded;
+        submenuExpandedStates[submenuName] = expanded;
       },
       childrenPadding: const EdgeInsets.only(left: 16),
       children: children,
@@ -791,17 +868,72 @@ class _HomePageState extends State<HomePage> {
     return Theme(
       data: pageTheme,
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 250),
         switchInCurve: Curves.easeOut,
         switchOutCurve: Curves.easeIn,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          final bool isCurrent = child.key == ValueKey<int>(tab);
+          Offset beginOffset = Offset.zero;
+
+          if (slideDirection == 1) {
+            if (isCurrent) {
+              beginOffset = const Offset(0, 0.04);
+            } else {
+              beginOffset = const Offset(0, -0.04);
+            }
+          } else {
+            if (isCurrent) {
+              beginOffset = const Offset(0, -0.04);
+            } else {
+              beginOffset = const Offset(0, 0.04);
+            }
+          }
+
+          final fade = FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+          final slide = SlideTransition(
+            position: Tween<Offset>(
+              begin: beginOffset,
+              end: Offset.zero,
+            ).animate(animation),
+            child: fade,
+          );
+          return slide;
+        },
         child: KeyedSubtree(key: ValueKey<int>(tab), child: page),
       ),
     );
   }
 
   void _selectTab(int index) {
+    if (index == tab) {
+      return;
+    }
+
+    int direction = 1;
+    if (index < tab) {
+      direction = -1;
+    }
+
+    List<_AdminNavigationItem> items = _navigationItems;
+    String? activeSubmenu;
+    if (index >= 0 && index < items.length) {
+      activeSubmenu = items[index].submenuParent;
+    }
     setState(() {
+      slideDirection = direction;
       tab = index;
+      List<String> keys = submenuExpandedStates.keys.toList();
+      for (int i = 0; i < keys.length; i++) {
+        String key = keys[i];
+        if (key == activeSubmenu) {
+          submenuExpandedStates[key] = true;
+        } else {
+          submenuExpandedStates[key] = false;
+        }
+      }
     });
   }
 
