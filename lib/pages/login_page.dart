@@ -451,6 +451,9 @@ class _SessionExpiredLoginDialogState extends State<SessionExpiredLoginDialog> {
         password: passwordController.text,
       );
       await widget.onLogin(normalizedBaseUrl, token);
+      if (mounted) {
+        Navigator.pop(context);
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -480,115 +483,120 @@ class _SessionExpiredLoginDialogState extends State<SessionExpiredLoginDialog> {
       loginButtonAction = null;
     }
 
-    return Positioned.fill(
+    return PopScope(
       key: const Key('sessionExpiredLoginDialog'),
-      child: PopScope(
-        canPop: false,
-        child: Material(
-          color: Colors.black.withValues(alpha: 0.48),
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Dialog(
-                insetPadding: EdgeInsets.zero,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: Padding(
-                    padding: const EdgeInsets.all(28),
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Icon(
-                            Icons.lock_clock_outlined,
-                            size: 48,
-                            color: Color(0xFFF59E0B),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            t(context, 'token_expired'),
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            t(context, 'session_relogin_preserves_progress'),
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 24),
-                          TextFormField(
-                            controller: baseUrlController,
-                            enabled: !isSubmitting,
-                            decoration: InputDecoration(
-                              labelText: t(context, 'api_base_url'),
-                              prefixIcon: const Icon(Icons.link),
-                            ),
-                            validator: (String? baseUrl) {
-                              if (baseUrl == null || baseUrl.trim().isEmpty) {
-                                return t(context, 'required');
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: accountController,
-                            enabled: !isSubmitting,
-                            autofocus: true,
-                            decoration: InputDecoration(
-                              labelText: t(context, 'username'),
-                              prefixIcon: const Icon(Icons.person_outline),
-                            ),
-                            validator: (String? account) {
-                              if (account == null || account.trim().isEmpty) {
-                                return t(context, 'required');
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: passwordController,
-                            enabled: !isSubmitting,
-                            obscureText: true,
-                            onFieldSubmitted: (String password) {
-                              if (!isSubmitting) {
-                                submit();
-                              }
-                            },
-                            decoration: InputDecoration(
-                              labelText: t(context, 'password'),
-                              prefixIcon: const Icon(Icons.lock_outline),
-                            ),
-                            validator: (String? password) {
-                              if (password == null || password.isEmpty) {
-                                return t(context, 'required');
-                              }
-                              return null;
-                            },
-                          ),
-                          if (loginErrorMessage != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              loginErrorMessage!,
-                              key: const Key('sessionExpiredLoginError'),
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          FilledButton(
-                            onPressed: loginButtonAction,
-                            child: loginButtonChild,
-                          ),
-                        ],
-                      ),
+      canPop: false,
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(
+                      Icons.lock_clock_outlined,
+                      size: 48,
+                      color: Color(0xFFF59E0B),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    Text(
+                      t(context, 'token_expired'),
+                      textAlign: TextAlign.center,
+                      style: Theme
+                          .of(context)
+                          .textTheme
+                          .titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      t(context, 'session_relogin_preserves_progress'),
+                      textAlign: TextAlign.center,
+                      style: Theme
+                          .of(context)
+                          .textTheme
+                          .bodyMedium,
+                    ),
+                    const SizedBox(height: 24),
+                    TextFormField(
+                      controller: baseUrlController,
+                      enabled: !isSubmitting,
+                      decoration: InputDecoration(
+                        labelText: t(context, 'api_base_url'),
+                        prefixIcon: const Icon(Icons.link),
+                      ),
+                      validator: (String? baseUrl) {
+                        if (baseUrl == null || baseUrl
+                            .trim()
+                            .isEmpty) {
+                          return t(context, 'required');
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: accountController,
+                      enabled: !isSubmitting,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: t(context, 'username'),
+                        prefixIcon: const Icon(Icons.person_outline),
+                      ),
+                      validator: (String? account) {
+                        if (account == null || account
+                            .trim()
+                            .isEmpty) {
+                          return t(context, 'required');
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: passwordController,
+                      enabled: !isSubmitting,
+                      obscureText: true,
+                      onFieldSubmitted: (String password) {
+                        if (!isSubmitting) {
+                          submit();
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: t(context, 'password'),
+                        prefixIcon: const Icon(Icons.lock_outline),
+                      ),
+                      validator: (String? password) {
+                        if (password == null || password.isEmpty) {
+                          return t(context, 'required');
+                        }
+                        return null;
+                      },
+                    ),
+                    if (loginErrorMessage != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        loginErrorMessage!,
+                        key: const Key('sessionExpiredLoginError'),
+                        style: TextStyle(
+                          color: Theme
+                              .of(context)
+                              .colorScheme
+                              .error,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: loginButtonAction,
+                      child: loginButtonChild,
+                    ),
+                  ],
                 ),
               ),
             ),

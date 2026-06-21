@@ -233,6 +233,25 @@ class _AdminRootPageState extends State<AdminRootPage> {
       _showSessionExpiredNotice = true;
     });
     unawaited(StorageService.clearSession());
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return SessionExpiredLoginDialog(
+          api: api,
+          onLogin: (String baseUrl, String token) async {
+            await onLogin(baseUrl, token);
+          },
+        );
+      },
+    ).then((_) {
+      if (mounted) {
+        setState(() {
+          _showSessionExpiredLogin = false;
+        });
+      }
+    });
   }
 
   @override
@@ -248,16 +267,11 @@ class _AdminRootPageState extends State<AdminRootPage> {
       );
     }
     return AdminAuthenticatedWorkspace(
-      showSessionExpiredLogin: _showSessionExpiredLogin,
       workspace: HomePage(
         api: api,
         user: user,
         onLogout: onLogout,
         onAuthError: _handleSessionExpired,
-      ),
-      sessionExpiredLogin: SessionExpiredLoginDialog(
-        api: api,
-        onLogin: onLogin,
       ),
     );
   }
@@ -267,18 +281,22 @@ class AdminAuthenticatedWorkspace extends StatelessWidget {
   const AdminAuthenticatedWorkspace({
     super.key,
     required this.workspace,
-    required this.sessionExpiredLogin,
-    required this.showSessionExpiredLogin,
+    this.sessionExpiredLogin,
+    this.showSessionExpiredLogin = false,
   });
 
   final Widget workspace;
-  final Widget sessionExpiredLogin;
+  final Widget? sessionExpiredLogin;
   final bool showSessionExpiredLogin;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
-      children: [workspace, if (showSessionExpiredLogin) sessionExpiredLogin],
+      children: [
+        workspace,
+        if (showSessionExpiredLogin && sessionExpiredLogin != null)
+          sessionExpiredLogin!,
+      ],
     );
   }
 }

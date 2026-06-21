@@ -968,64 +968,60 @@ class _HomePageState extends State<HomePage> {
       case 3:
         return TagsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 4:
-        return StoreItemsPage(api: widget.api, onAuthError: widget.onAuthError);
+        return CommentsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 5:
-        return MediaLibraryPage(
-          api: widget.api,
-          onAuthError: widget.onAuthError,
-        );
-      case 6:
-        return StorageClassesPage(
-          api: widget.api,
-          onAuthError: widget.onAuthError,
-        );
-      case 7:
-        return StorageSyncPanel(
-          api: widget.api,
-          onAuthError: widget.onAuthError,
-        );
-      case 8:
-        return DeadLetterPage(api: widget.api, onAuthError: widget.onAuthError);
-      case 9:
-        return ImageProcessingConfigPage(
-          api: widget.api,
-          onAuthError: widget.onAuthError,
-        );
-      case 10:
-        return EdgeMonitorPage(
-          api: widget.api,
-          onAuthError: widget.onAuthError,
-        );
-      case 11:
         return LinksPage(api: widget.api, onAuthError: widget.onAuthError);
-      case 12:
+      case 6:
         return UserManagementPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
           isSuperAdmin: isSuperAdmin,
         );
-      case 13:
-        return PermissionManagementPage(
+      case 7:
+        return StoreItemsPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 8:
+        return MediaLibraryPage(
           api: widget.api,
-          isSuperAdmin: isSuperAdmin,
+          onAuthError: widget.onAuthError,
+        );
+      case 9:
+        return StorageClassesPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
+      case 10:
+        return ImageProcessingConfigPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
+      case 11:
+        return StorageSyncPanel(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
+      case 12:
+        return EdgeNodesPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 13:
+        return RegionManagementPage(
+          api: widget.api,
           onAuthError: widget.onAuthError,
         );
       case 14:
-        return AiProvidersPage(
+        return EdgeMonitorPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
       case 15:
-        return DatabaseManagementPage(
+        return QueuesPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 16:
+        return DeadLetterPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 17:
+        return SystemMonitorPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 16:
-        return CommentsPage(api: widget.api, onAuthError: widget.onAuthError);
-      case 17:
-        return QueuesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 18:
-        return SystemMonitorPage(
+        return DatabaseManagementPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
@@ -1049,12 +1045,18 @@ class _HomePageState extends State<HomePage> {
           onOpenElasticSettings: () => _selectTab(21),
         );
       case 23:
-        return EdgeNodesPage(api: widget.api, onAuthError: widget.onAuthError);
-      default:
-        return RegionManagementPage(
+        return AiProvidersPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
+      case 24:
+        return PermissionManagementPage(
+          api: widget.api,
+          isSuperAdmin: isSuperAdmin,
+          onAuthError: widget.onAuthError,
+        );
+      default:
+        return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);
     }
   }
 }

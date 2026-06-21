@@ -106,11 +106,14 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
   List<String> _outline = [];
   Map<String, int> _blockStats = {};
+  List<_BlockOutlineInfo> _customBlocks = [];
   int _lastSyncedLine = -1;
   int _activeHighlightIndex = -1;
   Timer? _highlightTimer;
   String _lastText = '';
   bool _isPointerDown = false;
+  Offset? _pointerDownPosition;
+  DateTime? _pointerDownTime;
 
   @override
   void initState() {
@@ -692,23 +695,48 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     final lines = text.split('\n');
     final newOutline = <String>[];
     final newStats = <String, int>{};
+    final newBlocks = <_BlockOutlineInfo>[];
 
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
-      if (line.startsWith('#')) {
+      final trimmed = line.trim();
+      if (trimmed.startsWith('#')) {
         newOutline.add(line);
-      } else if (line.startsWith('::: ') && !line.startsWith('::: /')) {
-        final name = line.substring(4).trim();
-        if (name.isNotEmpty) {
-          bool found = false;
+      } else if (trimmed.startsWith('::: ') && !trimmed.startsWith('::: /')) {
+        final regExp = RegExp(r'^:::\s+([a-zA-Z0-9_-]+)(?:\s+\{([^}]+)\})?');
+        final match = regExp.firstMatch(trimmed);
+        if (match != null) {
+          final level = match.group(1) ?? 'quick';
+          final attrStr = match.group(2);
+          String? group;
+          String? title;
+          List<String> exclude = [];
+          if (attrStr != null && attrStr.isNotEmpty) {
+            final attrReg = RegExp(
+                r'([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|([^,\s]+))');
+            for (final m in attrReg.allMatches(attrStr)) {
+              final key = m.group(1)?.toLowerCase();
+              final val = m.group(2) ?? m.group(3) ?? '';
+              if (key == 'group') group = val;
+              if (key == 'title') title = val;
+              if (key == 'exclude') {
+                exclude = val.split(',').map((e) => e.trim()).toList();
+              }
+            }
+          }
+
+          bool foundClosed = false;
           for (int j = i + 1; j < lines.length; j++) {
-            if (lines[j].trim() == '::: /$name') {
-              found = true;
+            if (lines[j].trim() == '::: /$level') {
+              foundClosed = true;
               break;
             }
           }
-          if (found) {
-            newStats[name] = (newStats[name] ?? 0) + 1;
+
+          if (foundClosed) {
+            newStats[level] = (newStats[level] ?? 0) + 1;
+            newBlocks.add(
+                _BlockOutlineInfo(i, level, group, title, exclude, line));
           } else {
             newStats['错误块 (Error)'] = (newStats['错误块 (Error)'] ?? 0) + 1;
           }
@@ -718,11 +746,13 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
     bool outlineChanged = !listEquals(_outline, newOutline);
     bool statsChanged = !mapEquals(_blockStats, newStats);
+    bool blocksChanged = !listEquals(_customBlocks, newBlocks);
 
-    if (outlineChanged || statsChanged) {
+    if (outlineChanged || statsChanged || blocksChanged) {
       setState(() {
         _outline = newOutline;
         _blockStats = newStats;
+        _customBlocks = newBlocks;
       });
     }
   }
@@ -854,6 +884,222 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     _insertText('\n[$type$attributes]\n隐藏内容写在这里\n[/$type]\n');
   }
 
+  Future<void> _insertOrEditCustomBlock() async {
+    final text = widget.controller.text;
+    final selection = widget.controller.selection;
+    if (!selection.isValid) return;
+
+    final cursorOffset = selection.baseOffset;
+    int lineStart = cursorOffset;
+    while (lineStart > 0 && text[lineStart - 1] != '\n') {
+      lineStart--;
+    }
+    int lineEnd = cursorOffset;
+    while (lineEnd < text.length && text[lineEnd] != '\n') {
+      lineEnd++;
+    }
+    final currentLine = text.substring(lineStart, lineEnd);
+    final isEditMode = currentLine.trim().startsWith('::: ') &&
+        !currentLine.trim().startsWith('::: /');
+
+    String levelVal = 'quick';
+    String groupVal = '';
+    String titleVal = '';
+    List<String> excludeList = [];
+
+    if (isEditMode) {
+      final regExp = RegExp(r'^:::\s+([a-zA-Z0-9_-]+)(?:\s+\{([^}]+)\})?');
+      final match = regExp.firstMatch(currentLine.trim());
+      if (match != null) {
+        levelVal = match.group(1) ?? 'quick';
+        final attrStr = match.group(2);
+        if (attrStr != null && attrStr.isNotEmpty) {
+          final attrReg = RegExp(
+              r'([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|([^,\s]+))');
+          for (final m in attrReg.allMatches(attrStr)) {
+            final key = m.group(1)?.toLowerCase();
+            final val = m.group(2) ?? m.group(3) ?? '';
+            if (key == 'group') groupVal = val;
+            if (key == 'title') titleVal = val;
+            if (key == 'exclude') {
+              excludeList =
+                  val.split(',').map((e) => e.trim().toLowerCase()).toList();
+            }
+          }
+        }
+      }
+    }
+
+    final levelCtrl = TextEditingController(text: levelVal);
+    final groupCtrl = TextEditingController(text: groupVal);
+    final titleCtrl = TextEditingController(text: titleVal);
+
+    final Map<String, String> regionOptions = {
+      'cn': '中国 (CN)',
+      'us': '美国 (US)',
+      'eu': '欧洲 (EU)',
+      'jp': '日本 (JP)',
+      'hk': '中国香港 (HK)',
+      'tw': '中国台湾 (TW)',
+    };
+
+    final selectedRegions = List<String>.from(excludeList);
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: Text(isEditMode ? '编辑区块属性' : '插入内容区块'),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: ['quick', 'basic', 'detailed'].contains(
+                            levelCtrl.text) ? levelCtrl.text : null,
+                        decoration: const InputDecoration(
+                          labelText: '信息级别 (Level)',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'quick', child: Text('快速实现 (quick)')),
+                          DropdownMenuItem(
+                              value: 'basic', child: Text('基本模式 (basic)')),
+                          DropdownMenuItem(value: 'detailed',
+                              child: Text('详细思路 (detailed)')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) levelCtrl.text = val;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: groupCtrl,
+                        decoration: const InputDecoration(
+                          labelText: '分组名 (Group - 可选)',
+                          hintText: '用于关联多个不相邻的区块进行一键开关',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: titleCtrl,
+                        decoration: const InputDecoration(
+                          labelText: '区块标题 (Title - 可选)',
+                          hintText: '用于侧边栏大纲展示的可读名称',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        '排除区域 (这些区域下不显示此区块内容)',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: regionOptions.entries.map((entry) {
+                            final code = entry.key;
+                            final name = entry.value;
+                            final isChecked = selectedRegions.contains(code);
+                            return CheckboxListTile(
+                              dense: true,
+                              title: Text(name),
+                              value: isChecked,
+                              onChanged: (val) {
+                                setStateDialog(() {
+                                  if (val == true) {
+                                    if (!selectedRegions.contains(code)) {
+                                      selectedRegions.add(code);
+                                    }
+                                  } else {
+                                    selectedRegions.remove(code);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved != true) return;
+
+    List<String> attrs = [];
+    if (groupCtrl.text
+        .trim()
+        .isNotEmpty) {
+      attrs.add('group=${groupCtrl.text.trim()}');
+    }
+    if (selectedRegions.isNotEmpty) {
+      attrs.add('exclude="${selectedRegions.join(',')}"');
+    }
+    if (titleCtrl.text
+        .trim()
+        .isNotEmpty) {
+      attrs.add('title="${titleCtrl.text.trim()}"');
+    }
+
+    final attrPart = attrs.isNotEmpty ? ' {${attrs.join(', ')}}' : '';
+    final newLevel = levelCtrl.text
+        .trim()
+        .isEmpty ? 'quick' : levelCtrl.text.trim();
+    final newHeaderLine = '::: $newLevel$attrPart';
+
+    if (isEditMode) {
+      final newText = text.replaceRange(lineStart, lineEnd, newHeaderLine);
+      widget.controller.value = widget.controller.value.copyWith(
+        text: newText,
+        selection: TextSelection.collapsed(
+            offset: lineStart + newHeaderLine.length),
+      );
+    } else {
+      final selectedText = text.substring(selection.start, selection.end);
+      final insertText = '\n$newHeaderLine\n$selectedText\n::: /$newLevel\n';
+
+      final newText = text.replaceRange(
+          selection.start, selection.end, insertText);
+      widget.controller.value = widget.controller.value.copyWith(
+        text: newText,
+        selection: TextSelection.collapsed(
+          offset: selection.start + newHeaderLine.length + 2 +
+              selectedText.length,
+        ),
+      );
+    }
+    _focusNode.requestFocus();
+    widget.onChanged?.call();
+  }
+
   void _showSyntaxHints() {
     showDialog(
       context: context,
@@ -869,6 +1115,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                 _buildHintItem(
                   '自定义容器',
                   '::: info\n内容\n::: /info\n(支持 info, warning, danger, success, tip 等)',
+                ),
+                _buildHintItem(
+                  '信息级别内容区块',
+                  '::: quick {group=组名, exclude="cn,tw", title="描述"}\n内容\n::: /quick\n(支持 quick, basic, detailed 级别，属性可选，支持按区域屏蔽与再次编辑)',
                 ),
                 _buildHintItem(
                   '提示框 (Callouts)',
@@ -1002,73 +1252,99 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   }
 
   Widget _buildEditorSurface() {
-    final isPhone = AdminBreakpoints.isPhone(context);
+    final bool isPhone = AdminBreakpoints.isPhone(context);
     return Container(
       color: Colors.white,
       child: Listener(
-        onPointerDown: (_) => _isPointerDown = true,
-        onPointerUp: (_) =>
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (mounted) _isPointerDown = false;
-            }),
-        onPointerCancel: (_) => _isPointerDown = false,
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: _checkImageTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: isPhone ? 12 : 20,
-              vertical: isPhone ? 12 : 18,
-            ),
-            child: AnimatedBuilder(
-              animation: widget.controller,
-              builder: (context, _) {
-                bool isEmpty = widget.controller.text.isEmpty;
-                return Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: isEmpty ? 1.0 : 0.0,
-                            child: Text(
-                              '开始你的创作...',
-                              style: TextStyle(
-                                color: Colors.grey.shade400,
-                                fontFamily: 'monospace',
-                                fontSize: isPhone ? 14 : 15,
-                                height: 1.6,
-                              ),
+        onPointerDown: (PointerDownEvent details) {
+          _isPointerDown = true;
+          _pointerDownPosition = details.position;
+          _pointerDownTime = DateTime.now();
+        },
+        onPointerUp: (PointerUpEvent details) {
+          if (_pointerDownPosition != null) {
+            if (_pointerDownTime != null) {
+              Duration duration = DateTime.now().difference(_pointerDownTime!);
+              double delta = (details.position - _pointerDownPosition!)
+                  .distance;
+              if (duration.inMilliseconds < 300) {
+                if (delta < 10) {
+                  Future.delayed(Duration.zero, () {
+                    if (mounted) {
+                      _checkImageTap();
+                    }
+                  });
+                }
+              }
+            }
+          }
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) {
+              _isPointerDown = false;
+            }
+          });
+        },
+        onPointerCancel: (PointerCancelEvent _) {
+          _isPointerDown = false;
+        },
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isPhone ? 12 : 20,
+            vertical: isPhone ? 12 : 18,
+          ),
+          child: AnimatedBuilder(
+            animation: widget.controller,
+            builder: (BuildContext context, Widget? _) {
+              bool isEmpty = widget.controller.text.isEmpty;
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: IgnorePointer(
+                        child: Opacity(
+                          opacity: isEmpty ? 1.0 : 0.0,
+                          child: Text(
+                            '开始你的创作...',
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontFamily: 'monospace',
+                              fontSize: isPhone ? 14 : 15,
+                              height: 1.6,
                             ),
                           ),
                         ),
                       ),
                     ),
-                    Positioned.fill(
-                      child: EditableText(
-                        controller: widget.controller,
-                        focusNode: _focusNode,
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: isPhone ? 14 : 15,
-                          height: 1.6,
-                          color: Colors.black87,
-                        ),
-                        cursorColor: Theme.of(context).colorScheme.primary,
-                        backgroundCursorColor: Colors.grey,
-                        maxLines: null,
-                        expands: true,
-                        scrollController: _editorScrollController,
-                        keyboardType: TextInputType.multiline,
-                        onChanged: (_) => widget.onChanged?.call(),
-                        selectionControls: materialTextSelectionControls,
+                  ),
+                  Positioned.fill(
+                    child: EditableText(
+                      controller: widget.controller,
+                      focusNode: _focusNode,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: isPhone ? 14 : 15,
+                        height: 1.6,
+                        color: Colors.black87,
                       ),
+                      cursorColor: Theme
+                          .of(context)
+                          .colorScheme
+                          .primary,
+                      backgroundCursorColor: Colors.grey,
+                      maxLines: null,
+                      expands: true,
+                      scrollController: _editorScrollController,
+                      keyboardType: TextInputType.multiline,
+                      onChanged: (_) {
+                        widget.onChanged?.call();
+                      },
+                      selectionControls: materialTextSelectionControls,
                     ),
-                  ],
-                );
-              },
-            ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -1165,6 +1441,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
             icon: Icons.lock_outline,
             tooltip: '插入隐藏文本区块',
             onPressed: () => _insertHideContent('hide-text'),
+          ),
+          _ToolbarButton(
+            icon: Icons.view_headline,
+            tooltip: '插入或编辑内容区块',
+            onPressed: _insertOrEditCustomBlock,
           ),
           _ToolbarButton(
             icon: Icons.attachment,
@@ -1539,9 +1820,136 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
               ),
             ),
           ],
+          if (_customBlocks.isNotEmpty) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                '内容区块配置',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _customBlocks.length,
+                itemBuilder: (context, index) {
+                  final block = _customBlocks[index];
+                  final displayTitle = block.title != null &&
+                      block.title!.isNotEmpty
+                      ? block.title!
+                      : '区块 #${block.lineIndex + 1}';
+                  Color badgeColor = Colors.blue.shade600;
+                  if (block.level == 'quick')
+                    badgeColor = Colors.green.shade600;
+                  if (block.level == 'detailed')
+                    badgeColor = Colors.purple.shade600;
+
+                  return InkWell(
+                    onTap: () => _editBlockAtLine(block.lineIndex),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 5, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: badgeColor.withValues(
+                                            alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                            color: badgeColor.withValues(
+                                                alpha: 0.3)),
+                                      ),
+                                      child: Text(
+                                        block.level,
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          color: badgeColor,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    if (block.group != null &&
+                                        block.group!.isNotEmpty) ...[
+                                      const SizedBox(width: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 5, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(
+                                              4),
+                                        ),
+                                        child: Text(
+                                          block.group!,
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            color: Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  displayTitle,
+                                  style: const TextStyle(fontSize: 12,
+                                      fontWeight: FontWeight.w500),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (block.exclude.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      '屏蔽区域: ${block.exclude.join(',')}',
+                                      style: TextStyle(fontSize: 10,
+                                          color: Colors.red.shade400),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.edit_outlined, size: 14,
+                              color: Colors.grey.shade500),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  void _editBlockAtLine(int lineIndex) {
+    final text = widget.controller.text;
+    final lines = text.split('\n');
+    int offset = 0;
+    for (int i = 0; i < lineIndex; i++) {
+      if (i < lines.length) {
+        offset += lines[i].length + 1;
+      }
+    }
+    widget.controller.selection = TextSelection.collapsed(offset: offset);
+    _insertOrEditCustomBlock();
   }
 }
 
@@ -1920,4 +2328,37 @@ class _StoreItemPickerDialogState extends State<_StoreItemPickerDialog> {
       ],
     );
   }
+}
+
+class _BlockOutlineInfo {
+  final int lineIndex;
+  final String level;
+  final String? group;
+  final String? title;
+  final List<String> exclude;
+  final String rawLine;
+
+  _BlockOutlineInfo(this.lineIndex, this.level, this.group, this.title,
+      this.exclude, this.rawLine);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is _BlockOutlineInfo &&
+              runtimeType == other.runtimeType &&
+              lineIndex == other.lineIndex &&
+              level == other.level &&
+              group == other.group &&
+              title == other.title &&
+              rawLine == other.rawLine &&
+              listEquals(exclude, other.exclude);
+
+  @override
+  int get hashCode =>
+      lineIndex.hashCode ^
+      level.hashCode ^
+      group.hashCode ^
+      title.hashCode ^
+      exclude.hashCode ^
+      rawLine.hashCode;
 }
