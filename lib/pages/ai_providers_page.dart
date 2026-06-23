@@ -142,6 +142,10 @@ class _AiProvidersPageState extends State<AiProvidersPage>
       'provider': 'OPENAI',
       'endpoint': 'https://api.groq.com/openai/v1'
     },
+    'Cerebras': {
+      'provider': 'CEREBRAS',
+      'endpoint': 'https://api.cerebras.ai/v1'
+    },
     'ChatGLM (SDK)': {
       'provider': 'CHATGLM',
       'endpoint': 'https://open.bigmodel.cn/api/paas/v4'
@@ -164,11 +168,31 @@ class _AiProvidersPageState extends State<AiProvidersPage>
 
     // 解析附加配置
     bool forceEndpoint = false;
+    bool proxyEnabled = false;
+    String proxyType = 'HTTP';
+    String proxyHost = '127.0.0.1';
+    int proxyPort = 7890;
+
     try {
       if (configText.isNotEmpty) {
         final map = jsonDecode(configText);
-        if (map is Map && map.containsKey('force_endpoint')) {
-          forceEndpoint = map['force_endpoint'] == true;
+        if (map is Map) {
+          if (map.containsKey('force_endpoint')) {
+            forceEndpoint = map['force_endpoint'] == true;
+          }
+          if (map.containsKey('proxy_enabled')) {
+            proxyEnabled = map['proxy_enabled'] == true;
+          }
+          if (map.containsKey('proxy_type')) {
+            proxyType = map['proxy_type']?.toString() ?? 'HTTP';
+          }
+          if (map.containsKey('proxy_host')) {
+            proxyHost = map['proxy_host']?.toString() ?? '127.0.0.1';
+          }
+          if (map.containsKey('proxy_port')) {
+            proxyPort =
+                int.tryParse(map['proxy_port']?.toString() ?? '7890') ?? 7890;
+          }
         }
       }
     } catch (_) {}
@@ -204,6 +228,10 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   }
                 } catch (_) {}
                 extraConfig['force_endpoint'] = forceEndpoint;
+                extraConfig['proxy_enabled'] = proxyEnabled;
+                extraConfig['proxy_type'] = proxyType;
+                extraConfig['proxy_host'] = proxyHost;
+                extraConfig['proxy_port'] = proxyPort;
 
                 final req = AiProviderConfigUpdateRequest(
                   type: type,
@@ -382,6 +410,68 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                             ),
                           ],
                         ),
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        SwitchListTile(
+                          title: const Text('启用代理 (Enable Proxy)',
+                              style: TextStyle(fontSize: 14)),
+                          value: proxyEnabled,
+                          onChanged: (v) => setState(() => proxyEnabled = v),
+                        ),
+                        if (proxyEnabled) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: DropdownButtonFormField<String>(
+                                  decoration: const InputDecoration(
+                                      labelText: '代理类型'),
+                                  initialValue: proxyType,
+                                  items: ['HTTP', 'SOCKS5'].map((e) =>
+                                      DropdownMenuItem(
+                                          value: e, child: Text(e))).toList(),
+                                  onChanged: (v) {
+                                    if (v != null) setState(() =>
+                                    proxyType = v);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 3,
+                                child: TextField(
+                                  decoration: const InputDecoration(
+                                      labelText: '代理主机',
+                                      hintText: '127.0.0.1'),
+                                  controller: TextEditingController(
+                                      text: proxyHost)
+                                    ..selection = TextSelection.collapsed(
+                                        offset: proxyHost.length),
+                                  onChanged: (v) => proxyHost = v,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 2,
+                                child: TextField(
+                                  decoration: const InputDecoration(
+                                      labelText: '端口', hintText: '7890'),
+                                  keyboardType: TextInputType.number,
+                                  controller: TextEditingController(
+                                      text: proxyPort.toString())
+                                    ..selection = TextSelection.collapsed(
+                                        offset: proxyPort
+                                            .toString()
+                                            .length),
+                                  onChanged: (v) =>
+                                  proxyPort = int.tryParse(v) ?? 7890,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                       if (type == 'POLLING_GROUP') ...[
                         const SizedBox(height: 12),
@@ -418,6 +508,10 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     } else {
                       extraConfig.remove('force_endpoint');
                     }
+                    extraConfig['proxy_enabled'] = proxyEnabled;
+                    extraConfig['proxy_type'] = proxyType;
+                    extraConfig['proxy_host'] = proxyHost;
+                    extraConfig['proxy_port'] = proxyPort;
                     
                     final req = AiProviderConfigUpdateRequest(
                       type: type,

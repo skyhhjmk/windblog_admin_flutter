@@ -1843,10 +1843,12 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                       ? block.title!
                       : '区块 #${block.lineIndex + 1}';
                   Color badgeColor = Colors.blue.shade600;
-                  if (block.level == 'quick')
+                  if (block.level == 'quick') {
                     badgeColor = Colors.green.shade600;
-                  if (block.level == 'detailed')
+                  }
+                  if (block.level == 'detailed') {
                     badgeColor = Colors.purple.shade600;
+                  }
 
                   return InkWell(
                     onTap: () => _editBlockAtLine(block.lineIndex),
