@@ -681,6 +681,23 @@ class AdminApiClient {
     return SystemSetting.fromMap(_map(map['data']));
   }
 
+  Future<Map<String, dynamic>> inspectClientIp() async {
+    final res = await _get('/api/admin/settings/client-ip/inspect');
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> simulateClientIp({
+    required String remoteIp,
+    required String headerValue,
+  }) async {
+    final res = await _post(
+      '/api/admin/settings/client-ip/simulate',
+      body: {'remoteIp': remoteIp, 'headerValue': headerValue},
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
   Future<void> applyAuditSettingValue(String key, dynamic value) async {
     await _post(
       '/api/admin/settings/apply-audit-value',

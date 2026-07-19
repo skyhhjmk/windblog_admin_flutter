@@ -268,6 +268,17 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
               ),
             ),
           ),
+          if (setting.configKey == 'security_network') ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _showClientIpTools,
+                icon: const Icon(Icons.network_check),
+                label: const Text('IP 测试'),
+              ),
+            ),
+          ],
           if (setting.isFrozen) ...[
             const SizedBox(height: 12),
             Row(
@@ -298,6 +309,84 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     );
   }
 
+  Future<void> _showClientIpTools() async {
+    final remoteIpController = TextEditingController(text: '10.0.0.1');
+    final headerValueController = TextEditingController();
+    Map<String, dynamic>? actualResult;
+    Map<String, dynamic>? simulatedResult;
+    try {
+      actualResult = await widget.api.inspectClientIp();
+    } catch (error) {
+      actualResult = {'message': '读取失败: $error'};
+    }
+    if (!mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              title: const Text('客户端 IP 测试'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('真实请求解析结果'),
+                    const SizedBox(height: 8),
+                    SelectableText('${actualResult ?? {}}'),
+                    const Divider(height: 32),
+                    TextField(
+                      controller: remoteIpController,
+                      decoration: const InputDecoration(labelText: '模拟代理 IP'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: headerValueController,
+                      decoration: const InputDecoration(labelText: '模拟客户端 IP 请求头值'),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: () async {
+                        try {
+                          final result = await widget.api.simulateClientIp(
+                            remoteIp: remoteIpController.text.trim(),
+                            headerValue: headerValueController.text.trim(),
+                          );
+                          setDialogState(() {
+                            simulatedResult = result;
+                          });
+                        } catch (error) {
+                          setDialogState(() {
+                            simulatedResult = {'message': '模拟失败: $error'};
+                          });
+                        }
+                      },
+                      child: const Text('模拟解析'),
+                    ),
+                    if (simulatedResult != null) ...[
+                      const SizedBox(height: 8),
+                      SelectableText('${simulatedResult!}'),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('关闭'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    remoteIpController.dispose();
+    headerValueController.dispose();
+  }
   Future<void> _saveSetting(String key, Map<String, dynamic> values) async {
     try {
       await widget.api.updateSystemSetting(key, values, reason: '管理员在后台手动修改');
