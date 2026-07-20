@@ -228,6 +228,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.security,
         submenuParent: '系统设置',
       ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '邮件中心',
+        icon: Icons.mail_outline,
+        selectedIcon: Icons.mail,
+        submenuParent: '系统设置',
+      ),
     ];
   }
 
@@ -889,10 +896,7 @@ class _HomePageState extends State<HomePage> {
             }
           }
 
-          final fade = FadeTransition(
-            opacity: animation,
-            child: child,
-          );
+          final fade = FadeTransition(opacity: animation, child: child);
           final slide = SlideTransition(
             position: Tween<Offset>(
               begin: beginOffset,
@@ -1053,6 +1057,11 @@ class _HomePageState extends State<HomePage> {
         return PermissionManagementPage(
           api: widget.api,
           isSuperAdmin: isSuperAdmin,
+          onAuthError: widget.onAuthError,
+        );
+      case 25:
+        return EmailCenterPage(
+          api: widget.api,
           onAuthError: widget.onAuthError,
         );
       default:

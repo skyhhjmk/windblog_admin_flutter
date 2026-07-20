@@ -247,17 +247,124 @@ class AdminApiClient {
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<void> publishPost(int id) async =>
-      _post('/api/admin/posts/$id/publish', body: const {});
+  Future<void> publishPost(int id, {bool sendArticleUpdate = false}) async =>
+      _post(
+        '/api/admin/posts/$id/publish',
+        body: {'sendArticleUpdate': sendArticleUpdate},
+      );
 
-  Future<void> publishLatestDraftPost(int id) async =>
-      _post('/api/admin/posts/$id/publish', body: const {});
+  Future<void> publishLatestDraftPost(int id, {
+    bool sendArticleUpdate = false,
+    int? channelGroupId,
+    int? channelId,
+  }) async =>
+      _post(
+        '/api/admin/posts/$id/publish',
+        body: {
+          'sendArticleUpdate': sendArticleUpdate,
+          'channelGroupId': channelGroupId,
+          'channelId': channelId,
+        },
+      );
 
-  Future<void> publishPostRevision(int postId, int revisionNumber) async =>
+  Future<void> publishPostRevision(int postId,
+      int revisionNumber, {
+        bool sendArticleUpdate = false,
+        int? channelGroupId,
+        int? channelId,
+      }) async =>
       _post(
         '/api/admin/posts/$postId/revisions/$revisionNumber/publish',
-        body: const {},
+        body: {
+          'sendArticleUpdate': sendArticleUpdate,
+          'channelGroupId': channelGroupId,
+          'channelId': channelId,
+        },
       );
+
+  Future<List<Map<String, dynamic>>> listEmailChannels() async {
+    final res = await _get('/api/admin/email-channels');
+    final values = jsonDecode(res.body) as List<dynamic>;
+    return values.map((value) => _map(value)).toList();
+  }
+
+  Future<void> createEmailChannel(Map<String, dynamic> values) async {
+    await _post('/api/admin/email-channels', body: values);
+  }
+
+  Future<List<Map<String, dynamic>>> listEmailGroups() async {
+    final res = await _get('/api/admin/email-routing/groups');
+    return (jsonDecode(res.body) as List<dynamic>)
+        .map((value) => _map(value))
+        .toList();
+  }
+
+  Future<void> createEmailGroup(Map<String, dynamic> values) async {
+    await _post('/api/admin/email-routing/groups', body: values);
+  }
+
+  Future<void> replaceEmailGroupMembers(int groupId,
+      List<Map<String, dynamic>> members,) async {
+    await _put(
+      '/api/admin/email-routing/groups/$groupId/members',
+      body: {'members': members},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> listEmailRoutes() async {
+    final res = await _get('/api/admin/email-routing/routes');
+    return (jsonDecode(res.body) as List<dynamic>)
+        .map((value) => _map(value))
+        .toList();
+  }
+
+  Future<void> updateEmailRoute(String scenario,
+      Map<String, dynamic> values,) async {
+    await _put('/api/admin/email-routing/routes/$scenario', body: values);
+  }
+
+  Future<List<Map<String, dynamic>>> listEmailTemplates() async {
+    final res = await _get('/api/admin/email-templates');
+    return (jsonDecode(res.body) as List<dynamic>)
+        .map((value) => _map(value))
+        .toList();
+  }
+
+  Future<void> createEmailTemplate(Map<String, dynamic> values) async {
+    await _post('/api/admin/email-templates', body: values);
+  }
+
+  Future<List<Map<String, dynamic>>> listEmailCampaigns() async {
+    final res = await _get('/api/admin/email-campaigns');
+    return (jsonDecode(res.body) as List<dynamic>)
+        .map((value) => _map(value))
+        .toList();
+  }
+
+  Future<void> createEmailCampaign(Map<String, dynamic> values) async {
+    await _post('/api/admin/email-campaigns', body: values);
+  }
+
+  Future<List<Map<String, dynamic>>> listEmailDeliveries() async {
+    final res = await _get('/api/admin/email-deliveries');
+    return (jsonDecode(res.body) as List<dynamic>)
+        .map((value) => _map(value))
+        .toList();
+  }
+
+  Future<void> retryEmailDelivery(int deliveryId) async {
+    await _post(
+      '/api/admin/email-deliveries/$deliveryId/retry',
+      body: const {},
+    );
+  }
+
+  Future<void> testEmailChannel(int channelId, String recipientAddress) async {
+    await _post(
+      '/api/admin/email-channels/$channelId/test',
+      body: {'recipientAddress': recipientAddress},
+    );
+  }
 
   Future<void> deletePost(int id) async => _delete('/api/admin/posts/$id');
 
@@ -698,6 +805,7 @@ class AdminApiClient {
     final map = _map(jsonDecode(res.body));
     return _map(map['data']);
   }
+
   Future<void> applyAuditSettingValue(String key, dynamic value) async {
     await _post(
       '/api/admin/settings/apply-audit-value',
@@ -879,17 +987,11 @@ class AdminApiClient {
   Future<List<LinkMonitorLogItem>> listLinkMonitorLogs(int linkId) async {
     final res = await _get(
       '/api/admin/links/monitor-logs',
-      query: {
-        'linkId': linkId.toString(),
-        'page': '1',
-        'pageSize': '50',
-      },
+      query: {'linkId': linkId.toString(), 'page': '1', 'pageSize': '50'},
     );
     final responseBody = _map(jsonDecode(res.body));
     final items = responseBody['items'] as List? ?? [];
-    return items
-        .map((item) => LinkMonitorLogItem.fromMap(_map(item)))
-        .toList();
+    return items.map((item) => LinkMonitorLogItem.fromMap(_map(item))).toList();
   }
 
   Future<void> deleteLink(int id) async {

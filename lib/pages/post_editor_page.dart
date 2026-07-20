@@ -390,11 +390,18 @@ class _PostEditorPageState extends State<PostEditorPage>
   Future<void> _publishLatestDraft() async {
     if (_currentDetail == null) return;
 
+    final sendArticleUpdate = await _askWhetherToSendArticleUpdate();
+    if (sendArticleUpdate == null) return;
+    if (!mounted) return;
+
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final publishSuccessText = t(context, 'publish_success');
     final operationFailedText = t(context, 'operation_failed');
     try {
-      await widget.api.publishLatestDraftPost(_currentDetail!.id);
+      await widget.api.publishLatestDraftPost(
+        _currentDetail!.id,
+        sendArticleUpdate: sendArticleUpdate,
+      );
       final latestDetail = await widget.api.postDetail(_currentDetail!.id);
       if (mounted) {
         setState(() {
@@ -421,33 +428,48 @@ class _PostEditorPageState extends State<PostEditorPage>
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final publishSuccessText = t(context, 'publish_success');
     final operationFailedText = t(context, 'operation_failed');
+    bool sendArticleUpdate = false;
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) =>
+          StatefulBuilder(
+            builder: (dialogContext, setDialogState) =>
+                AlertDialog(
         title: Text(t(context, 'publish_revision_title')),
-        content: Text(
-          t(
-            context,
-            'publish_revision_confirm',
-          ).replaceAll('%d', revisionNumber.toString()),
-        ),
+                  content: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(t(context, 'publish_revision_confirm').replaceAll(
+                        '%d', revisionNumber.toString())),
+                    CheckboxListTile(
+                      value: sendArticleUpdate,
+                      onChanged: (value) =>
+                          setDialogState(() =>
+                          sendArticleUpdate = value ?? false),
+                      title: const Text('向订阅者发送新文章更新邮件'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ]),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(t(context, 'cancel')),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(t(context, 'publish_this_revision')),
           ),
         ],
+                ),
       ),
     );
 
     if (confirm != true) return;
 
     try {
-      await widget.api.publishPostRevision(_currentDetail!.id, revisionNumber);
+      await widget.api.publishPostRevision(
+        _currentDetail!.id,
+        revisionNumber,
+        sendArticleUpdate: sendArticleUpdate,
+      );
       final latestDetail = await widget.api.postDetail(_currentDetail!.id);
       if (mounted) {
         setState(() {
@@ -466,6 +488,35 @@ class _PostEditorPageState extends State<PostEditorPage>
         );
       }
     }
+  }
+
+  Future<bool?> _askWhetherToSendArticleUpdate() {
+    bool sendArticleUpdate = false;
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) =>
+          StatefulBuilder(
+            builder: (dialogContext, setDialogState) =>
+                AlertDialog(
+                  title: const Text('发布文章'),
+                  content: CheckboxListTile(
+                    value: sendArticleUpdate,
+                    onChanged: (value) =>
+                        setDialogState(() =>
+                        sendArticleUpdate = value ?? false),
+                    title: const Text('向订阅者发送新文章更新邮件'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(dialogContext),
+                        child: Text(t(context, 'cancel'))),
+                    FilledButton(onPressed: () =>
+                        Navigator.pop(dialogContext, sendArticleUpdate),
+                        child: const Text('发布')),
+                  ],
+                ),
+          ),
+    );
   }
 
   Future<void> _switchToRevision(int revisionNumber) async {
