@@ -35,6 +35,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   int? categoryId;
   List<int> tagIds = [];
   List<String> visibilityRegions = [];
+  List<String> contentDeclarations = [];
   List<CategoryItem> _categories = [];
   List<TagItem> _tags = [];
   List<PostRevisionItem> _revisions = [];
@@ -55,6 +56,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   int? _initialCategoryId;
   List<int>? _initialTagIds;
   List<String>? _initialVisibilityRegions;
+  List<String>? _initialContentDeclarations;
 
   PostDetail? _currentDetail;
 
@@ -94,6 +96,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     categoryId = d?.categoryId;
     tagIds = d?.tagIds ?? [];
     visibilityRegions = d?.visibilityRegions ?? [];
+    contentDeclarations = List<String>.from(d?.contentDeclarations ?? []);
 
     _initialSlug = d?.slug;
     _initialTitle = d?.zhTitle;
@@ -108,6 +111,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     _initialTagIds = d?.tagIds != null ? List<int>.from(d!.tagIds) : null;
     _initialVisibilityRegions = d?.visibilityRegions != null
         ? List<String>.from(d!.visibilityRegions)
+        : null;
+    _initialContentDeclarations = d?.contentDeclarations != null
+        ? List<String>.from(d!.contentDeclarations)
         : null;
 
     _sidebarTabController = TabController(length: 3, vsync: this);
@@ -172,7 +178,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           visibility != 0 ||
           passwordCtrl.text.trim().isNotEmpty ||
           categoryId != null ||
-          tagIds.isNotEmpty;
+          tagIds.isNotEmpty ||
+          contentDeclarations.isNotEmpty;
     }
 
     return currentSlug != _initialSlug ||
@@ -187,7 +194,8 @@ class _PostEditorPageState extends State<PostEditorPage>
         aiSummaryStatus != _initialAiSummaryStatus ||
         categoryId != _initialCategoryId ||
         !_listEquals(tagIds, _initialTagIds) ||
-        !_listEqualsString(visibilityRegions, _initialVisibilityRegions);
+        !_listEqualsString(visibilityRegions, _initialVisibilityRegions) ||
+        !_listEqualsString(contentDeclarations, _initialContentDeclarations);
   }
 
   bool _listEqualsString(List<String>? a, List<String>? b) {
@@ -344,6 +352,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         categoryId: categoryId,
         tagIds: tagIds,
         visibilityRegions: visibilityRegions,
+        contentDeclarations: contentDeclarations,
       );
 
       PostDetail savedDetail;
@@ -572,6 +581,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           categoryId = newDetail.categoryId;
           tagIds = newDetail.tagIds;
           visibilityRegions = newDetail.visibilityRegions;
+          contentDeclarations = List<String>.from(
+            newDetail.contentDeclarations,
+          );
 
           _initialSlug = newDetail.slug;
           _initialTitle = newDetail.zhTitle;
@@ -586,6 +598,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           _initialTagIds = List<int>.from(newDetail.tagIds);
           _initialVisibilityRegions = List<String>.from(
             newDetail.visibilityRegions,
+          );
+          _initialContentDeclarations = List<String>.from(
+            newDetail.contentDeclarations,
           );
 
           _isDirty = false;
@@ -1308,8 +1323,82 @@ class _PostEditorPageState extends State<PostEditorPage>
               }
             },
           ),
+          const SizedBox(height: 12),
+          const Divider(),
+          const SizedBox(height: 12),
+          Text(
+            '内容声明',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          _buildContentDeclarationDropdown(
+            code: 'EXPLICIT_AND_EMBEDDED_ADVERTISING',
+            label: '包含显式广告和植入式广告',
+          ),
+          const SizedBox(height: 12),
+          _buildContentDeclarationDropdown(
+            code: 'AI_GENERATED_CONTENT',
+            label: '存在 AI 生成内容',
+          ),
+          const SizedBox(height: 12),
+          _buildContentDeclarationDropdown(
+            code: 'SUBJECTIVE_VIEWPOINTS',
+            label: '存在主观观点',
+          ),
+          const SizedBox(height: 12),
+          _buildContentDeclarationDropdown(
+            code: 'AUTOMATION_USE_ALLOWED',
+            label: '可用于自动化程序',
+            helpText: '选择后表示允许自动化程序使用内容，不将爬虫排除在外。',
+          ),
+          const SizedBox(height: 12),
+          _buildContentDeclarationDropdown(
+            code: 'CC_BY_NC_4_0',
+            label: 'CC BY-NC 4.0',
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildContentDeclarationDropdown({
+    required String code,
+    required String label,
+    String? helpText,
+  }) {
+    final selected = contentDeclarations.contains(code);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDropdownRow<bool>(
+          label: label,
+          value: selected,
+          items: const [
+            DropdownMenuItem(value: false, child: Text('不声明')),
+            DropdownMenuItem(value: true, child: Text('声明')),
+          ],
+          onChanged: (value) {
+            if (value == null || value == selected) {
+              return;
+            }
+            setState(() {
+              if (value) {
+                contentDeclarations.add(code);
+              } else {
+                contentDeclarations.remove(code);
+              }
+              _markDirty();
+            });
+          },
+        ),
+        if (helpText != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            helpText,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+        ],
+      ],
     );
   }
 

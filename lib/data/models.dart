@@ -140,6 +140,7 @@ class PostDetail {
     this.userName,
     this.tagIds = const [],
     this.visibilityRegions = const [],
+    this.contentDeclarations = const [],
     this.pointsPrice,
     this.freeLines,
     required this.publishedRevisionNumber,
@@ -170,6 +171,7 @@ class PostDetail {
   final String? userName;
   final List<int> tagIds;
   final List<String> visibilityRegions;
+  final List<String> contentDeclarations;
   final int? pointsPrice;
   final int? freeLines;
   final int publishedRevisionNumber;
@@ -217,6 +219,7 @@ class PostDetail {
           .where((id) => id > 0)
           .toList(),
       visibilityRegions: toStringList(map['visibilityRegions']) ?? [],
+      contentDeclarations: toStringList(map['contentDeclarations']) ?? [],
       pointsPrice: toInt(map['pointsPrice']),
       freeLines: toInt(map['freeLines']),
       publishedRevisionNumber: toInt(map['publishedRevisionNumber']) ?? 0,
@@ -285,6 +288,7 @@ class PostEditRequest {
     this.categoryId,
     this.tagIds = const [],
     this.visibilityRegions = const [],
+    this.contentDeclarations = const [],
     this.pointsPrice,
     this.freeLines,
   });
@@ -306,6 +310,7 @@ class PostEditRequest {
   final int? categoryId;
   final List<int> tagIds;
   final List<String> visibilityRegions;
+  final List<String> contentDeclarations;
   final int? pointsPrice;
   final int? freeLines;
 
@@ -328,6 +333,7 @@ class PostEditRequest {
       'categoryId': categoryId,
       'tagIds': tagIds,
       'visibilityRegions': visibilityRegions,
+      'contentDeclarations': contentDeclarations,
       if (pointsPrice != null) 'pointsPrice': pointsPrice,
       if (freeLines != null) 'freeLines': freeLines,
     };
@@ -353,6 +359,7 @@ class PostEditRequest {
       'categoryId': categoryId,
       'tagIds': tagIds,
       'visibilityRegions': visibilityRegions,
+      'contentDeclarations': contentDeclarations,
       if (pointsPrice != null) 'pointsPrice': pointsPrice,
       if (freeLines != null) 'freeLines': freeLines,
     };
@@ -380,6 +387,7 @@ class PostEditRequest {
       categoryId: categoryId ?? this.categoryId,
       tagIds: tagIds ?? this.tagIds,
       visibilityRegions: visibilityRegions,
+      contentDeclarations: contentDeclarations,
       pointsPrice: pointsPrice,
       freeLines: freeLines,
     );
