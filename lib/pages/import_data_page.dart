@@ -18,8 +18,8 @@ class _ImportDataPageState extends State<ImportDataPage> {
   final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController(
       text: 'jdbc:postgresql://localhost:5432/windblog');
-  final _usernameController = TextEditingController(text: 'postgres');
-  final _passwordController = TextEditingController(text: 'postgres');
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _assetPrefixController = TextEditingController(text: 'https://');
   final String _driver = 'org.postgresql.Driver';
 
@@ -37,7 +37,19 @@ class _ImportDataPageState extends State<ImportDataPage> {
   final ScrollController _logScrollController = ScrollController();
   StreamSubscription? _importSub;
 
+  bool _validateDatabaseCredentials() {
+    final valid = _formKey.currentState?.validate() ?? false;
+    if (!valid) {
+      setState(() {
+        _result = '请输入源数据库用户名和密码';
+      });
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _testConnection() async {
+    if (!_validateDatabaseCredentials()) return;
     setState(() {
       _isTesting = true;
       _result = null;
@@ -66,6 +78,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
   }
 
   Future<void> _startImport() async {
+    if (!_validateDatabaseCredentials()) return;
     final types = <String>[];
     if (_importCategories) types.add('categories');
     if (_importTags) types.add('tags');
@@ -214,15 +227,20 @@ class _ImportDataPageState extends State<ImportDataPage> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _usernameController,
-                        decoration: InputDecoration(labelText: t(context,
-                            'username')),
+                        decoration: InputDecoration(
+                            labelText: t(context, 'username'),
+                            hintText: '请输入源数据库用户名'),
+                        validator: (value) => value == null || value.trim().isEmpty
+                            ? '请输入源数据库用户名' : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _passwordController,
                         decoration: InputDecoration(labelText: t(context,
-                            'password')),
+                            'password'), hintText: '请输入源数据库密码'),
                         obscureText: true,
+                        validator: (value) => value == null || value.isEmpty
+                            ? '请输入源数据库密码' : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
