@@ -19,8 +19,8 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final formKey = GlobalKey<FormState>();
   late final baseUrlCtrl = TextEditingController(text: widget.api.baseUrl);
-  final accountCtrl = TextEditingController(text: 'admin');
-  final passwordCtrl = TextEditingController(text: 'admin');
+  final accountCtrl = TextEditingController();
+  final passwordCtrl = TextEditingController();
   bool loading = false;
 
   @override
@@ -409,9 +409,7 @@ class SessionExpiredLoginDialog extends StatefulWidget {
 class _SessionExpiredLoginDialogState extends State<SessionExpiredLoginDialog> {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   late final TextEditingController baseUrlController;
-  final TextEditingController accountController = TextEditingController(
-    text: 'admin',
-  );
+  final TextEditingController accountController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool isSubmitting = false;
   String? loginErrorMessage;
