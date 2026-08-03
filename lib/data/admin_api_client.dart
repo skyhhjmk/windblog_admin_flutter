@@ -671,6 +671,32 @@ class AdminApiClient {
     await _post('/api/admin/comments/$id/audit', body: {});
   }
 
+  // ==================== Outbox API ====================
+
+  Future<PaginatedAdminOutboxResult> listAdminOutbox({
+    int page = 1,
+    int pageSize = 20,
+    String? status,
+    String? eventType,
+    String? traceId,
+  }) async {
+    final query = <String, String>{
+      'page': '$page',
+      'pageSize': '$pageSize',
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (eventType != null && eventType.isNotEmpty) 'eventType': eventType,
+      if (traceId != null && traceId.isNotEmpty) 'traceId': traceId,
+    };
+    final response = await _get('/api/admin/outbox', query: query);
+    return PaginatedAdminOutboxResult.fromMap(_map(jsonDecode(response.body)));
+  }
+
+  Future<AdminOutboxItem> replayAdminOutbox(int id) async {
+    final response = await _post('/api/admin/outbox/$id/replay', body: {});
+    final map = _map(jsonDecode(response.body));
+    return AdminOutboxItem.fromMap(_map(map['data']));
+  }
+
   // ==================== 队列监控 API ====================
 
   Future<List<QueueInfo>> listQueues() async {

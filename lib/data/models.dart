@@ -2020,6 +2020,86 @@ class PaginatedAuditLogResult {
   }
 }
 
+class AdminOutboxItem {
+  AdminOutboxItem({
+    required this.id,
+    required this.eventKey,
+    required this.eventType,
+    required this.aggregateType,
+    required this.aggregateId,
+    required this.status,
+    required this.attemptCount,
+    required this.availableAt,
+    required this.lockedUntil,
+    required this.lastError,
+    required this.traceId,
+    required this.createdAt,
+    required this.publishedAt,
+  });
+
+  final int id;
+  final String eventKey;
+  final String eventType;
+  final String aggregateType;
+  final String aggregateId;
+  final String status;
+  final int attemptCount;
+  final DateTime? availableAt;
+  final DateTime? lockedUntil;
+  final String? lastError;
+  final String traceId;
+  final DateTime? createdAt;
+  final DateTime? publishedAt;
+
+  factory AdminOutboxItem.fromMap(Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      return DateTime.tryParse(value.toString());
+    }
+
+    return AdminOutboxItem(
+      id: toInt(map['id']) ?? 0,
+      eventKey: map['eventKey']?.toString() ?? '',
+      eventType: map['eventType']?.toString() ?? '',
+      aggregateType: map['aggregateType']?.toString() ?? '',
+      aggregateId: map['aggregateId']?.toString() ?? '',
+      status: map['status']?.toString() ?? '',
+      attemptCount: toInt(map['attemptCount']) ?? 0,
+      availableAt: parseDate(map['availableAt']),
+      lockedUntil: parseDate(map['lockedUntil']),
+      lastError: map['lastError']?.toString(),
+      traceId: map['traceId']?.toString() ?? '',
+      createdAt: parseDate(map['createdAt']),
+      publishedAt: parseDate(map['publishedAt']),
+    );
+  }
+}
+
+class PaginatedAdminOutboxResult {
+  PaginatedAdminOutboxResult({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.pageSize,
+  });
+
+  final List<AdminOutboxItem> items;
+  final int total;
+  final int page;
+  final int pageSize;
+
+  factory PaginatedAdminOutboxResult.fromMap(Map<String, dynamic> map) {
+    return PaginatedAdminOutboxResult(
+      items: (map['items'] as List? ?? [])
+          .map((item) => AdminOutboxItem.fromMap(item as Map<String, dynamic>))
+          .toList(),
+      total: toInt(map['total']) ?? 0,
+      page: toInt(map['page']) ?? 1,
+      pageSize: toInt(map['pageSize']) ?? 20,
+    );
+  }
+}
+
 class StoreItem {
   StoreItem({
     required this.id,

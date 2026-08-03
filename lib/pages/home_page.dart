@@ -235,6 +235,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.mail,
         submenuParent: '系统设置',
       ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: 'Outbox 审计',
+        icon: Icons.fact_check_outlined,
+        selectedIcon: Icons.fact_check,
+        submenuParent: '系统运维',
+      ),
     ];
   }
 
@@ -264,6 +271,7 @@ class _HomePageState extends State<HomePage> {
     22: Color(0xFF14B8A6), // Synonym Rules: Teal
     23: Color(0xFF6366F1), // AI Providers: Indigo
     24: Color(0xFF14B8A6), // Permissions: Teal
+    26: Color(0xFF7C3AED), // Outbox Audit: Violet
   };
 
   @override
@@ -1064,6 +1072,8 @@ class _HomePageState extends State<HomePage> {
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
+      case 26:
+        return OutboxPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);
     }

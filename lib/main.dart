@@ -76,6 +76,8 @@ part 'pages/storage_sync_panel.dart';
 
 part 'pages/dead_letter_page.dart';
 
+part 'pages/outbox_page.dart';
+
 part 'pages/image_processing_config_page.dart';
 
 part 'pages/edge_monitor_page.dart';
