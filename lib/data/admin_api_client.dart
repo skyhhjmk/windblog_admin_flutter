@@ -247,40 +247,61 @@ class AdminApiClient {
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<PostTranslationResult> translatePost(
+    int postId, {
+    required String sourceLanguage,
+    required String targetLanguage,
+    required String title,
+    required String summary,
+    required String contentMarkdown,
+  }) async {
+    final res = await _post(
+      '/api/admin/posts/$postId/translation',
+      body: {
+        'sourceLanguage': sourceLanguage,
+        'targetLanguage': targetLanguage,
+        'title': title,
+        'summary': summary,
+        'contentMarkdown': contentMarkdown,
+      },
+    );
+    return PostTranslationResult.fromMap(_map(jsonDecode(res.body)));
+  }
+
   Future<void> publishPost(int id, {bool sendArticleUpdate = false}) async =>
       _post(
         '/api/admin/posts/$id/publish',
         body: {'sendArticleUpdate': sendArticleUpdate},
       );
 
-  Future<void> publishLatestDraftPost(int id, {
+  Future<void> publishLatestDraftPost(
+    int id, {
     bool sendArticleUpdate = false,
     int? channelGroupId,
     int? channelId,
-  }) async =>
-      _post(
-        '/api/admin/posts/$id/publish',
-        body: {
-          'sendArticleUpdate': sendArticleUpdate,
-          'channelGroupId': channelGroupId,
-          'channelId': channelId,
-        },
-      );
+  }) async => _post(
+    '/api/admin/posts/$id/publish',
+    body: {
+      'sendArticleUpdate': sendArticleUpdate,
+      'channelGroupId': channelGroupId,
+      'channelId': channelId,
+    },
+  );
 
-  Future<void> publishPostRevision(int postId,
-      int revisionNumber, {
-        bool sendArticleUpdate = false,
-        int? channelGroupId,
-        int? channelId,
-      }) async =>
-      _post(
-        '/api/admin/posts/$postId/revisions/$revisionNumber/publish',
-        body: {
-          'sendArticleUpdate': sendArticleUpdate,
-          'channelGroupId': channelGroupId,
-          'channelId': channelId,
-        },
-      );
+  Future<void> publishPostRevision(
+    int postId,
+    int revisionNumber, {
+    bool sendArticleUpdate = false,
+    int? channelGroupId,
+    int? channelId,
+  }) async => _post(
+    '/api/admin/posts/$postId/revisions/$revisionNumber/publish',
+    body: {
+      'sendArticleUpdate': sendArticleUpdate,
+      'channelGroupId': channelGroupId,
+      'channelId': channelId,
+    },
+  );
 
   Future<List<Map<String, dynamic>>> listEmailChannels() async {
     final res = await _get('/api/admin/email-channels');
@@ -303,8 +324,10 @@ class AdminApiClient {
     await _post('/api/admin/email-routing/groups', body: values);
   }
 
-  Future<void> replaceEmailGroupMembers(int groupId,
-      List<Map<String, dynamic>> members,) async {
+  Future<void> replaceEmailGroupMembers(
+    int groupId,
+    List<Map<String, dynamic>> members,
+  ) async {
     await _put(
       '/api/admin/email-routing/groups/$groupId/members',
       body: {'members': members},
@@ -318,8 +341,10 @@ class AdminApiClient {
         .toList();
   }
 
-  Future<void> updateEmailRoute(String scenario,
-      Map<String, dynamic> values,) async {
+  Future<void> updateEmailRoute(
+    String scenario,
+    Map<String, dynamic> values,
+  ) async {
     await _put('/api/admin/email-routing/routes/$scenario', body: values);
   }
 
@@ -997,7 +1022,8 @@ class AdminApiClient {
     await _post('/api/admin/links/$id/check', body: {});
   }
 
-  Future<void> reviewLinkApplication(int id, {
+  Future<void> reviewLinkApplication(
+    int id, {
     required bool approved,
     String? note,
   }) async {
@@ -1291,7 +1317,8 @@ class AdminApiClient {
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
-  Future<Uint8List> downloadDeploymentZip(String nodeId, {
+  Future<Uint8List> downloadDeploymentZip(
+    String nodeId, {
     String? imageReference,
     String imageVariant = 'native-micro',
   }) async {
@@ -1307,8 +1334,8 @@ class AdminApiClient {
 
   Future<Uint8List> downloadDeploymentZipWithProgress(
     String nodeId, {
-        String? imageReference,
-        String imageVariant = 'native-micro',
+    String? imageReference,
+    String imageVariant = 'native-micro',
     void Function(double progress)? onProgress,
     void Function(String status)? onStatus,
   }) async {
@@ -1361,14 +1388,13 @@ class AdminApiClient {
     }
   }
 
-  Uri _deploymentZipUri(String nodeId, {
+  Uri _deploymentZipUri(
+    String nodeId, {
     String? imageReference,
     required String imageVariant,
   }) {
     final queryParameters = <String, String>{'variant': imageVariant};
-    if (imageReference != null && imageReference
-        .trim()
-        .isNotEmpty) {
+    if (imageReference != null && imageReference.trim().isNotEmpty) {
       queryParameters['image'] = imageReference.trim();
     }
 

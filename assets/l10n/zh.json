@@ -627,5 +627,21 @@
   "api_docs": "API 文档: ",
   "confirm_delete_tag": "确定要删除标签 %s 吗？",
   "confirm_delete_category": "确定要删除分类 %s 吗？",
-  "confirm_delete_link": "确定要删除链接 %s 吗？"
+  "confirm_delete_link": "确定要删除链接 %s 吗？",
+  "multilingual_management": "多语言管理",
+  "translation_source_language": "源语言",
+  "translation_target_language": "目标语言",
+  "translation_custom_language": "自定义语言代码",
+  "translation_custom_language_code": "语言代码",
+  "translate_with_ai": "AI 翻译",
+  "translation_preview": "翻译预览（可编辑）",
+  "translation_apply": "应用翻译",
+  "translation_existing_warning": "目标语言已有内容，生成后需要确认覆盖。",
+  "translation_overwrite_title": "确认覆盖目标语言",
+  "translation_overwrite_desc": "以下内容将被新的 AI 翻译替换，请核对差异。",
+  "translation_existing": "已有内容",
+  "translation_new": "新翻译",
+  "translation_overwrite": "确认覆盖",
+  "translation_invalid_language": "请选择有效且不同的目标语言",
+  "translation_failed": "AI 翻译失败"
 }

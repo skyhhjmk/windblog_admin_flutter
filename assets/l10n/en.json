@@ -627,5 +627,21 @@
   "api_docs": "API Docs: ",
   "confirm_delete_tag": "Are you sure you want to delete tag %s?",
   "confirm_delete_category": "Are you sure you want to delete category %s?",
-  "confirm_delete_link": "Are you sure you want to delete link %s?"
+  "confirm_delete_link": "Are you sure you want to delete link %s?",
+  "multilingual_management": "Multilingual Management",
+  "translation_source_language": "Source language",
+  "translation_target_language": "Target language",
+  "translation_custom_language": "Custom language code",
+  "translation_custom_language_code": "Language code",
+  "translate_with_ai": "Translate with AI",
+  "translation_preview": "Translation preview (editable)",
+  "translation_apply": "Apply translation",
+  "translation_existing_warning": "The target language already has content. Overwrite confirmation is required.",
+  "translation_overwrite_title": "Confirm overwrite",
+  "translation_overwrite_desc": "The following content will be replaced. Review the differences first.",
+  "translation_existing": "Existing",
+  "translation_new": "New translation",
+  "translation_overwrite": "Overwrite",
+  "translation_invalid_language": "Choose a valid target language different from the source",
+  "translation_failed": "AI translation failed"
 }

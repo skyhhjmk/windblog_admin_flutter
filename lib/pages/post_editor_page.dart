@@ -31,6 +31,9 @@ class _PostEditorPageState extends State<PostEditorPage>
   int editorType = 0;
   int aiSummaryStatus = 0;
   Map<String, String> aiSummary = {};
+  Map<String, String> _titles = {};
+  Map<String, String> _summaries = {};
+  Map<String, String> _contents = {};
 
   int? categoryId;
   List<int> tagIds = [];
@@ -69,6 +72,11 @@ class _PostEditorPageState extends State<PostEditorPage>
     slugCtrl = TextEditingController(text: d?.slug ?? '');
     titleCtrl = TextEditingController(text: d?.zhTitle ?? '');
     summaryCtrl = TextEditingController(text: d?.zhSummary ?? '');
+    _titles = Map<String, String>.from(d?.title ?? {});
+    _summaries = Map<String, String>.from(d?.summary ?? {});
+    _contents = Map<String, String>.from(d?.contentMarkdown ?? {});
+    _titles['zh-cn'] = d?.zhTitle ?? '';
+    _summaries['zh-cn'] = d?.zhSummary ?? '';
     status = d?.status ?? 0;
     visibility = d?.visibility ?? 0;
     renderType = d?.renderType ?? 6;
@@ -87,6 +95,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     } else {
       contentCtrl = MarkdownSyntaxController(text: d?.zhContent ?? '');
     }
+    _contents['zh-cn'] = d?.zhContent ?? '';
     aiSummaryStatus = d?.aiSummaryStatus ?? 0;
     pointsPriceCtrl = TextEditingController(
       text: d?.pointsPrice?.toString() ?? '',
@@ -317,9 +326,43 @@ class _PostEditorPageState extends State<PostEditorPage>
     return result ?? false;
   }
 
+  Future<void> _openTranslationManager() async {
+    final detail = _currentDetail;
+    if (detail == null) return;
+
+    _titles['zh-cn'] = titleCtrl.text.trim();
+    _summaries['zh-cn'] = summaryCtrl.text.trim();
+    _contents['zh-cn'] = contentCtrl.text.trim();
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _PostTranslationDialog(
+        api: widget.api,
+        postId: detail.id,
+        titles: Map<String, String>.from(_titles),
+        summaries: Map<String, String>.from(_summaries),
+        contents: Map<String, String>.from(_contents),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    final language = result['targetLanguage'];
+    if (language == null || language.isEmpty) return;
+    setState(() {
+      _titles[language] = result['title'] ?? '';
+      _summaries[language] = result['summary'] ?? '';
+      _contents[language] = result['contentMarkdown'] ?? '';
+      _isDirty = true;
+    });
+  }
+
   Future<bool> _save() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final finalContent = contentCtrl.text.trim();
+    _titles['zh-cn'] = titleCtrl.text.trim();
+    _summaries['zh-cn'] = summaryCtrl.text.trim();
+    _contents['zh-cn'] = finalContent;
 
     if (titleCtrl.text.trim().isEmpty) {
       scaffoldMessenger.showSnackBar(
@@ -334,10 +377,10 @@ class _PostEditorPageState extends State<PostEditorPage>
     try {
       final request = PostEditRequest(
         slug: slugCtrl.text.trim(),
-        title: {'zh-cn': titleCtrl.text.trim()},
-        summary: {'zh-cn': summaryCtrl.text.trim()},
-        aiSummary: const {},
-        contentMarkdown: {'zh-cn': finalContent},
+        title: Map<String, String>.from(_titles),
+        summary: Map<String, String>.from(_summaries),
+        aiSummary: Map<String, String>.from(_currentDetail?.aiSummary ?? {}),
+        contentMarkdown: Map<String, String>.from(_contents),
         status: status,
         visibility: visibility,
         password: passwordCtrl.text.trim().isEmpty
@@ -368,6 +411,9 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (mounted) {
         setState(() {
           _currentDetail = savedDetail;
+          _titles = Map<String, String>.from(savedDetail.title);
+          _summaries = Map<String, String>.from(savedDetail.summary);
+          _contents = Map<String, String>.from(savedDetail.contentMarkdown);
           _isSaving = false;
           _isDirty = false;
         });
@@ -440,34 +486,38 @@ class _PostEditorPageState extends State<PostEditorPage>
     bool sendArticleUpdate = false;
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) =>
-          StatefulBuilder(
-            builder: (dialogContext, setDialogState) =>
-                AlertDialog(
-        title: Text(t(context, 'publish_revision_title')),
-                  content: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text(t(context, 'publish_revision_confirm').replaceAll(
-                        '%d', revisionNumber.toString())),
-                    CheckboxListTile(
-                      value: sendArticleUpdate,
-                      onChanged: (value) =>
-                          setDialogState(() =>
-                          sendArticleUpdate = value ?? false),
-                      title: const Text('向订阅者发送新文章更新邮件'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ]),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(t(context, 'cancel')),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(t(context, 'publish_revision_title')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                t(
+                  context,
+                  'publish_revision_confirm',
+                ).replaceAll('%d', revisionNumber.toString()),
+              ),
+              CheckboxListTile(
+                value: sendArticleUpdate,
+                onChanged: (value) =>
+                    setDialogState(() => sendArticleUpdate = value ?? false),
+                title: const Text('向订阅者发送新文章更新邮件'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(t(context, 'publish_this_revision')),
-          ),
-        ],
-                ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(t(context, 'cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(t(context, 'publish_this_revision')),
+            ),
+          ],
+        ),
       ),
     );
 
@@ -503,28 +553,28 @@ class _PostEditorPageState extends State<PostEditorPage>
     bool sendArticleUpdate = false;
     return showDialog<bool>(
       context: context,
-      builder: (dialogContext) =>
-          StatefulBuilder(
-            builder: (dialogContext, setDialogState) =>
-                AlertDialog(
-                  title: const Text('发布文章'),
-                  content: CheckboxListTile(
-                    value: sendArticleUpdate,
-                    onChanged: (value) =>
-                        setDialogState(() =>
-                        sendArticleUpdate = value ?? false),
-                    title: const Text('向订阅者发送新文章更新邮件'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(dialogContext),
-                        child: Text(t(context, 'cancel'))),
-                    FilledButton(onPressed: () =>
-                        Navigator.pop(dialogContext, sendArticleUpdate),
-                        child: const Text('发布')),
-                  ],
-                ),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('发布文章'),
+          content: CheckboxListTile(
+            value: sendArticleUpdate,
+            onChanged: (value) =>
+                setDialogState(() => sendArticleUpdate = value ?? false),
+            title: const Text('向订阅者发送新文章更新邮件'),
+            contentPadding: EdgeInsets.zero,
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(t(context, 'cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, sendArticleUpdate),
+              child: const Text('发布'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -565,6 +615,9 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (mounted) {
         setState(() {
           _currentDetail = newDetail;
+          _titles = Map<String, String>.from(newDetail.title);
+          _summaries = Map<String, String>.from(newDetail.summary);
+          _contents = Map<String, String>.from(newDetail.contentMarkdown);
 
           slugCtrl.text = newDetail.slug;
           titleCtrl.text = newDetail.zhTitle;
@@ -934,23 +987,38 @@ class _PostEditorPageState extends State<PostEditorPage>
             horizontalPadding,
             0,
           ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: TextField(
-                controller: titleCtrl,
-                decoration: InputDecoration(
-                  hintText: t(context, 'title'),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                ),
-                style: TextStyle(
-                  fontSize: isPhone ? 18 : 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+          child: Row(
+            children: [
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1200),
+                    child: TextField(
+                      controller: titleCtrl,
+                      decoration: InputDecoration(
+                        hintText: t(context, 'title'),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      style: TextStyle(
+                        fontSize: isPhone ? 18 : 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              if (_currentDetail != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: OutlinedButton.icon(
+                    onPressed: _openTranslationManager,
+                    icon: const Icon(Icons.translate),
+                    label: Text(t(context, 'multilingual_management')),
+                  ),
+                ),
+            ],
           ),
         ),
         const Divider(height: 1),
@@ -1926,6 +1994,501 @@ class MetadataItem extends StatelessWidget {
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PostTranslationDialog extends StatefulWidget {
+  const _PostTranslationDialog({
+    required this.api,
+    required this.postId,
+    required this.titles,
+    required this.summaries,
+    required this.contents,
+  });
+
+  final AdminApiClient api;
+  final int postId;
+  final Map<String, String> titles;
+  final Map<String, String> summaries;
+  final Map<String, String> contents;
+
+  @override
+  State<_PostTranslationDialog> createState() => _PostTranslationDialogState();
+}
+
+class _PostTranslationDialogState extends State<_PostTranslationDialog> {
+  static const _customLanguage = '__custom__';
+  static const _languagePresets = <String>[
+    'zh-cn',
+    'en-us',
+    'ja-jp',
+    'ko-kr',
+    'fr-fr',
+    'de-de',
+    _customLanguage,
+  ];
+
+  late final TextEditingController _customTargetController;
+  late final TextEditingController _titleController;
+  late final TextEditingController _summaryController;
+  late final TextEditingController _contentController;
+  late final TextEditingController _translatedTitleController;
+  late final TextEditingController _translatedSummaryController;
+  late final TextEditingController _translatedContentController;
+  late String _sourceLanguage;
+  late String _targetLanguage;
+  PostTranslationResult? _translation;
+  bool _isTranslating = false;
+
+  List<String> get _sourceLanguages {
+    final languages = <String>{
+      ...widget.titles.keys,
+      ...widget.summaries.keys,
+      ...widget.contents.keys,
+    };
+    languages.add('zh-cn');
+    return languages.toList()..sort();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _sourceLanguage = _sourceLanguages.contains('zh-cn')
+        ? 'zh-cn'
+        : _sourceLanguages.first;
+    final existingTargets = _sourceLanguages
+        .where((language) => language != _sourceLanguage)
+        .toList();
+    _targetLanguage = existingTargets.isNotEmpty
+        ? existingTargets.first
+        : 'en-us';
+    if (!_languagePresets.contains(_targetLanguage)) {
+      _targetLanguage = _customLanguage;
+    }
+    _customTargetController = TextEditingController(
+      text: _targetLanguage == _customLanguage && existingTargets.isNotEmpty
+          ? existingTargets.first
+          : '',
+    );
+    _titleController = TextEditingController();
+    _summaryController = TextEditingController();
+    _contentController = TextEditingController();
+    _translatedTitleController = TextEditingController();
+    _translatedSummaryController = TextEditingController();
+    _translatedContentController = TextEditingController();
+    _loadSourceFields();
+  }
+
+  @override
+  void dispose() {
+    _customTargetController.dispose();
+    _titleController.dispose();
+    _summaryController.dispose();
+    _contentController.dispose();
+    _translatedTitleController.dispose();
+    _translatedSummaryController.dispose();
+    _translatedContentController.dispose();
+    super.dispose();
+  }
+
+  void _loadSourceFields() {
+    _titleController.text = widget.titles[_sourceLanguage] ?? '';
+    _summaryController.text = widget.summaries[_sourceLanguage] ?? '';
+    _contentController.text = widget.contents[_sourceLanguage] ?? '';
+    _translation = null;
+  }
+
+  String get _effectiveTargetLanguage {
+    if (_targetLanguage == _customLanguage) {
+      return _customTargetController.text.trim().toLowerCase().replaceAll(
+        '_',
+        '-',
+      );
+    }
+    return _targetLanguage;
+  }
+
+  Future<void> _translate() async {
+    final targetLanguage = _effectiveTargetLanguage;
+    if (targetLanguage.isEmpty || targetLanguage == _sourceLanguage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t(context, 'translation_invalid_language'))),
+      );
+      return;
+    }
+    if (_titleController.text.trim().isEmpty ||
+        _contentController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t(context, 'fill_required_fields'))),
+      );
+      return;
+    }
+
+    setState(() => _isTranslating = true);
+    try {
+      final result = await widget.api.translatePost(
+        widget.postId,
+        sourceLanguage: _sourceLanguage,
+        targetLanguage: targetLanguage,
+        title: _titleController.text,
+        summary: _summaryController.text,
+        contentMarkdown: _contentController.text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _translation = result;
+        _translatedTitleController.text = result.title;
+        _translatedSummaryController.text = result.summary;
+        _translatedContentController.text = result.contentMarkdown;
+        _isTranslating = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isTranslating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${t(context, 'translation_failed')}: $error')),
+      );
+    }
+  }
+
+  Future<bool> _confirmOverwrite(PostTranslationResult result) async {
+    final oldTitle = widget.titles[result.targetLanguage] ?? '';
+    final oldSummary = widget.summaries[result.targetLanguage] ?? '';
+    final oldContent = widget.contents[result.targetLanguage] ?? '';
+    if (oldTitle.isEmpty && oldSummary.isEmpty && oldContent.isEmpty) {
+      return true;
+    }
+
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(t(dialogContext, 'translation_overwrite_title')),
+            content: SizedBox(
+              width: 720,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t(dialogContext, 'translation_overwrite_desc')),
+                    const SizedBox(height: 16),
+                    _buildDiff(
+                      dialogContext,
+                      t(dialogContext, 'title'),
+                      oldTitle,
+                      result.title,
+                    ),
+                    _buildDiff(
+                      dialogContext,
+                      t(dialogContext, 'summary'),
+                      oldSummary,
+                      result.summary,
+                    ),
+                    _buildDiff(
+                      dialogContext,
+                      t(dialogContext, 'content'),
+                      oldContent,
+                      result.contentMarkdown,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(t(dialogContext, 'cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(t(dialogContext, 'translation_overwrite')),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Widget _buildDiff(
+    BuildContext context,
+    String label,
+    String oldValue,
+    String newValue,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _diffPanel(
+                  context,
+                  t(context, 'translation_existing'),
+                  oldValue,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _diffPanel(
+                  context,
+                  t(context, 'translation_new'),
+                  newValue,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _diffPanel(BuildContext context, String label, String value) {
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 160),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: SingleChildScrollView(
+        child: Text('$label\n$value', style: const TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+
+  Future<void> _apply() async {
+    if (_translation == null) return;
+    final result = PostTranslationResult(
+      sourceLanguage: _translation!.sourceLanguage,
+      targetLanguage: _translation!.targetLanguage,
+      title: _translatedTitleController.text,
+      summary: _translatedSummaryController.text,
+      contentMarkdown: _translatedContentController.text,
+    );
+    if (!await _confirmOverwrite(result) || !mounted) return;
+    Navigator.pop(context, {
+      'targetLanguage': result.targetLanguage,
+      'title': result.title,
+      'summary': result.summary,
+      'contentMarkdown': result.contentMarkdown,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final targetHasExisting =
+        _effectiveTargetLanguage.isNotEmpty &&
+        ((_titlesForTarget[_effectiveTargetLanguage] ?? '').isNotEmpty ||
+            (_summariesForTarget[_effectiveTargetLanguage] ?? '').isNotEmpty ||
+            (_contentsForTarget[_effectiveTargetLanguage] ?? '').isNotEmpty);
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.translate),
+          const SizedBox(width: 8),
+          Expanded(child: Text(t(context, 'multilingual_management'))),
+        ],
+      ),
+      content: SizedBox(
+        width: 900,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      key: ValueKey<String>('source-$_sourceLanguage'),
+                      initialValue: _sourceLanguage,
+                      decoration: InputDecoration(
+                        labelText: t(context, 'translation_source_language'),
+                      ),
+                      items: _sourceLanguages
+                          .map(
+                            (language) => DropdownMenuItem(
+                              value: language,
+                              child: Text(language),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _isTranslating
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _sourceLanguage = value;
+                                _loadSourceFields();
+                              });
+                            },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      key: ValueKey<String>('target-$_targetLanguage'),
+                      initialValue: _targetLanguage,
+                      decoration: InputDecoration(
+                        labelText: t(context, 'translation_target_language'),
+                      ),
+                      items: _languagePresets
+                          .map(
+                            (language) => DropdownMenuItem(
+                              value: language,
+                              child: Text(
+                                language == _customLanguage
+                                    ? t(context, 'translation_custom_language')
+                                    : language,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _isTranslating
+                          ? null
+                          : (value) => setState(() {
+                              _targetLanguage = value ?? 'en-us';
+                              _translation = null;
+                            }),
+                    ),
+                  ),
+                ],
+              ),
+              if (_targetLanguage == _customLanguage)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: TextField(
+                    controller: _customTargetController,
+                    decoration: InputDecoration(
+                      labelText: t(context, 'translation_custom_language_code'),
+                      hintText: 'es-ES',
+                    ),
+                    onChanged: (_) => setState(() => _translation = null),
+                  ),
+                ),
+              if (targetHasExisting)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    t(context, 'translation_existing_warning'),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                t(context, 'title'),
+                _titleController,
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                t(context, 'summary'),
+                _summaryController,
+                maxLines: 4,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                t(context, 'content'),
+                _contentController,
+                maxLines: 12,
+              ),
+              if (_translation != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  t(context, 'translation_preview'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                _buildPreviewField(
+                  t(context, 'title'),
+                  _translatedTitleController,
+                ),
+                _buildPreviewField(
+                  t(context, 'summary'),
+                  _translatedSummaryController,
+                ),
+                _buildPreviewField(
+                  t(context, 'content'),
+                  _translatedContentController,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isTranslating ? null : () => Navigator.pop(context),
+          child: Text(t(context, 'cancel')),
+        ),
+        OutlinedButton.icon(
+          onPressed: _isTranslating ? null : _translate,
+          icon: _isTranslating
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_awesome),
+          label: Text(t(context, 'translate_with_ai')),
+        ),
+        FilledButton(
+          onPressed: _translation == null || _isTranslating ? null : _apply,
+          child: Text(t(context, 'translation_apply')),
+        ),
+      ],
+    );
+  }
+
+  Map<String, String> get _titlesForTarget => widget.titles;
+  Map<String, String> get _summariesForTarget => widget.summaries;
+  Map<String, String> get _contentsForTarget => widget.contents;
+
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    required int maxLines,
+  }) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
+  Widget _buildPreviewField(String label, TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: controller,
+              maxLines: label == t(context, 'content') ? 12 : 4,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+        ),
       ),
     );
   }

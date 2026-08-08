@@ -231,6 +231,32 @@ class PostDetail {
   }
 }
 
+class PostTranslationResult {
+  const PostTranslationResult({
+    required this.sourceLanguage,
+    required this.targetLanguage,
+    required this.title,
+    required this.summary,
+    required this.contentMarkdown,
+  });
+
+  final String sourceLanguage;
+  final String targetLanguage;
+  final String title;
+  final String summary;
+  final String contentMarkdown;
+
+  factory PostTranslationResult.fromMap(Map<String, dynamic> map) {
+    return PostTranslationResult(
+      sourceLanguage: map['sourceLanguage']?.toString() ?? '',
+      targetLanguage: map['targetLanguage']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      summary: map['summary']?.toString() ?? '',
+      contentMarkdown: map['contentMarkdown']?.toString() ?? '',
+    );
+  }
+}
+
 class PostRevisionItem {
   PostRevisionItem({
     required this.id,
