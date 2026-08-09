@@ -86,6 +86,9 @@ part 'pages/edge_nodes_page.dart';
 
 part 'pages/region_management_page.dart';
 
+part 'pages/amp_settings_page.dart';
+part 'pages/security_services_page.dart';
+
 String _resolveMimeType(PlatformFile file) {
   final candidate = file.path ?? file.name;
   if (candidate.isEmpty) return 'application/octet-stream';

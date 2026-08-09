@@ -1956,6 +1956,125 @@ class HealthComponent {
   }
 }
 
+class AmpInfo {
+  AmpInfo({
+    required this.enabled,
+    required this.publicBaseUrl,
+    required this.defaultRoute,
+    required this.localizedRoute,
+    required this.cacheMaxAgeSeconds,
+    required this.protectedContentPolicy,
+    required this.configurationSource,
+  });
+
+  final bool enabled;
+  final String publicBaseUrl;
+  final String defaultRoute;
+  final String localizedRoute;
+  final int cacheMaxAgeSeconds;
+  final String protectedContentPolicy;
+  final String configurationSource;
+
+  factory AmpInfo.fromMap(Map<String, dynamic> map) {
+    return AmpInfo(
+      enabled: toBool(map['enabled']) ?? false,
+      publicBaseUrl: map['publicBaseUrl']?.toString() ?? '',
+      defaultRoute: map['defaultRoute']?.toString() ?? '',
+      localizedRoute: map['localizedRoute']?.toString() ?? '',
+      cacheMaxAgeSeconds: toInt(map['cacheMaxAgeSeconds']) ?? 0,
+      protectedContentPolicy: map['protectedContentPolicy']?.toString() ?? '',
+      configurationSource: map['configurationSource']?.toString() ?? '',
+    );
+  }
+}
+
+class AmpCheckResult {
+  AmpCheckResult({
+    required this.available,
+    required this.enabled,
+    this.reason,
+    required this.slug,
+    required this.language,
+    required this.title,
+    required this.canonicalUrl,
+    required this.ampUrl,
+    this.lastUpdated,
+    required this.contentLength,
+    required this.imageCount,
+    required this.removedElementCount,
+  });
+
+  final bool available;
+  final bool enabled;
+  final String? reason;
+  final String slug;
+  final String language;
+  final String title;
+  final String canonicalUrl;
+  final String ampUrl;
+  final DateTime? lastUpdated;
+  final int contentLength;
+  final int imageCount;
+  final int removedElementCount;
+
+  factory AmpCheckResult.fromMap(Map<String, dynamic> map) {
+    return AmpCheckResult(
+      available: toBool(map['available']) ?? false,
+      enabled: toBool(map['enabled']) ?? false,
+      reason: map['reason']?.toString(),
+      slug: map['slug']?.toString() ?? '',
+      language: map['language']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      canonicalUrl: map['canonicalUrl']?.toString() ?? '',
+      ampUrl: map['ampUrl']?.toString() ?? '',
+      lastUpdated: parseDate(map['lastUpdated']),
+      contentLength: toInt(map['contentLength']) ?? 0,
+      imageCount: toInt(map['imageCount']) ?? 0,
+      removedElementCount: toInt(map['removedElementCount']) ?? 0,
+    );
+  }
+}
+
+class ClamAvStatus {
+  ClamAvStatus({
+    required this.checkedAt,
+    required this.enabled,
+    required this.required,
+    required this.host,
+    required this.port,
+    required this.timeout,
+    required this.status,
+    required this.available,
+    required this.message,
+  });
+
+  final DateTime? checkedAt;
+  final bool enabled;
+  final bool required;
+  final String host;
+  final int port;
+  final String timeout;
+  final String status;
+  final bool available;
+  final String message;
+
+  bool get isHealthy => available || (!enabled && !required);
+
+  factory ClamAvStatus.fromMap(Map<String, dynamic> map) {
+    return ClamAvStatus(
+      checkedAt: parseDate(map['checkedAt']),
+      enabled: toBool(map['enabled']) ?? false,
+      required: toBool(map['required']) ?? false,
+      host: map['host']?.toString() ?? '',
+      port: toInt(map['port']) ?? 0,
+      timeout: map['timeout']?.toString() ?? '',
+      status: map['status']?.toString() ?? 'UNKNOWN',
+      available: toBool(map['available']) ?? false,
+      message: map['message']?.toString() ?? '',
+    );
+  }
+}
+
 class AuditLogItem {
   AuditLogItem({
     required this.id,

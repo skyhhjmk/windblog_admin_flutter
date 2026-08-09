@@ -242,6 +242,20 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.fact_check,
         submenuParent: '系统运维',
       ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '安全服务',
+        icon: Icons.policy_outlined,
+        selectedIcon: Icons.policy,
+        submenuParent: '系统运维',
+      ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: 'AMP / SEO',
+        icon: Icons.speed_outlined,
+        selectedIcon: Icons.speed,
+        submenuParent: '系统设置',
+      ),
     ];
   }
 
@@ -271,7 +285,10 @@ class _HomePageState extends State<HomePage> {
     22: Color(0xFF14B8A6), // Synonym Rules: Teal
     23: Color(0xFF6366F1), // AI Providers: Indigo
     24: Color(0xFF14B8A6), // Permissions: Teal
+    25: Color(0xFF0F766E), // Email Center: Teal
     26: Color(0xFF7C3AED), // Outbox Audit: Violet
+    27: Color(0xFFDC2626), // Security Services: Red
+    28: Color(0xFF0EA5E9), // AMP / SEO: Sky
   };
 
   @override
@@ -1074,6 +1091,16 @@ class _HomePageState extends State<HomePage> {
         );
       case 26:
         return OutboxPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 27:
+        return SecurityServicesPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
+      case 28:
+        return AmpSettingsPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);
     }

@@ -764,6 +764,39 @@ class AdminApiClient {
     return SystemMonitorInfo.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<AmpInfo> getAmpInfo() async {
+    final res = await _get('/api/admin/system/amp');
+    final map = _map(jsonDecode(res.body));
+    return AmpInfo.fromMap(_map(map['data']));
+  }
+
+  Future<AmpCheckResult> checkAmpArticle({
+    required String slug,
+    String language = 'zh-cn',
+  }) async {
+    final res = await _post(
+      '/api/admin/system/amp/check',
+      body: {'slug': slug, 'language': language},
+    );
+    final map = _map(jsonDecode(res.body));
+    return AmpCheckResult.fromMap(_map(map['data']));
+  }
+
+  Future<ClamAvStatus> getClamAvStatus() async {
+    final res = await _get('/api/admin/system/security-services');
+    final map = _map(jsonDecode(res.body));
+    return ClamAvStatus.fromMap(_map(map['data']));
+  }
+
+  Future<ClamAvStatus> testClamAv() async {
+    final res = await _post(
+      '/api/admin/system/security-services/clamav/test',
+      body: const {},
+    );
+    final map = _map(jsonDecode(res.body));
+    return ClamAvStatus.fromMap(_map(map['data']));
+  }
+
   Future<String> decryptError(String trackingText) async {
     final res = await _post(
       '/api/admin/system/decrypt-error',
@@ -1501,8 +1534,7 @@ class AdminApiClient {
       if (m != null && m.isNotEmpty) message = m;
     } catch (_) {}
 
-    if ((res.statusCode == 401 || res.statusCode == 403) &&
-        authFailureAsSessionExpired) {
+    if (res.statusCode == 401 && authFailureAsSessionExpired) {
       _notifySessionExpired();
       throw UnauthorizedException('登录已过期，请重新登录');
     }
