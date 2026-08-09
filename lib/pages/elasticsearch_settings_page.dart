@@ -139,6 +139,13 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
     String connectionText = connection['status']?.toString() ?? '未知';
     String hosts = connection['hosts']?.toString() ?? '-';
     String lastError = connection['lastError']?.toString() ?? '';
+    Map<String, dynamic> logIndex = {};
+    dynamic rawLogIndex = status['logIndex'];
+    if (rawLogIndex is Map) {
+      logIndex = Map<String, dynamic>.from(rawLogIndex);
+    }
+    bool logIndexInitialized = logIndex['indexInitialized'] == true;
+    String logIndexHealth = logIndex['healthStatus']?.toString() ?? '未知';
 
     Color stateColor = Colors.grey;
     IconData stateIcon = Icons.help_outline;
@@ -172,6 +179,16 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
             ),
             Text('地址：$hosts'),
             Text('连接状态：$connectionText'),
+            Chip(
+              avatar: Icon(
+                logIndexInitialized ? Icons.check : Icons.warning_amber,
+                size: 18,
+                color: logIndexInitialized ? Colors.green : Colors.orange,
+              ),
+              label: Text(
+                '日志索引：${logIndexInitialized ? '正常' : '未就绪'} ($logIndexHealth)',
+              ),
+            ),
             if (lastError.isNotEmpty)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 620),
@@ -442,6 +459,11 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
                   label: const Text('测试连接'),
                 ),
                 OutlinedButton.icon(
+                  onPressed: actionRunning ? null : _repairLogAlias,
+                  icon: const Icon(Icons.link),
+                  label: const Text('修复日志写入别名'),
+                ),
+                OutlinedButton.icon(
                   onPressed: actionRunning ? null : _rollbackSetting,
                   icon: const Icon(Icons.history),
                   label: const Text('回滚设置'),
@@ -499,6 +521,14 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
       Map<String, dynamic> response = await widget.api
           .testElasticsearchConnection();
       return response['message']?.toString() ?? '连接测试完成';
+    }, reloadAfterSuccess: true);
+  }
+
+  Future<void> _repairLogAlias() async {
+    await _runAction(() async {
+      Map<String, dynamic> response = await widget.api
+          .repairElasticsearchLogAlias();
+      return response['message']?.toString() ?? '日志写入别名已检查';
     }, reloadAfterSuccess: true);
   }
 

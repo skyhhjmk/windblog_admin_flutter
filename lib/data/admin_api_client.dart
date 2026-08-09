@@ -910,6 +910,14 @@ class AdminApiClient {
     return _map(jsonDecode(response.body));
   }
 
+  Future<Map<String, dynamic>> repairElasticsearchLogAlias() async {
+    final response = await _post(
+      '/api/admin/elasticsearch/repair-log-alias',
+      body: const {},
+    );
+    return _map(jsonDecode(response.body));
+  }
+
   Future<Map<String, dynamic>> applyElasticsearchIndexConfiguration() async {
     final response = await _post(
       '/api/admin/elasticsearch/apply-index-configuration',
