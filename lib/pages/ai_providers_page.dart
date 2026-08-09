@@ -433,8 +433,9 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                                       DropdownMenuItem(
                                           value: e, child: Text(e))).toList(),
                                   onChanged: (v) {
-                                    if (v != null) setState(() =>
-                                    proxyType = v);
+                                    if (v != null) {
+                                      setState(() => proxyType = v);
+                                    }
                                   },
                                 ),
                               ),
