@@ -305,9 +305,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                   await widget.api.deleteLink(link.id);
                   if (!context.mounted) return;
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(
+                  AdminFeedback.showSnackBar(
                     context,
-                  ).showSnackBar(const SnackBar(content: Text('已删除无引用文章外链')));
+                    const SnackBar(content: Text('已删除无引用文章外链')),
+                  );
                 },
                 child: const Text('删除', style: TextStyle(color: Colors.red)),
               ),
@@ -440,9 +441,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
 
     await widget.api.updateLink(link.id, request);
     if (!mounted) return;
-    ScaffoldMessenger.of(
+    AdminFeedback.showSnackBar(
       context,
-    ).showSnackBar(const SnackBar(content: Text('文章外链已更新')));
+      const SnackBar(content: Text('文章外链已更新')),
+    );
   }
 
   Future<void> _handleImageTap(String rawUrl) async {
@@ -497,7 +499,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     _insertText(placeholder, '\n');
 
     try {
-      final uploaded = await widget.api.uploadMedia(
+      final notifications = AdminNotificationScope.of(context);
+      final uploaded = await notifications.uploadMediaWithNotification(
+        api: widget.api,
         fileName: fileName,
         bytes: bytes,
         mimeType: mimeType,
@@ -522,9 +526,6 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('图片上传失败: $e')));
         final text = widget.controller.text;
         final newText = text.replaceFirst(placeholder, '');
         widget.controller.value = widget.controller.value.copyWith(
@@ -713,7 +714,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
           List<String> exclude = [];
           if (attrStr != null && attrStr.isNotEmpty) {
             final attrReg = RegExp(
-                r'([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|([^,\s]+))');
+              r'([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|([^,\s]+))',
+            );
             for (final m in attrReg.allMatches(attrStr)) {
               final key = m.group(1)?.toLowerCase();
               final val = m.group(2) ?? m.group(3) ?? '';
@@ -736,7 +738,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
           if (foundClosed) {
             newStats[level] = (newStats[level] ?? 0) + 1;
             newBlocks.add(
-                _BlockOutlineInfo(i, level, group, title, exclude, line));
+              _BlockOutlineInfo(i, level, group, title, exclude, line),
+            );
           } else {
             newStats['错误块 (Error)'] = (newStats['错误块 (Error)'] ?? 0) + 1;
           }
@@ -899,7 +902,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       lineEnd++;
     }
     final currentLine = text.substring(lineStart, lineEnd);
-    final isEditMode = currentLine.trim().startsWith('::: ') &&
+    final isEditMode =
+        currentLine.trim().startsWith('::: ') &&
         !currentLine.trim().startsWith('::: /');
 
     String levelVal = 'quick';
@@ -915,15 +919,18 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
         final attrStr = match.group(2);
         if (attrStr != null && attrStr.isNotEmpty) {
           final attrReg = RegExp(
-              r'([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|([^,\s]+))');
+            r'([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|([^,\s]+))',
+          );
           for (final m in attrReg.allMatches(attrStr)) {
             final key = m.group(1)?.toLowerCase();
             final val = m.group(2) ?? m.group(3) ?? '';
             if (key == 'group') groupVal = val;
             if (key == 'title') titleVal = val;
             if (key == 'exclude') {
-              excludeList =
-                  val.split(',').map((e) => e.trim().toLowerCase()).toList();
+              excludeList = val
+                  .split(',')
+                  .map((e) => e.trim().toLowerCase())
+                  .toList();
             }
           }
         }
@@ -960,19 +967,31 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       DropdownButtonFormField<String>(
-                        initialValue: ['quick', 'basic', 'detailed'].contains(
-                            levelCtrl.text) ? levelCtrl.text : null,
+                        initialValue:
+                            [
+                              'quick',
+                              'basic',
+                              'detailed',
+                            ].contains(levelCtrl.text)
+                            ? levelCtrl.text
+                            : null,
                         decoration: const InputDecoration(
                           labelText: '信息级别 (Level)',
                           border: OutlineInputBorder(),
                         ),
                         items: const [
                           DropdownMenuItem(
-                              value: 'quick', child: Text('快速实现 (quick)')),
+                            value: 'quick',
+                            child: Text('快速实现 (quick)'),
+                          ),
                           DropdownMenuItem(
-                              value: 'basic', child: Text('基本模式 (basic)')),
-                          DropdownMenuItem(value: 'detailed',
-                              child: Text('详细思路 (detailed)')),
+                            value: 'basic',
+                            child: Text('基本模式 (basic)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'detailed',
+                            child: Text('详细思路 (detailed)'),
+                          ),
                         ],
                         onChanged: (val) {
                           if (val != null) levelCtrl.text = val;
@@ -1000,7 +1019,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                       const Text(
                         '排除区域 (这些区域下不显示此区块内容)',
                         style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.bold),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Container(
@@ -1055,24 +1076,20 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     if (saved != true) return;
 
     List<String> attrs = [];
-    if (groupCtrl.text
-        .trim()
-        .isNotEmpty) {
+    if (groupCtrl.text.trim().isNotEmpty) {
       attrs.add('group=${groupCtrl.text.trim()}');
     }
     if (selectedRegions.isNotEmpty) {
       attrs.add('exclude="${selectedRegions.join(',')}"');
     }
-    if (titleCtrl.text
-        .trim()
-        .isNotEmpty) {
+    if (titleCtrl.text.trim().isNotEmpty) {
       attrs.add('title="${titleCtrl.text.trim()}"');
     }
 
     final attrPart = attrs.isNotEmpty ? ' {${attrs.join(', ')}}' : '';
-    final newLevel = levelCtrl.text
-        .trim()
-        .isEmpty ? 'quick' : levelCtrl.text.trim();
+    final newLevel = levelCtrl.text.trim().isEmpty
+        ? 'quick'
+        : levelCtrl.text.trim();
     final newHeaderLine = '::: $newLevel$attrPart';
 
     if (isEditMode) {
@@ -1080,19 +1097,23 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
       widget.controller.value = widget.controller.value.copyWith(
         text: newText,
         selection: TextSelection.collapsed(
-            offset: lineStart + newHeaderLine.length),
+          offset: lineStart + newHeaderLine.length,
+        ),
       );
     } else {
       final selectedText = text.substring(selection.start, selection.end);
       final insertText = '\n$newHeaderLine\n$selectedText\n::: /$newLevel\n';
 
       final newText = text.replaceRange(
-          selection.start, selection.end, insertText);
+        selection.start,
+        selection.end,
+        insertText,
+      );
       widget.controller.value = widget.controller.value.copyWith(
         text: newText,
         selection: TextSelection.collapsed(
-          offset: selection.start + newHeaderLine.length + 2 +
-              selectedText.length,
+          offset:
+              selection.start + newHeaderLine.length + 2 + selectedText.length,
         ),
       );
     }
@@ -1265,8 +1286,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
           if (_pointerDownPosition != null) {
             if (_pointerDownTime != null) {
               Duration duration = DateTime.now().difference(_pointerDownTime!);
-              double delta = (details.position - _pointerDownPosition!)
-                  .distance;
+              double delta =
+                  (details.position - _pointerDownPosition!).distance;
               if (duration.inMilliseconds < 300) {
                 if (delta < 10) {
                   Future.delayed(Duration.zero, () {
@@ -1327,10 +1348,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                         height: 1.6,
                         color: Colors.black87,
                       ),
-                      cursorColor: Theme
-                          .of(context)
-                          .colorScheme
-                          .primary,
+                      cursorColor: Theme.of(context).colorScheme.primary,
                       backgroundCursorColor: Colors.grey,
                       maxLines: null,
                       expands: true,
@@ -1699,16 +1717,18 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
         : htmlContent;
 
     Clipboard.setData(ClipboardData(text: finalHtml));
-    ScaffoldMessenger.of(context).showSnackBar(
+    AdminFeedback.showSnackBar(
+      context,
       SnackBar(content: Text(styled ? '已复制带样式 HTML' : '已复制原始 HTML')),
     );
   }
 
   void _copyBlockAsMarkdown(String markdown) {
     Clipboard.setData(ClipboardData(text: markdown));
-    ScaffoldMessenger.of(
+    AdminFeedback.showSnackBar(
       context,
-    ).showSnackBar(const SnackBar(content: Text('已复制 Markdown 源码')));
+      const SnackBar(content: Text('已复制 Markdown 源码')),
+    );
   }
 
   Widget _buildOutlineSidebar({bool expanded = false}) {
@@ -1838,8 +1858,8 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                 itemCount: _customBlocks.length,
                 itemBuilder: (context, index) {
                   final block = _customBlocks[index];
-                  final displayTitle = block.title != null &&
-                      block.title!.isNotEmpty
+                  final displayTitle =
+                      block.title != null && block.title!.isNotEmpty
                       ? block.title!
                       : '区块 #${block.lineIndex + 1}';
                   Color badgeColor = Colors.blue.shade600;
@@ -1854,7 +1874,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                     onTap: () => _editBlockAtLine(block.lineIndex),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1866,14 +1888,19 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 5, vertical: 1.5),
+                                        horizontal: 5,
+                                        vertical: 1.5,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: badgeColor.withValues(
-                                            alpha: 0.1),
+                                          alpha: 0.1,
+                                        ),
                                         borderRadius: BorderRadius.circular(4),
                                         border: Border.all(
-                                            color: badgeColor.withValues(
-                                                alpha: 0.3)),
+                                          color: badgeColor.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                        ),
                                       ),
                                       child: Text(
                                         block.level,
@@ -1889,11 +1916,14 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                                       const SizedBox(width: 4),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 5, vertical: 1.5),
+                                          horizontal: 5,
+                                          vertical: 1.5,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: Colors.grey.shade200,
                                           borderRadius: BorderRadius.circular(
-                                              4),
+                                            4,
+                                          ),
                                         ),
                                         child: Text(
                                           block.group!,
@@ -1909,8 +1939,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                                 const SizedBox(height: 4),
                                 Text(
                                   displayTitle,
-                                  style: const TextStyle(fontSize: 12,
-                                      fontWeight: FontWeight.w500),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -1919,15 +1951,20 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                                     padding: const EdgeInsets.only(top: 2),
                                     child: Text(
                                       '屏蔽区域: ${block.exclude.join(',')}',
-                                      style: TextStyle(fontSize: 10,
-                                          color: Colors.red.shade400),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.red.shade400,
+                                      ),
                                     ),
                                   ),
                               ],
                             ),
                           ),
-                          Icon(Icons.edit_outlined, size: 14,
-                              color: Colors.grey.shade500),
+                          Icon(
+                            Icons.edit_outlined,
+                            size: 14,
+                            color: Colors.grey.shade500,
+                          ),
                         ],
                       ),
                     ),
@@ -2289,9 +2326,10 @@ class _StoreItemPickerDialogState extends State<_StoreItemPickerDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => loading = false);
-        ScaffoldMessenger.of(
+        AdminFeedback.showSnackBar(
           context,
-        ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
+          SnackBar(content: Text('加载失败: $e')),
+        );
       }
     }
   }
@@ -2340,20 +2378,26 @@ class _BlockOutlineInfo {
   final List<String> exclude;
   final String rawLine;
 
-  _BlockOutlineInfo(this.lineIndex, this.level, this.group, this.title,
-      this.exclude, this.rawLine);
+  _BlockOutlineInfo(
+    this.lineIndex,
+    this.level,
+    this.group,
+    this.title,
+    this.exclude,
+    this.rawLine,
+  );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-          other is _BlockOutlineInfo &&
-              runtimeType == other.runtimeType &&
-              lineIndex == other.lineIndex &&
-              level == other.level &&
-              group == other.group &&
-              title == other.title &&
-              rawLine == other.rawLine &&
-              listEquals(exclude, other.exclude);
+      other is _BlockOutlineInfo &&
+          runtimeType == other.runtimeType &&
+          lineIndex == other.lineIndex &&
+          level == other.level &&
+          group == other.group &&
+          title == other.title &&
+          rawLine == other.rawLine &&
+          listEquals(exclude, other.exclude);
 
   @override
   int get hashCode =>

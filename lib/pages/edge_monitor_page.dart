@@ -41,7 +41,7 @@ class _EdgeMonitorPageState extends State<EdgeMonitorPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('加载失败: $e')),
         );
       }

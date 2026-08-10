@@ -21,6 +21,7 @@ import 'components/web_stub.dart'
 import 'utils/storage_service.dart';
 
 part 'components/admin_ui.dart';
+part 'components/notification_center.dart';
 part 'pages/login_page.dart';
 part 'pages/home_page.dart';
 part 'pages/overview_page.dart';
@@ -156,6 +157,8 @@ class AdminRootPage extends StatefulWidget {
 
 class _AdminRootPageState extends State<AdminRootPage> {
   final api = AdminApiClient();
+  final AdminNotificationController notificationController =
+      AdminNotificationController();
   AdminUser? user;
   bool _loading = true;
   bool _showSessionExpiredLogin = false;
@@ -221,6 +224,7 @@ class _AdminRootPageState extends State<AdminRootPage> {
   }
 
   void onLogout() async {
+    notificationController.clear();
     api.token = null;
     user = null;
     _showSessionExpiredLogin = false;
@@ -263,23 +267,33 @@ class _AdminRootPageState extends State<AdminRootPage> {
 
   @override
   Widget build(BuildContext context) {
+    Widget content;
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    if (api.token == null && !_showSessionExpiredLogin) {
-      return LoginPage(
+      content = const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    } else if (api.token == null && !_showSessionExpiredLogin) {
+      content = LoginPage(
         api: api,
         onLogin: onLogin,
         showSessionExpiredNotice: _showSessionExpiredNotice,
       );
-    }
-    return AdminAuthenticatedWorkspace(
-      workspace: HomePage(
+    } else {
+      content = AdminAuthenticatedWorkspace(
         api: api,
-        user: user,
-        onLogout: onLogout,
-        onAuthError: _handleSessionExpired,
-      ),
+        notificationController: notificationController,
+        workspace: HomePage(
+          api: api,
+          user: user,
+          onLogout: onLogout,
+          onAuthError: _handleSessionExpired,
+        ),
+      );
+    }
+    return AdminNotificationHost(
+      api: api,
+      controller: notificationController,
+      child: content,
     );
   }
 }
@@ -287,12 +301,16 @@ class _AdminRootPageState extends State<AdminRootPage> {
 class AdminAuthenticatedWorkspace extends StatelessWidget {
   const AdminAuthenticatedWorkspace({
     super.key,
+    this.api,
+    this.notificationController,
     required this.workspace,
     this.sessionExpiredLogin,
     this.showSessionExpiredLogin = false,
   });
 
   final Widget workspace;
+  final AdminApiClient? api;
+  final AdminNotificationController? notificationController;
   final Widget? sessionExpiredLogin;
   final bool showSessionExpiredLogin;
 

@@ -39,7 +39,7 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('加载失败: $e')),
         );
       }
@@ -54,7 +54,7 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
     try {
       await widget.api.retryDeadLetterMessage(message.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           const SnackBar(content: Text('重试任务已提交')),
         );
       }
@@ -63,7 +63,7 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('重试失败: $e')),
         );
       }
@@ -105,7 +105,7 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('删除失败: $e')),
         );
       }

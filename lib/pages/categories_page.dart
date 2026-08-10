@@ -153,7 +153,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
   Future<void> _reScanCategories() async {
     setState(() => loading = true);
     // ignore: use_build_context_synchronously
-    final ScaffoldMessengerState scaffoldMessenger = ScaffoldMessenger.of(context);
     // ignore: use_build_context_synchronously
     final String successMessage = _reScanSuccessMessage(context);
     // ignore: use_build_context_synchronously
@@ -167,7 +166,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
         await widget.api.reScanCategories();
         await _loadCategories();
         if (mounted) {
-          scaffoldMessenger.showSnackBar(
+          AdminFeedback.showSnackBar(context,
             SnackBar(content: Text(successMessage)),
           );
         }

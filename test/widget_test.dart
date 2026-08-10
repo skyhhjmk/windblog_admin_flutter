@@ -14,6 +14,67 @@ import 'package:windblog_admin_flutter/l10n/app_localizations.dart';
 import 'package:windblog_admin_flutter/main.dart';
 
 void main() {
+  test(
+    'notification controller updates one persistent task and evicts transient tasks',
+    () {
+      final controller = AdminNotificationController();
+
+      for (int index = 0; index < 6; index++) {
+        controller.showTransient(message: 'message $index');
+      }
+      expect(controller.transientNotifications, hasLength(5));
+      expect(controller.transientNotifications.first.message, 'message 5');
+
+      controller.showPersistent(taskId: 'task-1', title: '上传', message: '准备上传');
+      controller.updatePersistent(
+        taskId: 'task-1',
+        message: '上传 50%',
+        progressMode: AdminNotificationProgressMode.determinate,
+        progress: 0.5,
+      );
+      expect(controller.persistentNotifications, hasLength(1));
+      expect(controller.persistentNotifications.first.progress, 0.5);
+      expect(controller.persistentNotifications.first.message, '上传 50%');
+
+      controller.completePersistent(taskId: 'task-1', message: '完成');
+      controller.recordNavigation();
+      controller.recordNavigation();
+      controller.recordNavigation();
+      expect(controller.persistentNotifications, isEmpty);
+      expect(
+        controller.transientNotifications.any((item) => item.message == '完成'),
+        isTrue,
+      );
+      controller.clear();
+    },
+  );
+
+  testWidgets('notification host renders right-bottom queue', (
+    WidgetTester tester,
+  ) async {
+    final controller = AdminNotificationController();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminNotificationHost(
+          api: AdminApiClient(),
+          controller: controller,
+          child: const Scaffold(body: SizedBox.expand()),
+        ),
+      ),
+    );
+    controller.showPersistent(
+      taskId: 'render-task',
+      title: '上传中',
+      message: '文件：50%',
+      progressMode: AdminNotificationProgressMode.determinate,
+      progress: 0.5,
+    );
+    await tester.pump();
+    expect(find.text('上传中'), findsOneWidget);
+    expect(find.text('文件：50%'), findsOneWidget);
+    controller.clear();
+  });
+
   testWidgets('show login page', (WidgetTester tester) async {
     final api = AdminApiClient();
     await tester.pumpWidget(
@@ -89,8 +150,9 @@ void main() {
     expect(find.text('输入词条后按回车添加'), findsOneWidget);
   });
 
-  testWidgets(
-      'links add button opens add link page', (WidgetTester tester,) async {
+  testWidgets('links add button opens add link page', (
+    WidgetTester tester,
+  ) async {
     int? selectedLinkType;
     await tester.pumpWidget(
       MaterialApp(

@@ -40,7 +40,7 @@ class _ImageProcessingConfigPageState extends State<ImageProcessingConfigPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('加载失败: $e')),
         );
       }
@@ -70,7 +70,7 @@ class _ImageProcessingConfigPageState extends State<ImageProcessingConfigPage> {
       ImageProcessingConfigItem? config) async {
     final initialValue = config?.configValue ?? '';
     final controller = TextEditingController(text: initialValue);
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) =>
@@ -129,7 +129,7 @@ class _ImageProcessingConfigPageState extends State<ImageProcessingConfigPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
             SnackBar(content: Text('保存失败: $e')));
       }
     }

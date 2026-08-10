@@ -28,7 +28,7 @@ class _LinksPageState extends State<LinksPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
@@ -72,7 +72,7 @@ class _LinksPageState extends State<LinksPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
         );
       }
@@ -84,17 +84,13 @@ class _LinksPageState extends State<LinksPage> {
       await widget.api.checkLink(link.id);
       await _loadLinks();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('多节点检测已完成')));
+        AdminFeedback.showSnackBar(context, const SnackBar(content: Text('多节点检测已完成')));
       }
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('检测失败：$error')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('检测失败：$error')));
       }
     }
   }
@@ -108,17 +104,13 @@ class _LinksPageState extends State<LinksPage> {
         if (approved) {
           message = '申请已通过，并完成首次检测';
         }
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text(message)));
       }
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('审核失败：$error')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('审核失败：$error')));
       }
     }
   }
@@ -152,9 +144,7 @@ class _LinksPageState extends State<LinksPage> {
       widget.onAuthError();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('加载检测记录失败：$error')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('加载检测记录失败：$error')));
       }
     }
   }

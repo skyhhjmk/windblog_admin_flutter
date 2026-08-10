@@ -34,9 +34,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('加载失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -64,9 +62,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       _loadData();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('操作失败: $e')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('操作失败: $e')));
       }
     }
   }
@@ -97,9 +93,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       _loadData();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('删除失败: $e')));
       }
     }
   }
@@ -468,7 +462,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                           if (ipController.text
                               .trim()
                               .isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            AdminFeedback.showSnackBar(context,
                               const SnackBar(content: Text(
                                   '使用主动轮询模式时必须填写节点 IP')),
                             );
@@ -520,9 +514,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('提交失败: $e')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('提交失败: $e')));
       }
     }
   }
@@ -657,7 +649,7 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
                   TextButton(
                     onPressed: () {
                       if (downloadDone && downloadError == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        AdminFeedback.showSnackBar(context,
                           const SnackBar(content: Text(
                               '您随时可从节点详情中重新下载部署包')),
                         );
@@ -797,15 +789,11 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
       );
       _refreshStatus();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('已触发全量同步')));
+        AdminFeedback.showSnackBar(context, const SnackBar(content: Text('已触发全量同步')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('触发同步失败: $e')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('触发同步失败: $e')));
       }
     }
   }
@@ -1423,7 +1411,7 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
                                     _refresh();
                                   } catch (e) {
                                     if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    AdminFeedback.showSnackBar(context,
                                       SnackBar(content: Text('吊销失败: $e')),
                                     );
                                   }
@@ -1512,7 +1500,7 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(
           content: Text(
             '证书续签成功，新证书有效期至 ${_formatDate(renewedNode.certificateExpiry)}',
@@ -1524,9 +1512,7 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
         return;
       }
       Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('证书续签失败: $exception')));
+      AdminFeedback.showSnackBar(context, SnackBar(content: Text('证书续签失败: $exception')));
     }
   }
 

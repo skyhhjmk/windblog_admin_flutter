@@ -85,7 +85,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         await widget.api.updateAiProvider(id, req);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(
             content: Text(t(context, 'save_success')), backgroundColor: Colors.green),
       );
@@ -94,7 +94,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'save_failed')}$e'), backgroundColor: Colors.red),
       );
     }
@@ -124,7 +124,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         _load();
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'delete_failed')}$e'), backgroundColor: Colors.red),
         );
       }
@@ -251,7 +251,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   }
                 });
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  AdminFeedback.showSnackBar(context,
                     SnackBar(content: Text(
                         '${t(context, 'fetch_models_success')} ${models
                             .length}')),
@@ -259,7 +259,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  AdminFeedback.showSnackBar(context,
                     SnackBar(content: Text(
                         '${t(context, 'fetch_models_failed')}: $e'),
                         backgroundColor: Colors.red),
@@ -513,7 +513,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     extraConfig['proxy_type'] = proxyType;
                     extraConfig['proxy_host'] = proxyHost;
                     extraConfig['proxy_port'] = proxyPort;
-                    
+
                     final req = AiProviderConfigUpdateRequest(
                       type: type,
                       name: name,

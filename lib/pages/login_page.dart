@@ -43,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
       await widget.onLogin(widget.api.baseUrl, token);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      AdminFeedback.showSnackBar(context, SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => loading = false);
     }

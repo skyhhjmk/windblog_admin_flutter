@@ -481,7 +481,7 @@ class _PublishMessageDialogState extends State<_PublishMessageDialog> {
           onPressed: () {
             final id = int.tryParse(_idCtrl.text);
             if (id == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              AdminFeedback.showSnackBar(context,
                 SnackBar(
                   content: Text(
                     isAudit

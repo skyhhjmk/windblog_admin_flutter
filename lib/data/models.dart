@@ -900,6 +900,9 @@ class MediaItem {
     this.processingStatus,
     this.processingProgress,
     this.processingError,
+    this.virusScanStatus = 'NOT_SCANNED',
+    this.virusScannedAt,
+    this.virusScanMessage,
   });
 
   final int id;
@@ -928,6 +931,9 @@ class MediaItem {
   final String? processingStatus;
   final int? processingProgress;
   final String? processingError;
+  final String virusScanStatus;
+  final DateTime? virusScannedAt;
+  final String? virusScanMessage;
 
   bool get isImage => mimeType.toLowerCase().startsWith('image/');
 
@@ -945,6 +951,9 @@ class MediaItem {
       processingStatus: map['processingStatus']?.toString(),
       processingProgress: toInt(map['processingProgress']),
       processingError: map['processingError']?.toString(),
+      virusScanStatus: map['virusScanStatus']?.toString() ?? 'NOT_SCANNED',
+      virusScannedAt: parseDate(map['virusScannedAt']),
+      virusScanMessage: map['virusScanMessage']?.toString(),
       id: toInt(map['id']) ?? 0,
       storageKey: map['storageKey']?.toString() ?? '',
       url: map['url']?.toString() ?? '',
@@ -972,6 +981,35 @@ class MediaItem {
       metadata: map['metadata'] is Map
           ? Map<String, dynamic>.from(map['metadata'])
           : {},
+    );
+  }
+}
+
+class MediaUploadSession {
+  const MediaUploadSession({
+    required this.uploadId,
+    required this.chunkSize,
+    required this.chunkCount,
+    required this.totalSize,
+    required this.uploadedChunks,
+  });
+
+  final String uploadId;
+  final int chunkSize;
+  final int chunkCount;
+  final int totalSize;
+  final List<int> uploadedChunks;
+
+  factory MediaUploadSession.fromMap(Map<String, dynamic> map) {
+    final rawChunks = map['uploadedChunks'];
+    return MediaUploadSession(
+      uploadId: map['uploadId']?.toString() ?? '',
+      chunkSize: toInt(map['chunkSize']) ?? 0,
+      chunkCount: toInt(map['chunkCount']) ?? 0,
+      totalSize: toInt(map['totalSize']) ?? 0,
+      uploadedChunks: rawChunks is List
+          ? rawChunks.whereType<num>().map((item) => item.toInt()).toList()
+          : const <int>[],
     );
   }
 }

@@ -391,7 +391,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     try {
       await widget.api.updateSystemSetting(key, values, reason: '管理员在后台手动修改');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(
             content: Text(t(context, 'config_save_success_verifying')),
             backgroundColor: Colors.orange,
@@ -401,7 +401,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
         );
       }
@@ -412,7 +412,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     try {
       await widget.api.confirmSystemSetting(key);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(
             content: Text(t(context, 'config_confirmed')),
             backgroundColor: Colors.green,
@@ -422,7 +422,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('操作失败: $e'), backgroundColor: Colors.red),
         );
       }
@@ -433,7 +433,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     try {
       await widget.api.rollbackSystemSetting(key);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(
             content: Text(t(context, 'config_rolled_back')),
             backgroundColor: Colors.blue,
@@ -443,7 +443,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('操作失败: $e'), backgroundColor: Colors.red),
         );
       }

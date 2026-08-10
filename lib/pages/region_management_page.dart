@@ -54,7 +54,7 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
         await widget.api.updateRegionRule(rule.id!, rule);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         const SnackBar(
             content: Text('保存成功'), backgroundColor: Colors.green),
       );
@@ -63,7 +63,7 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
       );
     }
@@ -95,7 +95,7 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
         _load();
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('删除失败: $e'), backgroundColor: Colors.red),
         );
       }
@@ -195,7 +195,7 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
                 FilledButton(
                   onPressed: () {
                     if (name.isEmpty || pattern.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      AdminFeedback.showSnackBar(context,
                         const SnackBar(content: Text('名称和模式不能为空'),
                             backgroundColor: Colors.orange),
                       );

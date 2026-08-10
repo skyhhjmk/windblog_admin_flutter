@@ -242,7 +242,7 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (mounted) {
         setState(() => _isLoadingRevisions = false);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          AdminFeedback.showSnackBar(context,
             SnackBar(
               content: Text('${t(context, 'load_revisions_failed')}: $e'),
             ),
@@ -269,7 +269,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     } catch (e) {
       if (!mounted) return;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'load_failed')}: $e')),
         );
       }
@@ -358,14 +358,13 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Future<bool> _save() async {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final finalContent = contentCtrl.text.trim();
     _titles['zh-cn'] = titleCtrl.text.trim();
     _summaries['zh-cn'] = summaryCtrl.text.trim();
     _contents['zh-cn'] = finalContent;
 
     if (titleCtrl.text.trim().isEmpty) {
-      scaffoldMessenger.showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text(t(context, 'fill_required_fields'))),
       );
       return false;
@@ -418,7 +417,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           _isDirty = false;
         });
         await _loadRevisions();
-        scaffoldMessenger.showSnackBar(
+        if (!mounted) return false;
+        AdminFeedback.showSnackBar(context,
           SnackBar(
             content: Text(draftSaveSuccessText),
             action: SnackBarAction(
@@ -434,7 +434,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        scaffoldMessenger.showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'save_failed')}: $e')),
         );
       }
@@ -448,8 +448,6 @@ class _PostEditorPageState extends State<PostEditorPage>
     final sendArticleUpdate = await _askWhetherToSendArticleUpdate();
     if (sendArticleUpdate == null) return;
     if (!mounted) return;
-
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final publishSuccessText = t(context, 'publish_success');
     final operationFailedText = t(context, 'operation_failed');
     try {
@@ -464,13 +462,14 @@ class _PostEditorPageState extends State<PostEditorPage>
           status = latestDetail.status;
         });
         await _loadRevisions();
-        scaffoldMessenger.showSnackBar(
+        if (!mounted) return;
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text(publishSuccessText)),
         );
       }
     } catch (e) {
       if (mounted) {
-        scaffoldMessenger.showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('$operationFailedText: $e')),
         );
       }
@@ -479,8 +478,6 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   Future<void> _publishRevision(int revisionNumber) async {
     if (_currentDetail == null) return;
-
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final publishSuccessText = t(context, 'publish_success');
     final operationFailedText = t(context, 'operation_failed');
     bool sendArticleUpdate = false;
@@ -536,13 +533,14 @@ class _PostEditorPageState extends State<PostEditorPage>
           status = latestDetail.status;
         });
         await _loadRevisions();
-        scaffoldMessenger.showSnackBar(
+        if (!mounted) return;
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text(publishSuccessText)),
         );
       }
     } catch (e) {
       if (mounted) {
-        scaffoldMessenger.showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('$operationFailedText: $e')),
         );
       }
@@ -662,14 +660,14 @@ class _PostEditorPageState extends State<PostEditorPage>
         await _loadRevisions();
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          AdminFeedback.showSnackBar(context,
             SnackBar(content: Text(t(context, 'set_current_draft_success'))),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(
             content: Text('${t(context, 'set_current_draft_failed')}: $e'),
           ),
@@ -805,7 +803,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'load_revision_failed')}: $e')),
         );
       }
@@ -1608,7 +1606,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                                 _currentDetail!.id,
                               );
                               if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                AdminFeedback.showSnackBar(context,
                                   SnackBar(
                                     content: Text(
                                       t(context, 'trigger_ai_success'),
@@ -1619,7 +1617,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                               }
                             } catch (e) {
                               if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                AdminFeedback.showSnackBar(context,
                                   SnackBar(
                                     content: Text(
                                       '${t(context, 'trigger_ai_failed')}: $e',
@@ -2113,14 +2111,14 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
   Future<void> _translate() async {
     final targetLanguage = _effectiveTargetLanguage;
     if (targetLanguage.isEmpty || targetLanguage == _sourceLanguage) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text(t(context, 'translation_invalid_language'))),
       );
       return;
     }
     if (_titleController.text.trim().isEmpty ||
         _contentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text(t(context, 'fill_required_fields'))),
       );
       return;
@@ -2147,7 +2145,7 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isTranslating = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'translation_failed')}: $error')),
       );
     }

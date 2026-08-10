@@ -92,12 +92,11 @@ class _AddLinkPageState extends State<AddLinkPage> {
 
   Future<void> _fetchMeta() async {
     final url = _urlController.text.trim();
-    if (url.isEmpty || !Uri
-        .parse(url)
-        .isAbsolute) {
-      ScaffoldMessenger.of(
+    if (url.isEmpty || !Uri.parse(url).isAbsolute) {
+      AdminFeedback.showSnackBar(
         context,
-      ).showSnackBar(SnackBar(content: Text(t(context, 'invalid_url'))));
+        SnackBar(content: Text(t(context, 'invalid_url'))),
+      );
       return;
     }
 
@@ -115,7 +114,8 @@ class _AddLinkPageState extends State<AddLinkPage> {
         if (meta.icon.isNotEmpty && _iconController.text.isEmpty) {
           _iconController.text = meta.icon;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text(t(context, 'link_fetch_success'))),
         );
       }
@@ -123,7 +123,8 @@ class _AddLinkPageState extends State<AddLinkPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'link_fetch_failed')}: $e')),
         );
       }
@@ -132,8 +133,10 @@ class _AddLinkPageState extends State<AddLinkPage> {
     }
   }
 
-  Future<void> _uploadFile(TextEditingController controller,
-      bool isIcon,) async {
+  Future<void> _uploadFile(
+    TextEditingController controller,
+    bool isIcon,
+  ) async {
     if (isIcon) {
       setState(() => _isUploadingIcon = true);
     } else {
@@ -147,8 +150,11 @@ class _AddLinkPageState extends State<AddLinkPage> {
       final bytes = file.bytes;
       if (bytes == null) return;
 
+      if (!mounted) return;
       final mimeType = _resolveMimeType(file);
-      final media = await widget.api.uploadMedia(
+      final notifications = AdminNotificationScope.of(context);
+      final media = await notifications.uploadMediaWithNotification(
+        api: widget.api,
         fileName: file.name,
         bytes: bytes,
         mimeType: mimeType,
@@ -159,12 +165,8 @@ class _AddLinkPageState extends State<AddLinkPage> {
       }
     } on UnauthorizedException {
       widget.onAuthError();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t(context, 'upload_failed')}$e')),
-        );
-      }
+    } catch (_) {
+      // 上传失败已经由持久通知显示。
     } finally {
       if (mounted) {
         if (isIcon) {
@@ -184,24 +186,16 @@ class _AddLinkPageState extends State<AddLinkPage> {
       final req = LinkCreateRequest(
         name: _nameController.text.trim(),
         url: _urlController.text.trim(),
-        description: _descriptionController.text
-            .trim()
-            .isEmpty
+        description: _descriptionController.text.trim().isEmpty
             ? null
             : _descriptionController.text.trim(),
-        email: _emailController.text
-            .trim()
-            .isEmpty
+        email: _emailController.text.trim().isEmpty
             ? null
             : _emailController.text.trim(),
-        icon: _iconController.text
-            .trim()
-            .isEmpty
+        icon: _iconController.text.trim().isEmpty
             ? null
             : _iconController.text.trim(),
-        image: _imageController.text
-            .trim()
-            .isEmpty
+        image: _imageController.text.trim().isEmpty
             ? null
             : _imageController.text.trim(),
         sortOrder: int.tryParse(_sortOrderController.text) ?? 0,
@@ -209,24 +203,16 @@ class _AddLinkPageState extends State<AddLinkPage> {
         target: _target,
         redirectType: _redirectType,
         showUrl: _showUrl,
-        note: _noteController.text
-            .trim()
-            .isEmpty
+        note: _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim(),
-        seoTitle: _seoTitleController.text
-            .trim()
-            .isEmpty
+        seoTitle: _seoTitleController.text.trim().isEmpty
             ? null
             : _seoTitleController.text.trim(),
-        seoKeywords: _seoKeywordsController.text
-            .trim()
-            .isEmpty
+        seoKeywords: _seoKeywordsController.text.trim().isEmpty
             ? null
             : _seoKeywordsController.text.trim(),
-        seoDescription: _seoDescriptionController.text
-            .trim()
-            .isEmpty
+        seoDescription: _seoDescriptionController.text.trim().isEmpty
             ? null
             : _seoDescriptionController.text.trim(),
         type: _linkType,
@@ -239,16 +225,18 @@ class _AddLinkPageState extends State<AddLinkPage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(
+        AdminFeedback.showSnackBar(
           context,
-        ).showSnackBar(SnackBar(content: Text(t(context, 'save_success'))));
+          SnackBar(content: Text(t(context, 'save_success'))),
+        );
         Navigator.of(context).pop(true);
       }
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'save_failed')}$e')),
         );
       }
@@ -285,10 +273,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           side: BorderSide(
-                            color: Theme
-                                .of(context)
-                                .colorScheme
-                                .outlineVariant,
+                            color: Theme.of(context).colorScheme.outlineVariant,
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -303,10 +288,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   hintText: '如: 风之博客',
                                   border: const OutlineInputBorder(),
                                 ),
-                                validator: (v) =>
-                                v == null || v
-                                    .trim()
-                                    .isEmpty
+                                validator: (v) => v == null || v.trim().isEmpty
                                     ? t(context, 'required')
                                     : null,
                               ),
@@ -319,33 +301,29 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   border: const OutlineInputBorder(),
                                   suffixIcon: _isFetching
                                       ? const Padding(
-                                    padding: EdgeInsets.all(12.0),
-                                    child: SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  )
+                                          padding: EdgeInsets.all(12.0),
+                                          child: SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                        )
                                       : IconButton(
-                                    tooltip: t(
-                                      context,
-                                      'link_auto_fetch',
-                                    ),
-                                    icon: const Icon(Icons.auto_awesome),
-                                    onPressed: _fetchMeta,
-                                  ),
+                                          tooltip: t(
+                                            context,
+                                            'link_auto_fetch',
+                                          ),
+                                          icon: const Icon(Icons.auto_awesome),
+                                          onPressed: _fetchMeta,
+                                        ),
                                 ),
                                 validator: (v) {
-                                  if (v == null || v
-                                      .trim()
-                                      .isEmpty) {
+                                  if (v == null || v.trim().isEmpty) {
                                     return t(context, 'required');
                                   }
-                                  if (!Uri
-                                      .parse(v)
-                                      .isAbsolute) {
+                                  if (!Uri.parse(v).isAbsolute) {
                                     return t(context, 'invalid_url');
                                   }
                                   return null;
@@ -409,10 +387,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           side: BorderSide(
-                            color: Theme
-                                .of(context)
-                                .colorScheme
-                                .outlineVariant,
+                            color: Theme.of(context).colorScheme.outlineVariant,
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -435,19 +410,18 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   ElevatedButton.icon(
                                     onPressed: _isUploadingIcon
                                         ? null
-                                        : () =>
-                                        _uploadFile(
-                                          _iconController,
-                                          true,
-                                        ),
+                                        : () => _uploadFile(
+                                            _iconController,
+                                            true,
+                                          ),
                                     icon: _isUploadingIcon
                                         ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
                                         : const Icon(Icons.upload),
                                     label: Text(t(context, 'upload')),
                                   ),
@@ -469,19 +443,18 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   ElevatedButton.icon(
                                     onPressed: _isUploadingImage
                                         ? null
-                                        : () =>
-                                        _uploadFile(
-                                          _imageController,
-                                          false,
-                                        ),
+                                        : () => _uploadFile(
+                                            _imageController,
+                                            false,
+                                          ),
                                     icon: _isUploadingImage
                                         ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
                                         : const Icon(Icons.upload),
                                     label: Text(t(context, 'upload')),
                                   ),
@@ -497,10 +470,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           side: BorderSide(
-                            color: Theme
-                                .of(context)
-                                .colorScheme
-                                .outlineVariant,
+                            color: Theme.of(context).colorScheme.outlineVariant,
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -549,10 +519,9 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                           child: Text('当前页 (_self)'),
                                         ),
                                       ],
-                                      onChanged: (v) =>
-                                          setState(
-                                                () => _target = v ?? '_blank',
-                                          ),
+                                      onChanged: (v) => setState(
+                                        () => _target = v ?? '_blank',
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 16),
@@ -586,10 +555,9 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                           ),
                                         ),
                                       ],
-                                      onChanged: (v) =>
-                                          setState(
-                                                () => _redirectType = v ?? 1,
-                                          ),
+                                      onChanged: (v) => setState(
+                                        () => _redirectType = v ?? 1,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -600,8 +568,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   Expanded(
                                     child: SwitchListTile(
                                       title: Text(t(context, 'link_show_url')),
-                                      subtitle: const Text(
-                                          '在前台是否展示具体地址'),
+                                      subtitle: const Text('在前台是否展示具体地址'),
                                       value: _showUrl,
                                       onChanged: (v) =>
                                           setState(() => _showUrl = v),
@@ -611,8 +578,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   Expanded(
                                     child: SwitchListTile(
                                       title: Text(t(context, 'link_status')),
-                                      subtitle: const Text(
-                                          '是否审核通过并在前台可见'),
+                                      subtitle: const Text('是否审核通过并在前台可见'),
                                       value: _status,
                                       onChanged: (v) =>
                                           setState(() => _status = v),
@@ -630,10 +596,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           side: BorderSide(
-                            color: Theme
-                                .of(context)
-                                .colorScheme
-                                .outlineVariant,
+                            color: Theme.of(context).colorScheme.outlineVariant,
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -696,13 +659,13 @@ class _AddLinkPageState extends State<AddLinkPage> {
                             onPressed: _isSaving ? null : _save,
                             icon: _isSaving
                                 ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
                                 : const Icon(Icons.save),
                             label: Text(t(context, 'save')),
                           ),
@@ -724,16 +687,9 @@ class _AddLinkPageState extends State<AddLinkPage> {
       padding: const EdgeInsets.only(bottom: 12, left: 4),
       child: Text(
         title,
-        style: Theme
-            .of(context)
-            .textTheme
-            .titleMedium
-            ?.copyWith(
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.bold,
-          color: Theme
-              .of(context)
-              .colorScheme
-              .primary,
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );

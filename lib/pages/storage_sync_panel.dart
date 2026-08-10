@@ -37,9 +37,7 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('加载失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -59,18 +57,14 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
     try {
       await widget.api.triggerBatchStorageSync();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('批量同步任务已提交')));
+        AdminFeedback.showSnackBar(context, const SnackBar(content: Text('批量同步任务已提交')));
       }
       await _loadStatus();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('触发同步失败: $e')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('触发同步失败: $e')));
       }
     }
   }

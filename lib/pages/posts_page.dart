@@ -67,7 +67,7 @@ class _PostsPageState extends State<PostsPage> {
       if (!mounted) return;
       setState(() => _isTreeLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(
             content: Text('${t(context, 'load_categories_failed')}: $e'),
           ),
@@ -141,7 +141,7 @@ class _PostsPageState extends State<PostsPage> {
         _categoryTreeCache[categoryId] = node.copyWith(isLoading: false);
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'load_posts_failed')}: $e')),
         );
       }
@@ -200,9 +200,7 @@ class _PostsPageState extends State<PostsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -210,7 +208,6 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Future<void> createOrEdit({PostItem? item}) async {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
       PostDetail? detail;
       if (item != null) {
@@ -230,7 +227,7 @@ class _PostsPageState extends State<PostsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        scaffoldMessenger.showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'operation_failed')}: $e')),
         );
       }
@@ -329,7 +326,6 @@ class _PostsPageState extends State<PostsPage> {
             ),
             TextButton(
               onPressed: () async {
-                final scaffoldMessenger = ScaffoldMessenger.of(context);
                 try {
                   await widget.api.publishLatestDraftPost(it.id);
                   await load();
@@ -337,7 +333,7 @@ class _PostsPageState extends State<PostsPage> {
                   widget.onAuthError();
                 } catch (e) {
                   if (mounted) {
-                    scaffoldMessenger.showSnackBar(
+                    AdminFeedback.showSnackBar(context,
                       SnackBar(
                         content: Text('${t(context, 'operation_failed')}: $e'),
                       ),
@@ -352,7 +348,6 @@ class _PostsPageState extends State<PostsPage> {
             ),
             TextButton(
               onPressed: () async {
-                final scaffoldMessenger = ScaffoldMessenger.of(context);
                 final confirmed = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -383,7 +378,7 @@ class _PostsPageState extends State<PostsPage> {
                   widget.onAuthError();
                 } catch (e) {
                   if (mounted) {
-                    scaffoldMessenger.showSnackBar(
+                    AdminFeedback.showSnackBar(context,
                       SnackBar(
                         content: Text('${t(context, 'operation_failed')}: $e'),
                       ),

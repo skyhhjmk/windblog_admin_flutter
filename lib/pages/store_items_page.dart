@@ -38,7 +38,7 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'load_failed')}: $e')),
         );
       }
@@ -61,7 +61,7 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'save_failed')}: $e')),
       );
     }
@@ -81,7 +81,7 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('保存失败: $e')),
       );
     }
@@ -118,7 +118,7 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'delete_failed')}: $e')),
       );
     }
@@ -474,12 +474,12 @@ class _StoreItemEditDialogState extends State<_StoreItemEditDialog> {
             final price = int.tryParse(priceStr) ?? -1;
 
             if (name.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              AdminFeedback.showSnackBar(context,
                   SnackBar(content: Text(t(context, 'item_name_required'))));
               return;
             }
             if (price < 0) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              AdminFeedback.showSnackBar(context,
                   SnackBar(content: Text(t(context, 'price_invalid'))));
               return;
             }

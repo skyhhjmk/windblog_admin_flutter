@@ -81,7 +81,10 @@ class AdminTheme {
         filled: true,
         fillColor: Colors.white,
         isDense: false,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -98,13 +101,17 @@ class AdminTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(40, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(40, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -373,10 +380,54 @@ class AdminFeedback {
     _show(context, message, Theme.of(context).colorScheme.primary);
   }
 
+  static void showSnackBar(BuildContext context, SnackBar snackBar) {
+    final controller = AdminNotificationScope.maybeOf(context);
+    if (controller == null) {
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      return;
+    }
+    String message = snackBar.content is Text
+        ? ((snackBar.content as Text).data ?? snackBar.content.toString())
+        : snackBar.content.toString();
+    final backgroundColor = snackBar.backgroundColor;
+    AdminNotificationSeverity severity = AdminNotificationSeverity.info;
+    if (backgroundColor != null) {
+      if (backgroundColor == Colors.green ||
+          backgroundColor == Colors.green.shade700 ||
+          backgroundColor == Colors.green.shade800) {
+        severity = AdminNotificationSeverity.success;
+      } else if (backgroundColor == Colors.orange ||
+          backgroundColor == Colors.orange.shade800) {
+        severity = AdminNotificationSeverity.warning;
+      } else if (backgroundColor.computeLuminance() < 0.25) {
+        severity = AdminNotificationSeverity.error;
+      } else if (backgroundColor.computeLuminance() > 0.65) {
+        severity = AdminNotificationSeverity.success;
+      }
+    }
+    controller.showTransient(
+      message: message,
+      severity: severity,
+      actionLabel: snackBar.action?.label,
+      onAction: snackBar.action?.onPressed,
+    );
+  }
+
   static void _show(BuildContext context, String message, Color color) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+    final controller = AdminNotificationScope.maybeOf(context);
+    if (controller == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+      return;
+    }
+    AdminNotificationSeverity severity = AdminNotificationSeverity.info;
+    if (color == Colors.green.shade700) {
+      severity = AdminNotificationSeverity.success;
+    } else if (color == Theme.of(context).colorScheme.error) {
+      severity = AdminNotificationSeverity.error;
+    }
+    controller.showTransient(message: message, severity: severity);
   }
 }
 

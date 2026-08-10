@@ -49,7 +49,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
@@ -106,7 +106,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
       );
       await _loadUsers();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text(t(context, 'update_success'))),
         );
       }
@@ -114,7 +114,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'update_failed')}$e')),
       );
     }

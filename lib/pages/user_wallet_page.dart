@@ -42,7 +42,7 @@ class _UserWalletPageState extends State<UserWalletPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('加载钱包失败：$e')),
         );
       }
@@ -63,7 +63,7 @@ class _UserWalletPageState extends State<UserWalletPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('加载交易记录失败：$e')),
         );
       }
@@ -74,7 +74,7 @@ class _UserWalletPageState extends State<UserWalletPage> {
 
   Future<void> _adjustPoints() async {
     if (!widget.isSuperAdmin) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         const SnackBar(content: Text('只有超级管理员可以调整积分')),
       );
       return;
@@ -100,7 +100,7 @@ class _UserWalletPageState extends State<UserWalletPage> {
       await _loadWallet();
       await _loadTransactions();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           const SnackBar(content: Text('调整成功')),
         );
       }
@@ -108,7 +108,7 @@ class _UserWalletPageState extends State<UserWalletPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('调整失败：$e')),
         );
       }
@@ -389,13 +389,13 @@ class _AdjustPointsDialogState extends State<_AdjustPointsDialog> {
           onPressed: () {
             final newBalance = int.tryParse(balanceCtrl.text.trim());
             if (newBalance == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              AdminFeedback.showSnackBar(context,
                 SnackBar(content: Text(t(context, 'invalid_number'))),
               );
               return;
             }
             if (newBalance < 0) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              AdminFeedback.showSnackBar(context,
                 SnackBar(
                     content: Text(t(context, 'balance_cannot_be_negative'))),
               );

@@ -7,23 +7,26 @@ class MediaDetailDialog extends StatefulWidget {
     required this.api,
     this.onRetry,
     this.onScan,
+    this.onVirusScan,
   });
 
-  static Future<void> show(BuildContext context, {
+  static Future<void> show(
+    BuildContext context, {
     required MediaItem item,
     required AdminApiClient api,
     Future<void> Function(MediaItem)? onRetry,
     Future<void> Function()? onScan,
+    Future<MediaItem?> Function(MediaItem)? onVirusScan,
   }) {
     return showDialog(
       context: context,
-      builder: (context) =>
-          MediaDetailDialog(
-            item: item,
-            api: api,
-            onRetry: onRetry,
-            onScan: onScan,
-          ),
+      builder: (context) => MediaDetailDialog(
+        item: item,
+        api: api,
+        onRetry: onRetry,
+        onScan: onScan,
+        onVirusScan: onVirusScan,
+      ),
     );
   }
 
@@ -31,6 +34,7 @@ class MediaDetailDialog extends StatefulWidget {
   final AdminApiClient api;
   final Future<void> Function(MediaItem)? onRetry;
   final Future<void> Function()? onScan;
+  final Future<MediaItem?> Function(MediaItem)? onVirusScan;
 
   @override
   State<MediaDetailDialog> createState() => _MediaDetailDialogState();
@@ -43,11 +47,17 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   List<StorageClassItem> _storageClasses = [];
   bool _loadingRegions = false;
   bool _loadingStorageClasses = false;
+  bool _virusScanning = false;
+  List<String> _draftVisibilityRegions = [];
+  List<String> _draftHiddenRegions = [];
+  bool _savingRegionConstraints = false;
 
   @override
   void initState() {
     super.initState();
     _item = widget.item;
+    _draftVisibilityRegions = List<String>.from(_item.visibilityRegions);
+    _draftHiddenRegions = List<String>.from(_item.hiddenRegions);
     _loadOriginal = !_item.requiresManualOriginal;
     _loadRegionRules();
     _loadStorageClasses();
@@ -83,46 +93,56 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     }
   }
 
-  Future<void> _updateVisibility(List<String> regions) async {
-    try {
-      final updated = await widget.api.updateMedia(
-          _item.id, visibilityRegions: regions);
-      if (mounted) {
-        setState(() {
-          _item = updated;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('可见性更新成功'), backgroundColor: Colors.green),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
+  bool _sameRegionSelection(List<String> first, List<String> second) {
+    final firstSet = first.toSet();
+    final secondSet = second.toSet();
+    if (firstSet.length != secondSet.length) return false;
+    return firstSet.containsAll(secondSet);
   }
 
-  Future<void> _updateHiddenRegions(List<String> regions) async {
+  bool get _hasRegionConstraintChanges =>
+      !_sameRegionSelection(_draftVisibilityRegions, _item.visibilityRegions) ||
+      !_sameRegionSelection(_draftHiddenRegions, _item.hiddenRegions);
+
+  void _toggleDraftRegion({
+    required List<String> target,
+    required String region,
+    required bool selected,
+  }) {
+    setState(() {
+      if (selected) {
+        if (!target.contains(region)) {
+          target.add(region);
+        }
+      } else {
+        target.remove(region);
+      }
+    });
+  }
+
+  Future<void> _saveRegionConstraints() async {
+    if (!_hasRegionConstraintChanges || _savingRegionConstraints) return;
+    setState(() => _savingRegionConstraints = true);
     try {
       final updated = await widget.api.updateMedia(
-          _item.id, hiddenRegions: regions);
+        _item.id,
+        visibilityRegions: List<String>.from(_draftVisibilityRegions),
+        hiddenRegions: List<String>.from(_draftHiddenRegions),
+      );
+      if (!mounted) return;
+      setState(() {
+        _item = updated;
+        _draftVisibilityRegions = List<String>.from(updated.visibilityRegions);
+        _draftHiddenRegions = List<String>.from(updated.hiddenRegions);
+      });
+      AdminFeedback.success(context, '区域约束更新成功');
+    } catch (error) {
       if (mounted) {
-        setState(() {
-          _item = updated;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('不可见区域更新成功'), backgroundColor: Colors.green),
-        );
+        AdminFeedback.error(context, '区域约束更新失败: $error');
       }
-    } catch (e) {
+    } finally {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
-        );
+        setState(() => _savingRegionConstraints = false);
       }
     }
   }
@@ -141,14 +161,16 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         setState(() {
           _item = updated;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           const SnackBar(
-              content: Text('存储类同步策略更新成功'), backgroundColor: Colors.green),
+            content: Text('存储类同步策略更新成功'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
         );
       }
@@ -183,6 +205,21 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     }
   }
 
+  Future<void> _handleVirusScan() async {
+    if (widget.onVirusScan == null || _virusScanning) return;
+    setState(() => _virusScanning = true);
+    try {
+      final updated = await widget.onVirusScan!(_item);
+      if (mounted && updated != null) {
+        setState(() => _item = updated);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _virusScanning = false);
+      }
+    }
+  }
+
   String _formatBytes(int? bytes) {
     if (bytes == null) {
       return '-';
@@ -210,16 +247,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         child: Row(
           children: [
             // 左侧预览区
-            Expanded(
-              flex: 3,
-              child: _buildPreviewArea(),
-            ),
+            Expanded(flex: 3, child: _buildPreviewArea()),
             // 右侧侧边栏
             const VerticalDivider(width: 1, thickness: 1),
-            SizedBox(
-              width: 320,
-              child: _buildSidebar(),
-            ),
+            SizedBox(width: 320, child: _buildSidebar()),
           ],
         ),
       ),
@@ -231,9 +262,7 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
       color: const Color(0xFFF8F9FA),
       child: Stack(
         children: [
-          Center(
-            child: _buildMediaWidget(),
-          ),
+          Center(child: _buildMediaWidget()),
           // 全屏按钮悬浮
           Positioned(
             right: 16,
@@ -265,19 +294,23 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         return Image.network(
           widget.api.normalizeUrl(_item.url),
           headers: const {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           },
           fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) =>
-              Center(child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.broken_image, size: 64),
-                  const SizedBox(height: 8),
-                  Text('加载失败: $error',
-                      style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                ],
-              )),
+          errorBuilder: (context, error, stackTrace) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.broken_image, size: 64),
+                const SizedBox(height: 8),
+                Text(
+                  '加载失败: $error',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
         );
       }
       return _ProgressiveImage(
@@ -296,10 +329,15 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(
-              Icons.play_circle_outline, size: 80, color: Colors.black54),
+            Icons.play_circle_outline,
+            size: 80,
+            color: Colors.black54,
+          ),
           const SizedBox(height: 12),
-          Text(t(context, 'video_file'),
-              style: const TextStyle(color: Colors.black54)),
+          Text(
+            t(context, 'video_file'),
+            style: const TextStyle(color: Colors.black54),
+          ),
         ],
       );
     }
@@ -310,9 +348,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         children: [
           const Icon(Icons.audiotrack, size: 64, color: Colors.orange),
           const SizedBox(width: 16),
-          Text(t(context, 'audio_file'),
-              style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(
+            t(context, 'audio_file'),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
         ],
       );
     }
@@ -329,10 +368,7 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
           alignment: Alignment.centerLeft,
           child: Text(
             t(context, 'metadata'),
-            style: Theme
-                .of(context)
-                .textTheme
-                .titleLarge,
+            style: Theme.of(context).textTheme.titleLarge,
           ),
         ),
         const Divider(height: 1),
@@ -345,9 +381,13 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
               children: [
                 _buildInfoSection(),
                 const SizedBox(height: 24),
+                _buildVirusScanSection(),
+                const SizedBox(height: 24),
                 _buildVisibilityRegionsSection(),
                 const SizedBox(height: 24),
                 _buildHiddenRegionsSection(),
+                const SizedBox(height: 12),
+                _buildRegionConstraintSaveButton(),
                 const SizedBox(height: 24),
                 _buildStorageSyncSection(),
                 const SizedBox(height: 24),
@@ -389,7 +429,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         _buildSidebarRow(t(context, 'media_type'), _item.mimeType),
         _buildSidebarRow(t(context, 'media_size'), _formatBytes(_item.size)),
         _buildSidebarRow(
-            t(context, 'media_url'), _item.url, isSelectable: true),
+          t(context, 'media_url'),
+          _item.url,
+          isSelectable: true,
+        ),
         if (_item.requiresManualOriginal && !_loadOriginal)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -405,155 +448,178 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     );
   }
 
-  Widget _buildVisibilityRegionsSection() {
-    final currentRegions = _item.visibilityRegions;
-    final availableRegions = _availableRegionCodes();
-
+  Widget _buildVirusScanSection() {
+    final scannedAt = _item.virusScannedAt;
+    final message = _item.virusScanMessage;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-            '可见性区域约束', style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          t(context, 'virus_scan_status'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        MediaVirusScanBadge(status: _item.virusScanStatus),
+        if (scannedAt != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            '${t(context, 'virus_scan_last_checked')}: ${_formatVirusScanTime(scannedAt)}',
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ],
+        if (message != null && message.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            message,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: mediaVirusScanStatusColor(context, _item.virusScanStatus),
+            ),
+          ),
+        ],
+        if (widget.onVirusScan != null) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _virusScanning ? null : _handleVirusScan,
+              icon: _virusScanning
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.security, size: 18),
+              label: Text(
+                _virusScanning
+                    ? t(context, 'virus_scan_scanning')
+                    : t(context, 'virus_scan_manual'),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _formatVirusScanTime(DateTime value) {
+    return value.toLocal().toString().split('.').first;
+  }
+
+  Widget _buildVisibilityRegionsSection() {
+    return _buildRegionConstraintSelector(
+      title: '可见性区域约束',
+      selectedRegions: _draftVisibilityRegions,
+      selectedSummary: '已选择',
+      emptySummary: '全部区域可见',
+      clearLabel: '清除所有可见限制',
+      description: '默认所有区域均可访问；选择后仅在匹配所选区域的访问环境下可见',
+      onRegionChanged: (region, selected) => _toggleDraftRegion(
+        target: _draftVisibilityRegions,
+        region: region,
+        selected: selected,
+      ),
+      onClear: () => setState(() => _draftVisibilityRegions.clear()),
+    );
+  }
+
+  Widget _buildHiddenRegionsSection() {
+    return _buildRegionConstraintSelector(
+      title: '不可见区域',
+      selectedRegions: _draftHiddenRegions,
+      selectedSummary: '已排除',
+      emptySummary: '未排除任何区域',
+      clearLabel: '清除所有排除区域',
+      description: '不可见区域优先级高于可见区域；可见区域包含 Global 时，表示除不可见区域外均可访问',
+      onRegionChanged: (region, selected) => _toggleDraftRegion(
+        target: _draftHiddenRegions,
+        region: region,
+        selected: selected,
+      ),
+      onClear: () => setState(() => _draftHiddenRegions.clear()),
+    );
+  }
+
+  Widget _buildRegionConstraintSelector({
+    required String title,
+    required List<String> selectedRegions,
+    required String selectedSummary,
+    required String emptySummary,
+    required String clearLabel,
+    required String description,
+    required void Function(String region, bool selected) onRegionChanged,
+    required VoidCallback onClear,
+  }) {
+    final availableRegions = _availableRegionCodes();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (_loadingRegions)
           const LinearProgressIndicator()
-        else
-          DropdownButtonFormField<String?>(
-            isExpanded: true,
-            decoration: const InputDecoration(
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
-            hint: Text(currentRegions.isEmpty
-                ? '全部区域可见'
-                : '已选择 ${currentRegions.length} 个区域'),
-            items: [
-              if (currentRegions.isNotEmpty)
-                const DropdownMenuItem<String?>(
-                  value: "__clear__",
-                  child: Text("清除所有限制",
-                      style: TextStyle(color: Colors.red, fontSize: 13)),
+        else if (availableRegions.isEmpty)
+          const Text('暂无可用区域', style: TextStyle(fontSize: 12, color: Colors.grey))
+        else ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  selectedRegions.isEmpty
+                      ? emptySummary
+                      : '$selectedSummary ${selectedRegions.length} 个区域',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
-              ...availableRegions.map((region) =>
-                  DropdownMenuItem<String>(
-                    value: region,
-                    child: Row(
-                      children: [
-                        Icon(
-                          currentRegions.contains(region)
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(BlogRegion
-                            .fromCode(region)
-                            .displayName,
-                            style: const TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                  )),
+              ),
+              TextButton(
+                onPressed: selectedRegions.isEmpty ? null : onClear,
+                child: Text(clearLabel),
+              ),
             ],
-            onChanged: (v) {
-              if (v == "__clear__") {
-                _updateVisibility([]);
-                return;
-              }
-              if (v != null) {
-                final newRegions = List<String>.from(currentRegions);
-                if (newRegions.contains(v)) {
-                  newRegions.remove(v);
-                } else {
-                  newRegions.add(v);
-                }
-                _updateVisibility(newRegions);
-              }
-            },
           ),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: availableRegions.map((region) {
+              final selected = selectedRegions.contains(region);
+              return FilterChip(
+                label: Text(BlogRegion.fromCode(region).displayName),
+                selected: selected,
+                onSelected: (value) => onRegionChanged(region, value),
+                visualDensity: VisualDensity.compact,
+              );
+            }).toList(),
+          ),
+        ],
         const SizedBox(height: 4),
         Text(
-          currentRegions.isEmpty
-              ? '默认所有区域均可访问此媒体文件'
-              : '仅在匹配所选区域的访问环境下可见',
+          description,
           style: const TextStyle(fontSize: 11, color: Colors.grey),
         ),
       ],
     );
   }
 
-  Widget _buildHiddenRegionsSection() {
-    final currentRegions = _item.hiddenRegions;
-    final availableRegions = _availableRegionCodes();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-            '不可见区域', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        if (_loadingRegions)
-          const LinearProgressIndicator()
-        else
-          DropdownButtonFormField<String?>(
-            isExpanded: true,
-            decoration: const InputDecoration(
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
-            hint: Text(currentRegions.isEmpty
-                ? '未排除任何区域'
-                : '已排除 ${currentRegions.length} 个区域'),
-            items: [
-              if (currentRegions.isNotEmpty)
-                const DropdownMenuItem<String?>(
-                  value: "__clear__",
-                  child: Text("清除所有排除",
-                      style: TextStyle(color: Colors.red, fontSize: 13)),
-                ),
-              ...availableRegions.map((region) =>
-                  DropdownMenuItem<String>(
-                    value: region,
-                    child: Row(
-                      children: [
-                        Icon(
-                          currentRegions.contains(region)
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(BlogRegion
-                            .fromCode(region)
-                            .displayName,
-                            style: const TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                  )),
-            ],
-            onChanged: (v) {
-              if (v == "__clear__") {
-                _updateHiddenRegions([]);
-                return;
-              }
-              if (v != null) {
-                final newRegions = List<String>.from(currentRegions);
-                if (newRegions.contains(v)) {
-                  newRegions.remove(v);
-                } else {
-                  newRegions.add(v);
-                }
-                _updateHiddenRegions(newRegions);
-              }
-            },
-          ),
-        const SizedBox(height: 4),
-        const Text(
-          '不可见区域优先级高于可见区域；可见区域包含 Global 时，表示除不可见区域外均可访问',
-          style: TextStyle(fontSize: 11, color: Colors.grey),
+  Widget _buildRegionConstraintSaveButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: !_hasRegionConstraintChanges || _savingRegionConstraints
+            ? null
+            : _saveRegionConstraints,
+        icon: _savingRegionConstraints
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.save, size: 18),
+        label: Text(
+          _savingRegionConstraints ? '保存中...' : '保存区域约束更改',
         ),
-      ],
+      ),
     );
   }
 
@@ -601,16 +667,18 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     required Future<void> Function(List<String>) onChanged,
   }) {
     if (_storageClasses.isEmpty) {
-      return Text(emptyText,
-          style: const TextStyle(fontSize: 11, color: Colors.grey));
+      return Text(
+        emptyText,
+        style: const TextStyle(fontSize: 11, color: Colors.grey),
+      );
     }
     return Wrap(
       spacing: 6,
       runSpacing: 4,
       children: _storageClasses.map((storageClass) {
         final selected = selectedNames.contains(storageClass.name);
-        final disabled = storageClass.isPrimary ||
-            disabledNames.contains(storageClass.name);
+        final disabled =
+            storageClass.isPrimary || disabledNames.contains(storageClass.name);
         return FilterChip(
           label: Text(storageClass.displayName),
           selected: selected,
@@ -652,15 +720,25 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(t(context, 'import_info'),
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          t(context, 'import_info'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
-        _buildSidebarRow(t(context, 'source_url'), _getSourceUrl(),
-            isSelectable: true),
-        _buildSidebarRow(t(context, 'failure_reason'), _getImportError(),
-            isColorRed: true),
         _buildSidebarRow(
-            t(context, 'last_retry_at'), _getMetadataValue('lastRetryAt')),
+          t(context, 'source_url'),
+          _getSourceUrl(),
+          isSelectable: true,
+        ),
+        _buildSidebarRow(
+          t(context, 'failure_reason'),
+          _getImportError(),
+          isColorRed: true,
+        ),
+        _buildSidebarRow(
+          t(context, 'last_retry_at'),
+          _getMetadataValue('lastRetryAt'),
+        ),
         const SizedBox(height: 8),
         if (widget.onRetry != null)
           SizedBox(
@@ -680,11 +758,15 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(t(context, 'references'),
-              style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            t(context, 'references'),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 4),
-          Text(t(context, 'none'),
-              style: const TextStyle(color: Colors.black45, fontSize: 13)),
+          Text(
+            t(context, 'none'),
+            style: const TextStyle(color: Colors.black45, fontSize: 13),
+          ),
         ],
       );
     }
@@ -692,43 +774,50 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(t(context, 'references'),
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          t(context, 'references'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
-        ..._item.references.map((ref) =>
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: () {
-                  // TODO: 跳转到文章编辑页
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                        color: Colors.blue.withValues(alpha: 0.1)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.article_outlined,
-                          size: 16, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          ref.postTitle,
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.blueAccent),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+        ..._item.references.map(
+          (ref) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: InkWell(
+              onTap: () {
+                // TODO: 跳转到文章编辑页
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.article_outlined,
+                      size: 16,
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ref.postTitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.blueAccent,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            )),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -741,8 +830,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(t(context, 'all_metadata'),
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          t(context, 'all_metadata'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(8),
@@ -757,12 +848,19 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${e.key}: ',
-                        style: const TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.bold)),
+                    Text(
+                      '${e.key}: ',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     Expanded(
-                        child: Text('${e.value}',
-                            style: const TextStyle(fontSize: 11))),
+                      child: Text(
+                        '${e.value}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -773,16 +871,21 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     );
   }
 
-  Widget _buildSidebarRow(String label, String value,
-      {bool isSelectable = false, bool isColorRed = false}) {
+  Widget _buildSidebarRow(
+    String label,
+    String value, {
+    bool isSelectable = false,
+    bool isColorRed = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style:
-              const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          ),
           const SizedBox(height: 2),
           if (isSelectable)
             SelectableText(
@@ -870,7 +973,7 @@ class _MediaFullScreenPreview extends StatelessWidget {
                     child: CircularProgressIndicator(
                       value: loadingProgress.expectedTotalBytes != null
                           ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
+                                loadingProgress.expectedTotalBytes!
                           : null,
                       color: Colors.white,
                     ),

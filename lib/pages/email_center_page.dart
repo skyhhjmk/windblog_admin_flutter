@@ -433,7 +433,7 @@ class _EmailCenterPageState extends State<EmailCenterPage>
 
   void _showMessage(String message, {bool error = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    AdminFeedback.showSnackBar(context,
       SnackBar(
         content: Text(message),
         backgroundColor: error ? Colors.red : null,
@@ -529,9 +529,7 @@ class _EmailCenterPageState extends State<EmailCenterPage>
         .where((item) => item['published'] == true)
         .toList();
     if (publishedTemplates.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请先创建并发布邮件模板')));
+      AdminFeedback.showSnackBar(context, const SnackBar(content: Text('请先创建并发布邮件模板')));
       return;
     }
     final name = TextEditingController();
@@ -710,9 +708,7 @@ class _EmailCenterPageState extends State<EmailCenterPage>
       }
       await widget.api.replaceEmailGroupMembers(groupId, members);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('通道组成员已保存')));
+        AdminFeedback.showSnackBar(context, const SnackBar(content: Text('通道组成员已保存')));
       }
     }
   }

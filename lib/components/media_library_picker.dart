@@ -35,7 +35,7 @@ class _MediaLibraryPickerState extends State<MediaLibraryPicker> {
       mediaResult = await widget.api.listMedia(page: page, pageSize: 20);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('加载媒体失败: $e')),
         );
       }

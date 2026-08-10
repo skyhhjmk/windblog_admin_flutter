@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -5,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import 'admin_http_client.dart';
 import 'models.dart';
 
 class AdminApiClient {
@@ -494,6 +496,13 @@ class AdminApiClient {
     );
   }
 
+  Future<MediaItem> scanMediaVirus(int id) async {
+    final res = await _post('/api/admin/media/$id/virus-scan', body: {});
+    return MediaItem.fromMap(
+      _normalizeMediaItemMap(_map(jsonDecode(res.body))),
+    );
+  }
+
   Future<int> batchRetryMedia() async {
     final res = await _post('/api/admin/media/batch-retry', body: {});
     final map = _map(jsonDecode(res.body));
@@ -535,6 +544,122 @@ class AdminApiClient {
     return MediaItem.fromMap(
       _normalizeMediaItemMap(_map(jsonDecode(response.body))),
     );
+  }
+
+  Future<MediaUploadSession> initiateMediaUploadSession({
+    required String fileName,
+    required String mimeType,
+    required int totalSize,
+  }) async {
+    final res = await _post(
+      '/api/admin/media/upload/session',
+      body: {
+        'fileName': fileName,
+        'mimeType': mimeType,
+        'totalSize': totalSize,
+      },
+    );
+    return MediaUploadSession.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<MediaUploadSession> getMediaUploadSession(String uploadId) async {
+    final res = await _get('/api/admin/media/upload/session/$uploadId');
+    return MediaUploadSession.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<MediaUploadSession> uploadMediaChunk({
+    required String uploadId,
+    required int chunkIndex,
+    required Uint8List bytes,
+    void Function(int sentBytes)? onChunkProgress,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/api/admin/media/upload/session/$uploadId/chunk/$chunkIndex',
+    );
+    final request = http.StreamedRequest('PUT', uri);
+    request.headers.addAll(_headers(true, json: false));
+    request.headers['Content-Type'] = 'application/octet-stream';
+    request.contentLength = bytes.length;
+    final responseFuture = request.send().timeout(const Duration(minutes: 30));
+    const int transferBlockSize = 64 * 1024;
+    int sent = 0;
+    try {
+      while (sent < bytes.length) {
+        final end = (sent + transferBlockSize).clamp(0, bytes.length);
+        request.sink.add(bytes.sublist(sent, end));
+        sent = end;
+        onChunkProgress?.call(sent);
+      }
+      await request.sink.close();
+      final streamed = await responseFuture;
+      final response = await http.Response.fromStream(streamed);
+      _check(response, authFailureAsSessionExpired: true);
+      return MediaUploadSession.fromMap(_map(jsonDecode(response.body)));
+    } catch (_) {
+      await request.sink.close();
+      rethrow;
+    }
+  }
+
+  Future<MediaItem> completeMediaUpload(String uploadId) async {
+    final client = createAdminHttpClient();
+    try {
+      final uri = Uri.parse(
+        '$baseUrl/api/admin/media/upload/session/$uploadId/complete',
+      );
+      final response = await client
+          .post(
+            uri,
+            headers: _headers(true),
+            body: jsonEncode(const <String, dynamic>{}),
+          )
+          .timeout(const Duration(minutes: 10));
+      _check(response, authFailureAsSessionExpired: true);
+      return MediaItem.fromMap(
+        _normalizeMediaItemMap(_map(jsonDecode(response.body))),
+      );
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<MediaItem> uploadMediaResumable({
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+    void Function(double progress)? onProgress,
+  }) async {
+    final session = await initiateMediaUploadSession(
+      fileName: fileName,
+      mimeType: mimeType,
+      totalSize: bytes.length,
+    );
+    final completedChunks = <int>{...session.uploadedChunks};
+    int uploadedBytes = 0;
+    for (final chunkIndex in completedChunks) {
+      final start = chunkIndex * session.chunkSize;
+      final end = (start + session.chunkSize).clamp(0, bytes.length);
+      if (start < end) uploadedBytes += end - start;
+    }
+    onProgress?.call(bytes.isEmpty ? 0 : uploadedBytes / bytes.length);
+
+    for (int chunkIndex = 0; chunkIndex < session.chunkCount; chunkIndex++) {
+      if (completedChunks.contains(chunkIndex)) continue;
+      final start = chunkIndex * session.chunkSize;
+      final end = (start + session.chunkSize).clamp(0, bytes.length);
+      final chunk = bytes.sublist(start, end);
+      await uploadMediaChunk(
+        uploadId: session.uploadId,
+        chunkIndex: chunkIndex,
+        bytes: chunk,
+        onChunkProgress: (sentBytes) {
+          onProgress?.call((uploadedBytes + sentBytes) / bytes.length);
+        },
+      );
+      uploadedBytes += chunk.length;
+      onProgress?.call(uploadedBytes / bytes.length);
+    }
+    return completeMediaUpload(session.uploadId);
   }
 
   Future<PageResult<UserListItem>> listUsers({

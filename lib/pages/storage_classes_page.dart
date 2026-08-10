@@ -39,7 +39,7 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('加载失败: $e')),
         );
       }
@@ -88,7 +88,7 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('删除失败: $e')),
         );
       }
@@ -99,7 +99,7 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
     try {
       await widget.api.testStorageClass(name);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           const SnackBar(content: Text('连接测试成功')),
         );
       }
@@ -107,7 +107,7 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('测试失败: $e')),
         );
       }
@@ -436,7 +436,7 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
 
     if (name.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           const SnackBar(content: Text('名称不能为空')),
         );
       }
@@ -444,7 +444,7 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
     }
     if (displayName.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           const SnackBar(content: Text('显示名称不能为空')),
         );
       }
@@ -486,7 +486,7 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('创建失败: $e')),
         );
       }
@@ -781,7 +781,7 @@ class _StorageClassesPageState extends State<StorageClassesPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('保存失败: $e')),
         );
       }

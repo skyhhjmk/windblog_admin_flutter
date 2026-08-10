@@ -62,9 +62,7 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('解密失败: $e')));
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text('解密失败: $e')));
       }
     } finally {
       if (mounted) setState(() => _decrypting = false);

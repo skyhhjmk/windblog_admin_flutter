@@ -44,7 +44,7 @@ class _CommentsPageState extends State<CommentsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
@@ -61,9 +61,7 @@ class _CommentsPageState extends State<CommentsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${t(context, 'save_failed')}$e')));
+      AdminFeedback.showSnackBar(context, SnackBar(content: Text('${t(context, 'save_failed')}$e')));
     }
   }
 
@@ -75,9 +73,7 @@ class _CommentsPageState extends State<CommentsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${t(context, 'save_failed')}$e')));
+      AdminFeedback.showSnackBar(context, SnackBar(content: Text('${t(context, 'save_failed')}$e')));
     }
   }
 
@@ -108,7 +104,7 @@ class _CommentsPageState extends State<CommentsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
       );
     }

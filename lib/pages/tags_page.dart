@@ -43,7 +43,7 @@ class _TagsPageState extends State<TagsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
@@ -66,7 +66,7 @@ class _TagsPageState extends State<TagsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'save_failed')}$e')),
       );
     }
@@ -86,7 +86,7 @@ class _TagsPageState extends State<TagsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'save_failed')}$e')),
       );
     }
@@ -121,7 +121,7 @@ class _TagsPageState extends State<TagsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
       );
     }

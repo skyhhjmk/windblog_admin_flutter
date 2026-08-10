@@ -88,7 +88,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
     if (_importComments) types.add('comments');
 
     if (types.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text(t(context, 'please_select_at_least_one'))),
       );
       return;

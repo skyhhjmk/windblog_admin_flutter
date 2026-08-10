@@ -56,7 +56,7 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'save_role_failed')}$e')),
       );
     }
@@ -70,7 +70,7 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text('${t(context, 'delete_role_failed')}$e')),
       );
     }

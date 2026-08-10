@@ -658,7 +658,7 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
                             });
                           } catch (exception) {
                             if (dialogContext.mounted) {
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              AdminFeedback.showSnackBar(dialogContext,
                                 SnackBar(
                                   content: Text('分词预览失败：$exception'),
                                   backgroundColor: Colors.red,
@@ -696,7 +696,7 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
+      AdminFeedback.showSnackBar(context,
         SnackBar(content: Text(message), backgroundColor: Colors.green),
       );
       if (reloadAfterSuccess) {
@@ -706,7 +706,7 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
       widget.onAuthError();
     } catch (exception) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(
             content: Text('操作失败：$exception'),
             backgroundColor: Colors.red,

@@ -61,7 +61,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
@@ -304,7 +304,7 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
       await widget.api.applyAuditSettingValue(key.toString(), configValue);
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           const SnackBar(
             content: Text('配置已应用并进入验证期'),
             backgroundColor: Colors.orange,
@@ -313,7 +313,7 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text('应用失败: $e'), backgroundColor: Colors.red),
         );
       }

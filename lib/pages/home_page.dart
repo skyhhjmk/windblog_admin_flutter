@@ -942,6 +942,8 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    AdminNotificationScope.maybeOf(context)?.recordNavigation();
+
     int direction = 1;
     if (index < tab) {
       direction = -1;

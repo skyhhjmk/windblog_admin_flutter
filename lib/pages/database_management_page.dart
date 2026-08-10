@@ -52,14 +52,14 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
       final result = await widget.api.databaseMigrate();
       final success = result['success'] as bool? ?? false;
       final message = result['message']?.toString() ?? '';
-      
+
       setState(() {
         lastMigrateResult = success ? t(context, 'migrate_success') : message;
         lastMigrateTime = DateTime.now();
       });
 
       if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text(lastMigrateResult!)),
         );
       }
@@ -71,7 +71,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
         lastMigrateTime = DateTime.now();
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text(lastMigrateResult!)),
         );
       }
@@ -110,14 +110,14 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
       final result = await widget.api.databaseSeed();
       final success = result['success'] as bool? ?? false;
       final message = result['message']?.toString() ?? '';
-      
+
       setState(() {
         lastSeedResult = success ? t(context, 'seed_success') : message;
         lastSeedTime = DateTime.now();
       });
 
       if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text(lastSeedResult!)),
         );
       }
@@ -129,7 +129,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
         lastSeedTime = DateTime.now();
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AdminFeedback.showSnackBar(context,
           SnackBar(content: Text(lastSeedResult!)),
         );
       }
@@ -196,7 +196,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: lastMigrateResult!.contains('成功') || 
+                      color: lastMigrateResult!.contains('成功') ||
                              lastMigrateResult!.contains('successfully')
                           ? Colors.green[50]
                           : Colors.red[50],
@@ -208,7 +208,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                         Text(
                           lastMigrateResult!,
                           style: TextStyle(
-                            color: lastMigrateResult!.contains('成功') || 
+                            color: lastMigrateResult!.contains('成功') ||
                                    lastMigrateResult!.contains('successfully')
                                 ? Colors.green[800]
                                 : Colors.red[800],
@@ -262,7 +262,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: lastSeedResult!.contains('成功') || 
+                      color: lastSeedResult!.contains('成功') ||
                            lastSeedResult!.contains('successfully')
                           ? Colors.green[50]
                           : Colors.red[50],
@@ -274,7 +274,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                         Text(
                           lastSeedResult!,
                           style: TextStyle(
-                            color: lastSeedResult!.contains('成功') || 
+                            color: lastSeedResult!.contains('成功') ||
                                    lastSeedResult!.contains('successfully')
                                 ? Colors.green[800]
                                 : Colors.red[800],
