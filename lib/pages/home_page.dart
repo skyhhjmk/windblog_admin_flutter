@@ -458,6 +458,7 @@ class _HomePageState extends State<HomePage> {
       ),
     ];
     List<_AdminNavigationItem> items = _navigationItems;
+    Set<String> renderedSubmenus = <String>{};
     for (int index = 0; index < items.length; index++) {
       _AdminNavigationItem item = items[index];
       if (item.submenuParent == null) {
@@ -466,7 +467,8 @@ class _HomePageState extends State<HomePage> {
         );
         continue;
       }
-      if (index > 0 && items[index - 1].submenuParent == item.submenuParent) {
+      String submenuName = item.submenuParent!;
+      if (!renderedSubmenus.add(submenuName)) {
         continue;
       }
       navigationChildren.add(_buildDesktopSubmenu(context, index, extended));
@@ -493,22 +495,20 @@ class _HomePageState extends State<HomePage> {
   ) {
     List<_AdminNavigationItem> items = _navigationItems;
     List<Widget> children = [];
-    for (int index = firstChildIndex; index < items.length; index++) {
+    List<int> childIndices = <int>[];
+    String submenuName = items[firstChildIndex].submenuParent ?? '设置';
+    for (int index = 0; index < items.length; index++) {
       _AdminNavigationItem item = items[index];
-      if (item.submenuParent != items[firstChildIndex].submenuParent) {
-        break;
+      if (item.submenuParent == submenuName) {
+        childIndices.add(index);
+        children.add(
+          _buildDesktopNavigationTile(context, index, item, extended, true),
+        );
       }
-      children.add(
-        _buildDesktopNavigationTile(context, index, item, extended, true),
-      );
     }
 
     bool childSelected = false;
-    for (
-      int index = firstChildIndex;
-      index < firstChildIndex + children.length;
-      index++
-    ) {
+    for (int index in childIndices) {
       if (tab == index) {
         childSelected = true;
       }
@@ -517,7 +517,6 @@ class _HomePageState extends State<HomePage> {
         ? tabColors[tab] ?? const Color(0xFF8B5CF6)
         : const Color(0xFF94A3B8);
 
-    String submenuName = items[firstChildIndex].submenuParent ?? '设置';
     bool expanded = submenuExpandedStates[submenuName] == true;
 
     IconData submenuIcon = Icons.settings_outlined;
@@ -670,10 +669,12 @@ class _HomePageState extends State<HomePage> {
     ];
 
     List<_AdminNavigationItem> items = _navigationItems;
+    Set<String> renderedSubmenus = <String>{};
     for (int index = 0; index < items.length; index++) {
       _AdminNavigationItem item = items[index];
       if (item.submenuParent != null) {
-        if (index > 0 && items[index - 1].submenuParent == item.submenuParent) {
+        String submenuName = item.submenuParent!;
+        if (!renderedSubmenus.add(submenuName)) {
           continue;
         }
         children.add(_buildDrawerSubmenu(context, index));
@@ -713,10 +714,11 @@ class _HomePageState extends State<HomePage> {
     List<_AdminNavigationItem> items = _navigationItems;
     List<Widget> children = [];
     bool childSelected = false;
-    for (int index = firstChildIndex; index < items.length; index++) {
+    String submenuName = items[firstChildIndex].submenuParent ?? '设置';
+    for (int index = 0; index < items.length; index++) {
       _AdminNavigationItem item = items[index];
-      if (item.submenuParent != items[firstChildIndex].submenuParent) {
-        break;
+      if (item.submenuParent != submenuName) {
+        continue;
       }
       bool selected = index == tab;
       if (selected) {
@@ -743,7 +745,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    String submenuName = items[firstChildIndex].submenuParent ?? '设置';
     bool initiallyExpanded = submenuExpandedStates[submenuName] == true;
 
     IconData submenuIcon = Icons.settings_outlined;

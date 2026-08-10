@@ -122,13 +122,17 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
           children: [
             Row(
               children: [
-                Icon(healthy ? Icons.check_circle : Icons.error,
-                    color: healthy ? Colors.green : Colors.red),
+                Icon(
+                  healthy ? Icons.check_circle : Icons.error,
+                  color: healthy ? Colors.green : Colors.red,
+                ),
                 const SizedBox(width: 10),
-                Text('应用健康状态：${health.status}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        )),
+                Text(
+                  '应用健康状态：${health.status}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ],
             ),
             if (health.components.isNotEmpty) ...[
@@ -157,7 +161,12 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
 
   Widget _buildClamAvCard(ClamAvStatus status) {
     final healthy = status.isHealthy;
-    final color = healthy ? Colors.green : Colors.red;
+    final disabled = !status.enabled && !status.required;
+    final color = healthy
+        ? Colors.green
+        : disabled
+        ? Colors.orange
+        : Colors.red;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -169,13 +178,21 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
                 Icon(Icons.policy_outlined, color: color),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('ClamAV 病毒扫描',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          )),
+                  child: Text(
+                    'ClamAV 病毒扫描',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
                 Chip(
-                  label: Text(status.available ? '可用' : '不可用'),
+                  label: Text(
+                    status.available
+                        ? '可用'
+                        : disabled
+                        ? '未启用'
+                        : '不可用',
+                  ),
                   backgroundColor: color.shade100,
                 ),
               ],
@@ -194,10 +211,23 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
                   children: [
                     _securityValue('启用', status.enabled ? '是' : '否', width),
                     _securityValue('强制扫描', status.required ? '是' : '否', width),
-                    _securityValue('地址', '${status.host}:${status.port}', width),
+                    _securityValue(
+                      '地址',
+                      '${status.host}:${status.port}',
+                      width,
+                    ),
                     _securityValue('超时', status.timeout, width),
                     _securityValue('状态', status.status, width),
-                    _securityValue('检查时间', _formatDate(status.checkedAt), width),
+                    _securityValue(
+                      '配置来源',
+                      status.autoDetected ? '自动发现' : '服务端配置',
+                      width,
+                    ),
+                    _securityValue(
+                      '检查时间',
+                      _formatDate(status.checkedAt),
+                      width,
+                    ),
                   ],
                 );
               },
@@ -226,10 +256,12 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Colors.grey.shade700,
-                  )),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: Colors.grey.shade700),
+          ),
           const SizedBox(height: 2),
           Text(value),
         ],
@@ -249,7 +281,7 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'ClamAV 的启用、强制策略、主机和端口来自服务端环境配置。修改后请重启后端，并在此页面重新测试；管理端不会保存或修改扫描服务凭据。',
+                '服务端会优先按配置检查 ClamAV；未显式启用时也会自动尝试本机、clamav 容器和 host.docker.internal。管理端不会保存或修改扫描服务凭据。',
               ),
             ),
           ],

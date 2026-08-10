@@ -1,11 +1,14 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
+class _OutboxTabFilter {
+  const _OutboxTabFilter(this.label, this.status);
+
+  final String label;
+  final String status;
+}
+
 class OutboxPage extends StatefulWidget {
-  const OutboxPage({
-    super.key,
-    required this.api,
-    required this.onAuthError,
-  });
+  const OutboxPage({super.key, required this.api, required this.onAuthError});
 
   final AdminApiClient api;
   final VoidCallback onAuthError;
@@ -14,28 +17,39 @@ class OutboxPage extends StatefulWidget {
   State<OutboxPage> createState() => _OutboxPageState();
 }
 
-class _OutboxPageState extends State<OutboxPage> {
-  final int _pageSize = 20;
-  final TextEditingController _statusController = TextEditingController();
+class _OutboxPageState extends State<OutboxPage>
+    with SingleTickerProviderStateMixin {
+  static const List<_OutboxTabFilter> _tabFilters = [
+    _OutboxTabFilter('全部', ''),
+    _OutboxTabFilter('待处理', 'PENDING'),
+    _OutboxTabFilter('处理中', 'IN_FLIGHT'),
+    _OutboxTabFilter('失败', 'FAILED'),
+    _OutboxTabFilter('已发布', 'PUBLISHED'),
+  ];
+
+  late final TabController _tabController;
   final TextEditingController _eventTypeController = TextEditingController();
   final TextEditingController _traceIdController = TextEditingController();
 
   List<AdminOutboxItem> _items = [];
   int _page = 1;
+  int _pageSize = 20;
   int _total = 0;
+  int _activeTabIndex = 0;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: _tabFilters.length, vsync: this);
     _loadData();
   }
 
   @override
   void dispose() {
-    _statusController.dispose();
     _eventTypeController.dispose();
     _traceIdController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -45,7 +59,7 @@ class _OutboxPageState extends State<OutboxPage> {
       final result = await widget.api.listAdminOutbox(
         page: _page,
         pageSize: _pageSize,
-        status: _statusController.text.trim(),
+        status: _tabFilters[_activeTabIndex].status,
         eventType: _eventTypeController.text.trim(),
         traceId: _traceIdController.text.trim(),
       );
@@ -53,6 +67,7 @@ class _OutboxPageState extends State<OutboxPage> {
       setState(() {
         _items = result.items;
         _total = result.total;
+        _page = result.page;
       });
     } on UnauthorizedException {
       widget.onAuthError();
@@ -65,6 +80,28 @@ class _OutboxPageState extends State<OutboxPage> {
 
   void _search() {
     setState(() => _page = 1);
+    _loadData();
+  }
+
+  void _selectTab(int index) {
+    if (index == _activeTabIndex) {
+      return;
+    }
+    setState(() {
+      _activeTabIndex = index;
+      _page = 1;
+    });
+    _loadData();
+  }
+
+  void _changePageSize(int? value) {
+    if (value == null || value == _pageSize) {
+      return;
+    }
+    setState(() {
+      _pageSize = value;
+      _page = 1;
+    });
     _loadData();
   }
 
@@ -107,9 +144,24 @@ class _OutboxPageState extends State<OutboxPage> {
       title: 'Outbox 审计',
       filters: AdminToolbar(
         children: [
-          _filterField(_statusController, '状态', 'FAILED / PENDING'),
           _filterField(_eventTypeController, '事件类型', 'event.type'),
           _filterField(_traceIdController, 'Trace ID', 'trace-id'),
+          SizedBox(
+            width: AdminBreakpoints.isPhone(context) ? double.infinity : 130,
+            child: DropdownButtonFormField<int>(
+              initialValue: _pageSize,
+              decoration: const InputDecoration(labelText: '每页条数'),
+              items: const [20, 50, 100]
+                  .map(
+                    (size) => DropdownMenuItem<int>(
+                      value: size,
+                      child: Text('$size'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _changePageSize,
+            ),
+          ),
           FilledButton.icon(
             onPressed: _search,
             icon: const Icon(Icons.search),
@@ -122,26 +174,50 @@ class _OutboxPageState extends State<OutboxPage> {
           ),
         ],
       ),
-      body: _loading && _items.isEmpty
-          ? const AdminStatusView.loading(title: '正在加载 Outbox')
-          : _items.isEmpty
-          ? const AdminStatusView.empty(title: '暂无 Outbox 事件')
-          : Card(
-              child: ListView.separated(
-                physics: const BouncingScrollPhysics(),
-                itemCount: _items.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) => _buildItem(_items[index]),
-              ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Card(
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              onTap: _selectTab,
+              tabs: _tabFilters
+                  .map((filter) => Tab(text: filter.label))
+                  .toList(),
             ),
+          ),
+          if (_loading) const LinearProgressIndicator(minHeight: 2),
+          const SizedBox(height: 8),
+          Expanded(child: _buildListBody()),
+        ],
+      ),
       footer: PaginationBar(
         currentPage: _page,
         totalPages: (_total / _pageSize).ceil().clamp(1, 999999),
         totalItems: _total,
+        pageSize: _pageSize,
         onPageChanged: (page) {
           setState(() => _page = page);
           _loadData();
         },
+      ),
+    );
+  }
+
+  Widget _buildListBody() {
+    if (_loading && _items.isEmpty) {
+      return const AdminStatusView.loading(title: '正在加载 Outbox');
+    }
+    if (_items.isEmpty) {
+      return const AdminStatusView.empty(title: '暂无 Outbox 事件');
+    }
+    return Card(
+      child: ListView.separated(
+        physics: const BouncingScrollPhysics(),
+        itemCount: _items.length,
+        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemBuilder: (context, index) => _buildItem(_items[index]),
       ),
     );
   }

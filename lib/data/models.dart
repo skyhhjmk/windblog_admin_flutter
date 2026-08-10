@@ -2046,6 +2046,8 @@ class ClamAvStatus {
     required this.status,
     required this.available,
     required this.message,
+    required this.autoDetected,
+    required this.configurationSource,
   });
 
   final DateTime? checkedAt;
@@ -2057,8 +2059,10 @@ class ClamAvStatus {
   final String status;
   final bool available;
   final String message;
+  final bool autoDetected;
+  final String configurationSource;
 
-  bool get isHealthy => available || (!enabled && !required);
+  bool get isHealthy => available;
 
   factory ClamAvStatus.fromMap(Map<String, dynamic> map) {
     return ClamAvStatus(
@@ -2071,6 +2075,9 @@ class ClamAvStatus {
       status: map['status']?.toString() ?? 'UNKNOWN',
       available: toBool(map['available']) ?? false,
       message: map['message']?.toString() ?? '',
+      autoDetected: toBool(map['autoDetected']) ?? false,
+      configurationSource:
+          map['configurationSource']?.toString() ?? 'CONFIGURED',
     );
   }
 }
