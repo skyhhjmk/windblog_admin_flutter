@@ -2252,6 +2252,88 @@ class PaginatedAdminOutboxResult {
   }
 }
 
+class EmailDeliveryItem {
+  EmailDeliveryItem({
+    required this.id,
+    required this.scenario,
+    required this.recipientAddress,
+    required this.subject,
+    required this.channelId,
+    required this.channelGroupId,
+    required this.status,
+    required this.attemptCount,
+    required this.nextAttemptAt,
+    required this.lastError,
+    required this.createdAt,
+    required this.sentAt,
+    required this.lockedUntil,
+  });
+
+  final int id;
+  final String scenario;
+  final String recipientAddress;
+  final String subject;
+  final int? channelId;
+  final int? channelGroupId;
+  final String status;
+  final int attemptCount;
+  final DateTime? nextAttemptAt;
+  final String? lastError;
+  final DateTime? createdAt;
+  final DateTime? sentAt;
+  final DateTime? lockedUntil;
+
+  factory EmailDeliveryItem.fromMap(Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      return DateTime.tryParse(value.toString());
+    }
+
+    return EmailDeliveryItem(
+      id: toInt(map['id']) ?? 0,
+      scenario: map['scenario']?.toString() ?? '',
+      recipientAddress: map['recipientAddress']?.toString() ?? '',
+      subject: map['subject']?.toString() ?? '',
+      channelId: toInt(map['channelId']),
+      channelGroupId: toInt(map['channelGroupId']),
+      status: map['status']?.toString() ?? '',
+      attemptCount: toInt(map['attemptCount']) ?? 0,
+      nextAttemptAt: parseDate(map['nextAttemptAt']),
+      lastError: map['lastError']?.toString(),
+      createdAt: parseDate(map['createdAt']),
+      sentAt: parseDate(map['sentAt']),
+      lockedUntil: parseDate(map['lockedUntil']),
+    );
+  }
+}
+
+class PaginatedEmailDeliveryResult {
+  PaginatedEmailDeliveryResult({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.pageSize,
+  });
+
+  final List<EmailDeliveryItem> items;
+  final int total;
+  final int page;
+  final int pageSize;
+
+  factory PaginatedEmailDeliveryResult.fromMap(Map<String, dynamic> map) {
+    return PaginatedEmailDeliveryResult(
+      items: (map['items'] as List? ?? [])
+          .map(
+            (item) => EmailDeliveryItem.fromMap(item as Map<String, dynamic>),
+          )
+          .toList(),
+      total: toInt(map['total']) ?? 0,
+      page: toInt(map['page']) ?? 1,
+      pageSize: toInt(map['pageSize']) ?? 20,
+    );
+  }
+}
+
 class StoreItem {
   StoreItem({
     required this.id,

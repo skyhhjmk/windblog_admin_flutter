@@ -303,6 +303,20 @@ class AdminApiClient {
     },
   );
 
+  Future<String> issueAdminStepUp(String password) async {
+    final res = await _post(
+      '/api/admin/auth/step-up',
+      body: {'password': password},
+      authFailureAsSessionExpired: false,
+    );
+    final map = _map(jsonDecode(res.body));
+    final stepUpToken = map['token']?.toString() ?? '';
+    if (stepUpToken.isEmpty) {
+      throw Exception('未取得高风险操作凭证');
+    }
+    return stepUpToken;
+  }
+
   Future<List<Map<String, dynamic>>> listEmailChannels() async {
     final res = await _get('/api/admin/email-channels');
     final values = jsonDecode(res.body) as List<dynamic>;
@@ -370,11 +384,16 @@ class AdminApiClient {
     await _post('/api/admin/email-campaigns', body: values);
   }
 
-  Future<List<Map<String, dynamic>>> listEmailDeliveries() async {
-    final res = await _get('/api/admin/email-deliveries');
-    return (jsonDecode(res.body) as List<dynamic>)
-        .map((value) => _map(value))
-        .toList();
+  Future<PaginatedEmailDeliveryResult> listEmailDeliveries({
+    int page = 1,
+    String? status,
+  }) async {
+    final query = <String, String>{
+      'page': '$page',
+      if (status != null && status.isNotEmpty) 'status': status,
+    };
+    final res = await _get('/api/admin/email-deliveries', query: query);
+    return PaginatedEmailDeliveryResult.fromMap(_map(jsonDecode(res.body)));
   }
 
   Future<void> retryEmailDelivery(int deliveryId) async {
@@ -384,10 +403,27 @@ class AdminApiClient {
     );
   }
 
-  Future<void> testEmailChannel(int channelId, String recipientAddress) async {
+  Future<int> failPendingEmailDeliveries({required String stepUpToken}) async {
+    final res = await _post(
+      '/api/admin/email-deliveries/fail-pending',
+      body: const {},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    final map = _map(jsonDecode(res.body));
+    return (map['failedCount'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<void> testEmailChannel(
+    int channelId,
+    String recipientAddress, {
+    required String stepUpToken,
+  }) async {
     await _post(
       '/api/admin/email-channels/$channelId/test',
       body: {'recipientAddress': recipientAddress},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
   }
 
@@ -1470,11 +1506,17 @@ class AdminApiClient {
     Map<String, String>? query,
     bool auth = true,
     bool authFailureAsSessionExpired = true,
+    String? stepUpToken,
+    String? idempotencyKey,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.post(
       uri,
-      headers: _headers(auth),
+      headers: _headers(
+        auth,
+        stepUpToken: stepUpToken,
+        idempotencyKey: idempotencyKey,
+      ),
       body: jsonEncode(body),
     );
     _check(res, authFailureAsSessionExpired: authFailureAsSessionExpired);
@@ -1517,7 +1559,12 @@ class AdminApiClient {
     return res;
   }
 
-  Map<String, String> _headers(bool auth, {bool json = true}) {
+  Map<String, String> _headers(
+    bool auth, {
+    bool json = true,
+    String? stepUpToken,
+    String? idempotencyKey,
+  }) {
     final headers = <String, String>{};
     if (json) {
       headers['Content-Type'] = 'application/json';
@@ -1529,7 +1576,17 @@ class AdminApiClient {
       }
       headers['Authorization'] = 'Bearer $token';
     }
+    if (stepUpToken != null && stepUpToken.isNotEmpty) {
+      headers['X-Admin-Step-Up'] = stepUpToken;
+    }
+    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
     return headers;
+  }
+
+  String _newIdempotencyKey() {
+    return '${DateTime.now().toUtc().microsecondsSinceEpoch}';
   }
 
   void _check(http.Response res, {required bool authFailureAsSessionExpired}) {
