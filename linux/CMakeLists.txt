@@ -42,6 +42,10 @@ endif()
 function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_features(${TARGET} PUBLIC cxx_std_14)
   target_compile_options(${TARGET} PRIVATE -Wall -Werror)
+  # flutter_secure_storage_linux 1.2.3 bundles an older nlohmann/json header
+  # that emits this deprecation with newer Clang. Keep -Werror for all other
+  # diagnostics, but do not fail the Linux build on this third-party warning.
+  target_compile_options(${TARGET} PRIVATE -Wno-error=deprecated-literal-operator)
   target_compile_options(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:-O3>")
   target_compile_definitions(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:NDEBUG>")
 endfunction()
