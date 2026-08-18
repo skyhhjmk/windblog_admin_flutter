@@ -23,6 +23,7 @@ import 'utils/storage_service.dart';
 part 'components/admin_ui.dart';
 part 'components/notification_center.dart';
 part 'pages/login_page.dart';
+part 'pages/installation_page.dart';
 part 'pages/home_page.dart';
 part 'pages/overview_page.dart';
 part 'pages/posts_page.dart';
@@ -163,6 +164,7 @@ class _AdminRootPageState extends State<AdminRootPage> {
   bool _loading = true;
   bool _showSessionExpiredLogin = false;
   bool _showSessionExpiredNotice = false;
+  bool _showInstallationPage = false;
 
   @override
   void initState() {
@@ -223,6 +225,23 @@ class _AdminRootPageState extends State<AdminRootPage> {
     }
   }
 
+  void onInstallationRequired(String baseUrl) {
+    api.baseUrl = baseUrl;
+    if (mounted) {
+      setState(() {
+        _showInstallationPage = true;
+      });
+    }
+  }
+
+  Future<void> onInstallationCompleted() async {
+    if (!mounted) return;
+    setState(() {
+      _showInstallationPage = false;
+      _showSessionExpiredNotice = false;
+    });
+  }
+
   void onLogout() async {
     notificationController.clear();
     api.token = null;
@@ -272,10 +291,16 @@ class _AdminRootPageState extends State<AdminRootPage> {
       content = const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
+    } else if (_showInstallationPage) {
+      content = InstallationPage(
+        api: api,
+        onCompleted: onInstallationCompleted,
+      );
     } else if (api.token == null && !_showSessionExpiredLogin) {
       content = LoginPage(
         api: api,
         onLogin: onLogin,
+        onInstallationRequired: onInstallationRequired,
         showSessionExpiredNotice: _showSessionExpiredNotice,
       );
     } else {

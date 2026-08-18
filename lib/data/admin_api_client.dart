@@ -15,6 +15,35 @@ class AdminApiClient {
   VoidCallback? onSessionExpired;
   bool _sessionExpiredNotified = false;
 
+  Future<void> install({
+    required String username,
+    required String email,
+    required String password,
+    required String siteTitle,
+    required String siteSubtitle,
+    required String siteDescription,
+    required List<String> siteKeywords,
+    required String siteAuthor,
+    required String siteUrl,
+  }) async {
+    await _post(
+      '/api/admin/install',
+      auth: false,
+      authFailureAsSessionExpired: false,
+      body: {
+        'username': username,
+        'email': email,
+        'password': password,
+        'siteTitle': siteTitle,
+        'siteSubtitle': siteSubtitle,
+        'siteDescription': siteDescription,
+        'siteKeywords': siteKeywords,
+        'siteAuthor': siteAuthor,
+        'siteUrl': siteUrl,
+      },
+    );
+  }
+
   String normalizeBaseUrl(String rawBaseUrl) {
     String normalizedBaseUrl = rawBaseUrl.trim();
     while (normalizedBaseUrl.endsWith('/')) {
@@ -1717,12 +1746,17 @@ class AdminApiClient {
   void _check(http.Response res, {required bool authFailureAsSessionExpired}) {
     if (res.statusCode >= 200 && res.statusCode < 300) return;
 
+    Map<String, dynamic> responseMap = {};
     String message = '请求失败(${res.statusCode})';
     try {
-      final map = _map(jsonDecode(res.body));
-      final m = map['message']?.toString();
+      responseMap = _map(jsonDecode(res.body));
+      final m = responseMap['message']?.toString();
       if (m != null && m.isNotEmpty) message = m;
     } catch (_) {}
+
+    if (res.statusCode == 428 && responseMap['code'] == 'INSTALL_REQUIRED') {
+      throw InstallationRequiredException(message);
+    }
 
     if (res.statusCode == 401 && authFailureAsSessionExpired) {
       _notifySessionExpired();
@@ -1784,6 +1818,15 @@ class AdminApiClient {
     final base = Uri.parse(baseUrl);
     return base.resolve(trimmed).toString();
   }
+}
+
+class InstallationRequiredException implements Exception {
+  InstallationRequiredException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 class UnauthorizedException implements Exception {

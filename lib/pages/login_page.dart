@@ -5,11 +5,13 @@ class LoginPage extends StatefulWidget {
     super.key,
     required this.api,
     required this.onLogin,
+    this.onInstallationRequired,
     this.showSessionExpiredNotice = false,
   });
 
   final AdminApiClient api;
   final Future<void> Function(String baseUrl, String token) onLogin;
+  final void Function(String baseUrl)? onInstallationRequired;
   final bool showSessionExpiredNotice;
 
   @override
@@ -41,6 +43,10 @@ class _LoginPageState extends State<LoginPage> {
         password: passwordCtrl.text,
       );
       await widget.onLogin(widget.api.baseUrl, token);
+    } on InstallationRequiredException {
+      if (mounted) {
+        widget.onInstallationRequired?.call(widget.api.baseUrl);
+      }
     } catch (e) {
       if (!mounted) return;
       AdminFeedback.showSnackBar(context, SnackBar(content: Text('$e')));
@@ -506,19 +512,13 @@ class _SessionExpiredLoginDialogState extends State<SessionExpiredLoginDialog> {
                     Text(
                       t(context, 'token_expired'),
                       textAlign: TextAlign.center,
-                      style: Theme
-                          .of(context)
-                          .textTheme
-                          .titleLarge,
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       t(context, 'session_relogin_preserves_progress'),
                       textAlign: TextAlign.center,
-                      style: Theme
-                          .of(context)
-                          .textTheme
-                          .bodyMedium,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 24),
                     TextFormField(
@@ -529,9 +529,7 @@ class _SessionExpiredLoginDialogState extends State<SessionExpiredLoginDialog> {
                         prefixIcon: const Icon(Icons.link),
                       ),
                       validator: (String? baseUrl) {
-                        if (baseUrl == null || baseUrl
-                            .trim()
-                            .isEmpty) {
+                        if (baseUrl == null || baseUrl.trim().isEmpty) {
                           return t(context, 'required');
                         }
                         return null;
@@ -547,9 +545,7 @@ class _SessionExpiredLoginDialogState extends State<SessionExpiredLoginDialog> {
                         prefixIcon: const Icon(Icons.person_outline),
                       ),
                       validator: (String? account) {
-                        if (account == null || account
-                            .trim()
-                            .isEmpty) {
+                        if (account == null || account.trim().isEmpty) {
                           return t(context, 'required');
                         }
                         return null;
@@ -582,10 +578,7 @@ class _SessionExpiredLoginDialogState extends State<SessionExpiredLoginDialog> {
                         loginErrorMessage!,
                         key: const Key('sessionExpiredLoginError'),
                         style: TextStyle(
-                          color: Theme
-                              .of(context)
-                              .colorScheme
-                              .error,
+                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
                     ],
