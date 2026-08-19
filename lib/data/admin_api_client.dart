@@ -1722,6 +1722,7 @@ class AdminApiClient {
     final headers = <String, String>{};
     if (json) {
       headers['Content-Type'] = 'application/json';
+      headers['Accept'] = 'application/json';
     }
     if (auth) {
       if (token == null || token!.isEmpty) {
