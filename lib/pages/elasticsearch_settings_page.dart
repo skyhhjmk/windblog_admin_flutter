@@ -146,6 +146,7 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
     }
     bool logIndexInitialized = logIndex['indexInitialized'] == true;
     String logIndexHealth = logIndex['healthStatus']?.toString() ?? '未知';
+    String logIndexError = logIndex['initializationError']?.toString() ?? '';
 
     Color stateColor = Colors.grey;
     IconData stateIcon = Icons.help_outline;
@@ -189,6 +190,14 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
                 '日志索引：${logIndexInitialized ? '正常' : '未就绪'} ($logIndexHealth)',
               ),
             ),
+            if (logIndexError.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: Text(
+                  '日志索引初始化原因：$logIndexError',
+                  style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+                ),
+              ),
             if (lastError.isNotEmpty)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 620),
