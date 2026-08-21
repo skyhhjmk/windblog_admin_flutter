@@ -43,6 +43,133 @@ class AdminNotification {
   int navigationLeaves = 0;
 }
 
+/// Mirrors in-app notification-stack entries to the operating system's
+/// notification service. Web deliberately stays in-app: browser notifications
+/// require a separate browser-permission and service-worker integration.
+class _AdminSystemNotificationBridge {
+  static const _channelId = 'windblog_admin_notifications';
+  static const _channelName = 'WindBlog 管理通知';
+
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+  Future<bool>? _initialization;
+
+  Future<void> show(int id, AdminNotification notification) async {
+    if (kIsWeb || !await _ensureInitialized()) return;
+    try {
+      await _plugin.show(
+        id: id,
+        title: notification.title,
+        body: notification.message,
+        notificationDetails: _detailsFor(notification),
+        payload: notification.id,
+      );
+    } catch (_) {
+      // Native notifications are an enhancement; the in-app stack remains
+      // available when a platform service or test environment is unavailable.
+    }
+  }
+
+  Future<void> cancel(int id) async {
+    if (kIsWeb || !await _ensureInitialized()) return;
+    try {
+      await _plugin.cancel(id: id);
+    } catch (_) {
+      // See show(): cancellation must not affect the in-app notification.
+    }
+  }
+
+  Future<bool> _ensureInitialized() {
+    return _initialization ??= _initialize();
+  }
+
+  Future<bool> _initialize() async {
+    try {
+      final initialized = await _plugin.initialize(
+        settings: const InitializationSettings(
+          android: AndroidInitializationSettings('ic_stat_windblog'),
+          iOS: DarwinInitializationSettings(
+            requestAlertPermission: true,
+            requestBadgePermission: false,
+            requestSoundPermission: true,
+          ),
+          macOS: DarwinInitializationSettings(
+            requestAlertPermission: true,
+            requestBadgePermission: false,
+            requestSoundPermission: true,
+          ),
+          linux: LinuxInitializationSettings(defaultActionName: '打开通知'),
+          windows: WindowsInitializationSettings(
+            appName: 'WindBlog Admin',
+            appUserModelId: 'com.biliwind.blog.admin.windblog',
+            guid: '8d11c9e5-07bb-4a24-9350-2c0f593fcf9a',
+          ),
+        ),
+      );
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >()
+            ?.requestNotificationsPermission();
+      }
+      return initialized ?? true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  NotificationDetails _detailsFor(AdminNotification notification) {
+    final isActiveTask =
+        notification.kind == AdminNotificationKind.persistent &&
+        !notification.completed;
+    final progress =
+        notification.progressMode ==
+                AdminNotificationProgressMode.determinate &&
+            notification.progress != null
+        ? (notification.progress! * 100).round()
+        : 0;
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: 'WindBlog 管理后台的任务和操作通知',
+        importance: isActiveTask
+            ? Importance.low
+            : Importance.defaultImportance,
+        priority: isActiveTask ? Priority.low : Priority.defaultPriority,
+        ongoing: isActiveTask,
+        onlyAlertOnce: isActiveTask,
+        showProgress:
+            notification.progressMode != AdminNotificationProgressMode.none,
+        maxProgress: 100,
+        progress: progress,
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: false,
+        presentSound: true,
+      ),
+      macOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: false,
+        presentSound: true,
+      ),
+      linux: LinuxNotificationDetails(
+        category: LinuxNotificationCategory.im,
+        resident: isActiveTask,
+        transient: !isActiveTask,
+        defaultActionName: '打开通知',
+      ),
+      windows: WindowsNotificationDetails(
+        duration: isActiveTask
+            ? WindowsNotificationDuration.long
+            : WindowsNotificationDuration.short,
+      ),
+    );
+  }
+}
+
 class AdminNotificationController extends ChangeNotifier {
   static const int transientLimit = 5;
   static const int persistentVisibleLimit = 10;
@@ -51,6 +178,10 @@ class AdminNotificationController extends ChangeNotifier {
   final List<AdminNotification> _notifications = <AdminNotification>[];
   final Map<String, Timer> _expirationTimers = <String, Timer>{};
   final Map<String, Timer> _mediaPollingTimers = <String, Timer>{};
+  final _AdminSystemNotificationBridge _systemNotifications =
+      _AdminSystemNotificationBridge();
+  final Map<String, int> _systemNotificationIds = <String, int>{};
+  int _nextSystemNotificationId = 1;
   Timer? _persistenceTimer;
   DateTime? _lastPersistenceWrite;
   AdminApiClient? _api;
@@ -100,6 +231,7 @@ class AdminNotificationController extends ChangeNotifier {
       _remove(oldest.id, notify: false);
     }
     _scheduleExpiration(notification);
+    _showSystemNotification(notification);
     notifyListeners();
     return notification.id;
   }
@@ -126,6 +258,7 @@ class AdminNotificationController extends ChangeNotifier {
       existing.persistenceData.addAll(persistenceData);
       existing.completed = false;
       existing.navigationLeaves = 0;
+      _showSystemNotification(existing);
       notifyListeners();
       _persistActiveTasks();
       return existing.id;
@@ -145,6 +278,7 @@ class AdminNotificationController extends ChangeNotifier {
       persistenceData: Map<String, dynamic>.from(persistenceData),
     );
     _notifications.add(notification);
+    _showSystemNotification(notification);
     notifyListeners();
     _persistActiveTasks();
     return notification.id;
@@ -169,6 +303,7 @@ class AdminNotificationController extends ChangeNotifier {
       notification.progress = _normalizeProgress(progress);
     }
     if (reopen != null) notification.reopen = reopen;
+    _showSystemNotification(notification);
     notifyListeners();
     if (!notification.completed) _persistActiveTasks();
   }
@@ -190,6 +325,7 @@ class AdminNotificationController extends ChangeNotifier {
     notification.completed = true;
     notification.reopen = reopen ?? notification.reopen;
     _mediaPollingTimers.remove(taskId)?.cancel();
+    _showSystemNotification(notification);
     notifyListeners();
     _persistActiveTasks(immediate: true);
   }
@@ -210,6 +346,10 @@ class AdminNotificationController extends ChangeNotifier {
     _persistenceTimer?.cancel();
     _persistenceTimer = null;
     _notifications.clear();
+    for (final id in _systemNotificationIds.values) {
+      unawaited(_systemNotifications.cancel(id));
+    }
+    _systemNotificationIds.clear();
     _api = null;
     _restoring = false;
     unawaited(_clearPersistedTasks());
@@ -567,6 +707,8 @@ class AdminNotificationController extends ChangeNotifier {
     if (index < 0) return;
     _expirationTimers.remove(id)?.cancel();
     final notification = _notifications.removeAt(index);
+    final systemId = _systemNotificationIds.remove(id);
+    if (systemId != null) unawaited(_systemNotifications.cancel(systemId));
     if (notification.taskId != null) {
       _mediaPollingTimers.remove(notification.taskId!)?.cancel();
     }
@@ -576,6 +718,14 @@ class AdminNotificationController extends ChangeNotifier {
 
   String _newId() {
     return '${DateTime.now().microsecondsSinceEpoch}-${_notifications.length}';
+  }
+
+  void _showSystemNotification(AdminNotification notification) {
+    final id = _systemNotificationIds.putIfAbsent(
+      notification.id,
+      () => _nextSystemNotificationId++,
+    );
+    unawaited(_systemNotifications.show(id, notification));
   }
 
   double? _normalizeProgress(double? progress) {
@@ -693,26 +843,31 @@ class _AdminNotificationPanel extends StatelessWidget {
                   child: Card(
                     margin: EdgeInsets.zero,
                     elevation: 12,
-                    child: Scrollbar(
-                      thumbVisibility:
-                          items.length >
-                          AdminNotificationController.persistentVisibleLimit,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(10),
-                        shrinkWrap: true,
-                        itemCount: items.length,
-                        itemBuilder: (context, index) {
-                          final item = items[index];
-                          return _AdminNotificationCard(
-                            key: ValueKey<String>(item.id),
-                            item: item,
-                            onDismiss: () => controller.dismiss(item.id),
-                            onTap: item.reopen == null
-                                ? null
-                                : () => item.reopen!(context),
-                          );
-                        },
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.bottomRight,
+                      child: Scrollbar(
+                        thumbVisibility:
+                            items.length >
+                            AdminNotificationController.persistentVisibleLimit,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.all(10),
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            return _AdminNotificationCard(
+                              key: ValueKey<String>(item.id),
+                              item: item,
+                              onDismiss: () => controller.dismiss(item.id),
+                              onTap: item.reopen == null
+                                  ? null
+                                  : () => item.reopen!(context),
+                            );
+                          },
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        ),
                       ),
                     ),
                   ),
@@ -850,23 +1005,21 @@ class _AdminNotificationCard extends StatelessWidget {
             child: card,
           );
     return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutQuart,
       tween: Tween<double>(begin: 0, end: 1),
       child: interactiveCard,
       builder: (context, progress, child) {
         final remaining = 1 - progress;
-        final viewport = MediaQuery.sizeOf(context);
         return Opacity(
           opacity: progress.clamp(0.0, 1.0),
           child: Transform.translate(
-            offset: Offset(
-              -min(220, viewport.width * 0.35) * remaining,
-              -min(360, viewport.height * 0.35) * remaining,
-            ),
+            // The panel is anchored to the lower right, so new cards enter
+            // from the right instead of travelling diagonally across it.
+            offset: Offset(48 * remaining, 0),
             child: Transform.scale(
-              scale: 0.94 + (0.06 * progress),
-              alignment: Alignment.bottomRight,
+              scale: 0.98 + (0.02 * progress),
+              alignment: Alignment.centerRight,
               child: child,
             ),
           ),

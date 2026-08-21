@@ -1030,21 +1030,34 @@ class AdminApiClient {
     String key,
     dynamic value, {
     String? reason,
+    String? stepUpToken,
   }) async {
     final res = await _put(
       '/api/admin/settings/$key',
       body: {'configValue': value, 'reason': reason},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
     final map = _map(jsonDecode(res.body));
     return SystemSetting.fromMap(_map(map['data']));
   }
 
-  Future<void> confirmSystemSetting(String key) async {
-    await _post('/api/admin/settings/$key/confirm', body: const {});
+  Future<void> confirmSystemSetting(String key, {String? stepUpToken}) async {
+    await _post(
+      '/api/admin/settings/$key/confirm',
+      body: const {},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
   }
 
-  Future<void> rollbackSystemSetting(String key) async {
-    await _post('/api/admin/settings/$key/rollback', body: const {});
+  Future<void> rollbackSystemSetting(String key, {String? stepUpToken}) async {
+    await _post(
+      '/api/admin/settings/$key/rollback',
+      body: const {},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
   }
 
   Future<List<SystemSettingHistory>> listSystemSettingHistory(
@@ -1681,11 +1694,17 @@ class AdminApiClient {
     String path, {
     Map<String, dynamic> body = const {},
     Map<String, String>? query,
+    String? stepUpToken,
+    String? idempotencyKey,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.put(
       uri,
-      headers: _headers(true),
+      headers: _headers(
+        true,
+        stepUpToken: stepUpToken,
+        idempotencyKey: idempotencyKey,
+      ),
       body: jsonEncode(body),
     );
     _check(res, authFailureAsSessionExpired: true);

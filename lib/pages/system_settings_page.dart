@@ -19,6 +19,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   String? _error;
   List<SystemSetting> _settings = [];
   String? _selectedGroup;
+  String? _stepUpToken;
+  DateTime? _stepUpTokenExpiresAt;
 
   @override
   void initState() {
@@ -345,7 +347,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: headerValueController,
-                      decoration: const InputDecoration(labelText: '模拟客户端 IP 请求头值'),
+                      decoration: const InputDecoration(
+                        labelText: '模拟客户端 IP 请求头值',
+                      ),
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton(
@@ -387,11 +391,20 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     remoteIpController.dispose();
     headerValueController.dispose();
   }
+
   Future<void> _saveSetting(String key, Map<String, dynamic> values) async {
+    final stepUpToken = await _getStepUpToken();
+    if (stepUpToken == null) return;
     try {
-      await widget.api.updateSystemSetting(key, values, reason: '管理员在后台手动修改');
+      await widget.api.updateSystemSetting(
+        key,
+        values,
+        reason: '管理员在后台手动修改',
+        stepUpToken: stepUpToken,
+      );
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(
             content: Text(t(context, 'config_save_success_verifying')),
             backgroundColor: Colors.orange,
@@ -401,7 +414,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       }
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
         );
       }
@@ -409,10 +423,13 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   }
 
   Future<void> _confirmSetting(String key) async {
+    final stepUpToken = await _getStepUpToken();
+    if (stepUpToken == null) return;
     try {
-      await widget.api.confirmSystemSetting(key);
+      await widget.api.confirmSystemSetting(key, stepUpToken: stepUpToken);
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(
             content: Text(t(context, 'config_confirmed')),
             backgroundColor: Colors.green,
@@ -422,7 +439,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       }
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('操作失败: $e'), backgroundColor: Colors.red),
         );
       }
@@ -430,10 +448,13 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   }
 
   Future<void> _rollbackSetting(String key) async {
+    final stepUpToken = await _getStepUpToken();
+    if (stepUpToken == null) return;
     try {
-      await widget.api.rollbackSystemSetting(key);
+      await widget.api.rollbackSystemSetting(key, stepUpToken: stepUpToken);
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(
             content: Text(t(context, 'config_rolled_back')),
             backgroundColor: Colors.blue,
@@ -443,10 +464,69 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       }
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('操作失败: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  Future<String?> _getStepUpToken() async {
+    final expiresAt = _stepUpTokenExpiresAt;
+    if (_stepUpToken != null &&
+        expiresAt != null &&
+        DateTime.now().isBefore(expiresAt)) {
+      return _stepUpToken;
+    }
+
+    final password = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('确认系统设置修改'),
+        content: TextField(
+          controller: password,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: '管理员密码'),
+          onSubmitted: (_) => Navigator.pop(dialogContext, true),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+    final rawPassword = password.text;
+    password.dispose();
+    if (confirmed != true || rawPassword.isEmpty) return null;
+
+    try {
+      final token = await widget.api.issueAdminStepUp(rawPassword);
+      // The server token is valid for five minutes; leave a small margin for clock and request delay.
+      _stepUpToken = token;
+      _stepUpTokenExpiresAt = DateTime.now().add(
+        const Duration(minutes: 4, seconds: 30),
+      );
+      return token;
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(
+            content: Text('高风险操作授权失败：$error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return null;
     }
   }
 
