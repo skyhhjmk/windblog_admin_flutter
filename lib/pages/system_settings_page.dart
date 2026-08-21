@@ -19,8 +19,6 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   String? _error;
   List<SystemSetting> _settings = [];
   String? _selectedGroup;
-  String? _stepUpToken;
-  DateTime? _stepUpTokenExpiresAt;
 
   @override
   void initState() {
@@ -355,9 +353,12 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                     OutlinedButton(
                       onPressed: () async {
                         try {
+                          final stepUpToken = await _getStepUpToken();
+                          if (stepUpToken == null) return;
                           final result = await widget.api.simulateClientIp(
                             remoteIp: remoteIpController.text.trim(),
                             headerValue: headerValueController.text.trim(),
+                            stepUpToken: stepUpToken,
                           );
                           setDialogState(() {
                             simulatedResult = result;
@@ -473,61 +474,11 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   }
 
   Future<String?> _getStepUpToken() async {
-    final expiresAt = _stepUpTokenExpiresAt;
-    if (_stepUpToken != null &&
-        expiresAt != null &&
-        DateTime.now().isBefore(expiresAt)) {
-      return _stepUpToken;
-    }
-
-    final password = TextEditingController();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('确认系统设置修改'),
-        content: TextField(
-          controller: password,
-          obscureText: true,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '管理员密码'),
-          onSubmitted: (_) => Navigator.pop(dialogContext, true),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确认'),
-          ),
-        ],
-      ),
+    return AdminStepUpAuthorization.obtain(
+      context,
+      widget.api,
+      title: '确认系统设置操作',
     );
-    final rawPassword = password.text;
-    password.dispose();
-    if (confirmed != true || rawPassword.isEmpty) return null;
-
-    try {
-      final token = await widget.api.issueAdminStepUp(rawPassword);
-      // The server token is valid for five minutes; leave a small margin for clock and request delay.
-      _stepUpToken = token;
-      _stepUpTokenExpiresAt = DateTime.now().add(
-        const Duration(minutes: 4, seconds: 30),
-      );
-      return token;
-    } catch (error) {
-      if (mounted) {
-        AdminFeedback.showSnackBar(
-          context,
-          SnackBar(
-            content: Text('高风险操作授权失败：$error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return null;
-    }
   }
 
   String _getGroupLabel(String g) {

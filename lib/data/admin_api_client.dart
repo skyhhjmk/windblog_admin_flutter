@@ -1084,19 +1084,28 @@ class AdminApiClient {
   Future<Map<String, dynamic>> simulateClientIp({
     required String remoteIp,
     required String headerValue,
+    String? stepUpToken,
   }) async {
     final res = await _post(
       '/api/admin/settings/client-ip/simulate',
       body: {'remoteIp': remoteIp, 'headerValue': headerValue},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
     final map = _map(jsonDecode(res.body));
     return _map(map['data']);
   }
 
-  Future<void> applyAuditSettingValue(String key, dynamic value) async {
+  Future<void> applyAuditSettingValue(
+    String key,
+    dynamic value, {
+    String? stepUpToken,
+  }) async {
     await _post(
       '/api/admin/settings/apply-audit-value',
       body: {'key': key, 'value': value},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
   }
 

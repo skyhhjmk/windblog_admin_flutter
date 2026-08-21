@@ -61,7 +61,8 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
@@ -73,12 +74,12 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
   }
 
   void _onSearch() {
-      setState(() {
-        _entityType = _entityTypeCtrl.text.trim();
-        _action = _actionCtrl.text.trim();
-        _requestId = _requestIdCtrl.text.trim();
-        _page = 1;
-      });
+    setState(() {
+      _entityType = _entityTypeCtrl.text.trim();
+      _action = _actionCtrl.text.trim();
+      _requestId = _requestIdCtrl.text.trim();
+      _page = 1;
+    });
     _loadData();
   }
 
@@ -185,14 +186,14 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
   String _buildSubtitle(BuildContext context, AuditLogItem item) {
     final parts = <String>[];
 
-    final operatorName = item.performedByUsername == null || item.performedByUsername!.isEmpty
+    final operatorName =
+        item.performedByUsername == null || item.performedByUsername!.isEmpty
         ? t(context, 'system_unknown')
         : item.performedByUsername!;
     parts.add('${t(context, 'operator')}: $operatorName');
 
-    final timeText = item.createdAtFormatted ??
-        item.createdAt?.toString() ??
-        '';
+    final timeText =
+        item.createdAtFormatted ?? item.createdAt?.toString() ?? '';
     if (timeText.isNotEmpty) {
       parts.add('${t(context, 'time')}: $timeText');
     }
@@ -294,6 +295,14 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
     );
 
     if (confirm != true) return;
+    if (!mounted) return;
+
+    final stepUpToken = await AdminStepUpAuthorization.obtain(
+      context,
+      widget.api,
+      title: '确认应用系统设置历史值',
+    );
+    if (stepUpToken == null) return;
 
     setState(() => _applying = true);
     try {
@@ -301,10 +310,15 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
       final configValue = (value is Map && value.containsKey('value'))
           ? value['value']
           : value;
-      await widget.api.applyAuditSettingValue(key.toString(), configValue);
+      await widget.api.applyAuditSettingValue(
+        key.toString(),
+        configValue,
+        stepUpToken: stepUpToken,
+      );
       if (mounted) {
         Navigator.pop(context);
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           const SnackBar(
             content: Text('配置已应用并进入验证期'),
             backgroundColor: Colors.orange,
@@ -313,7 +327,8 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
       }
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('应用失败: $e'), backgroundColor: Colors.red),
         );
       }

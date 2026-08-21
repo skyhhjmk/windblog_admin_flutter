@@ -245,10 +245,9 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
                     children: [
                       Text(
                         '基础连接配置',
-                        style:
-                            Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -327,10 +326,9 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
                     children: [
                       Text(
                         '同义词规则',
-                        style:
-                            Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -447,7 +445,9 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
-            const Text('修改连接参数或分词器后，先保存设置，再应用配置。同义词规则已经拆到单独页面，保存并确认后再回到这里执行索引操作。已有文章索引需要重建后才会使用新规则。'),
+            const Text(
+              '修改连接参数或分词器后，先保存设置，再应用配置。同义词规则已经拆到单独页面，保存并确认后再回到这里执行索引操作。已有文章索引需要重建后才会使用新规则。',
+            ),
             const SizedBox(height: 16),
             Wrap(
               spacing: 10,
@@ -506,11 +506,14 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
   }
 
   Future<void> _saveSetting(Map<String, dynamic> values) async {
+    final stepUpToken = await _obtainStepUp();
+    if (stepUpToken == null) return;
     await _runAction(() async {
       await widget.api.updateSystemSetting(
         settingKey,
         values,
         reason: '管理员修改 Elasticsearch 设置',
+        stepUpToken: stepUpToken,
       );
       return '设置已保存，正在等待配置确认';
     }, reloadAfterSuccess: true);
@@ -533,18 +536,34 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
   }
 
   Future<void> _confirmSetting() async {
+    final stepUpToken = await _obtainStepUp();
+    if (stepUpToken == null) return;
     await _runAction(() async {
-      await widget.api.confirmSystemSetting(settingKey);
+      await widget.api.confirmSystemSetting(
+        settingKey,
+        stepUpToken: stepUpToken,
+      );
       return '设置已确认';
     }, reloadAfterSuccess: true);
   }
 
   Future<void> _rollbackSetting() async {
+    final stepUpToken = await _obtainStepUp();
+    if (stepUpToken == null) return;
     await _runAction(() async {
-      await widget.api.rollbackSystemSetting(settingKey);
+      await widget.api.rollbackSystemSetting(
+        settingKey,
+        stepUpToken: stepUpToken,
+      );
       return '设置已回滚';
     }, reloadAfterSuccess: true);
   }
+
+  Future<String?> _obtainStepUp() => AdminStepUpAuthorization.obtain(
+    context,
+    widget.api,
+    title: '确认 Elasticsearch 设置操作',
+  );
 
   Future<void> _applyIndexConfiguration() async {
     await _runAction(() async {
@@ -658,7 +677,8 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
                             });
                           } catch (exception) {
                             if (dialogContext.mounted) {
-                              AdminFeedback.showSnackBar(dialogContext,
+                              AdminFeedback.showSnackBar(
+                                dialogContext,
                                 SnackBar(
                                   content: Text('分词预览失败：$exception'),
                                   backgroundColor: Colors.red,
@@ -696,7 +716,8 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
       if (!mounted) {
         return;
       }
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text(message), backgroundColor: Colors.green),
       );
       if (reloadAfterSuccess) {
@@ -706,7 +727,8 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
       widget.onAuthError();
     } catch (exception) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(
             content: Text('操作失败：$exception'),
             backgroundColor: Colors.red,

@@ -22,6 +22,7 @@ import 'components/web_stub.dart'
 import 'utils/storage_service.dart';
 
 part 'components/admin_ui.dart';
+part 'components/admin_step_up.dart';
 part 'components/notification_center.dart';
 part 'pages/login_page.dart';
 part 'pages/installation_page.dart';

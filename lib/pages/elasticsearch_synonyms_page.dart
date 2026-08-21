@@ -180,35 +180,28 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
                     color: accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: Icon(
-                    Icons.account_tree,
-                    color: accentColor,
-                    size: 30,
-                  ),
+                  child: Icon(Icons.account_tree, color: accentColor, size: 30),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       '同义词规则单独管理',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      '在这里维护词条关系，保存后仍然沿用 Elasticsearch 主配置的确认和回滚流程。',
-                    ),
+                    const Text('在这里维护词条关系，保存后仍然沿用 Elasticsearch 主配置的确认和回滚流程。'),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 20),
-    Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _buildMetricChip(
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildMetricChip(
                   icon: Icons.rule,
                   label: '规则总数',
                   value: synonymRules.length.toString(),
@@ -231,16 +224,16 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
                   label: '词条总数',
                   value: termCount.toString(),
                   color: Colors.teal,
-        ),
-      ],
-    ),
-    const SizedBox(height: 16),
-    _buildConnectionSummary(),
-    if (currentSetting != null && currentSetting.isFrozen) ...[
-      const SizedBox(height: 16),
-      const AlertBanner(
-        message: '当前同义词配置已冻结，先解除冻结后才能修改。',
-        type: AlertType.warning,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildConnectionSummary(),
+            if (currentSetting != null && currentSetting.isFrozen) ...[
+              const SizedBox(height: 16),
+              const AlertBanner(
+                message: '当前同义词配置已冻结，先解除冻结后才能修改。',
+                type: AlertType.warning,
               ),
             ],
           ],
@@ -360,9 +353,9 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
           children: [
             Text(
               '关系图例',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 14),
             Wrap(
@@ -451,11 +444,7 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
 
     if (synonymFields.isEmpty) {
       synonymFields.add(
-        UISchemaField(
-          key: 'synonyms',
-          label: '同义词规则',
-          widget: 'synonym_cards',
-        ),
+        UISchemaField(key: 'synonyms', label: '同义词规则', widget: 'synonym_cards'),
       );
     }
 
@@ -485,10 +474,9 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
                     children: [
                       Text(
                         '规则编辑器',
-                        style:
-                            Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -567,29 +555,48 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
   }
 
   Future<void> _saveSynonymRules(Map<String, dynamic> values) async {
+    final stepUpToken = await _obtainStepUp();
+    if (stepUpToken == null) return;
     await _runAction(() async {
       await widget.api.updateSystemSetting(
         settingKey,
         values,
         reason: '管理员修改 Elasticsearch 同义词规则',
+        stepUpToken: stepUpToken,
       );
       return '同义词规则已保存，等待确认后生效';
     }, reloadAfterSuccess: true);
   }
 
   Future<void> _confirmSetting() async {
+    final stepUpToken = await _obtainStepUp();
+    if (stepUpToken == null) return;
     await _runAction(() async {
-      await widget.api.confirmSystemSetting(settingKey);
+      await widget.api.confirmSystemSetting(
+        settingKey,
+        stepUpToken: stepUpToken,
+      );
       return '同义词规则已确认';
     }, reloadAfterSuccess: true);
   }
 
   Future<void> _rollbackSetting() async {
+    final stepUpToken = await _obtainStepUp();
+    if (stepUpToken == null) return;
     await _runAction(() async {
-      await widget.api.rollbackSystemSetting(settingKey);
+      await widget.api.rollbackSystemSetting(
+        settingKey,
+        stepUpToken: stepUpToken,
+      );
       return '同义词规则已回滚';
     }, reloadAfterSuccess: true);
   }
+
+  Future<String?> _obtainStepUp() => AdminStepUpAuthorization.obtain(
+    context,
+    widget.api,
+    title: '确认 Elasticsearch 同义词设置操作',
+  );
 
   Future<void> _runAction(
     Future<String> Function() action, {
@@ -603,7 +610,8 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
       if (!mounted) {
         return;
       }
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text(message), backgroundColor: Colors.green),
       );
       if (reloadAfterSuccess) {
@@ -613,7 +621,8 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
       widget.onAuthError();
     } catch (exception) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(
             content: Text('操作失败：$exception'),
             backgroundColor: Colors.red,
