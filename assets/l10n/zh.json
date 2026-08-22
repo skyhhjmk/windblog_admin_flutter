@@ -40,6 +40,7 @@
   "private": "私有",
   "protected": "受保护",
   "render_type": "渲染类型",
+  "back": "返回",
   "cancel": "取消",
   "save": "保存",
   "edit": "编辑",

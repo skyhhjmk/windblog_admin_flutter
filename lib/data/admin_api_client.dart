@@ -13,6 +13,7 @@ class AdminApiClient {
   String baseUrl = 'http://localhost:8080';
   String? token;
   VoidCallback? onSessionExpired;
+  VoidCallback? onStepUpExpired;
   bool _sessionExpiredNotified = false;
 
   Future<void> install({
@@ -848,14 +849,82 @@ class AdminApiClient {
   }
 
   Future<Map<String, dynamic>> testImportConnection(
-    Map<String, dynamic> body,
-  ) async {
-    final res = await _post('/api/admin/import/test-connection', body: body);
+    Map<String, dynamic> body, {
+    required String stepUpToken,
+  }) async {
+    final res = await _post(
+      '/api/admin/import/test-connection',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
     return _map(jsonDecode(res.body));
   }
 
-  Future<Map<String, dynamic>> doImport(Map<String, dynamic> body) async {
-    final res = await _post('/api/admin/import', body: body);
+  Future<Map<String, dynamic>> analyzeImportDatabase(
+    Map<String, dynamic> body, {
+    required String stepUpToken,
+  }) async {
+    final res = await _post(
+      '/api/admin/import/analyze',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> analyzeImportSqlFile({
+    required String fileName,
+    required Uint8List bytes,
+    required String stepUpToken,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/admin/import/analyze-sql');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers.addAll(
+      _headers(
+        true,
+        json: false,
+        stepUpToken: stepUpToken,
+        idempotencyKey: _newIdempotencyKey(),
+      ),
+    );
+    request.files.add(
+      http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+    );
+    final response = await http.Response.fromStream(await request.send());
+    _check(response, authFailureAsSessionExpired: true);
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<Map<String, dynamic>> getImportAnalysis(String analysisId) async {
+    final res = await _get('/api/admin/import/analysis/$analysisId');
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> executeImport(
+    Map<String, dynamic> body, {
+    required String stepUpToken,
+  }) async {
+    final res = await _post(
+      '/api/admin/import/execute',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> doImport(
+    Map<String, dynamic> body, {
+    required String stepUpToken,
+  }) async {
+    final res = await _post(
+      '/api/admin/import',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
     return _map(jsonDecode(res.body));
   }
 
@@ -1787,7 +1856,17 @@ class AdminApiClient {
       throw InstallationRequiredException(message);
     }
 
-    if (res.statusCode == 401 && authFailureAsSessionExpired) {
+    if (res.statusCode == 428 && responseMap['code'] == 'STEP_UP_REQUIRED') {
+      onStepUpExpired?.call();
+      throw Exception('高风险操作授权已失效，请重新输入管理员密码');
+    }
+
+    final responseCode = responseMap['code']?.toString();
+    final bearerTokenInvalid = responseCode == 'AUTH_TOKEN_INVALID' ||
+        responseCode == 'AUTH_ACCOUNT_INVALID' ||
+        responseCode == 'ADMIN_ROLE_REQUIRED';
+    if (res.statusCode == 401 &&
+        (authFailureAsSessionExpired || bearerTokenInvalid)) {
       _notifySessionExpired();
       throw UnauthorizedException('登录已过期，请重新登录');
     }

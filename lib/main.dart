@@ -172,6 +172,7 @@ class _AdminRootPageState extends State<AdminRootPage> {
   void initState() {
     super.initState();
     api.onSessionExpired = _handleSessionExpired;
+    api.onStepUpExpired = AdminStepUpAuthorization.clear;
     _loadSession();
   }
 
@@ -246,6 +247,7 @@ class _AdminRootPageState extends State<AdminRootPage> {
 
   void onLogout() async {
     notificationController.clear();
+    AdminStepUpAuthorization.clear();
     api.token = null;
     user = null;
     _showSessionExpiredLogin = false;
@@ -260,6 +262,7 @@ class _AdminRootPageState extends State<AdminRootPage> {
     }
 
     api.token = null;
+    AdminStepUpAuthorization.clear();
     setState(() {
       _showSessionExpiredLogin = true;
       _showSessionExpiredNotice = true;

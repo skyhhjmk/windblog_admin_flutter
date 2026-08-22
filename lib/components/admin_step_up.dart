@@ -8,6 +8,12 @@ class AdminStepUpAuthorization {
   static String? _stepUpToken;
   static DateTime? _expiresAt;
 
+  static void clear() {
+    _bearerToken = null;
+    _stepUpToken = null;
+    _expiresAt = null;
+  }
+
   static Future<String?> obtain(
     BuildContext context,
     AdminApiClient api, {
@@ -59,6 +65,9 @@ class AdminStepUpAuthorization {
       _expiresAt = DateTime.now().add(const Duration(minutes: 4, seconds: 30));
       return token;
     } catch (error) {
+      if (error is UnauthorizedException) {
+        clear();
+      }
       if (context.mounted) {
         AdminFeedback.showSnackBar(
           context,

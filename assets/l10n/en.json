@@ -40,6 +40,7 @@
   "private": "Private",
   "protected": "Protected",
   "render_type": "Render Type",
+  "back": "Back",
   "cancel": "Cancel",
   "save": "Save",
   "edit": "Edit",
