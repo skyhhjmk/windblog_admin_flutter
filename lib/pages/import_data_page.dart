@@ -38,6 +38,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
   final List<String> _logs = [];
   final List<Map<String, dynamic>> _recentDownloads = [];
   StreamSubscription? _importSub;
+  Timer? _importReconnectTimer;
   static const int _urlPageSize = 20;
   int _urlPage = 1;
   String _urlTypeFilter = 'ALL';
@@ -229,24 +230,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
       _currentDownload = null;
     });
 
-    _importSub = widget.api.importStream().listen(
-      (event) {
-        if (!mounted) return;
-        _handleImportEvent(event);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_logScrollController.hasClients) {
-            _logScrollController.animateTo(
-              _logScrollController.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-            );
-          }
-        });
-      },
-      onError: (error) {
-        if (mounted) setState(() => _logs.add('❌ 连接流错误：$error'));
-      },
-    );
+    _listenImportProgress();
 
     final result = await AdminRequestRunner.run<Map<String, dynamic>>(
       context: context,
@@ -275,7 +259,45 @@ class _ImportDataPageState extends State<ImportDataPage> {
             : result['message']?.toString() ?? '导入失败';
       });
     }
+    _importReconnectTimer?.cancel();
+    _importReconnectTimer = null;
     await _importSub?.cancel();
+  }
+
+  void _listenImportProgress() {
+    _importSub?.cancel();
+    _importSub = widget.api.importStream().listen(
+      (event) {
+        if (!mounted) return;
+        _handleImportEvent(event);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_logScrollController.hasClients) {
+            _logScrollController.animateTo(
+              _logScrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      },
+      onError: (error) {
+        if (mounted) {
+          setState(() => _logs.add('❌ 连接流错误，将自动重连：$error'));
+        }
+        _scheduleImportProgressReconnect();
+      },
+      onDone: () => _scheduleImportProgressReconnect(),
+    );
+  }
+
+  void _scheduleImportProgressReconnect() {
+    if (!mounted || !_isImporting || _importReconnectTimer?.isActive == true) {
+      return;
+    }
+    _importReconnectTimer = Timer(const Duration(seconds: 2), () {
+      _importReconnectTimer = null;
+      if (mounted && _isImporting) _listenImportProgress();
+    });
   }
 
   void _handleImportEvent(Map<String, dynamic> event) {
@@ -293,16 +315,20 @@ class _ImportDataPageState extends State<ImportDataPage> {
       'end' => '✅ ',
       _ => '',
     };
-    if (type == 'overall') {
-      _overallCompleted = (data['completed'] as num?)?.toInt() ?? _overallCompleted;
+    if (type == 'overall' || type == 'heartbeat') {
+      _overallCompleted =
+          (data['completed'] as num?)?.toInt() ?? _overallCompleted;
       _overallTotal = (data['total'] as num?)?.toInt() ?? _overallTotal;
       final percent = (data['percent'] as num?)?.toDouble();
-      _overallProgress = percent == null ? null : (percent / 100).clamp(0.0, 1.0);
+      _overallProgress = percent == null
+          ? null
+          : (percent / 100).clamp(0.0, 1.0);
       _overallPhase = data['phase']?.toString() ?? _overallPhase;
     } else if (type == 'download') {
       _currentDownload = data;
       _successfulDownloads =
-          (data['successfulResources'] as num?)?.toInt() ?? _successfulDownloads;
+          (data['successfulResources'] as num?)?.toInt() ??
+          _successfulDownloads;
       _failedDownloads =
           (data['failedResources'] as num?)?.toInt() ?? _failedDownloads;
       final phase = data['phase']?.toString();
@@ -314,7 +340,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
         if (_recentDownloads.length > 20) _recentDownloads.removeLast();
       }
     }
-    final shouldLog = type != 'download' ||
+    final shouldLog = (type != 'download' && type != 'heartbeat') ||
         data['phase'] == 'started' ||
         data['phase'] == 'completed' ||
         data['phase'] == 'failed';
@@ -325,6 +351,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
 
   @override
   void dispose() {
+    _importReconnectTimer?.cancel();
     _importSub?.cancel();
     _logScrollController.dispose();
     _urlController.dispose();
