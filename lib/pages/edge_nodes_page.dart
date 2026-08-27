@@ -1141,7 +1141,7 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
     StateSetter? certDownloaderSetState;
     String selectedImageVariant = 'native-micro';
     final imageReferenceController = TextEditingController(
-      text: 'ghcr.io/hhjmk/windblog_quarkus:latest',
+      text: 'ghcr.io/skyhhjmk/windblog_quarkus:latest',
     );
 
     try {
@@ -1210,7 +1210,7 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
                             enabled: !isDownloading,
                             decoration: const InputDecoration(
                               labelText: '镜像完全限定名称',
-                              hintText: 'ghcr.io/hhjmk/windblog_quarkus:latest',
+                              hintText: 'ghcr.io/skyhhjmk/windblog_quarkus:latest',
                               helperText: '必须包含注册表或命名空间，以及 tag 或 digest',
                               border: OutlineInputBorder(),
                             ),
@@ -1537,12 +1537,12 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
 
   String _defaultEdgeImageReference(String imageVariant) {
     if (imageVariant == 'native') {
-      return 'ghcr.io/hhjmk/windblog_quarkus:latest-native';
+      return 'ghcr.io/skyhhjmk/windblog_quarkus:latest-native';
     }
     if (imageVariant == 'jvm') {
-      return 'ghcr.io/hhjmk/windblog_quarkus:latest-jvm';
+      return 'ghcr.io/skyhhjmk/windblog_quarkus:latest-jvm';
     }
-    return 'ghcr.io/hhjmk/windblog_quarkus:latest';
+    return 'ghcr.io/skyhhjmk/windblog_quarkus:latest';
   }
 
   Widget _buildSectionTitle(String title) {
