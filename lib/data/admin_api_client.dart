@@ -122,6 +122,11 @@ class AdminApiClient {
     return _map(map['data']);
   }
 
+  Future<Map<String, dynamic>> codexCreatorStatus() async {
+    final res = await _get('/api/admin/codex-creator/status');
+    return _map(jsonDecode(res.body));
+  }
+
   Future<List<AiProviderConfig>> listAiProviders() async {
     final res = await _get('/api/admin/ai/providers');
     final list = (jsonDecode(res.body) as List<dynamic>? ?? []);

@@ -256,6 +256,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.speed,
         submenuParent: '系统设置',
       ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: 'Codex Creator',
+        icon: Icons.auto_awesome_outlined,
+        selectedIcon: Icons.auto_awesome,
+        submenuParent: '系统设置',
+      ),
     ];
   }
 
@@ -289,6 +296,7 @@ class _HomePageState extends State<HomePage> {
     26: Color(0xFF7C3AED), // Outbox Audit: Violet
     27: Color(0xFFDC2626), // Security Services: Red
     28: Color(0xFF0EA5E9), // AMP / SEO: Sky
+    29: Color(0xFF7C3AED), // Codex Creator: Violet
   };
 
   @override
@@ -1101,6 +1109,11 @@ class _HomePageState extends State<HomePage> {
         );
       case 28:
         return AmpSettingsPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
+      case 29:
+        return CodexCreatorPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
