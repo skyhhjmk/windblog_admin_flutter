@@ -48,7 +48,10 @@ class AdminStepUpAuthorization {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确认'),
+            child: AdminShortcutText(
+              '确认',
+              AdminShortcutDefinitions.keyByAction['submit']!,
+            ),
           ),
         ],
       ),

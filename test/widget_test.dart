@@ -7,6 +7,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:windblog_admin_flutter/data/admin_api_client.dart';
@@ -92,6 +93,43 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(LoginPage), findsOneWidget);
     expect(find.text('WindBlog Admin Panel'), findsOneWidget);
+  });
+
+  testWidgets('Ctrl+K focuses the current admin search field', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminShortcutHost(
+          child: Scaffold(
+            body: Column(
+              children: [
+                const TextField(key: Key('unrelatedField')),
+                AdminShortcutSearchField(
+                  key: const Key('adminSearchField'),
+                  decoration: const InputDecoration(labelText: '搜索'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('unrelatedField')));
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    final searchField = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const Key('adminSearchField')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(searchField.focusNode?.hasFocus, isTrue);
   });
 
   testWidgets('session expired login keeps authenticated workspace state', (

@@ -297,6 +297,9 @@ class _LoginPageState extends State<LoginPage> {
                             TextFormField(
                               controller: passwordCtrl,
                               obscureText: true,
+                              onFieldSubmitted: (_) {
+                                if (!loading) submit();
+                              },
                               decoration: InputDecoration(
                                 labelText: t(context, 'password'),
                                 prefixIcon: const Icon(
@@ -370,8 +373,10 @@ class _LoginPageState extends State<LoginPage> {
                                           strokeWidth: 2.5,
                                         ),
                                       )
-                                    : Text(
+                                    : AdminShortcutText(
                                         t(context, 'login'),
+                                        AdminShortcutDefinitions
+                                            .keyByAction['submit']!,
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
@@ -585,7 +590,12 @@ class _SessionExpiredLoginDialogState extends State<SessionExpiredLoginDialog> {
                     const SizedBox(height: 24),
                     FilledButton(
                       onPressed: loginButtonAction,
-                      child: loginButtonChild,
+                      child: loginButtonAction == null
+                          ? loginButtonChild
+                          : AdminShortcutText(
+                              t(context, 'login'),
+                              AdminShortcutDefinitions.keyByAction['submit']!,
+                            ),
                     ),
                   ],
                 ),

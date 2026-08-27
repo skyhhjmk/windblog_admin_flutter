@@ -67,7 +67,8 @@ class _PostsPageState extends State<PostsPage> {
       if (!mounted) return;
       setState(() => _isTreeLoading = false);
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(
             content: Text('${t(context, 'load_categories_failed')}: $e'),
           ),
@@ -141,7 +142,8 @@ class _PostsPageState extends State<PostsPage> {
         _categoryTreeCache[categoryId] = node.copyWith(isLoading: false);
       });
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'load_posts_failed')}: $e')),
         );
       }
@@ -227,7 +229,8 @@ class _PostsPageState extends State<PostsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'operation_failed')}: $e')),
         );
       }
@@ -333,7 +336,8 @@ class _PostsPageState extends State<PostsPage> {
                   widget.onAuthError();
                 } catch (e) {
                   if (mounted) {
-                    AdminFeedback.showSnackBar(context,
+                    AdminFeedback.showSnackBar(
+                      context,
                       SnackBar(
                         content: Text('${t(context, 'operation_failed')}: $e'),
                       ),
@@ -378,7 +382,8 @@ class _PostsPageState extends State<PostsPage> {
                   widget.onAuthError();
                 } catch (e) {
                   if (mounted) {
-                    AdminFeedback.showSnackBar(context,
+                    AdminFeedback.showSnackBar(
+                      context,
                       SnackBar(
                         content: Text('${t(context, 'operation_failed')}: $e'),
                       ),
@@ -658,7 +663,7 @@ class _PostsPageState extends State<PostsPage> {
   Widget build(BuildContext context) {
     Widget searchField = SizedBox(
       width: AdminBreakpoints.isPhone(context) ? double.infinity : 260,
-      child: TextField(
+      child: AdminShortcutSearchField(
         controller: keywordCtrl,
         decoration: InputDecoration(
           hintText: t(context, 'search_hint'),
@@ -697,7 +702,10 @@ class _PostsPageState extends State<PostsPage> {
               load();
             },
             icon: const Icon(Icons.search, size: 18),
-            label: Text(t(context, 'search')),
+            label: AdminShortcutText(
+              t(context, 'search'),
+              AdminShortcutDefinitions.keyByAction['search']!,
+            ),
           ),
           OutlinedButton.icon(
             icon: Icon(_isTreeView ? Icons.view_list : Icons.account_tree),
@@ -738,4 +746,3 @@ class _PostsPageState extends State<PostsPage> {
     );
   }
 }
-

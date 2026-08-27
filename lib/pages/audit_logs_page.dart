@@ -98,7 +98,7 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
         children: [
           SizedBox(
             width: AdminBreakpoints.isPhone(context) ? double.infinity : 220,
-            child: TextField(
+            child: AdminShortcutSearchField(
               controller: _entityTypeCtrl,
               decoration: InputDecoration(
                 labelText: t(context, 'entity_type_hint'),
@@ -132,7 +132,10 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
           FilledButton.icon(
             onPressed: _onSearch,
             icon: const Icon(Icons.search),
-            label: Text(t(context, 'search')),
+            label: AdminShortcutText(
+              t(context, 'search'),
+              AdminShortcutDefinitions.keyByAction['search']!,
+            ),
           ),
         ],
       ),

@@ -340,7 +340,8 @@ class _ImportDataPageState extends State<ImportDataPage> {
         if (_recentDownloads.length > 20) _recentDownloads.removeLast();
       }
     }
-    final shouldLog = (type != 'download' && type != 'heartbeat') ||
+    final shouldLog =
+        (type != 'download' && type != 'heartbeat') ||
         data['phase'] == 'started' ||
         data['phase'] == 'completed' ||
         data['phase'] == 'failed';
@@ -765,7 +766,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
               children: [
                 SizedBox(
                   width: 280,
-                  child: TextField(
+                  child: AdminShortcutSearchField(
                     controller: _urlSearchController,
                     decoration: const InputDecoration(
                       labelText: '过滤 URL',
@@ -857,86 +858,153 @@ class _ImportDataPageState extends State<ImportDataPage> {
 
   Widget _buildEmbeddedImagesCard(BuildContext context) {
     final report = _reportMap('embeddedImages');
-    final rawItems = report['items'] is List ? report['items'] as List : const [];
-    final items = rawItems.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+    final rawItems = report['items'] is List
+        ? report['items'] as List
+        : const [];
+    final items = rawItems
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
     final query = _embeddedSearchController.text.trim().toLowerCase();
     final filtered = items.where((item) {
       final mime = item['mimeType']?.toString() ?? '';
       final status = item['status']?.toString() ?? 'CONVERTIBLE';
       return (_embeddedFilter == 'ALL' || status == _embeddedFilter) &&
-          (query.isEmpty || mime.toLowerCase().contains(query) ||
-              (item['sha256']?.toString().toLowerCase().contains(query) ?? false));
+          (query.isEmpty ||
+              mime.toLowerCase().contains(query) ||
+              (item['sha256']?.toString().toLowerCase().contains(query) ??
+                  false));
     }).toList();
-    final totalPages = filtered.isEmpty ? 1 : (filtered.length / _urlPageSize).ceil();
+    final totalPages = filtered.isEmpty
+        ? 1
+        : (filtered.length / _urlPageSize).ceil();
     final page = _embeddedPage.clamp(1, totalPages);
-    final pageItems = filtered.skip((page - 1) * _urlPageSize).take(_urlPageSize).toList();
+    final pageItems = filtered
+        .skip((page - 1) * _urlPageSize)
+        .take(_urlPageSize)
+        .toList();
     final failed = report['failed'] ?? 0;
     final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(failed is num && failed > 0 ? Icons.error_outline : Icons.image_outlined,
-                color: failed is num && failed > 0 ? scheme.error : scheme.primary),
-            const SizedBox(width: 8),
-            Expanded(child: Text('内嵌图片 Data URL（独立迁移）', style: Theme.of(context).textTheme.titleMedium)),
-            Text('${report['totalReferences'] ?? 0} 次引用', style: Theme.of(context).textTheme.bodySmall),
-          ]),
-          const SizedBox(height: 6),
-          Text('去重图片：${report['uniqueImages'] ?? 0} · 可转换：${report['convertible'] ?? 0} · 失败：$failed · 原始大小：${report['totalBytes'] ?? 0} B',
-              style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 6),
-          Text('导入时会先转换为标准媒体文件，再替换 Markdown、HTML 和 CSS 中的原引用；失败项会阻止执行。',
-              style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 12),
-          Wrap(spacing: 12, runSpacing: 10, children: [
-            SizedBox(width: 280, child: TextField(
-              controller: _embeddedSearchController,
-              decoration: const InputDecoration(labelText: '过滤 MIME / 摘要', prefixIcon: Icon(Icons.search), isDense: true),
-              onChanged: (_) => setState(() => _embeddedPage = 1),
-            )),
-            SizedBox(width: 190, child: DropdownButtonFormField<String>(
-              initialValue: _embeddedFilter,
-              decoration: const InputDecoration(labelText: '状态过滤', isDense: true),
-              items: const [
-                DropdownMenuItem(value: 'ALL', child: Text('全部')),
-                DropdownMenuItem(value: 'CONVERTIBLE', child: Text('可转换')),
-                DropdownMenuItem(value: 'FAILED', child: Text('失败')),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  failed is num && failed > 0
+                      ? Icons.error_outline
+                      : Icons.image_outlined,
+                  color: failed is num && failed > 0
+                      ? scheme.error
+                      : scheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '内嵌图片 Data URL（独立迁移）',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Text(
+                  '${report['totalReferences'] ?? 0} 次引用',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
-              onChanged: (value) => setState(() { _embeddedFilter = value ?? 'ALL'; _embeddedPage = 1; }),
-            )),
-          ]),
-          const SizedBox(height: 10),
-          if (pageItems.isEmpty)
-            Text(items.isEmpty ? '未检测到内嵌图片 Data URL' : '没有符合当前过滤条件的内嵌图片')
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: pageItems.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (_, index) {
-                final item = pageItems[index];
-                return ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.image, color: scheme.primary),
-                  title: Text(item['status'] == 'FAILED'
-                      ? '转换失败 · ${item['reason'] ?? ''}'
-                      : '${item['mimeType'] ?? ''} · ${item['bytes'] ?? 0} B × ${item['references'] ?? 0}'),
-                  subtitle: Text(item['status'] == 'FAILED'
-                      ? '${item['source'] ?? ''} · ${item['kind'] ?? ''}'
-                      : '${item['status'] ?? ''} · ${item['sha256'] ?? ''}'),
-                );
-              },
             ),
-          if (filtered.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            PaginationBar(currentPage: page, totalPages: totalPages, totalItems: filtered.length,
-                pageSize: _urlPageSize, onPageChanged: (value) => setState(() => _embeddedPage = value)),
+            const SizedBox(height: 6),
+            Text(
+              '去重图片：${report['uniqueImages'] ?? 0} · 可转换：${report['convertible'] ?? 0} · 失败：$failed · 原始大小：${report['totalBytes'] ?? 0} B',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '导入时会先转换为标准媒体文件，再替换 Markdown、HTML 和 CSS 中的原引用；失败项会阻止执行。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              children: [
+                SizedBox(
+                  width: 280,
+                  child: AdminShortcutSearchField(
+                    controller: _embeddedSearchController,
+                    decoration: const InputDecoration(
+                      labelText: '过滤 MIME / 摘要',
+                      prefixIcon: Icon(Icons.search),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setState(() => _embeddedPage = 1),
+                  ),
+                ),
+                SizedBox(
+                  width: 190,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _embeddedFilter,
+                    decoration: const InputDecoration(
+                      labelText: '状态过滤',
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'ALL', child: Text('全部')),
+                      DropdownMenuItem(
+                        value: 'CONVERTIBLE',
+                        child: Text('可转换'),
+                      ),
+                      DropdownMenuItem(value: 'FAILED', child: Text('失败')),
+                    ],
+                    onChanged: (value) => setState(() {
+                      _embeddedFilter = value ?? 'ALL';
+                      _embeddedPage = 1;
+                    }),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (pageItems.isEmpty)
+              Text(items.isEmpty ? '未检测到内嵌图片 Data URL' : '没有符合当前过滤条件的内嵌图片')
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: pageItems.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (_, index) {
+                  final item = pageItems[index];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.image, color: scheme.primary),
+                    title: Text(
+                      item['status'] == 'FAILED'
+                          ? '转换失败 · ${item['reason'] ?? ''}'
+                          : '${item['mimeType'] ?? ''} · ${item['bytes'] ?? 0} B × ${item['references'] ?? 0}',
+                    ),
+                    subtitle: Text(
+                      item['status'] == 'FAILED'
+                          ? '${item['source'] ?? ''} · ${item['kind'] ?? ''}'
+                          : '${item['status'] ?? ''} · ${item['sha256'] ?? ''}',
+                    ),
+                  );
+                },
+              ),
+            if (filtered.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              PaginationBar(
+                currentPage: page,
+                totalPages: totalPages,
+                totalItems: filtered.length,
+                pageSize: _urlPageSize,
+                onPageChanged: (value) => setState(() => _embeddedPage = value),
+              ),
+            ],
           ],
-        ]),
+        ),
       ),
     );
   }
@@ -945,7 +1013,8 @@ class _ImportDataPageState extends State<ImportDataPage> {
     final scheme = Theme.of(context).colorScheme;
     final download = _currentDownload;
     final totalBytes = (download?['totalBytes'] as num?)?.toInt() ?? -1;
-    final downloadedBytes = (download?['downloadedBytes'] as num?)?.toInt() ?? 0;
+    final downloadedBytes =
+        (download?['downloadedBytes'] as num?)?.toInt() ?? 0;
     final byteProgress = totalBytes > 0
         ? (downloadedBytes / totalBytes).clamp(0.0, 1.0)
         : null;
@@ -953,54 +1022,92 @@ class _ImportDataPageState extends State<ImportDataPage> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(Icons.downloading, color: scheme.primary),
-            const SizedBox(width: 8),
-            Expanded(child: Text('导入总进度', style: Theme.of(context).textTheme.titleMedium)),
-            Text('$_overallCompleted / $_overallTotal', style: Theme.of(context).textTheme.bodySmall),
-          ]),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(value: _overallProgress),
-          const SizedBox(height: 6),
-          Text('${_overallProgress == null ? '处理中' : '${((_overallProgress ?? 0) * 100).round()}%'} · $_overallPhase · 成功资源 $_successfulDownloads · 失败资源 $_failedDownloads'),
-          if (download != null) ...[
-            const Divider(height: 24),
-            Text('当前资源', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 4),
-            SelectableText(download['resourceUrl']?.toString() ?? '', maxLines: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.downloading, color: scheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '导入总进度',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Text(
+                  '$_overallCompleted / $_overallTotal',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: _overallProgress),
             const SizedBox(height: 6),
-            Row(children: [
-              Text('HTTP ${httpStatus > 0 ? httpStatus : '—'}'),
-              const SizedBox(width: 12),
-              Text('重定向 ${(download['redirectCount'] as num?)?.toInt() ?? 0} 次'),
-              const SizedBox(width: 12),
-              Text('${_formatBytes(downloadedBytes)} / ${totalBytes > 0 ? _formatBytes(totalBytes) : '未知大小'}'),
-            ]),
-            const SizedBox(height: 6),
-            LinearProgressIndicator(value: byteProgress),
-            if (byteProgress != null)
-              Text('${(byteProgress * 100).round()}%', style: Theme.of(context).textTheme.bodySmall),
-            if (download['error'] != null)
-              Text('失败：${download['error']}', style: TextStyle(color: scheme.error)),
+            Text(
+              '${_overallProgress == null ? '处理中' : '${((_overallProgress ?? 0) * 100).round()}%'} · $_overallPhase · 成功资源 $_successfulDownloads · 失败资源 $_failedDownloads',
+            ),
+            if (download != null) ...[
+              const Divider(height: 24),
+              Text('当前资源', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 4),
+              SelectableText(
+                download['resourceUrl']?.toString() ?? '',
+                maxLines: 2,
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Text('HTTP ${httpStatus > 0 ? httpStatus : '—'}'),
+                  const SizedBox(width: 12),
+                  Text(
+                    '重定向 ${(download['redirectCount'] as num?)?.toInt() ?? 0} 次',
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${_formatBytes(downloadedBytes)} / ${totalBytes > 0 ? _formatBytes(totalBytes) : '未知大小'}',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              LinearProgressIndicator(value: byteProgress),
+              if (byteProgress != null)
+                Text(
+                  '${(byteProgress * 100).round()}%',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              if (download['error'] != null)
+                Text(
+                  '失败：${download['error']}',
+                  style: TextStyle(color: scheme.error),
+                ),
+            ],
+            if (_recentDownloads.isNotEmpty) ...[
+              const Divider(height: 24),
+              Text('最近资源', style: Theme.of(context).textTheme.titleSmall),
+              ..._recentDownloads.take(8).map((item) {
+                final failed = item['phase'] == 'failed';
+                final status = (item['httpStatus'] as num?)?.toInt() ?? 0;
+                return ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    failed ? Icons.error_outline : Icons.check_circle_outline,
+                    color: failed ? scheme.error : scheme.primary,
+                  ),
+                  title: Text(
+                    item['resourceUrl']?.toString() ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${failed ? '失败' : '完成'} · HTTP ${status > 0 ? status : '—'} · ${_formatBytes((item['downloadedBytes'] as num?)?.toInt() ?? 0)}',
+                  ),
+                );
+              }),
+            ],
           ],
-          if (_recentDownloads.isNotEmpty) ...[
-            const Divider(height: 24),
-            Text('最近资源', style: Theme.of(context).textTheme.titleSmall),
-            ..._recentDownloads.take(8).map((item) {
-              final failed = item['phase'] == 'failed';
-              final status = (item['httpStatus'] as num?)?.toInt() ?? 0;
-              return ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(failed ? Icons.error_outline : Icons.check_circle_outline,
-                    color: failed ? scheme.error : scheme.primary),
-                title: Text(item['resourceUrl']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text('${failed ? '失败' : '完成'} · HTTP ${status > 0 ? status : '—'} · ${_formatBytes((item['downloadedBytes'] as num?)?.toInt() ?? 0)}'),
-              );
-            }),
-          ],
-        ]),
+        ),
       ),
     );
   }

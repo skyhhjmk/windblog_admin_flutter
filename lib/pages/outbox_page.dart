@@ -165,7 +165,10 @@ class _OutboxPageState extends State<OutboxPage>
           FilledButton.icon(
             onPressed: _search,
             icon: const Icon(Icons.search),
-            label: const Text('查询'),
+            label: AdminShortcutText(
+              '查询',
+              AdminShortcutDefinitions.keyByAction['search']!,
+            ),
           ),
           OutlinedButton.icon(
             onPressed: _loadData,
@@ -229,7 +232,7 @@ class _OutboxPageState extends State<OutboxPage>
   ) {
     return SizedBox(
       width: AdminBreakpoints.isPhone(context) ? double.infinity : 190,
-      child: TextField(
+      child: AdminShortcutSearchField(
         controller: controller,
         decoration: InputDecoration(labelText: label, hintText: hint),
         onSubmitted: (_) => _search(),

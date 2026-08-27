@@ -95,6 +95,7 @@ class _InstallationPageState extends State<InstallationPage> {
     bool obscureText = false,
     String? Function(String?)? validator,
     int maxLines = 1,
+    ValueChanged<String>? onFieldSubmitted,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -104,6 +105,7 @@ class _InstallationPageState extends State<InstallationPage> {
         maxLines: obscureText ? 1 : maxLines,
         decoration: decoration(label, icon),
         validator: validator ?? requiredValue,
+        onFieldSubmitted: onFieldSubmitted,
       ),
     );
   }
@@ -166,6 +168,9 @@ class _InstallationPageState extends State<InstallationPage> {
                         label: '确认密码',
                         icon: Icons.lock_reset,
                         obscureText: true,
+                        onFieldSubmitted: (_) {
+                          if (!loading) submit();
+                        },
                         validator: (value) =>
                             value == passwordController.text ? null : '两次密码不一致',
                       ),
@@ -224,7 +229,12 @@ class _InstallationPageState extends State<InstallationPage> {
                                 ),
                               )
                             : const Icon(Icons.rocket_launch_outlined),
-                        label: Text(loading ? '正在初始化…' : '完成安装初始化'),
+                        label: loading
+                            ? const Text('正在初始化…')
+                            : AdminShortcutText(
+                                '完成安装初始化',
+                                AdminShortcutDefinitions.keyByAction['submit']!,
+                              ),
                       ),
                     ],
                   ),

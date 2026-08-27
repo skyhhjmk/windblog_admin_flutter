@@ -44,7 +44,8 @@ class _CommentsPageState extends State<CommentsPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
@@ -61,7 +62,10 @@ class _CommentsPageState extends State<CommentsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      AdminFeedback.showSnackBar(context, SnackBar(content: Text('${t(context, 'save_failed')}$e')));
+      AdminFeedback.showSnackBar(
+        context,
+        SnackBar(content: Text('${t(context, 'save_failed')}$e')),
+      );
     }
   }
 
@@ -73,7 +77,10 @@ class _CommentsPageState extends State<CommentsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      AdminFeedback.showSnackBar(context, SnackBar(content: Text('${t(context, 'save_failed')}$e')));
+      AdminFeedback.showSnackBar(
+        context,
+        SnackBar(content: Text('${t(context, 'save_failed')}$e')),
+      );
     }
   }
 
@@ -104,7 +111,8 @@ class _CommentsPageState extends State<CommentsPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
       );
     }
@@ -204,7 +212,7 @@ class _CommentsPageState extends State<CommentsPage> {
           ),
           SizedBox(
             width: AdminBreakpoints.isPhone(context) ? double.infinity : 320,
-            child: TextField(
+            child: AdminShortcutSearchField(
               decoration: InputDecoration(
                 labelText: t(context, 'search_comments'),
                 prefixIcon: const Icon(Icons.search),

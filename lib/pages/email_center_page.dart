@@ -235,40 +235,11 @@ class _EmailCenterPageState extends State<EmailCenterPage>
   }
 
   Future<String?> _requestStepUpToken() async {
-    final password = TextEditingController();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('确认高风险邮件操作'),
-        content: TextField(
-          controller: password,
-          obscureText: true,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '管理员密码'),
-          onSubmitted: (_) => Navigator.pop(dialogContext, true),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确认'),
-          ),
-        ],
-      ),
+    return AdminStepUpAuthorization.obtain(
+      context,
+      widget.api,
+      title: '确认高风险邮件操作',
     );
-    final rawPassword = password.text;
-    password.dispose();
-    if (confirmed != true || rawPassword.isEmpty) return null;
-
-    try {
-      return await widget.api.issueAdminStepUp(rawPassword);
-    } catch (error) {
-      _showMessage('高风险操作授权失败：$error', error: true);
-      return null;
-    }
   }
 
   Future<void> _testChannel(Map<String, dynamic> channel) async {
@@ -433,7 +404,8 @@ class _EmailCenterPageState extends State<EmailCenterPage>
 
   void _showMessage(String message, {bool error = false}) {
     if (!mounted) return;
-    AdminFeedback.showSnackBar(context,
+    AdminFeedback.showSnackBar(
+      context,
       SnackBar(
         content: Text(message),
         backgroundColor: error ? Colors.red : null,
@@ -529,7 +501,10 @@ class _EmailCenterPageState extends State<EmailCenterPage>
         .where((item) => item['published'] == true)
         .toList();
     if (publishedTemplates.isEmpty) {
-      AdminFeedback.showSnackBar(context, const SnackBar(content: Text('请先创建并发布邮件模板')));
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(content: Text('请先创建并发布邮件模板')),
+      );
       return;
     }
     final name = TextEditingController();
@@ -708,7 +683,10 @@ class _EmailCenterPageState extends State<EmailCenterPage>
       }
       await widget.api.replaceEmailGroupMembers(groupId, members);
       if (mounted) {
-        AdminFeedback.showSnackBar(context, const SnackBar(content: Text('通道组成员已保存')));
+        AdminFeedback.showSnackBar(
+          context,
+          const SnackBar(content: Text('通道组成员已保存')),
+        );
       }
     }
   }

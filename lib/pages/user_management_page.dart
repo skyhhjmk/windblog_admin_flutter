@@ -49,7 +49,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
@@ -72,14 +73,13 @@ class _UserManagementPageState extends State<UserManagementPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            UserWalletPage(
-              api: widget.api,
-              userId: user.id,
-              username: user.username,
-              onAuthError: widget.onAuthError,
-              isSuperAdmin: widget.isSuperAdmin,
-            ),
+        builder: (context) => UserWalletPage(
+          api: widget.api,
+          userId: user.id,
+          username: user.username,
+          onAuthError: widget.onAuthError,
+          isSuperAdmin: widget.isSuperAdmin,
+        ),
       ),
     );
   }
@@ -106,7 +106,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
       );
       await _loadUsers();
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text(t(context, 'update_success'))),
         );
       }
@@ -114,7 +115,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text('${t(context, 'update_failed')}$e')),
       );
     }
@@ -130,12 +132,16 @@ class _UserManagementPageState extends State<UserManagementPage> {
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: AdminShortcutSearchField(
                   controller: keywordCtrl,
                   decoration: InputDecoration(
                     hintText: t(context, 'search_username_email'),
                     border: const OutlineInputBorder(),
                   ),
+                  onSubmitted: (_) {
+                    page = 1;
+                    _loadUsers();
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -158,86 +164,81 @@ class _UserManagementPageState extends State<UserManagementPage> {
             child: loading
                 ? const Center(child: CircularProgressIndicator())
                 : users.isEmpty
-                    ? Center(child: Text(t(context, 'no_users')))
-                    : ListView.separated(
-              physics: const BouncingScrollPhysics(),
-                        itemCount: users.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final user = users[index];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Theme
-                                  .of(context)
-                                  .colorScheme
-                                  .primaryContainer,
-                              foregroundColor: Theme
-                                  .of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer,
-                              child: Text(
-                                user.username.isEmpty
-                                    ? '?'
-                                    : user.username[0].toUpperCase(),
-                              ),
-                            ),
-                            title: Row(
-                              children: [
-                                Text(user.username),
-                                if (user.nickname != null &&
-                                    user.nickname!.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 8),
-                                    child: Text(
-                                      '(${user.nickname})',
-                                      style: TextStyle(
-                                        color: Theme
-                                            .of(context)
-                                            .hintColor,
-                                        fontSize: 12,
-                                      ),
-                                    ),
+                ? Center(child: Text(t(context, 'no_users')))
+                : ListView.separated(
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: users.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final user = users[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
+                          child: Text(
+                            user.username.isEmpty
+                                ? '?'
+                                : user.username[0].toUpperCase(),
+                          ),
+                        ),
+                        title: Row(
+                          children: [
+                            Text(user.username),
+                            if (user.nickname != null &&
+                                user.nickname!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Text(
+                                  '(${user.nickname})',
+                                  style: TextStyle(
+                                    color: Theme.of(context).hintColor,
+                                    fontSize: 12,
                                   ),
-                              ],
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${user.email} · ${user.roleName}'),
-                                if (user.pointsBalance != null)
-                                  Text(
-                                    '${t(context, 'points')}：${user.pointsBalance}',
-                                    style: TextStyle(
-                                      color: Theme
-                                          .of(context)
-                                          .colorScheme
-                                          .primary,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(user.status == 1
-                                    ? t(context, 'active')
-                                    : (user.status == 0
-                                    ? t(context, 'disabled')
-                                    : t(context, 'locked'))),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons
-                                      .account_balance_wallet),
-                                  onPressed: () => _openWallet(user),
-                                  tooltip: t(context, 'wallet'),
                                 ),
-                              ],
+                              ),
+                          ],
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${user.email} · ${user.roleName}'),
+                            if (user.pointsBalance != null)
+                              Text(
+                                '${t(context, 'points')}：${user.pointsBalance}',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              user.status == 1
+                                  ? t(context, 'active')
+                                  : (user.status == 0
+                                        ? t(context, 'disabled')
+                                        : t(context, 'locked')),
                             ),
-                            onTap: () => _editUser(user),
-                          );
-                        },
-                      ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.account_balance_wallet),
+                              onPressed: () => _openWallet(user),
+                              tooltip: t(context, 'wallet'),
+                            ),
+                          ],
+                        ),
+                        onTap: () => _editUser(user),
+                      );
+                    },
+                  ),
           ),
           if (pageResult != null)
             PaginationBar(
@@ -291,7 +292,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
         allowedMimeTypes: const [],
         createdAt: null,
         updatedAt: null,
-      )
+      ),
     ];
   }
 
@@ -363,10 +364,12 @@ class _UserEditDialogState extends State<_UserEditDialog> {
               initialValue: roleName,
               decoration: InputDecoration(labelText: t(context, 'role_name')),
               items: _availableRoles
-                  .map((role) => DropdownMenuItem(
-                        value: role.name,
-                        child: Text(role.displayName),
-                      ))
+                  .map(
+                    (role) => DropdownMenuItem(
+                      value: role.name,
+                      child: Text(role.displayName),
+                    ),
+                  )
                   .toList(),
               onChanged: widget.isSuperAdmin
                   ? (v) => setState(() => roleName = v ?? roleName)
@@ -400,8 +403,14 @@ class _UserEditDialogState extends State<_UserEditDialog> {
 }
 
 class _UserEditResult {
-  _UserEditResult(this.email, this.avatar, this.nickname, this.phone,
-      this.status, this.role);
+  _UserEditResult(
+    this.email,
+    this.avatar,
+    this.nickname,
+    this.phone,
+    this.status,
+    this.role,
+  );
 
   final String email;
   final String avatar;
