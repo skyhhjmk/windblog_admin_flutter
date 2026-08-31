@@ -33,9 +33,12 @@ class AdminBreakpoints {
 class AdminTheme {
   const AdminTheme._();
 
+  static const Color brandColor = Color(0xFF2563EB);
+  static const Color navigationColor = Color(0xFF0F172A);
+
   static ThemeData build() {
     ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2563EB),
+      seedColor: brandColor,
       brightness: Brightness.light,
     );
 
@@ -48,7 +51,7 @@ class AdminTheme {
         elevation: 2,
         margin: EdgeInsets.zero,
         color: Colors.white,
-        shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.05),
+        shadowColor: brandColor.withValues(alpha: 0.05),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -63,7 +66,7 @@ class AdminTheme {
         surfaceTintColor: Colors.transparent,
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: navigationColor,
         indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.2),
         selectedIconTheme: IconThemeData(color: colorScheme.primary),
         selectedLabelTextStyle: TextStyle(
@@ -305,7 +308,7 @@ class AdminStatusView extends StatelessWidget {
                     message!,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF6B7280),
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],

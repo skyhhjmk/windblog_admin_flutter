@@ -56,20 +56,22 @@ class _OverviewPageState extends State<OverviewPage> {
       );
     }
 
-    Widget card(String label, Object value, IconData icon, Color color) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    Widget card(String label, Object value, IconData icon) {
       return SizedBox(
         width: AdminBreakpoints.isPhone(context) ? double.infinity : 200,
         child: Card(
           elevation: 3,
-          shadowColor: color.withValues(alpha: 0.1),
+          shadowColor: primaryColor.withValues(alpha: 0.1),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: color.withValues(alpha: 0.15), width: 1.5),
+            side: BorderSide(color: primaryColor.withValues(alpha: 0.15), width: 1.5),
           ),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [color.withValues(alpha: 0.06), color.withValues(alpha: 0.01)],
+                colors: [primaryColor.withValues(alpha: 0.06), primaryColor.withValues(alpha: 0.01)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -84,7 +86,7 @@ class _OverviewPageState extends State<OverviewPage> {
                       Text(
                         label,
                         style: TextStyle(
-                          color: color.withValues(alpha: 0.85),
+                          color: primaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -94,7 +96,7 @@ class _OverviewPageState extends State<OverviewPage> {
                         '$value',
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w900,
-                          color: const Color(0xFF1E293B),
+                          color: Theme.of(context).colorScheme.onSurface,
                           height: 1,
                         ),
                       ),
@@ -104,10 +106,10 @@ class _OverviewPageState extends State<OverviewPage> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
+                    color: primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: color, size: 24),
+                  child: Icon(icon, color: primaryColor, size: 24),
                 ),
               ],
             ),
@@ -132,11 +134,11 @@ class _OverviewPageState extends State<OverviewPage> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              card(t(context, 'users_count'), map['users'] ?? 0, Icons.people_alt, const Color(0xFFF43F5E)),
-              card(t(context, 'posts_count'), map['posts'] ?? 0, Icons.article, const Color(0xFFF97316)),
-              card(t(context, 'comments_count'), map['comments'] ?? 0, Icons.comment, const Color(0xFF10B981)),
-              card(t(context, 'tags_count'), map['tags'] ?? 0, Icons.local_offer, const Color(0xFF84CC16)),
-              card(t(context, 'categories_count'), map['categories'] ?? 0, Icons.folder, const Color(0xFF06B6D4)),
+              card(t(context, 'users_count'), map['users'] ?? 0, Icons.people_alt),
+              card(t(context, 'posts_count'), map['posts'] ?? 0, Icons.article),
+              card(t(context, 'comments_count'), map['comments'] ?? 0, Icons.comment),
+              card(t(context, 'tags_count'), map['tags'] ?? 0, Icons.local_offer),
+              card(t(context, 'categories_count'), map['categories'] ?? 0, Icons.folder),
             ],
           ),
           const SizedBox(height: 12),
@@ -153,10 +155,10 @@ class _OverviewPageState extends State<OverviewPage> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                      color: primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.code, color: Color(0xFF6366F1)),
+                    child: Icon(Icons.code, color: primaryColor),
                   ),
                   const SizedBox(width: 16),
                   Expanded(

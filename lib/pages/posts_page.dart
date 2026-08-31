@@ -22,6 +22,8 @@ Color _generateColorFromSlug(String slug) {
   return colors[hash.abs() % colors.length].withValues(alpha: 0.8);
 }
 
+enum _PostAction { edit, publish, delete }
+
 class PostsPage extends StatefulWidget {
   const PostsPage({super.key, required this.api, required this.onAuthError});
 
@@ -237,6 +239,61 @@ class _PostsPageState extends State<PostsPage> {
     }
   }
 
+  Future<void> _publishLatestDraft(PostItem item) async {
+    try {
+      await widget.api.publishLatestDraftPost(item.id);
+      await load();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('${t(context, 'operation_failed')}: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deletePost(PostItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t(context, 'confirm_delete')),
+        content: Text(t(context, 'confirm_delete_post_msg')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(t(context, 'cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              t(context, 'delete'),
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await widget.api.deletePost(item.id);
+      await load();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('${t(context, 'operation_failed')}: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildListView() {
     if (items.isEmpty) {
       return AdminStatusView.empty(title: t(context, 'no_posts'));
@@ -317,88 +374,90 @@ class _PostsPageState extends State<PostsPage> {
               ),
           ],
         ),
-        trailing: Wrap(
-          spacing: 4,
-          children: [
-            TextButton(
-              onPressed: () => createOrEdit(item: it),
-              child: Text(
-                t(context, 'edit'),
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                try {
-                  await widget.api.publishLatestDraftPost(it.id);
-                  await load();
-                } on UnauthorizedException {
-                  widget.onAuthError();
-                } catch (e) {
-                  if (mounted) {
-                    AdminFeedback.showSnackBar(
-                      context,
-                      SnackBar(
-                        content: Text('${t(context, 'operation_failed')}: $e'),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: Text(
-                t(context, 'publish_latest_draft'),
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: Text(t(context, 'confirm_delete')),
-                    content: Text(t(context, 'confirm_delete_post_msg')),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: Text(t(context, 'cancel')),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: Text(
-                          t(context, 'delete'),
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (confirmed != true) return;
-
-                try {
-                  await widget.api.deletePost(it.id);
-                  await load();
-                } on UnauthorizedException {
-                  widget.onAuthError();
-                } catch (e) {
-                  if (mounted) {
-                    AdminFeedback.showSnackBar(
-                      context,
-                      SnackBar(
-                        content: Text('${t(context, 'operation_failed')}: $e'),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: Text(
-                t(context, 'delete'),
-                style: const TextStyle(fontSize: 12, color: Colors.red),
-              ),
-            ),
-          ],
-        ),
+        trailing: _buildPostActions(it),
       ),
+    );
+  }
+
+  Widget _buildPostActions(PostItem item) {
+    final compact = AdminBreakpoints.isPhone(context) ||
+        AdminBreakpoints.isTablet(context);
+    if (compact) {
+      return PopupMenuButton<_PostAction>(
+        tooltip: t(context, 'more_actions'),
+        onSelected: (action) {
+          switch (action) {
+            case _PostAction.edit:
+              createOrEdit(item: item);
+            case _PostAction.publish:
+              _publishLatestDraft(item);
+            case _PostAction.delete:
+              _deletePost(item);
+          }
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: _PostAction.edit,
+            child: Row(
+              children: [
+                const Icon(Icons.edit_outlined, size: 18),
+                const SizedBox(width: 10),
+                Text(t(context, 'edit')),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: _PostAction.publish,
+            child: Row(
+              children: [
+                const Icon(Icons.publish_outlined, size: 18),
+                const SizedBox(width: 10),
+                Text(t(context, 'publish_latest_draft')),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: _PostAction.delete,
+            child: Row(
+              children: [
+                const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                const SizedBox(width: 10),
+                Text(
+                  t(context, 'delete'),
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: 4,
+      children: [
+        TextButton(
+          onPressed: () => createOrEdit(item: item),
+          child: Text(
+            t(context, 'edit'),
+            style: const TextStyle(fontSize: 12),
+          ),
+        ),
+        TextButton(
+          onPressed: () => _publishLatestDraft(item),
+          child: Text(
+            t(context, 'publish_latest_draft'),
+            style: const TextStyle(fontSize: 12),
+          ),
+        ),
+        TextButton(
+          onPressed: () => _deletePost(item),
+          child: Text(
+            t(context, 'delete'),
+            style: const TextStyle(fontSize: 12, color: Colors.red),
+          ),
+        ),
+      ],
     );
   }
 

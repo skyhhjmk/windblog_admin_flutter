@@ -22,6 +22,7 @@ class PaginationBar extends StatefulWidget {
 
 class _PaginationBarState extends State<PaginationBar> {
   late final TextEditingController _jumpCtrl;
+  String? _jumpError;
 
   @override
   void initState() {
@@ -37,11 +38,17 @@ class _PaginationBarState extends State<PaginationBar> {
 
   void _onJump() {
     final text = _jumpCtrl.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      setState(() => _jumpError = null);
+      return;
+    }
     final page = int.tryParse(text);
     if (page != null && page > 0 && page <= widget.totalPages) {
+      setState(() => _jumpError = null);
       widget.onPageChanged(page);
       _jumpCtrl.clear();
+    } else {
+      setState(() => _jumpError = t(context, 'invalid_page'));
     }
   }
 
@@ -97,17 +104,22 @@ class _PaginationBarState extends State<PaginationBar> {
         style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
       ),
       SizedBox(
-        width: 56,
+        width: _jumpError == null ? 56 : 92,
         child: TextField(
           controller: _jumpCtrl,
           keyboardType: TextInputType.number,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 13),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             isDense: true,
             contentPadding: EdgeInsets.symmetric(vertical: 8),
             border: OutlineInputBorder(),
+            errorText: _jumpError,
+            errorStyle: TextStyle(fontSize: 10),
           ),
+          onChanged: (_) {
+            if (_jumpError != null) setState(() => _jumpError = null);
+          },
           onSubmitted: (_) => _onJump(),
         ),
       ),

@@ -66,10 +66,10 @@ class _LoginPageState extends State<LoginPage> {
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Color(0xFF4F46E5), // Indigo 600
-                    Color(0xFF7C3AED), // Violet 600
-                    Color(0xFFC026D3), // Fuchsia 600
-                    Color(0xFFEC4899), // Pink 500
+                    AdminTheme.navigationColor,
+                    AdminTheme.brandColor,
+                    Color(0xFF0EA5E9),
+                    Color(0xFF06B6D4),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -86,7 +86,7 @@ class _LoginPageState extends State<LoginPage> {
               height: 400,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFF43F5E).withValues(alpha: 0.3), // Rose
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.3), // Sky
               ),
             ),
           ),
@@ -98,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
               height: 500,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF06B6D4).withValues(alpha: 0.25), // Cyan
+                color: const Color(0xFF93C5FD).withValues(alpha: 0.25), // Blue
               ),
             ),
           ),
@@ -143,8 +143,8 @@ class _LoginPageState extends State<LoginPage> {
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [
-                                    Color(0xFFEC4899),
-                                    Color(0xFF8B5CF6),
+                                    AdminTheme.brandColor,
+                                    Color(0xFF0EA5E9),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
@@ -153,7 +153,7 @@ class _LoginPageState extends State<LoginPage> {
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(
-                                      0xFF8B5CF6,
+                                      0xFF2563EB,
                                     ).withValues(alpha: 0.4),
                                     blurRadius: 16,
                                     offset: const Offset(0, 8),
@@ -232,7 +232,7 @@ class _LoginPageState extends State<LoginPage> {
                                 labelText: t(context, 'api_base_url'),
                                 prefixIcon: const Icon(
                                   Icons.link,
-                                  color: Color(0xFF8B5CF6),
+                                  color: AdminTheme.brandColor,
                                 ),
                                 filled: true,
                                 fillColor: Colors.white.withValues(alpha: 0.9),
@@ -250,7 +250,7 @@ class _LoginPageState extends State<LoginPage> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: const BorderSide(
-                                    color: Color(0xFF8B5CF6),
+                                    color: AdminTheme.brandColor,
                                     width: 2,
                                   ),
                                 ),
@@ -266,7 +266,7 @@ class _LoginPageState extends State<LoginPage> {
                                 labelText: t(context, 'username'),
                                 prefixIcon: const Icon(
                                   Icons.person_outline,
-                                  color: Color(0xFF8B5CF6),
+                                  color: AdminTheme.brandColor,
                                 ),
                                 filled: true,
                                 fillColor: Colors.white.withValues(alpha: 0.9),
@@ -284,7 +284,7 @@ class _LoginPageState extends State<LoginPage> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: const BorderSide(
-                                    color: Color(0xFF8B5CF6),
+                                    color: AdminTheme.brandColor,
                                     width: 2,
                                   ),
                                 ),
@@ -304,7 +304,7 @@ class _LoginPageState extends State<LoginPage> {
                                 labelText: t(context, 'password'),
                                 prefixIcon: const Icon(
                                   Icons.lock_outline,
-                                  color: Color(0xFF8B5CF6),
+                                  color: AdminTheme.brandColor,
                                 ),
                                 filled: true,
                                 fillColor: Colors.white.withValues(alpha: 0.9),
@@ -322,7 +322,7 @@ class _LoginPageState extends State<LoginPage> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: const BorderSide(
-                                    color: Color(0xFF8B5CF6),
+                                    color: AdminTheme.brandColor,
                                     width: 2,
                                   ),
                                 ),
@@ -339,8 +339,8 @@ class _LoginPageState extends State<LoginPage> {
                                 borderRadius: BorderRadius.circular(14),
                                 gradient: const LinearGradient(
                                   colors: [
-                                    Color(0xFF8B5CF6),
-                                    Color(0xFFEC4899),
+                                    AdminTheme.brandColor,
+                                    Color(0xFF0EA5E9),
                                   ],
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
@@ -348,7 +348,7 @@ class _LoginPageState extends State<LoginPage> {
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(
-                                      0xFFEC4899,
+                                      0xFF0EA5E9,
                                     ).withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 6),

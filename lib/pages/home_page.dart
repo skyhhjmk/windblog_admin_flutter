@@ -266,44 +266,14 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
-  static const Map<int, Color> tabColors = {
-    0: Color(0xFFF43F5E), // Overview: Rose
-    1: Color(0xFFF97316), // Posts: Orange
-    2: Color(0xFFF59E0B), // Categories: Amber
-    3: Color(0xFF84CC16), // Tags: Lime
-    4: Color(0xFFEC4899), // Comments: Pink
-    5: Color(0xFFEF4444), // Links: Red
-    6: Color(0xFF059669), // Users: Green
-    7: Color(0xFF10B981), // Store: Emerald
-    8: Color(0xFF06B6D4), // Media: Cyan
-    9: Color(0xFF3B82F6), // Storage Classes: Blue
-    10: Color(0xFF8B5CF6), // Image Processing: Violet
-    11: Color(0xFF6366F1), // Sync Panel: Indigo
-    12: Color(0xFF10B981), // Edge Nodes: Emerald
-    13: Color(0xFFF59E0B), // Region Rules: Amber
-    14: Color(0xFFD946EF), // Edge Monitor: Fuchsia
-    15: Color(0xFF06B6D4), // Queues: Cyan
-    16: Color(0xFFEF4444), // Dead Letter: Red
-    17: Color(0xFFEF4444), // System Monitor: Red
-    18: Color(0xFF2563EB), // Database: Blue
-    19: Color(0xFFF97316), // System Logs: Orange
-    20: Color(0xFF8B5CF6), // Feature Settings: Violet
-    21: Color(0xFF0EA5E9), // Elasticsearch: Sky
-    22: Color(0xFF14B8A6), // Synonym Rules: Teal
-    23: Color(0xFF6366F1), // AI Providers: Indigo
-    24: Color(0xFF14B8A6), // Permissions: Teal
-    25: Color(0xFF0F766E), // Email Center: Teal
-    26: Color(0xFF7C3AED), // Outbox Audit: Violet
-    27: Color(0xFFDC2626), // Security Services: Red
-    28: Color(0xFF0EA5E9), // AMP / SEO: Sky
-    29: Color(0xFF7C3AED), // Codex Creator: Violet
-  };
+  static const Color brandColor = AdminTheme.brandColor;
+  static const Color navigationColor = AdminTheme.navigationColor;
 
   @override
   Widget build(BuildContext context) {
     bool isSuperAdmin = widget.user?.roleName == 'SUPER_ADMIN';
     bool isPhone = AdminBreakpoints.isPhone(context);
-    bool isDesktop = AdminBreakpoints.isDesktop(context);
+    bool isExtendedNavigation = !isPhone;
     String pageTitle = _titleForIndex(context, tab);
     Widget page = _pageForIndex(tab, isSuperAdmin);
 
@@ -318,8 +288,11 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: Row(
         children: [
-          _buildNavigationRail(context, isDesktop),
-          const VerticalDivider(width: 1, color: Color(0xFF1E293B)),
+          _buildNavigationRail(context, isExtendedNavigation),
+          VerticalDivider(
+            width: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
           Expanded(
             child: Column(
               children: [
@@ -334,7 +307,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   AppBar _buildAppBar(BuildContext context, String pageTitle, bool showMenu) {
-    final themeColor = tabColors[tab] ?? const Color(0xFF2563EB);
+    final themeColor = brandColor;
     return AppBar(
       title: Text(
         pageTitle,
@@ -369,7 +342,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTopBar(BuildContext context, String pageTitle) {
-    final themeColor = tabColors[tab] ?? const Color(0xFF2563EB);
+    final themeColor = brandColor;
     return Container(
       height: 60,
       decoration: BoxDecoration(
@@ -486,7 +459,7 @@ class _HomePageState extends State<HomePage> {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       width: extended ? 210 : 72,
-      color: const Color(0xFF0F172A),
+      color: navigationColor,
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -522,7 +495,7 @@ class _HomePageState extends State<HomePage> {
       }
     }
     Color parentColor = childSelected
-        ? tabColors[tab] ?? const Color(0xFF8B5CF6)
+        ? brandColor
         : const Color(0xFF94A3B8);
 
     bool expanded = submenuExpandedStates[submenuName] == true;
@@ -617,7 +590,7 @@ class _HomePageState extends State<HomePage> {
     bool isSubmenu,
   ) {
     bool selected = index == tab;
-    Color itemColor = tabColors[index] ?? const Color(0xFF2563EB);
+    Color itemColor = brandColor;
     Color contentColor = selected ? itemColor : const Color(0xFF94A3B8);
     return Padding(
       padding: EdgeInsets.only(left: extended && isSubmenu ? 14 : 0, bottom: 2),
@@ -670,7 +643,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildDrawer(BuildContext context) {
     List<Widget> children = [
       DrawerHeader(
-        decoration: const BoxDecoration(color: Color(0xFF0F172A)),
+        decoration: BoxDecoration(color: navigationColor),
         margin: EdgeInsets.zero,
         child: Align(alignment: Alignment.bottomLeft, child: _buildBrand(true)),
       ),
@@ -689,7 +662,7 @@ class _HomePageState extends State<HomePage> {
         continue;
       }
       bool selected = index == tab;
-      final itemColor = tabColors[index] ?? const Color(0xFF2563EB);
+      final itemColor = brandColor;
       children.add(
         ListTile(
           selected: selected,
@@ -732,7 +705,7 @@ class _HomePageState extends State<HomePage> {
       if (selected) {
         childSelected = true;
       }
-      Color itemColor = tabColors[index] ?? const Color(0xFF2563EB);
+      Color itemColor = brandColor;
       children.add(
         ListTile(
           selected: selected,
@@ -781,7 +754,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBrand(bool showText) {
-    final themeColor = tabColors[tab] ?? const Color(0xFF2563EB);
+    final themeColor = brandColor;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
@@ -825,7 +798,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildAnimatedPage(Widget page) {
-    final themeColor = tabColors[tab] ?? const Color(0xFF2563EB);
+    final themeColor = brandColor;
 
     final pageTheme = ThemeData(
       useMaterial3: true,
