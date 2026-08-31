@@ -157,7 +157,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     'Custom (OpenAI Compatible)': {'provider': 'OPENAI', 'endpoint': ''},
     'Codex Creator (内部)': {
       'provider': 'CODEX_CREATOR',
-      'endpoint': 'http://codex-creator:8090'
+      'endpoint': 'http://codex-creator:8681'
     },
   };
 
