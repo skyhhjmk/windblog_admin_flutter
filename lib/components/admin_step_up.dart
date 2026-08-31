@@ -29,36 +29,11 @@ class AdminStepUpAuthorization {
       return _stepUpToken;
     }
 
-    final password = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    final rawPassword = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: password,
-          obscureText: true,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '管理员密码'),
-          onSubmitted: (_) => Navigator.pop(dialogContext, true),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: AdminShortcutText(
-              '确认',
-              AdminShortcutDefinitions.keyByAction['submit']!,
-            ),
-          ),
-        ],
-      ),
+      builder: (_) => _AdminStepUpDialog(title: title),
     );
-    final rawPassword = password.text;
-    password.dispose();
-    if (confirmed != true || rawPassword.isEmpty) return null;
+    if (rawPassword == null || rawPassword.isEmpty) return null;
 
     try {
       final token = await api.issueAdminStepUp(rawPassword);
@@ -82,5 +57,58 @@ class AdminStepUpAuthorization {
       }
       return null;
     }
+  }
+}
+
+/// Owns the password controller for exactly as long as the dialog's route is
+/// mounted. `showDialog` completes when the route starts popping, which is too
+/// early to dispose a controller captured by the still-running exit animation.
+class _AdminStepUpDialog extends StatefulWidget {
+  const _AdminStepUpDialog({required this.title});
+
+  final String title;
+
+  @override
+  State<_AdminStepUpDialog> createState() => _AdminStepUpDialogState();
+}
+
+class _AdminStepUpDialogState extends State<_AdminStepUpDialog> {
+  final TextEditingController _password = TextEditingController();
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _submit(BuildContext dialogContext) {
+    Navigator.pop(dialogContext, _password.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _password,
+        obscureText: true,
+        autofocus: true,
+        decoration: const InputDecoration(labelText: '管理员密码'),
+        onSubmitted: (_) => _submit(context),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => _submit(context),
+          child: AdminShortcutText(
+            '确认',
+            AdminShortcutDefinitions.keyByAction['submit']!,
+          ),
+        ),
+      ],
+    );
   }
 }
