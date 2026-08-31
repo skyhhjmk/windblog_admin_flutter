@@ -284,6 +284,12 @@ class AdminApiClient {
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<List<RepostPolicyItem>> listRepostPolicies() async {
+    final res = await _get('/api/admin/repost/policies');
+    final list = jsonDecode(res.body) as List<dynamic>? ?? [];
+    return list.map((e) => RepostPolicyItem.fromMap(_map(e))).toList();
+  }
+
   Future<PostTranslationResult> translatePost(
     int postId, {
     required String sourceLanguage,
@@ -1867,7 +1873,8 @@ class AdminApiClient {
     }
 
     final responseCode = responseMap['code']?.toString();
-    final bearerTokenInvalid = responseCode == 'AUTH_TOKEN_INVALID' ||
+    final bearerTokenInvalid =
+        responseCode == 'AUTH_TOKEN_INVALID' ||
         responseCode == 'AUTH_ACCOUNT_INVALID' ||
         responseCode == 'ADMIN_ROLE_REQUIRED';
     if (res.statusCode == 401 &&

@@ -656,5 +656,13 @@
   "translation_new": "新翻译",
   "translation_overwrite": "确认覆盖",
   "translation_invalid_language": "请选择有效且不同的目标语言",
-  "translation_failed": "AI 翻译失败"
+  "translation_failed": "AI 翻译失败",
+  "repost_policy_card_title": "文章转载协议",
+  "repost_policy": "转载协议",
+  "repost_policy_loading": "正在加载协议目录…",
+  "repost_policy_load_failed": "协议目录加载失败",
+  "repost_policy_requires_application": "转载前需要申请授权",
+  "repost_policy_no_application": "免申请转载",
+  "repost_policy_link": "协议链接",
+  "repost_policy_unknown": "当前协议不在可用目录中，请刷新后重试"
 }

@@ -141,6 +141,7 @@ class PostDetail {
     this.tagIds = const [],
     this.visibilityRegions = const [],
     this.contentDeclarations = const [],
+    this.repostPolicyCode = RepostPolicyItem.defaultCode,
     this.pointsPrice,
     this.freeLines,
     required this.publishedRevisionNumber,
@@ -172,6 +173,7 @@ class PostDetail {
   final List<int> tagIds;
   final List<String> visibilityRegions;
   final List<String> contentDeclarations;
+  final String repostPolicyCode;
   final int? pointsPrice;
   final int? freeLines;
   final int publishedRevisionNumber;
@@ -194,6 +196,7 @@ class PostDetail {
       aiSummary['zh-cn'] ?? (aiSummary.isEmpty ? '' : aiSummary.values.first);
 
   factory PostDetail.fromMap(Map<String, dynamic> map) {
+    final declarations = toStringList(map['contentDeclarations']) ?? [];
     return PostDetail(
       id: toInt(map['id']) ?? 0,
       slug: map['slug']?.toString() ?? '',
@@ -219,7 +222,11 @@ class PostDetail {
           .where((id) => id > 0)
           .toList(),
       visibilityRegions: toStringList(map['visibilityRegions']) ?? [],
-      contentDeclarations: toStringList(map['contentDeclarations']) ?? [],
+      contentDeclarations: declarations,
+      repostPolicyCode: _repostPolicyCodeOrDefault(
+        map['repostPolicyCode'],
+        declarations,
+      ),
       pointsPrice: toInt(map['pointsPrice']),
       freeLines: toInt(map['freeLines']),
       publishedRevisionNumber: toInt(map['publishedRevisionNumber']) ?? 0,
@@ -229,6 +236,62 @@ class PostDetail {
       updatedAt: parseDate(map['updatedAt']),
     );
   }
+}
+
+class RepostPolicyItem {
+  const RepostPolicyItem({
+    required this.code,
+    required this.name,
+    required this.nameEn,
+    this.licenseUrl,
+    required this.requiresApplication,
+    required this.summary,
+    required this.summaryEn,
+    required this.conditions,
+    required this.conditionsEn,
+  });
+
+  static const defaultCode = 'REQUEST_REQUIRED';
+
+  final String code;
+  final String name;
+  final String nameEn;
+  final String? licenseUrl;
+  final bool requiresApplication;
+  final String summary;
+  final String summaryEn;
+  final List<String> conditions;
+  final List<String> conditionsEn;
+
+  factory RepostPolicyItem.fromMap(Map<String, dynamic> map) {
+    return RepostPolicyItem(
+      code: map['code']?.toString() ?? defaultCode,
+      name: map['name']?.toString() ?? '',
+      nameEn: map['nameEn']?.toString() ?? map['name']?.toString() ?? '',
+      licenseUrl: map['licenseUrl']?.toString(),
+      requiresApplication: map['requiresApplication'] == true,
+      summary: map['summary']?.toString() ?? '',
+      summaryEn:
+          map['summaryEn']?.toString() ?? map['summary']?.toString() ?? '',
+      conditions: toStringList(map['conditions']) ?? const [],
+      conditionsEn:
+          toStringList(map['conditionsEn']) ??
+          toStringList(map['conditions']) ??
+          const [],
+    );
+  }
+}
+
+String _repostPolicyCodeOrDefault(
+  dynamic value, [
+  List<String> contentDeclarations = const [],
+]) {
+  final code = value?.toString().trim() ?? '';
+  if (code.isNotEmpty) return code;
+  if (contentDeclarations.contains('CC_BY_NC_4_0')) {
+    return 'CC_BY_NC_4_0';
+  }
+  return RepostPolicyItem.defaultCode;
 }
 
 class PostTranslationResult {
@@ -315,6 +378,7 @@ class PostEditRequest {
     this.tagIds = const [],
     this.visibilityRegions = const [],
     this.contentDeclarations = const [],
+    this.repostPolicyCode = RepostPolicyItem.defaultCode,
     this.pointsPrice,
     this.freeLines,
   });
@@ -337,6 +401,7 @@ class PostEditRequest {
   final List<int> tagIds;
   final List<String> visibilityRegions;
   final List<String> contentDeclarations;
+  final String repostPolicyCode;
   final int? pointsPrice;
   final int? freeLines;
 
@@ -360,6 +425,7 @@ class PostEditRequest {
       'tagIds': tagIds,
       'visibilityRegions': visibilityRegions,
       'contentDeclarations': contentDeclarations,
+      'repostPolicyCode': repostPolicyCode,
       if (pointsPrice != null) 'pointsPrice': pointsPrice,
       if (freeLines != null) 'freeLines': freeLines,
     };
@@ -386,6 +452,7 @@ class PostEditRequest {
       'tagIds': tagIds,
       'visibilityRegions': visibilityRegions,
       'contentDeclarations': contentDeclarations,
+      'repostPolicyCode': repostPolicyCode,
       if (pointsPrice != null) 'pointsPrice': pointsPrice,
       if (freeLines != null) 'freeLines': freeLines,
     };
@@ -396,6 +463,7 @@ class PostEditRequest {
     int? categoryId,
     List<int>? tagIds,
     String? password,
+    String? repostPolicyCode,
   }) {
     return PostEditRequest(
       slug: slug,
@@ -414,6 +482,7 @@ class PostEditRequest {
       tagIds: tagIds ?? this.tagIds,
       visibilityRegions: visibilityRegions,
       contentDeclarations: contentDeclarations,
+      repostPolicyCode: repostPolicyCode ?? this.repostPolicyCode,
       pointsPrice: pointsPrice,
       freeLines: freeLines,
     );

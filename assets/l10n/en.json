@@ -656,5 +656,13 @@
   "translation_new": "New translation",
   "translation_overwrite": "Overwrite",
   "translation_invalid_language": "Choose a valid target language different from the source",
-  "translation_failed": "AI translation failed"
+  "translation_failed": "AI translation failed",
+  "repost_policy_card_title": "Article Repost Policy",
+  "repost_policy": "Repost policy",
+  "repost_policy_loading": "Loading policy catalog…",
+  "repost_policy_load_failed": "Failed to load policy catalog",
+  "repost_policy_requires_application": "Authorization is required before reposting",
+  "repost_policy_no_application": "Reposting does not require an application",
+  "repost_policy_link": "License link",
+  "repost_policy_unknown": "This policy is not in the available catalog. Refresh and try again."
 }

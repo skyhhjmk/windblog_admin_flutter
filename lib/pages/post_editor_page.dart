@@ -39,8 +39,11 @@ class _PostEditorPageState extends State<PostEditorPage>
   List<int> tagIds = [];
   List<String> visibilityRegions = [];
   List<String> contentDeclarations = [];
+  String repostPolicyCode = RepostPolicyItem.defaultCode;
   List<CategoryItem> _categories = [];
   List<TagItem> _tags = [];
+  List<RepostPolicyItem> _repostPolicies = [];
+  bool _isLoadingRepostPolicies = false;
   List<PostRevisionItem> _revisions = [];
   bool _isLoadingRevisions = false;
 
@@ -60,6 +63,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   List<int>? _initialTagIds;
   List<String>? _initialVisibilityRegions;
   List<String>? _initialContentDeclarations;
+  String? _initialRepostPolicyCode;
 
   PostDetail? _currentDetail;
 
@@ -106,6 +110,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     tagIds = d?.tagIds ?? [];
     visibilityRegions = d?.visibilityRegions ?? [];
     contentDeclarations = List<String>.from(d?.contentDeclarations ?? []);
+    repostPolicyCode = d?.repostPolicyCode ?? RepostPolicyItem.defaultCode;
 
     _initialSlug = d?.slug;
     _initialTitle = d?.zhTitle;
@@ -124,10 +129,14 @@ class _PostEditorPageState extends State<PostEditorPage>
     _initialContentDeclarations = d?.contentDeclarations != null
         ? List<String>.from(d!.contentDeclarations)
         : null;
+    _initialRepostPolicyCode =
+        d?.repostPolicyCode ??
+        (d == null ? RepostPolicyItem.defaultCode : null);
 
     _sidebarTabController = TabController(length: 3, vsync: this);
 
     _loadCategoriesAndTags();
+    _loadRepostPolicies();
     if (_currentDetail != null) {
       _loadRevisions();
     }
@@ -188,7 +197,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           passwordCtrl.text.trim().isNotEmpty ||
           categoryId != null ||
           tagIds.isNotEmpty ||
-          contentDeclarations.isNotEmpty;
+          contentDeclarations.isNotEmpty ||
+          repostPolicyCode != RepostPolicyItem.defaultCode;
     }
 
     return currentSlug != _initialSlug ||
@@ -204,7 +214,8 @@ class _PostEditorPageState extends State<PostEditorPage>
         categoryId != _initialCategoryId ||
         !_listEquals(tagIds, _initialTagIds) ||
         !_listEqualsString(visibilityRegions, _initialVisibilityRegions) ||
-        !_listEqualsString(contentDeclarations, _initialContentDeclarations);
+        !_listEqualsString(contentDeclarations, _initialContentDeclarations) ||
+        repostPolicyCode != _initialRepostPolicyCode;
   }
 
   bool _listEqualsString(List<String>? a, List<String>? b) {
@@ -242,7 +253,8 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (mounted) {
         setState(() => _isLoadingRevisions = false);
         if (mounted) {
-          AdminFeedback.showSnackBar(context,
+          AdminFeedback.showSnackBar(
+            context,
             SnackBar(
               content: Text('${t(context, 'load_revisions_failed')}: $e'),
             ),
@@ -269,11 +281,93 @@ class _PostEditorPageState extends State<PostEditorPage>
     } catch (e) {
       if (!mounted) return;
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'load_failed')}: $e')),
         );
       }
     }
+  }
+
+  Future<void> _loadRepostPolicies() async {
+    _isLoadingRepostPolicies = true;
+    try {
+      final policies = await widget.api.listRepostPolicies();
+      if (!mounted) return;
+      setState(() {
+        _repostPolicies = policies;
+        _isLoadingRepostPolicies = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _repostPolicies = [_fallbackRepostPolicy()];
+        _isLoadingRepostPolicies = false;
+      });
+      AdminFeedback.showSnackBar(
+        context,
+        SnackBar(
+          content: Text('${t(context, 'repost_policy_load_failed')}: $e'),
+        ),
+      );
+    }
+  }
+
+  RepostPolicyItem _fallbackRepostPolicy() {
+    return const RepostPolicyItem(
+      code: RepostPolicyItem.defaultCode,
+      name: '转载需申请授权',
+      nameEn: 'Repost requires authorization',
+      requiresApplication: true,
+      summary: '转载需先申请授权，并保留授权码、原文地址和文中 go/affiliate 链接。',
+      summaryEn:
+          'Request authorization before reposting and retain the authorization code, original URL, and go/affiliate links.',
+      conditions: ['转载前需要申请授权', '转载页需保留授权码、原文地址和文中 go/affiliate 链接'],
+      conditionsEn: [
+        'Authorization is required before reposting',
+        'Keep the authorization code, original URL, and go/affiliate links on the reposted page',
+      ],
+    );
+  }
+
+  List<RepostPolicyItem> _policyOptions() {
+    final options = List<RepostPolicyItem>.from(_repostPolicies);
+    if (options.isEmpty) {
+      options.add(_fallbackRepostPolicy());
+    }
+    if (!options.any((policy) => policy.code == repostPolicyCode)) {
+      options.add(
+        RepostPolicyItem(
+          code: repostPolicyCode,
+          name: repostPolicyCode,
+          nameEn: repostPolicyCode,
+          requiresApplication: true,
+          summary: t(context, 'repost_policy_unknown'),
+          summaryEn: t(context, 'repost_policy_unknown'),
+          conditions: const [],
+          conditionsEn: const [],
+        ),
+      );
+    }
+    return options;
+  }
+
+  String _policyName(RepostPolicyItem policy) {
+    return Localizations.localeOf(context).languageCode == 'en'
+        ? policy.nameEn
+        : policy.name;
+  }
+
+  String _policySummary(RepostPolicyItem policy) {
+    return Localizations.localeOf(context).languageCode == 'en'
+        ? policy.summaryEn
+        : policy.summary;
+  }
+
+  List<String> _policyConditions(RepostPolicyItem policy) {
+    return Localizations.localeOf(context).languageCode == 'en'
+        ? policy.conditionsEn
+        : policy.conditions;
   }
 
   @override
@@ -364,7 +458,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     _contents['zh-cn'] = finalContent;
 
     if (titleCtrl.text.trim().isEmpty) {
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text(t(context, 'fill_required_fields'))),
       );
       return false;
@@ -395,6 +490,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         tagIds: tagIds,
         visibilityRegions: visibilityRegions,
         contentDeclarations: contentDeclarations,
+        repostPolicyCode: repostPolicyCode,
       );
 
       PostDetail savedDetail;
@@ -413,12 +509,15 @@ class _PostEditorPageState extends State<PostEditorPage>
           _titles = Map<String, String>.from(savedDetail.title);
           _summaries = Map<String, String>.from(savedDetail.summary);
           _contents = Map<String, String>.from(savedDetail.contentMarkdown);
+          repostPolicyCode = savedDetail.repostPolicyCode;
+          _initialRepostPolicyCode = savedDetail.repostPolicyCode;
           _isSaving = false;
           _isDirty = false;
         });
         await _loadRevisions();
         if (!mounted) return false;
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(
             content: Text(draftSaveSuccessText),
             action: SnackBarAction(
@@ -434,7 +533,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'save_failed')}: $e')),
         );
       }
@@ -463,13 +563,15 @@ class _PostEditorPageState extends State<PostEditorPage>
         });
         await _loadRevisions();
         if (!mounted) return;
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text(publishSuccessText)),
         );
       }
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('$operationFailedText: $e')),
         );
       }
@@ -534,13 +636,15 @@ class _PostEditorPageState extends State<PostEditorPage>
         });
         await _loadRevisions();
         if (!mounted) return;
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text(publishSuccessText)),
         );
       }
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('$operationFailedText: $e')),
         );
       }
@@ -635,6 +739,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           contentDeclarations = List<String>.from(
             newDetail.contentDeclarations,
           );
+          repostPolicyCode = newDetail.repostPolicyCode;
 
           _initialSlug = newDetail.slug;
           _initialTitle = newDetail.zhTitle;
@@ -653,6 +758,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           _initialContentDeclarations = List<String>.from(
             newDetail.contentDeclarations,
           );
+          _initialRepostPolicyCode = newDetail.repostPolicyCode;
 
           _isDirty = false;
         });
@@ -660,14 +766,16 @@ class _PostEditorPageState extends State<PostEditorPage>
         await _loadRevisions();
 
         if (mounted) {
-          AdminFeedback.showSnackBar(context,
+          AdminFeedback.showSnackBar(
+            context,
             SnackBar(content: Text(t(context, 'set_current_draft_success'))),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(
             content: Text('${t(context, 'set_current_draft_failed')}: $e'),
           ),
@@ -803,7 +911,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'load_revision_failed')}: $e')),
         );
       }
@@ -1086,6 +1195,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           _buildContentStatsCard(),
           const SizedBox(height: 16),
           _buildPublishSettingsCard(),
+          const SizedBox(height: 16),
+          _buildRepostPolicyCard(),
           const SizedBox(height: 16),
           _buildCategoryCard(),
           const SizedBox(height: 16),
@@ -1417,10 +1528,112 @@ class _PostEditorPageState extends State<PostEditorPage>
             label: '可用于自动化程序',
             helpText: '选择后表示允许自动化程序使用内容，不将爬虫排除在外。',
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRepostPolicyCard() {
+    final options = _policyOptions();
+    final selectedPolicy = options.firstWhere(
+      (policy) => policy.code == repostPolicyCode,
+      orElse: () => options.first,
+    );
+    final conditions = _policyConditions(selectedPolicy);
+
+    return SectionCard(
+      icon: Icons.copyright_outlined,
+      title: t(context, 'repost_policy_card_title'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_isLoadingRepostPolicies)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                t(context, 'repost_policy_loading'),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ),
+          KeyedSubtree(
+            key: const Key('repostPolicyDropdown'),
+            child: _buildDropdownRow<String>(
+              label: t(context, 'repost_policy'),
+              value: selectedPolicy.code,
+              items: options
+                  .map(
+                    (policy) => DropdownMenuItem<String>(
+                      value: policy.code,
+                      child: Text(_policyName(policy)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value == null || value == repostPolicyCode) return;
+                setState(() {
+                  repostPolicyCode = value;
+                  _isDirty = true;
+                });
+              },
+            ),
+          ),
           const SizedBox(height: 12),
-          _buildContentDeclarationDropdown(
-            code: 'CC_BY_NC_4_0',
-            label: 'CC BY-NC 4.0',
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: selectedPolicy.requiresApplication
+                  ? Colors.orange.withValues(alpha: 0.08)
+                  : Colors.green.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: selectedPolicy.requiresApplication
+                    ? Colors.orange.withValues(alpha: 0.3)
+                    : Colors.green.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  selectedPolicy.requiresApplication
+                      ? t(context, 'repost_policy_requires_application')
+                      : t(context, 'repost_policy_no_application'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _policySummary(selectedPolicy),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
+                if (conditions.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ...conditions.map(
+                    (condition) => Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text(
+                        '• $condition',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                if (selectedPolicy.licenseUrl != null &&
+                    selectedPolicy.licenseUrl!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  SelectableText(
+                    '${t(context, 'repost_policy_link')}: ${selectedPolicy.licenseUrl}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.blueGrey.shade600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1606,7 +1819,8 @@ class _PostEditorPageState extends State<PostEditorPage>
                                 _currentDetail!.id,
                               );
                               if (mounted) {
-                                AdminFeedback.showSnackBar(context,
+                                AdminFeedback.showSnackBar(
+                                  context,
                                   SnackBar(
                                     content: Text(
                                       t(context, 'trigger_ai_success'),
@@ -1617,7 +1831,8 @@ class _PostEditorPageState extends State<PostEditorPage>
                               }
                             } catch (e) {
                               if (mounted) {
-                                AdminFeedback.showSnackBar(context,
+                                AdminFeedback.showSnackBar(
+                                  context,
                                   SnackBar(
                                     content: Text(
                                       '${t(context, 'trigger_ai_failed')}: $e',
@@ -2111,14 +2326,16 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
   Future<void> _translate() async {
     final targetLanguage = _effectiveTargetLanguage;
     if (targetLanguage.isEmpty || targetLanguage == _sourceLanguage) {
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text(t(context, 'translation_invalid_language'))),
       );
       return;
     }
     if (_titleController.text.trim().isEmpty ||
         _contentController.text.trim().isEmpty) {
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text(t(context, 'fill_required_fields'))),
       );
       return;
@@ -2145,7 +2362,8 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isTranslating = false);
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text('${t(context, 'translation_failed')}: $error')),
       );
     }
