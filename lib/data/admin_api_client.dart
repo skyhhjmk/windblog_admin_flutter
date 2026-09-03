@@ -127,6 +127,186 @@ class AdminApiClient {
     return _map(jsonDecode(res.body));
   }
 
+  Future<Map<String, dynamic>> codexCreatorConfig() async {
+    final res = await _get('/api/admin/codex-creator/config');
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> updateCodexCreatorConfig({
+    required String endpoint,
+    required bool enabled,
+    String? sharedSecret,
+    String? model,
+    String? stepUpToken,
+  }) async {
+    final body = <String, dynamic>{'endpoint': endpoint, 'enabled': enabled};
+    if (sharedSecret != null) {
+      body['sharedSecret'] = sharedSecret;
+    }
+    if (model != null) {
+      body['model'] = model;
+    }
+    final res = await _put(
+      '/api/admin/codex-creator/config',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> codexCreatorTopicAutomation() async {
+    final res = await _get('/api/admin/codex-creator/topic-automation');
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> updateCodexCreatorTopicAutomation(
+    Map<String, dynamic> body, {
+    String? stepUpToken,
+  }) async {
+    final res = await _put(
+      '/api/admin/codex-creator/topic-automation',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> createCodexCreatorTopicSeed(
+    Map<String, dynamic> body, {
+    String? stepUpToken,
+  }) async {
+    final res = await _post(
+      '/api/admin/codex-creator/topic-seeds',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> updateCodexCreatorTopicSeed(
+    int id,
+    Map<String, dynamic> body, {
+    String? stepUpToken,
+  }) async {
+    final res = await _put(
+      '/api/admin/codex-creator/topic-seeds/$id',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<void> deleteCodexCreatorTopicSeed(
+    int id, {
+    String? stepUpToken,
+  }) async {
+    await _delete(
+      '/api/admin/codex-creator/topic-seeds/$id',
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+  }
+
+  Future<Map<String, dynamic>> startCodexCreatorTopicRun({
+    String? stepUpToken,
+    String? idempotencyKey,
+  }) async {
+    final res = await _post(
+      '/api/admin/codex-creator/topic-runs',
+      body: const {},
+      stepUpToken: stepUpToken,
+      idempotencyKey: idempotencyKey ?? _newIdempotencyKey(),
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> codexCreatorTopicRuns({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final res = await _get(
+      '/api/admin/codex-creator/topic-runs',
+      query: {'page': '$page', 'pageSize': '$pageSize'},
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> codexCreatorTopics({
+    String? status,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final query = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+    if (status != null && status.isNotEmpty) query['status'] = status;
+    final res = await _get('/api/admin/codex-creator/topics', query: query);
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> codexCreatorTopic(int id) async {
+    final res = await _get('/api/admin/codex-creator/topics/$id');
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> reviewCodexCreatorTopic(
+    int id,
+    String decision, {
+    String? note,
+    String? stepUpToken,
+  }) async {
+    final body = <String, dynamic>{'decision': decision};
+    if (note != null && note.trim().isNotEmpty) body['note'] = note.trim();
+    final res = await _post(
+      '/api/admin/codex-creator/topics/$id/review',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> startCodexCreatorDraft(
+    int topicId, {
+    int? categoryId,
+    String language = 'zh-CN',
+    String instructions = '',
+    String? stepUpToken,
+  }) async {
+    final body = <String, dynamic>{
+      'language': language,
+      'instructions': instructions,
+    };
+    if (categoryId != null) body['categoryId'] = categoryId;
+    final res = await _post(
+      '/api/admin/codex-creator/topics/$topicId/draft',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> codexCreatorDraftJob(int id) async {
+    final res = await _get('/api/admin/codex-creator/draft-jobs/$id');
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
   Future<List<AiProviderConfig>> listAiProviders() async {
     final res = await _get('/api/admin/ai/providers');
     final list = (jsonDecode(res.body) as List<dynamic>? ?? []);
@@ -1814,9 +1994,20 @@ class AdminApiClient {
     return res;
   }
 
-  Future<http.Response> _delete(String path) async {
+  Future<http.Response> _delete(
+    String path, {
+    String? stepUpToken,
+    String? idempotencyKey,
+  }) async {
     final uri = Uri.parse('$baseUrl$path');
-    final res = await http.delete(uri, headers: _headers(true));
+    final res = await http.delete(
+      uri,
+      headers: _headers(
+        true,
+        stepUpToken: stepUpToken,
+        idempotencyKey: idempotencyKey,
+      ),
+    );
     _check(res, authFailureAsSessionExpired: true);
     return res;
   }

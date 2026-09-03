@@ -83,6 +83,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.comment,
         submenuParent: '内容管理',
       ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '话题',
+        icon: Icons.lightbulb_outline,
+        selectedIcon: Icons.lightbulb,
+        submenuParent: '内容管理',
+      ),
       // 运营管理
       _AdminNavigationItem(
         labelKey: 'links_management',
@@ -494,9 +501,7 @@ class _HomePageState extends State<HomePage> {
         childSelected = true;
       }
     }
-    Color parentColor = childSelected
-        ? brandColor
-        : const Color(0xFF94A3B8);
+    Color parentColor = childSelected ? brandColor : const Color(0xFF94A3B8);
 
     bool expanded = submenuExpandedStates[submenuName] == true;
 
@@ -983,109 +988,111 @@ class _HomePageState extends State<HomePage> {
       case 4:
         return CommentsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 5:
-        return LinksPage(api: widget.api, onAuthError: widget.onAuthError);
+        return TopicsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 6:
+        return LinksPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 7:
         return UserManagementPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
           isSuperAdmin: isSuperAdmin,
         );
-      case 7:
-        return StoreItemsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 8:
+        return StoreItemsPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 9:
         return MediaLibraryPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 9:
+      case 10:
         return StorageClassesPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 10:
+      case 11:
         return ImageProcessingConfigPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 11:
+      case 12:
         return StorageSyncPanel(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 12:
-        return EdgeNodesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 13:
+        return EdgeNodesPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 14:
         return RegionManagementPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 14:
+      case 15:
         return EdgeMonitorPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 15:
-        return QueuesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 16:
-        return DeadLetterPage(api: widget.api, onAuthError: widget.onAuthError);
+        return QueuesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 17:
+        return DeadLetterPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 18:
         return SystemMonitorPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 18:
+      case 19:
         return DatabaseManagementPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 19:
-        return AuditLogsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 20:
+        return AuditLogsPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 21:
         return SystemSettingsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 21:
+      case 22:
         return ElasticsearchSettingsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
-          onOpenSynonymRules: () => _selectTab(22),
+          onOpenSynonymRules: () => _selectTab(23),
         );
-      case 22:
+      case 23:
         return ElasticsearchSynonymsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
-          onOpenElasticSettings: () => _selectTab(21),
+          onOpenElasticSettings: () => _selectTab(22),
         );
-      case 23:
+      case 24:
         return AiProvidersPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 24:
+      case 25:
         return PermissionManagementPage(
           api: widget.api,
           isSuperAdmin: isSuperAdmin,
           onAuthError: widget.onAuthError,
         );
-      case 25:
+      case 26:
         return EmailCenterPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 26:
-        return OutboxPage(api: widget.api, onAuthError: widget.onAuthError);
       case 27:
+        return OutboxPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 28:
         return SecurityServicesPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 28:
+      case 29:
         return AmpSettingsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 29:
+      case 30:
         return CodexCreatorPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
