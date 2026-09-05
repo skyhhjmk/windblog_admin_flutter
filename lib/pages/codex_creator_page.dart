@@ -14,6 +14,132 @@ class CodexCreatorPage extends StatefulWidget {
   State<CodexCreatorPage> createState() => _CodexCreatorPageState();
 }
 
+class _TestServerDialog extends StatefulWidget {
+  const _TestServerDialog({this.server});
+  final Map<String, dynamic>? server;
+  static Map<String, dynamic>? lastSaved;
+  @override
+  State<_TestServerDialog> createState() => _TestServerDialogState();
+}
+
+class _TestServerDialogState extends State<_TestServerDialog> {
+  late final TextEditingController _name = TextEditingController(
+    text: widget.server?['name']?.toString() ?? '',
+  );
+  late final TextEditingController _host = TextEditingController(
+    text: widget.server?['host']?.toString() ?? '',
+  );
+  late final TextEditingController _port = TextEditingController(
+    text: widget.server?['sshPort']?.toString() ?? '22',
+  );
+  late final TextEditingController _user = TextEditingController(
+    text: widget.server?['sshUser']?.toString() ?? 'root',
+  );
+  final _key = TextEditingController();
+  bool _enabled = true;
+  String? _error;
+  @override
+  void initState() {
+    super.initState();
+    _enabled = widget.server?['enabled'] != false;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _host.dispose();
+    _port.dispose();
+    _user.dispose();
+    _key.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final port = int.tryParse(_port.text.trim());
+    if (_name.text.trim().isEmpty ||
+        _host.text.trim().isEmpty ||
+        port == null ||
+        port < 1 ||
+        port > 65535 ||
+        (widget.server == null && _key.text.trim().isEmpty)) {
+      setState(() => _error = '请填写名称、SSH 地址、有效端口和私钥。');
+      return;
+    }
+    _TestServerDialog.lastSaved = {
+      'name': _name.text.trim(),
+      'host': _host.text.trim(),
+      'sshPort': port,
+      'sshUser': _user.text.trim().isEmpty ? 'root' : _user.text.trim(),
+      'privateKey': _key.text,
+      'enabled': _enabled,
+    };
+    Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.server == null ? '添加测试服务器' : '编辑测试服务器'),
+    content: SizedBox(
+      width: 520,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('填写 root 用户的 SSH 登录信息。更新时私钥留空即可保持不变；私钥不会再次显示。'),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(labelText: '服务器名称'),
+            ),
+            TextField(
+              controller: _host,
+              decoration: const InputDecoration(labelText: 'SSH 地址 / IP'),
+            ),
+            TextField(
+              controller: _port,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'SSH 端口'),
+            ),
+            TextField(
+              controller: _user,
+              decoration: const InputDecoration(
+                labelText: 'SSH 用户',
+                helperText: '默认 root',
+              ),
+            ),
+            TextField(
+              controller: _key,
+              minLines: 4,
+              maxLines: 8,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: widget.server == null ? 'root 私钥' : '替换 root 私钥（可选）',
+              ),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('可用于 AI 验证'),
+              value: _enabled,
+              onChanged: (value) => setState(() => _enabled = value),
+            ),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('取消'),
+      ),
+      FilledButton(onPressed: _save, child: const Text('保存')),
+    ],
+  );
+}
+
 class _CodexCreatorPageState extends State<CodexCreatorPage> {
   final _endpointController = TextEditingController();
   final _sharedSecretController = TextEditingController();
@@ -25,6 +151,8 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
   String? _error;
   Map<String, dynamic>? _status;
   Map<String, dynamic>? _config;
+  List<Map<String, dynamic>> _testServers = const [];
+  Map<String, dynamic>? _testServerGuide;
 
   @override
   void initState() {
@@ -77,6 +205,19 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
       return;
     } catch (error) {
       firstError ??= '读取服务状态失败：$error';
+    }
+    try {
+      final values = await Future.wait([
+        widget.api.codexCreatorTestServers(),
+        widget.api.codexCreatorTestServerGuide(),
+      ]);
+      if (mounted)
+        setState(() {
+          _testServers = values[0] as List<Map<String, dynamic>>;
+          _testServerGuide = values[1] as Map<String, dynamic>;
+        });
+    } catch (error) {
+      firstError ??= '读取测试服务器失败：$error';
     }
 
     if (mounted) {
@@ -168,11 +309,114 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
             _buildStatusCard(),
             const SizedBox(height: 16),
             _buildConnectionCard(),
+            const SizedBox(height: 16),
+            _buildTestServersCard(),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _editTestServer([Map<String, dynamic>? server]) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => _TestServerDialog(server: server),
+    );
+    if (result != true || !mounted) return;
+    final draft = _TestServerDialog.lastSaved!;
+    try {
+      final token = await AdminStepUpAuthorization.obtain(
+        context,
+        widget.api,
+        title: '确认保存测试服务器 SSH 密钥',
+      );
+      if (token == null) return;
+      await widget.api.saveCodexCreatorTestServer(
+        draft,
+        id: server?['id'] as int?,
+        stepUpToken: token,
+      );
+      if (mounted)
+        AdminFeedback.showSnackBar(
+          context,
+          const SnackBar(
+            content: Text('测试服务器已保存'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      await _load();
+    } catch (error) {
+      if (mounted)
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('保存失败：$error')),
+        );
+    }
+  }
+
+  Widget _buildTestServersCard() => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'AI 测试服务器',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          const Text('不对接云厂商。仅保存您主动添加的可重装测试机；私钥会加密保存且不会回显。'),
+          if (_testServerGuide != null) ...[
+            const SizedBox(height: 12),
+            Text('建议系统：${_testServerGuide!['system'] ?? '-'}'),
+            ...((_testServerGuide!['steps'] as List<dynamic>? ?? const []).map(
+              (step) => Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('• $step'),
+              ),
+            )),
+            const SizedBox(height: 4),
+            Text(
+              _testServerGuide!['warning']?.toString() ?? '',
+              style: const TextStyle(color: Colors.orange),
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (_testServers.isEmpty)
+            const Text('尚未添加测试服务器。')
+          else
+            ..._testServers.map(
+              (server) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  server['enabled'] == true
+                      ? Icons.dns_outlined
+                      : Icons.dns_outlined,
+                ),
+                title: Text(server['name']?.toString() ?? '未命名服务器'),
+                subtitle: Text(
+                  '${server['sshUser'] ?? 'root'}@${server['host']}:${server['sshPort'] ?? 22} · 私钥${server['privateKeyConfigured'] == true ? '已配置' : '未配置'}',
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _editTestServer(server),
+                ),
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: _loading || _saving ? null : () => _editTestServer(),
+              icon: const Icon(Icons.add),
+              label: const Text('添加测试服务器'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildStatusCard() {
     final connected = _status?['connected'] == true;

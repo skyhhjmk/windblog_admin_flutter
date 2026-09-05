@@ -300,11 +300,15 @@ class AdminApiClient {
     String language = 'zh-CN',
     String instructions = '',
     String? profileId,
+    bool requiresPracticalVerification = false,
+    List<int> testServerIds = const [],
     String? stepUpToken,
   }) async {
     final body = <String, dynamic>{
       'language': language,
       'instructions': instructions,
+      'requiresPracticalVerification': requiresPracticalVerification,
+      'testServerIds': testServerIds,
     };
     if (categoryId != null) body['categoryId'] = categoryId;
     if (profileId != null && profileId.isNotEmpty) {
@@ -342,6 +346,51 @@ class AdminApiClient {
     final map = _map(jsonDecode(res.body));
     return _map(map['data']);
   }
+
+  Future<List<Map<String, dynamic>>> codexCreatorTestServers() async {
+    final map = _map(
+      jsonDecode((await _get('/api/admin/codex-creator/test-servers')).body),
+    );
+    final items = (_map(map['data'])['items'] as List<dynamic>? ?? const []);
+    return items.map((item) => _map(item)).toList();
+  }
+
+  Future<Map<String, dynamic>> codexCreatorTestServerGuide() async {
+    final map = _map(
+      jsonDecode(
+        (await _get('/api/admin/codex-creator/test-servers/setup-guide')).body,
+      ),
+    );
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> saveCodexCreatorTestServer(
+    Map<String, dynamic> body, {
+    int? id,
+    String? stepUpToken,
+  }) async {
+    final res = id == null
+        ? await _post(
+            '/api/admin/codex-creator/test-servers',
+            body: body,
+            stepUpToken: stepUpToken,
+            idempotencyKey: _newIdempotencyKey(),
+          )
+        : await _put(
+            '/api/admin/codex-creator/test-servers/$id',
+            body: body,
+            stepUpToken: stepUpToken,
+            idempotencyKey: _newIdempotencyKey(),
+          );
+    return _map(_map(jsonDecode(res.body))['data']);
+  }
+
+  Future<void> deleteCodexCreatorTestServer(int id, {String? stepUpToken}) =>
+      _delete(
+        '/api/admin/codex-creator/test-servers/$id',
+        stepUpToken: stepUpToken,
+        idempotencyKey: _newIdempotencyKey(),
+      );
 
   Future<List<AiProviderConfig>> listAiProviders() async {
     final res = await _get('/api/admin/ai/providers');

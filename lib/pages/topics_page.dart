@@ -380,10 +380,18 @@ class _TopicsPageState extends State<TopicsPage>
   Future<void> _assignDraft(Map<String, dynamic> topic) async {
     final topicId = _intValue(topic['id']);
     if (topicId == null) return;
+    List<Map<String, dynamic>> servers = const [];
+    try {
+      servers = await widget.api.codexCreatorTestServers();
+    } catch (_) {}
+    if (!mounted) return;
 
     final request = await showDialog<_DraftRequest>(
       context: context,
-      builder: (_) => _DraftRequestDialog(models: _modelOptions('article')),
+      builder: (_) => _DraftRequestDialog(
+        models: _modelOptions('article'),
+        servers: servers,
+      ),
     );
     if (request == null || !mounted) return;
 
@@ -400,6 +408,8 @@ class _TopicsPageState extends State<TopicsPage>
         language: request.language,
         instructions: request.instructions,
         profileId: request.profileId,
+        requiresPracticalVerification: request.practicalVerification,
+        testServerIds: request.testServerIds,
         stepUpToken: stepUpToken,
       );
       final jobId = _intValue(job['id']);
@@ -1721,17 +1731,22 @@ class _DraftRequest {
     required this.language,
     required this.instructions,
     required this.profileId,
+    required this.practicalVerification,
+    required this.testServerIds,
   });
 
   final String language;
   final String instructions;
   final String profileId;
+  final bool practicalVerification;
+  final List<int> testServerIds;
 }
 
 class _DraftRequestDialog extends StatefulWidget {
-  const _DraftRequestDialog({required this.models});
+  const _DraftRequestDialog({required this.models, required this.servers});
 
   final List<Map<String, dynamic>> models;
+  final List<Map<String, dynamic>> servers;
 
   @override
   State<_DraftRequestDialog> createState() => _DraftRequestDialogState();
@@ -1742,6 +1757,8 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
   late final TextEditingController _instructionsController;
   String? _profileId;
   String? _error;
+  bool _practicalVerification = false;
+  final Set<int> _testServerIds = {};
 
   @override
   void initState() {
@@ -1775,12 +1792,18 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
       setState(() => _error = '请选择生成模型');
       return;
     }
+    if (_practicalVerification && _testServerIds.isEmpty) {
+      setState(() => _error = '请选择至少一台验证用服务器');
+      return;
+    }
     Navigator.pop(
       context,
       _DraftRequest(
         language: language,
         instructions: _instructionsController.text.trim(),
         profileId: _profileId!,
+        practicalVerification: _practicalVerification,
+        testServerIds: _testServerIds.toList(),
       ),
     );
   }
@@ -1800,6 +1823,50 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
                 child: Text('分类由 Codex 自动选择或创建；如果没有合适分类，将归入“未分类”。'),
               ),
               const SizedBox(height: 12),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('需要实操验证'),
+                subtitle: const Text('让 Codex 在验证用服务器执行命令，核对教程步骤。'),
+                value: _practicalVerification,
+                onChanged: (value) =>
+                    setState(() => _practicalVerification = value),
+              ),
+              if (_practicalVerification) ...[
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('验证用服务器（可多选）'),
+                ),
+                if (widget.servers
+                    .where((server) => server['enabled'] == true)
+                    .isEmpty)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '暂无可用服务器，请先到 Codex Creator 添加。',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ...widget.servers.where((server) => server['enabled'] == true).map((
+                  server,
+                ) {
+                  final id = int.tryParse(server['id']?.toString() ?? '');
+                  if (id == null) return const SizedBox.shrink();
+                  return CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _testServerIds.contains(id),
+                    title: Text(server['name']?.toString() ?? '未命名服务器'),
+                    subtitle: Text(
+                      '${server['sshUser'] ?? 'root'}@${server['host']}:${server['sshPort'] ?? 22}',
+                    ),
+                    onChanged: (checked) => setState(() {
+                      if (checked == true)
+                        _testServerIds.add(id);
+                      else
+                        _testServerIds.remove(id);
+                    }),
+                  );
+                }),
+              ],
               TextField(
                 controller: _languageController,
                 decoration: const InputDecoration(
