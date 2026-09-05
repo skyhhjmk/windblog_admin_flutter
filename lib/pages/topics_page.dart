@@ -1162,6 +1162,9 @@ class _TopicsPageState extends State<TopicsPage>
 
   Widget _buildTopicsCard() {
     final topicGroups = _groupedTopics();
+    final seedTabs = topicGroups.entries
+        .map((entry) => (name: entry.key, topics: entry.value))
+        .toList();
     return Card(
       child: Padding(
         padding: EdgeInsets.all(AdminBreakpoints.isPhone(context) ? 16 : 20),
@@ -1212,30 +1215,34 @@ class _TopicsPageState extends State<TopicsPage>
                 ),
               ),
             const SizedBox(height: 12),
-            if (_topics.isEmpty && !_loading)
+            if (_topics.isEmpty && !_loading && topicGroups.isEmpty)
               const Text('还没有主题。可以先配置查询种子，再手动运行一次全网搜索。')
             else
-              ...topicGroups.entries.expand(
-                (entry) => <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6, bottom: 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.travel_explore, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            entry.key,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
+              _TopicHorizontalTabs(
+                items: seedTabs,
+                labelBuilder: (item) => item.name,
+                childBuilder: (item) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, bottom: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.travel_explore, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
                           ),
-                        ),
-                        Text('${entry.value.length} 个话题'),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  ...entry.value.map(_topicCard),
-                ],
+                    ...item.topics.map(_topicCard),
+                  ],
+                ),
               ),
           ],
         ),
@@ -1284,11 +1291,10 @@ class _TopicsPageState extends State<TopicsPage>
     for (final seed in _seeds) {
       final id = _intValue(seed['id']);
       final topics = id == null ? null : groupedById[id];
-      if (topics == null || topics.isEmpty) continue;
       result[seed['name']?.toString() ??
               seed['query']?.toString() ??
               '种子 #$id'] =
-          topics;
+          topics ?? <Map<String, dynamic>>[];
     }
     if (ungrouped.isNotEmpty) result['历史或未归类'] = ungrouped;
     return result;
@@ -1567,6 +1573,81 @@ class _TopicsPageState extends State<TopicsPage>
     } catch (_) {
       return value.toString();
     }
+  }
+}
+
+/// Displays one seed at a time while keeping all seed choices in a compact
+/// horizontal strip; topics within the selected seed remain vertically listed.
+class _TopicHorizontalTabs<T> extends StatefulWidget {
+  const _TopicHorizontalTabs({
+    required this.items,
+    required this.labelBuilder,
+    required this.childBuilder,
+  });
+
+  final List<T> items;
+  final String Function(T item) labelBuilder;
+  final Widget Function(T item) childBuilder;
+
+  @override
+  State<_TopicHorizontalTabs<T>> createState() =>
+      _TopicHorizontalTabsState<T>();
+}
+
+class _TopicHorizontalTabsState<T> extends State<_TopicHorizontalTabs<T>>
+    with SingleTickerProviderStateMixin {
+  late TabController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TabController(length: widget.items.length, vsync: this);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TopicHorizontalTabs<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.items.length != widget.items.length) {
+      final oldIndex = _controller.index;
+      _controller.dispose();
+      _controller = TabController(
+        length: widget.items.length,
+        vsync: this,
+        initialIndex: oldIndex.clamp(0, widget.items.length - 1),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TabBar(
+          controller: _controller,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+          tabs: [
+            for (final item in widget.items)
+              Tab(text: widget.labelBuilder(item)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => widget.childBuilder(
+            widget.items[_controller.index.clamp(0, widget.items.length - 1)],
+          ),
+        ),
+      ],
+    );
   }
 }
 
