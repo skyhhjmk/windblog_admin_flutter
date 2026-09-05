@@ -76,6 +76,35 @@ void main() {
     controller.clear();
   });
 
+  test('Codex topic and draft results remain in the persistent stack', () {
+    final controller = AdminNotificationController();
+    final api = AdminApiClient();
+
+    controller.trackTopicDiscovery(
+      api: api,
+      run: {'id': 12, 'status': 'SUCCEEDED', 'topicCount': 3},
+    );
+    controller.trackDraftGeneration(
+      api: api,
+      job: {'id': 21, 'status': 'DRAFT_CREATED', 'postId': 9},
+    );
+
+    expect(controller.persistentNotifications, hasLength(2));
+    expect(
+      controller.persistentNotifications.any(
+        (item) => item.message.contains('3 个话题') && item.completed,
+      ),
+      isTrue,
+    );
+    expect(
+      controller.persistentNotifications.any(
+        (item) => item.message.contains('文章 #9') && item.completed,
+      ),
+      isTrue,
+    );
+    controller.clear();
+  });
+
   testWidgets('show login page', (WidgetTester tester) async {
     final api = AdminApiClient();
     await tester.pumpWidget(

@@ -303,7 +303,9 @@ class AdminNotificationController extends ChangeNotifier {
       notification.progress = _normalizeProgress(progress);
     }
     if (reopen != null) notification.reopen = reopen;
-    _showSystemNotification(notification);
+    // Polling may update this object every few seconds. Keep those updates in
+    // the in-app notification stack; re-showing the native notification here
+    // makes the operating system alert on every poll.
     notifyListeners();
     if (!notification.completed) _persistActiveTasks();
   }
@@ -382,7 +384,98 @@ class AdminNotificationController extends ChangeNotifier {
     if (api.token == null || api.token!.isEmpty) return;
     if (_restoring) return;
     _restoring = true;
-    unawaited(_restoreActiveMediaTasks());
+    unawaited(_restoreActiveTasks());
+  }
+
+  void trackTopicDiscovery({
+    required AdminApiClient api,
+    required Map<String, dynamic> run,
+    VoidCallback? onCompleted,
+  }) {
+    final runId = toInt(run['id']);
+    if (runId == null) return;
+    final taskId = 'codex-topic-run-$runId';
+    final reopen = _taskDetailsReopen(taskId);
+    final status = run['status']?.toString() ?? 'QUEUED';
+    showPersistent(
+      taskId: taskId,
+      title: '正在生成话题',
+      message: _topicRunMessage(run),
+      progressMode: AdminNotificationProgressMode.indeterminate,
+      reopen: reopen,
+      persistenceData: <String, dynamic>{
+        'type': 'codex-topic-run',
+        'runId': runId,
+      },
+    );
+    if (status == 'SUCCEEDED' || status == 'FAILED') {
+      completePersistent(
+        taskId: taskId,
+        message: _topicRunMessage(run),
+        failed: status == 'FAILED',
+        reopen: reopen,
+      );
+      onCompleted?.call();
+      return;
+    }
+    _mediaPollingTimers.remove(taskId)?.cancel();
+    _mediaPollingTimers[taskId] = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _pollTopicRun(
+        api: api,
+        taskId: taskId,
+        runId: runId,
+        reopen: reopen,
+        onCompleted: onCompleted,
+      ),
+    );
+  }
+
+  void trackDraftGeneration({
+    required AdminApiClient api,
+    required Map<String, dynamic> job,
+    bool regeneration = false,
+    VoidCallback? onCompleted,
+  }) {
+    final jobId = toInt(job['id']);
+    if (jobId == null) return;
+    final taskId = 'codex-draft-job-$jobId';
+    final reopen = _taskDetailsReopen(taskId);
+    final status = job['status']?.toString() ?? 'REQUESTED';
+    showPersistent(
+      taskId: taskId,
+      title: regeneration ? '正在重新生成草稿' : '正在生成草稿',
+      message: _draftJobMessage(job, regeneration: regeneration),
+      progressMode: AdminNotificationProgressMode.indeterminate,
+      reopen: reopen,
+      persistenceData: <String, dynamic>{
+        'type': 'codex-draft-job',
+        'jobId': jobId,
+        'regeneration': regeneration,
+      },
+    );
+    if (status == 'DRAFT_CREATED' || status == 'FAILED') {
+      completePersistent(
+        taskId: taskId,
+        message: _draftJobMessage(job, regeneration: regeneration),
+        failed: status == 'FAILED',
+        reopen: reopen,
+      );
+      onCompleted?.call();
+      return;
+    }
+    _mediaPollingTimers.remove(taskId)?.cancel();
+    _mediaPollingTimers[taskId] = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _pollDraftJob(
+        api: api,
+        taskId: taskId,
+        jobId: jobId,
+        regeneration: regeneration,
+        reopen: reopen,
+        onCompleted: onCompleted,
+      ),
+    );
   }
 
   void trackMediaProcessing({
@@ -588,7 +681,7 @@ class AdminNotificationController extends ChangeNotifier {
     }
   }
 
-  Future<void> _restoreActiveMediaTasks() async {
+  Future<void> _restoreActiveTasks() async {
     final api = _api;
     if (api == null) return;
     List<Map<String, dynamic>> records;
@@ -598,6 +691,51 @@ class AdminNotificationController extends ChangeNotifier {
       return;
     }
     for (final record in records) {
+      if (record['type'] == 'codex-topic-run') {
+        final runId = toInt(record['runId']);
+        if (runId == null) continue;
+        try {
+          trackTopicDiscovery(
+            api: api,
+            run: await api.codexCreatorTopicRun(runId),
+          );
+        } catch (_) {
+          trackTopicDiscovery(
+            api: api,
+            run: <String, dynamic>{'id': runId, 'status': 'QUEUED'},
+          );
+          updatePersistent(
+            taskId: 'codex-topic-run-$runId',
+            title: '话题生成等待恢复',
+            message: '暂时无法获取服务端状态，将继续等待',
+          );
+        }
+        continue;
+      }
+      if (record['type'] == 'codex-draft-job') {
+        final jobId = toInt(record['jobId']);
+        if (jobId == null) continue;
+        final regeneration = record['regeneration'] == true;
+        try {
+          trackDraftGeneration(
+            api: api,
+            job: await api.codexCreatorDraftJob(jobId),
+            regeneration: regeneration,
+          );
+        } catch (_) {
+          trackDraftGeneration(
+            api: api,
+            job: <String, dynamic>{'id': jobId, 'status': 'REQUESTED'},
+            regeneration: regeneration,
+          );
+          updatePersistent(
+            taskId: 'codex-draft-job-$jobId',
+            title: regeneration ? '草稿重新生成等待恢复' : '草稿生成等待恢复',
+            message: '暂时无法获取服务端状态，将继续等待',
+          );
+        }
+        continue;
+      }
       if (record['type'] != 'media-processing') continue;
       final mediaId = toInt(record['mediaId']);
       if (mediaId == null) continue;
@@ -624,6 +762,103 @@ class AdminNotificationController extends ChangeNotifier {
       }
     }
     _persistActiveTasks(immediate: true);
+  }
+
+  Future<void> _pollTopicRun({
+    required AdminApiClient api,
+    required String taskId,
+    required int runId,
+    required AdminNotificationReopen reopen,
+    required VoidCallback? onCompleted,
+  }) async {
+    final notification = _findTask(taskId);
+    if (notification == null || notification.completed) return;
+    try {
+      final run = await api.codexCreatorTopicRun(runId);
+      final status = run['status']?.toString() ?? '';
+      if (status == 'SUCCEEDED' || status == 'FAILED') {
+        completePersistent(
+          taskId: taskId,
+          message: _topicRunMessage(run),
+          failed: status == 'FAILED',
+          reopen: reopen,
+        );
+        onCompleted?.call();
+        return;
+      }
+      updatePersistent(taskId: taskId, message: _topicRunMessage(run));
+    } catch (_) {
+      updatePersistent(taskId: taskId, message: '话题生成中，正在等待服务器状态');
+    }
+  }
+
+  Future<void> _pollDraftJob({
+    required AdminApiClient api,
+    required String taskId,
+    required int jobId,
+    required bool regeneration,
+    required AdminNotificationReopen reopen,
+    required VoidCallback? onCompleted,
+  }) async {
+    final notification = _findTask(taskId);
+    if (notification == null || notification.completed) return;
+    try {
+      final job = await api.codexCreatorDraftJob(jobId);
+      final status = job['status']?.toString() ?? '';
+      if (status == 'DRAFT_CREATED' || status == 'FAILED') {
+        completePersistent(
+          taskId: taskId,
+          message: _draftJobMessage(job, regeneration: regeneration),
+          failed: status == 'FAILED',
+          reopen: reopen,
+        );
+        onCompleted?.call();
+        return;
+      }
+      updatePersistent(
+        taskId: taskId,
+        message: _draftJobMessage(job, regeneration: regeneration),
+      );
+    } catch (_) {
+      updatePersistent(taskId: taskId, message: '草稿生成中，正在等待服务器状态');
+    }
+  }
+
+  String _topicRunMessage(Map<String, dynamic> run) {
+    final status = run['status']?.toString() ?? 'QUEUED';
+    if (status == 'SUCCEEDED') {
+      return '话题生成完成，共生成或更新 ${toInt(run['topicCount']) ?? 0} 个话题';
+    }
+    if (status == 'FAILED') return '话题生成失败：${run['error'] ?? '未知错误'}';
+    if (status == 'RUNNING') return '正在检索资料并生成话题';
+    return '话题任务已进入队列';
+  }
+
+  String _draftJobMessage(
+    Map<String, dynamic> job, {
+    required bool regeneration,
+  }) {
+    final status = job['status']?.toString() ?? 'REQUESTED';
+    if (status == 'DRAFT_CREATED') {
+      final postId = toInt(job['postId']);
+      return regeneration
+          ? '草稿已重新生成${postId == null ? '' : '，文章 #$postId 已创建新修订'}'
+          : '草稿生成完成${postId == null ? '' : '，已保存为文章 #$postId'}';
+    }
+    if (status == 'FAILED') return '草稿生成失败：${job['error'] ?? '未知错误'}';
+    if (status == 'REGENERATING') return '正在重新研究并生成草稿新修订';
+    if (status == 'READY') return '内容已生成，正在保存到 WindBlog';
+    return regeneration ? '正在重新生成草稿' : '正在研究并生成草稿';
+  }
+
+  AdminNotificationReopen _taskDetailsReopen(String taskId) {
+    return (BuildContext context) async {
+      await showDialog<void>(
+        context: context,
+        builder: (_) =>
+            _AdminNotificationDetailsDialog(taskId: taskId, controller: this),
+      );
+    };
   }
 
   AdminNotificationReopen _mediaReopen(

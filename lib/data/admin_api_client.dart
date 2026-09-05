@@ -220,13 +220,22 @@ class AdminApiClient {
   Future<Map<String, dynamic>> startCodexCreatorTopicRun({
     String? stepUpToken,
     String? idempotencyKey,
+    String? profileId,
   }) async {
     final res = await _post(
       '/api/admin/codex-creator/topic-runs',
-      body: const {},
+      body: profileId == null || profileId.isEmpty
+          ? const {}
+          : {'profileId': profileId},
       stepUpToken: stepUpToken,
       idempotencyKey: idempotencyKey ?? _newIdempotencyKey(),
     );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> codexCreatorModels() async {
+    final res = await _get('/api/admin/codex-creator/models');
     final map = _map(jsonDecode(res.body));
     return _map(map['data']);
   }
@@ -239,6 +248,12 @@ class AdminApiClient {
       '/api/admin/codex-creator/topic-runs',
       query: {'page': '$page', 'pageSize': '$pageSize'},
     );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> codexCreatorTopicRun(int id) async {
+    final res = await _get('/api/admin/codex-creator/topic-runs/$id');
     final map = _map(jsonDecode(res.body));
     return _map(map['data']);
   }
@@ -284,6 +299,7 @@ class AdminApiClient {
     int? categoryId,
     String language = 'zh-CN',
     String instructions = '',
+    String? profileId,
     String? stepUpToken,
   }) async {
     final body = <String, dynamic>{
@@ -291,9 +307,29 @@ class AdminApiClient {
       'instructions': instructions,
     };
     if (categoryId != null) body['categoryId'] = categoryId;
+    if (profileId != null && profileId.isNotEmpty) {
+      body['profileId'] = profileId;
+    }
     final res = await _post(
       '/api/admin/codex-creator/topics/$topicId/draft',
       body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> regenerateCodexCreatorDraft(
+    int topicId, {
+    String? profileId,
+    String? stepUpToken,
+  }) async {
+    final res = await _post(
+      '/api/admin/codex-creator/topics/$topicId/draft/regenerate',
+      body: profileId == null || profileId.isEmpty
+          ? const {}
+          : {'profileId': profileId},
       stepUpToken: stepUpToken,
       idempotencyKey: _newIdempotencyKey(),
     );

@@ -37,6 +37,7 @@ class _TopicsPageState extends State<TopicsPage>
   List<Map<String, dynamic>> _topics = [];
   List<Map<String, dynamic>> _assignedTopics = [];
   List<Map<String, dynamic>> _runs = [];
+  Map<String, dynamic> _models = {};
 
   @override
   void initState() {
@@ -71,6 +72,7 @@ class _TopicsPageState extends State<TopicsPage>
 
     try {
       final automation = await widget.api.codexCreatorTopicAutomation();
+      final models = await widget.api.codexCreatorModels();
       final topics = await widget.api.codexCreatorTopics(
         status: _topicStatus == 'ALL' ? null : _topicStatus,
         page: _topicPage,
@@ -87,6 +89,7 @@ class _TopicsPageState extends State<TopicsPage>
       final runTotal = _intValue(runs['total']);
       setState(() {
         _automation = automation;
+        _models = models;
         _seeds = _mapList(automation['seeds']);
         _topics = _mapList(topics['items']);
         _runs = _mapList(runs['items']);
@@ -94,6 +97,19 @@ class _TopicsPageState extends State<TopicsPage>
         _topicTotal = topicTotal ?? 0;
         _runTotal = runTotal ?? 0;
       });
+      final notifications = AdminNotificationScope.maybeOf(context);
+      for (final run in _runs) {
+        final status = run['status']?.toString() ?? '';
+        if (status == 'QUEUED' || status == 'RUNNING') {
+          notifications?.trackTopicDiscovery(
+            api: widget.api,
+            run: run,
+            onCompleted: () {
+              if (mounted) unawaited(_load());
+            },
+          );
+        }
+      }
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
@@ -190,6 +206,12 @@ class _TopicsPageState extends State<TopicsPage>
   }
 
   Future<void> _runNow() async {
+    final profileId = await _chooseModel(
+      title: '选择话题生成模型',
+      description: '本次选择只影响这一次立即运行；定时任务继续使用默认模型。',
+      operation: 'topic',
+    );
+    if (profileId == null || !mounted) return;
     if (mounted) setState(() => _saving = true);
     try {
       final stepUpToken = await AdminStepUpAuthorization.obtain(
@@ -200,15 +222,23 @@ class _TopicsPageState extends State<TopicsPage>
       if (stepUpToken == null) return;
       final run = await widget.api.startCodexCreatorTopicRun(
         stepUpToken: stepUpToken,
+        profileId: profileId,
       );
       if (!mounted) return;
-      AdminFeedback.showSnackBar(
-        context,
-        SnackBar(
-          content: Text('主题发现已提交：${run['status'] ?? 'QUEUED'}'),
-          backgroundColor: Colors.green,
-        ),
+      final notifications = AdminNotificationScope.maybeOf(context);
+      notifications?.trackTopicDiscovery(
+        api: widget.api,
+        run: run,
+        onCompleted: () {
+          if (mounted) unawaited(_load());
+        },
       );
+      if (notifications == null) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('话题生成已提交：${run['status'] ?? 'QUEUED'}')),
+        );
+      }
       await _load();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -353,7 +383,7 @@ class _TopicsPageState extends State<TopicsPage>
 
     final request = await showDialog<_DraftRequest>(
       context: context,
-      builder: (_) => const _DraftRequestDialog(),
+      builder: (_) => _DraftRequestDialog(models: _modelOptions('article')),
     );
     if (request == null || !mounted) return;
 
@@ -369,17 +399,21 @@ class _TopicsPageState extends State<TopicsPage>
         topicId,
         language: request.language,
         instructions: request.instructions,
+        profileId: request.profileId,
         stepUpToken: stepUpToken,
       );
       final jobId = _intValue(job['id']);
       if (jobId == null) throw Exception('服务器没有返回草稿任务编号');
-      if (mounted) {
-        setState(() {
-          _pollingMessage = '正在轮询草稿任务 #$jobId，页面保持打开即可；刷新或离开不会重复创建任务。';
-          _saving = false;
-        });
-      }
-      await _pollDraft(jobId);
+      if (!mounted) return;
+      final notifications = AdminNotificationScope.maybeOf(context);
+      notifications?.trackDraftGeneration(
+        api: widget.api,
+        job: job,
+        onCompleted: () {
+          if (mounted) unawaited(_loadAssignedTopics());
+        },
+      );
+      if (notifications == null) await _pollDraft(jobId);
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
@@ -399,12 +433,140 @@ class _TopicsPageState extends State<TopicsPage>
     }
   }
 
+  Future<void> _regenerateDraft(Map<String, dynamic> topic) async {
+    final topicId = _intValue(topic['id']);
+    if (topicId == null) return;
+    final profileId = await _chooseModel(
+      title: '重新生成文章草稿',
+      description: '选择本次重新生成使用的模型。新内容会写入同一篇草稿的新修订，旧修订仍保留。',
+      operation: 'article',
+    );
+    if (profileId == null || !mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      final stepUpToken = await AdminStepUpAuthorization.obtain(
+        context,
+        widget.api,
+        title: '确认重新生成文章草稿',
+      );
+      if (stepUpToken == null) return;
+      final job = await widget.api.regenerateCodexCreatorDraft(
+        topicId,
+        profileId: profileId,
+        stepUpToken: stepUpToken,
+      );
+      final jobId = _intValue(job['id']);
+      if (jobId == null) throw Exception('服务器没有返回草稿任务编号');
+      if (!mounted) return;
+      final notifications = AdminNotificationScope.maybeOf(context);
+      notifications?.trackDraftGeneration(
+        api: widget.api,
+        job: job,
+        regeneration: true,
+        onCompleted: () {
+          if (mounted) unawaited(_loadAssignedTopics());
+        },
+      );
+      if (notifications == null) await _pollDraft(jobId);
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('重新生成草稿失败：$error')),
+        );
+        await _loadAssignedTopics();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _pollingMessage = null;
+        });
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> _modelOptions(String operation) {
+    final values = _models[operation];
+    return _mapList(values);
+  }
+
+  Future<String?> _chooseModel({
+    required String title,
+    required String description,
+    required String operation,
+  }) async {
+    final models = _modelOptions(operation);
+    if (models.isEmpty) {
+      if (mounted) AdminFeedback.error(context, '没有可用于本操作的模型');
+      return null;
+    }
+    var selected = models
+        .firstWhere(
+          (model) => model['isDefault'] == true,
+          orElse: () => models.first,
+        )['profileId']
+        ?.toString();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(description),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: selected,
+                  decoration: const InputDecoration(
+                    labelText: '模型',
+                    prefixIcon: Icon(Icons.model_training),
+                  ),
+                  items: models
+                      .map(
+                        (model) => DropdownMenuItem<String>(
+                          value: model['profileId']?.toString(),
+                          child: Text(
+                            '${model['displayName'] ?? model['modelId']} · ${model['reasoningEffort'] ?? ''}',
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setDialogState(() => selected = value),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: selected == null
+                  ? null
+                  : () => Navigator.pop(dialogContext, selected),
+              child: const Text('继续'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pollDraft(int jobId) async {
     try {
       for (var attempt = 0; attempt < 60; attempt++) {
         final job = await widget.api.codexCreatorDraftJob(jobId);
         final status = job['status']?.toString() ?? '';
-        if (status == 'DRAFT_CREATED' || _intValue(job['postId']) != null) {
+        if (status == 'DRAFT_CREATED') {
           await _showDraftCompleted(job);
           return;
         }
@@ -457,7 +619,7 @@ class _TopicsPageState extends State<TopicsPage>
         ],
       ),
     );
-    await _load();
+    await Future.wait([_load(), _loadAssignedTopics()]);
   }
 
   Future<void> _openPostEditor(int postId) async {
@@ -680,9 +842,12 @@ class _TopicsPageState extends State<TopicsPage>
     final status = topic['status']?.toString() ?? 'WRITING';
     final source = _mapValue(topic['source']);
     final sourceCount = _mapList(source['sources']).length;
-    final message = status == 'DRAFT_CREATED'
-        ? '草稿已生成并保存，可在文章管理中继续编辑。'
-        : 'Codex 正在生成草稿，请稍后刷新任务。';
+    final error = topic['articleError']?.toString().trim() ?? '';
+    final message = switch (status) {
+      'DRAFT_CREATED' => '草稿已生成并保存，可在文章管理中继续编辑。',
+      'FAILED' => error.isEmpty ? '草稿生成失败，可调整模型后重新生成。' : '草稿生成失败：$error',
+      _ => 'Codex 正在生成草稿，请稍后刷新任务。',
+    };
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -716,10 +881,28 @@ class _TopicsPageState extends State<TopicsPage>
               ],
             ),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => _showSources(topic),
-              icon: const Icon(Icons.source_outlined),
-              label: const Text('来源详情'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _showSources(topic),
+                  icon: const Icon(Icons.source_outlined),
+                  label: const Text('来源详情'),
+                ),
+                if (status == 'DRAFT_CREATED')
+                  FilledButton.tonalIcon(
+                    onPressed: _saving ? null : () => _regenerateDraft(topic),
+                    icon: const Icon(Icons.autorenew),
+                    label: const Text('重新生成'),
+                  ),
+                if (status == 'FAILED')
+                  FilledButton.tonalIcon(
+                    onPressed: _saving ? null : () => _assignDraft(topic),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('重试生成'),
+                  ),
+              ],
             ),
           ],
         ),
@@ -968,6 +1151,7 @@ class _TopicsPageState extends State<TopicsPage>
   }
 
   Widget _buildTopicsCard() {
+    final topicGroups = _groupedTopics();
     return Card(
       child: Padding(
         padding: EdgeInsets.all(AdminBreakpoints.isPhone(context) ? 16 : 20),
@@ -993,6 +1177,7 @@ class _TopicsPageState extends State<TopicsPage>
                       value: 'DRAFT_CREATED',
                       child: Text('已生成草稿'),
                     ),
+                    DropdownMenuItem(value: 'FAILED', child: Text('生成失败')),
                     DropdownMenuItem(value: 'DISMISSED', child: Text('已忽略')),
                   ],
                   onChanged: _saving
@@ -1020,11 +1205,83 @@ class _TopicsPageState extends State<TopicsPage>
             if (_topics.isEmpty && !_loading)
               const Text('还没有主题。可以先配置查询种子，再手动运行一次全网搜索。')
             else
-              ..._topics.map(_topicCard),
+              ...topicGroups.entries.expand(
+                (entry) => <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, bottom: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.travel_explore, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            entry.key,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Text('${entry.value.length} 个话题'),
+                      ],
+                    ),
+                  ),
+                  ...entry.value.map(_topicCard),
+                ],
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Map<String, List<Map<String, dynamic>>> _groupedTopics() {
+    final seedById = <int, Map<String, dynamic>>{
+      for (final seed in _seeds)
+        if (_intValue(seed['id']) case final int id) id: seed,
+    };
+    final seedIdByQuery = <String, int>{
+      for (final entry in seedById.entries)
+        if ((entry.value['query']?.toString().trim() ?? '').isNotEmpty)
+          entry.value['query'].toString().trim(): entry.key,
+    };
+    final groupedById = <int, List<Map<String, dynamic>>>{};
+    final ungrouped = <Map<String, dynamic>>[];
+    for (final topic in _topics) {
+      final source = _mapValue(topic['source']);
+      final ids = <int>{};
+      for (final seed in _mapList(source['seeds'])) {
+        final id = _intValue(seed['id']);
+        if (id != null && seedById.containsKey(id)) ids.add(id);
+      }
+      final primaryId = _intValue(_mapValue(source['primarySeed'])['id']);
+      if (primaryId != null && seedById.containsKey(primaryId)) {
+        ids.add(primaryId);
+      }
+      if (ids.isEmpty) {
+        for (final query in (source['queries'] as List<dynamic>? ?? const [])) {
+          final id = seedIdByQuery[query.toString().trim()];
+          if (id != null) ids.add(id);
+        }
+      }
+      if (ids.isEmpty) {
+        ungrouped.add(topic);
+      } else {
+        for (final id in ids) {
+          groupedById.putIfAbsent(id, () => []).add(topic);
+        }
+      }
+    }
+    final result = <String, List<Map<String, dynamic>>>{};
+    for (final seed in _seeds) {
+      final id = _intValue(seed['id']);
+      final topics = id == null ? null : groupedById[id];
+      if (topics == null || topics.isEmpty) continue;
+      result[seed['name']?.toString() ??
+              seed['query']?.toString() ??
+              '种子 #$id'] =
+          topics;
+    }
+    if (ungrouped.isNotEmpty) result['历史或未归类'] = ungrouped;
+    return result;
   }
 
   Widget _topicCard(Map<String, dynamic> topic) {
@@ -1237,6 +1494,7 @@ class _TopicsPageState extends State<TopicsPage>
       'DISMISSED' => Colors.grey,
       'WRITING' => Colors.orange,
       'DRAFT_CREATED' => Colors.green,
+      'FAILED' => Colors.red,
       _ => Colors.deepPurple,
     };
     return Chip(
@@ -1459,14 +1717,21 @@ class _TopicSeedDialogState extends State<_TopicSeedDialog> {
 }
 
 class _DraftRequest {
-  const _DraftRequest({required this.language, required this.instructions});
+  const _DraftRequest({
+    required this.language,
+    required this.instructions,
+    required this.profileId,
+  });
 
   final String language;
   final String instructions;
+  final String profileId;
 }
 
 class _DraftRequestDialog extends StatefulWidget {
-  const _DraftRequestDialog();
+  const _DraftRequestDialog({required this.models});
+
+  final List<Map<String, dynamic>> models;
 
   @override
   State<_DraftRequestDialog> createState() => _DraftRequestDialogState();
@@ -1475,6 +1740,7 @@ class _DraftRequestDialog extends StatefulWidget {
 class _DraftRequestDialogState extends State<_DraftRequestDialog> {
   late final TextEditingController _languageController;
   late final TextEditingController _instructionsController;
+  String? _profileId;
   String? _error;
 
   @override
@@ -1482,6 +1748,14 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
     super.initState();
     _languageController = TextEditingController(text: 'zh-CN');
     _instructionsController = TextEditingController();
+    if (widget.models.isNotEmpty) {
+      _profileId = widget.models
+          .firstWhere(
+            (model) => model['isDefault'] == true,
+            orElse: () => widget.models.first,
+          )['profileId']
+          ?.toString();
+    }
   }
 
   @override
@@ -1497,11 +1771,16 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
       setState(() => _error = '请填写文章语言');
       return;
     }
+    if (_profileId == null) {
+      setState(() => _error = '请选择生成模型');
+      return;
+    }
     Navigator.pop(
       context,
       _DraftRequest(
         language: language,
         instructions: _instructionsController.text.trim(),
+        profileId: _profileId!,
       ),
     );
   }
@@ -1527,6 +1806,25 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
                   labelText: '文章语言',
                   hintText: 'zh-CN',
                 ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _profileId,
+                decoration: const InputDecoration(
+                  labelText: '生成模型',
+                  prefixIcon: Icon(Icons.model_training),
+                ),
+                items: widget.models
+                    .map(
+                      (model) => DropdownMenuItem<String>(
+                        value: model['profileId']?.toString(),
+                        child: Text(
+                          '${model['displayName'] ?? model['modelId']} · ${model['reasoningEffort'] ?? ''}',
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _profileId = value),
               ),
               const SizedBox(height: 12),
               TextField(

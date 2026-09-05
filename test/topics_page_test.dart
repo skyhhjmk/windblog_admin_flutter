@@ -26,10 +26,19 @@ void main() {
     expect(find.text('设置与记录'), findsOneWidget);
     await tester.drag(find.byType(ListView).first, const Offset(0, -900));
     await tester.pump();
+    expect(find.text('AI 产业观察'), findsOneWidget);
+    expect(find.text('1 个话题'), findsOneWidget);
     expect(find.text('分页测试话题'), findsOneWidget);
     expect(find.byType(PaginationBar), findsOneWidget);
     expect(find.text('1 / 2'), findsOneWidget);
     expect(api.requestedPages, [1]);
+
+    await tester.tap(find.text('指派并生成草稿'));
+    await tester.pumpAndSettle();
+    expect(find.text('生成模型'), findsOneWidget);
+    expect(find.text('Codex 自动 · high'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
 
     await tester.tap(
       find.descendant(
@@ -46,6 +55,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('已指派测试任务'), findsOneWidget);
+    expect(find.text('重新生成'), findsOneWidget);
+    expect(find.text('失败测试任务'), findsOneWidget);
+    expect(find.text('重试生成'), findsOneWidget);
     expect(api.requestedStatuses.last, 'ASSIGNED');
     expect(find.byType(PaginationBar), findsOneWidget);
   });
@@ -56,6 +68,28 @@ class _TopicsApiStub extends AdminApiClient {
   final List<String?> requestedStatuses = [];
 
   @override
+  Future<Map<String, dynamic>> codexCreatorModels() async => {
+    'topic': [
+      {
+        'profileId': 'codex-default',
+        'modelId': 'auto',
+        'displayName': 'Codex 自动',
+        'reasoningEffort': 'high',
+        'isDefault': true,
+      },
+    ],
+    'article': [
+      {
+        'profileId': 'codex-default',
+        'modelId': 'auto',
+        'displayName': 'Codex 自动',
+        'reasoningEffort': 'high',
+        'isDefault': true,
+      },
+    ],
+  };
+
+  @override
   Future<Map<String, dynamic>> codexCreatorTopicAutomation() async => {
     'settings': {
       'enabled': false,
@@ -63,7 +97,15 @@ class _TopicsApiStub extends AdminApiClient {
       'maxSeedsPerRun': 5,
       'maxTopicsPerRun': 20,
     },
-    'seeds': <Map<String, dynamic>>[],
+    'seeds': <Map<String, dynamic>>[
+      {
+        'id': 7,
+        'name': 'AI 产业观察',
+        'query': 'AI industry',
+        'language': 'zh-CN',
+        'enabled': true,
+      },
+    ],
   };
 
   @override
@@ -84,12 +126,27 @@ class _TopicsApiStub extends AdminApiClient {
           'status': status == 'ASSIGNED' ? 'DRAFT_CREATED' : 'SUGGESTED',
           'occurrenceCount': 1,
           'source': {
+            'primarySeed': {'id': 7, 'name': 'AI 产业观察', 'query': 'AI industry'},
             'keywords': ['分页'],
             'sources': [
               {'title': '测试来源', 'url': 'https://example.com/topic'},
             ],
           },
         },
+        if (status == 'ASSIGNED')
+          {
+            'id': 99,
+            'title': '失败测试任务',
+            'rationale': '用于验证失败任务仍可见。',
+            'recommendation': 'WRITE',
+            'status': 'FAILED',
+            'articleError': 'Codex usage limit',
+            'occurrenceCount': 1,
+            'source': {
+              'primarySeed': {'id': 7, 'name': 'AI 产业观察', 'query': 'AI industry'},
+              'sources': <Map<String, String>>[],
+            },
+          },
       ],
       'total': 21,
       'page': page,
