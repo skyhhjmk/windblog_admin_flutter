@@ -410,6 +410,7 @@ class _TopicsPageState extends State<TopicsPage>
         language: request.language,
         instructions: request.instructions,
         profileId: request.profileId,
+        reasoningEffort: request.reasoningEffort,
         requiresPracticalVerification: request.practicalVerification,
         testServerIds: request.testServerIds,
         stepUpToken: stepUpToken,
@@ -448,12 +449,11 @@ class _TopicsPageState extends State<TopicsPage>
   Future<void> _regenerateDraft(Map<String, dynamic> topic) async {
     final topicId = _intValue(topic['id']);
     if (topicId == null) return;
-    final profileId = await _chooseModel(
+    final choice = await _chooseArticleGeneration(
       title: '重新生成文章草稿',
-      description: '选择本次重新生成使用的模型。新内容会写入同一篇草稿的新修订，旧修订仍保留。',
-      operation: 'article',
+      description: '选择本次重新生成使用的模型和思考级别。新内容会写入同一篇草稿的新修订，旧修订仍保留。',
     );
-    if (profileId == null || !mounted) return;
+    if (choice == null || !mounted) return;
 
     setState(() => _saving = true);
     try {
@@ -465,7 +465,8 @@ class _TopicsPageState extends State<TopicsPage>
       if (stepUpToken == null) return;
       final job = await widget.api.regenerateCodexCreatorDraft(
         topicId,
-        profileId: profileId,
+        profileId: choice.profileId,
+        reasoningEffort: choice.reasoningEffort,
         stepUpToken: stepUpToken,
       );
       final jobId = _intValue(job['id']);
@@ -565,6 +566,117 @@ class _TopicsPageState extends State<TopicsPage>
               onPressed: selected == null
                   ? null
                   : () => Navigator.pop(dialogContext, selected),
+              child: const Text('继续'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<_ArticleGenerationChoice?> _chooseArticleGeneration({
+    required String title,
+    required String description,
+  }) async {
+    final models = _modelOptions('article');
+    if (models.isEmpty) {
+      if (mounted) AdminFeedback.error(context, '没有可用于文章生成的模型');
+      return null;
+    }
+    final saved = await StorageService.getLastArticleGenerationChoice();
+    if (!mounted) return null;
+    var profileId =
+        models.any(
+          (model) => model['profileId']?.toString() == saved['profileId'],
+        )
+        ? saved['profileId']
+        : models
+              .firstWhere(
+                (model) => model['isDefault'] == true,
+                orElse: () => models.first,
+              )['profileId']
+              ?.toString();
+    var reasoningEffort =
+        const {
+          'low',
+          'medium',
+          'high',
+          'xhigh',
+        }.contains(saved['reasoningEffort'])
+        ? saved['reasoningEffort']!
+        : 'high';
+    return showDialog<_ArticleGenerationChoice>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(description),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: profileId,
+                  decoration: const InputDecoration(
+                    labelText: '模型',
+                    prefixIcon: Icon(Icons.model_training),
+                  ),
+                  items: models
+                      .map(
+                        (model) => DropdownMenuItem<String>(
+                          value: model['profileId']?.toString(),
+                          child: Text(
+                            model['displayName']?.toString() ??
+                                model['modelId']?.toString() ??
+                                '',
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setDialogState(() => profileId = value),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: reasoningEffort,
+                  decoration: const InputDecoration(
+                    labelText: '思考级别',
+                    prefixIcon: Icon(Icons.psychology_outlined),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'low', child: Text('低')),
+                    DropdownMenuItem(value: 'medium', child: Text('中')),
+                    DropdownMenuItem(value: 'high', child: Text('高')),
+                    DropdownMenuItem(value: 'xhigh', child: Text('极高')),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => reasoningEffort = value ?? 'high'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: profileId == null
+                  ? null
+                  : () async {
+                      await StorageService.saveLastArticleGenerationChoice(
+                        profileId!,
+                        reasoningEffort,
+                      );
+                      if (dialogContext.mounted) {
+                        Navigator.pop(
+                          dialogContext,
+                          _ArticleGenerationChoice(profileId!, reasoningEffort),
+                        );
+                      }
+                    },
               child: const Text('继续'),
             ),
           ],
@@ -1995,6 +2107,7 @@ class _DraftRequest {
     required this.language,
     required this.instructions,
     required this.profileId,
+    required this.reasoningEffort,
     required this.practicalVerification,
     required this.testServerIds,
   });
@@ -2002,8 +2115,16 @@ class _DraftRequest {
   final String language;
   final String instructions;
   final String profileId;
+  final String reasoningEffort;
   final bool practicalVerification;
   final List<int> testServerIds;
+}
+
+class _ArticleGenerationChoice {
+  const _ArticleGenerationChoice(this.profileId, this.reasoningEffort);
+
+  final String profileId;
+  final String reasoningEffort;
 }
 
 class _DraftRequestDialog extends StatefulWidget {
@@ -2020,6 +2141,7 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
   late final TextEditingController _languageController;
   late final TextEditingController _instructionsController;
   String? _profileId;
+  String _reasoningEffort = 'high';
   String? _error;
   bool _practicalVerification = false;
   final Set<int> _testServerIds = {};
@@ -2037,6 +2159,23 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
           )['profileId']
           ?.toString();
     }
+    _restoreLastGenerationChoice();
+  }
+
+  Future<void> _restoreLastGenerationChoice() async {
+    final saved = await StorageService.getLastArticleGenerationChoice();
+    if (!mounted) return;
+    final savedProfileId = saved['profileId'];
+    final exists = widget.models.any(
+      (model) => model['profileId']?.toString() == savedProfileId,
+    );
+    setState(() {
+      if (exists) _profileId = savedProfileId;
+      final savedEffort = saved['reasoningEffort'];
+      if (const {'low', 'medium', 'high', 'xhigh'}.contains(savedEffort)) {
+        _reasoningEffort = savedEffort!;
+      }
+    });
   }
 
   @override
@@ -2060,12 +2199,17 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
       setState(() => _error = '请选择至少一台验证用服务器');
       return;
     }
+    StorageService.saveLastArticleGenerationChoice(
+      _profileId!,
+      _reasoningEffort,
+    );
     Navigator.pop(
       context,
       _DraftRequest(
         language: language,
         instructions: _instructionsController.text.trim(),
         profileId: _profileId!,
+        reasoningEffort: _reasoningEffort,
         practicalVerification: _practicalVerification,
         testServerIds: _testServerIds.toList(),
       ),
@@ -2140,6 +2284,7 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                key: ValueKey('article-model-$_profileId'),
                 initialValue: _profileId,
                 decoration: const InputDecoration(
                   labelText: '生成模型',
@@ -2156,6 +2301,23 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
                     )
                     .toList(),
                 onChanged: (value) => setState(() => _profileId = value),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey('article-effort-$_reasoningEffort'),
+                initialValue: _reasoningEffort,
+                decoration: const InputDecoration(
+                  labelText: '思考级别',
+                  prefixIcon: Icon(Icons.psychology_alt_outlined),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'low', child: Text('低：更快')),
+                  DropdownMenuItem(value: 'medium', child: Text('中：平衡')),
+                  DropdownMenuItem(value: 'high', child: Text('高：更深入')),
+                  DropdownMenuItem(value: 'xhigh', child: Text('极高：最深入')),
+                ],
+                onChanged: (value) =>
+                    setState(() => _reasoningEffort = value ?? 'high'),
               ),
               const SizedBox(height: 12),
               TextField(

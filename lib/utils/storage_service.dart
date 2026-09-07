@@ -6,6 +6,9 @@ class StorageService {
   static const String _keyBaseUrl = 'admin_base_url';
   static const String _keyToken = 'admin_auth_token';
   static const String _keyNotificationTasks = 'admin_notification_tasks';
+  static const String _keyLastArticleModel = 'codex_creator_last_article_model';
+  static const String _keyLastArticleReasoningEffort =
+      'codex_creator_last_article_reasoning_effort';
 
   static const _secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -59,5 +62,22 @@ class StorageService {
   static Future<void> clearNotificationTasks() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyNotificationTasks);
+  }
+
+  static Future<Map<String, String?>> getLastArticleGenerationChoice() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'profileId': prefs.getString(_keyLastArticleModel),
+      'reasoningEffort': prefs.getString(_keyLastArticleReasoningEffort),
+    };
+  }
+
+  static Future<void> saveLastArticleGenerationChoice(
+    String profileId,
+    String reasoningEffort,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLastArticleModel, profileId);
+    await prefs.setString(_keyLastArticleReasoningEffort, reasoningEffort);
   }
 }

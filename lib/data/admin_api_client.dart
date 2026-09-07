@@ -300,6 +300,7 @@ class AdminApiClient {
     String language = 'zh-CN',
     String instructions = '',
     String? profileId,
+    String? reasoningEffort,
     bool requiresPracticalVerification = false,
     List<int> testServerIds = const [],
     String? stepUpToken,
@@ -314,6 +315,9 @@ class AdminApiClient {
     if (profileId != null && profileId.isNotEmpty) {
       body['profileId'] = profileId;
     }
+    if (reasoningEffort != null && reasoningEffort.isNotEmpty) {
+      body['reasoningEffort'] = reasoningEffort;
+    }
     final res = await _post(
       '/api/admin/codex-creator/topics/$topicId/draft',
       body: body,
@@ -327,13 +331,19 @@ class AdminApiClient {
   Future<Map<String, dynamic>> regenerateCodexCreatorDraft(
     int topicId, {
     String? profileId,
+    String? reasoningEffort,
     String? stepUpToken,
   }) async {
+    final body = <String, dynamic>{};
+    if (profileId != null && profileId.isNotEmpty) {
+      body['profileId'] = profileId;
+    }
+    if (reasoningEffort != null && reasoningEffort.isNotEmpty) {
+      body['reasoningEffort'] = reasoningEffort;
+    }
     final res = await _post(
       '/api/admin/codex-creator/topics/$topicId/draft/regenerate',
-      body: profileId == null || profileId.isEmpty
-          ? const {}
-          : {'profileId': profileId},
+      body: body,
       stepUpToken: stepUpToken,
       idempotencyKey: _newIdempotencyKey(),
     );
