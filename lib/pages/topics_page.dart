@@ -2090,7 +2090,7 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('需要实操验证'),
-                subtitle: const Text('让 Codex 在验证用服务器执行命令，核对教程步骤。'),
+                subtitle: const Text('让 Codex 在验证用服务器执行命令，并将脱敏的真实结果自然写入文章。'),
                 value: _practicalVerification,
                 onChanged: (value) =>
                     setState(() => _practicalVerification = value),
