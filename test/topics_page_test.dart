@@ -26,8 +26,8 @@ void main() {
     expect(find.text('设置与记录'), findsOneWidget);
     await tester.drag(find.byType(ListView).first, const Offset(0, -900));
     await tester.pump();
-    expect(find.text('AI 产业观察'), findsOneWidget);
-    expect(find.text('1 个话题'), findsOneWidget);
+    // The active seed is intentionally shown in both its tab and section header.
+    expect(find.text('AI 产业观察'), findsNWidgets(2));
     expect(find.text('分页测试话题'), findsOneWidget);
     expect(find.byType(PaginationBar), findsOneWidget);
     expect(find.text('1 / 2'), findsOneWidget);
@@ -61,11 +61,34 @@ void main() {
     expect(api.requestedStatuses.last, 'ASSIGNED');
     expect(find.byType(PaginationBar), findsOneWidget);
   });
+
+  testWidgets('刷新种子分组时可替换话题标签控制器', (WidgetTester tester) async {
+    final api = _TopicsApiStub();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Theme(
+          data: AdminTheme.build(),
+          child: Scaffold(
+            body: TopicsPage(api: api, onAuthError: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    api.seedCount = 2;
+    await tester.tap(find.byTooltip('刷新话题'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('AI 工程实践'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _TopicsApiStub extends AdminApiClient {
   final List<int> requestedPages = [];
   final List<String?> requestedStatuses = [];
+  int seedCount = 1;
 
   @override
   Future<Map<String, dynamic>> codexCreatorModels() async => {
@@ -105,6 +128,14 @@ class _TopicsApiStub extends AdminApiClient {
         'language': 'zh-CN',
         'enabled': true,
       },
+      if (seedCount > 1)
+        {
+          'id': 8,
+          'name': 'AI 工程实践',
+          'query': 'AI engineering',
+          'language': 'zh-CN',
+          'enabled': true,
+        },
     ],
   };
 
@@ -143,7 +174,11 @@ class _TopicsApiStub extends AdminApiClient {
             'articleError': 'Codex usage limit',
             'occurrenceCount': 1,
             'source': {
-              'primarySeed': {'id': 7, 'name': 'AI 产业观察', 'query': 'AI industry'},
+              'primarySeed': {
+                'id': 7,
+                'name': 'AI 产业观察',
+                'query': 'AI industry',
+              },
               'sources': <Map<String, String>>[],
             },
           },

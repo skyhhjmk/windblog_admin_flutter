@@ -830,6 +830,8 @@ class AdminNotificationController extends ChangeNotifier {
       return '话题生成完成，共生成或更新 ${toInt(run['topicCount']) ?? 0} 个话题';
     }
     if (status == 'FAILED') return '话题生成失败：${run['error'] ?? '未知错误'}';
+    final progress = _executionMessage(run['execution']);
+    if (progress != null) return progress;
     if (status == 'RUNNING') return '正在检索资料并生成话题';
     return '话题任务已进入队列';
   }
@@ -846,9 +848,22 @@ class AdminNotificationController extends ChangeNotifier {
           : '草稿生成完成${postId == null ? '' : '，已保存为文章 #$postId'}';
     }
     if (status == 'FAILED') return '草稿生成失败：${job['error'] ?? '未知错误'}';
+    final progress = _executionMessage(job['execution']);
+    if (progress != null) return progress;
     if (status == 'REGENERATING') return '正在重新研究并生成草稿新修订';
     if (status == 'READY') return '内容已生成，正在保存到 WindBlog';
     return regeneration ? '正在重新生成草稿' : '正在研究并生成草稿';
+  }
+
+  String? _executionMessage(Object? value) {
+    if (value is! Map) return null;
+    final events = value['events'];
+    if (events is! List || events.isEmpty || events.last is! Map) return null;
+    final latest = events.last as Map;
+    final message = latest['message']?.toString().trim() ?? '';
+    final query = latest['query']?.toString().trim() ?? '';
+    if (message.isEmpty) return null;
+    return query.isEmpty ? message : '$message：$query';
   }
 
   AdminNotificationReopen _taskDetailsReopen(String taskId) {

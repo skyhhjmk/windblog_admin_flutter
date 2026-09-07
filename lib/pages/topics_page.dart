@@ -181,6 +181,8 @@ class _TopicsPageState extends State<TopicsPage>
         'intervalMinutes': _intValue(settings['intervalMinutes']) ?? 360,
         'maxSeedsPerRun': _intValue(settings['maxSeedsPerRun']) ?? 5,
         'maxTopicsPerRun': _intValue(settings['maxTopicsPerRun']) ?? 20,
+        'promotionEnabled': settings['promotionEnabled'] == true,
+        'promotionMarkdown': settings['promotionMarkdown']?.toString() ?? '',
       }, stepUpToken: stepUpToken);
       if (!mounted) return;
       setState(() => _automation = {...?_automation, 'settings': saved});
@@ -786,6 +788,8 @@ class _TopicsPageState extends State<TopicsPage>
                 _buildTabScroll([
                   _buildAutomationCard(),
                   const SizedBox(height: 16),
+                  _buildPromotionCard(),
+                  const SizedBox(height: 16),
                   _buildSeedsCard(),
                   const SizedBox(height: 16),
                   _buildRunsCard(),
@@ -853,6 +857,7 @@ class _TopicsPageState extends State<TopicsPage>
     final source = _mapValue(topic['source']);
     final sourceCount = _mapList(source['sources']).length;
     final error = topic['articleError']?.toString().trim() ?? '';
+    final execution = _mapValue(topic['execution']);
     final message = switch (status) {
       'DRAFT_CREATED' => '草稿已生成并保存，可在文章管理中继续编辑。',
       'FAILED' => error.isEmpty ? '草稿生成失败，可调整模型后重新生成。' : '草稿生成失败：$error',
@@ -881,6 +886,10 @@ class _TopicsPageState extends State<TopicsPage>
             ),
             const SizedBox(height: 8),
             Text(message),
+            if (execution.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _executionTimeline(execution),
+            ],
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -1097,6 +1106,117 @@ class _TopicsPageState extends State<TopicsPage>
     });
   }
 
+  Future<void> _editPromotion() async {
+    final settings = _mapValue(_automation?['settings']);
+    final controller = TextEditingController(
+      text: settings['promotionMarkdown']?.toString() ?? '',
+    );
+    var enabled = settings['promotionEnabled'] == true;
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('营销推广内容'),
+          content: SizedBox(
+            width: 620,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('在 AI 草稿中启用软植入'),
+                  subtitle: const Text('文章仍须以真实信息、出处和读者价值为先。'),
+                  value: enabled,
+                  onChanged: (value) => setDialogState(() => enabled = value),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: controller,
+                  enabled: enabled,
+                  minLines: 7,
+                  maxLines: 14,
+                  maxLength: 8000,
+                  decoration: const InputDecoration(
+                    labelText: '推广内容（支持 Markdown）',
+                    alignLabelWithHint: true,
+                    hintText: '说明产品/服务适用场景、真实能力、限制与链接。AI 会仅在确有帮助的位置自然嵌入一次。',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, {
+                'promotionEnabled': enabled,
+                'promotionMarkdown': controller.text.trim(),
+              }),
+              child: const Text('应用'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (result == null || !mounted) return;
+    setState(() {
+      _automation = {
+        ...?_automation,
+        'settings': {...settings, ...result},
+      };
+    });
+  }
+
+  Widget _buildPromotionCard() {
+    final settings = _mapValue(_automation?['settings']);
+    final enabled = settings['promotionEnabled'] == true;
+    final content = settings['promotionMarkdown']?.toString().trim() ?? '';
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AdminBreakpoints.isPhone(context) ? 16 : 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _sectionHeader(
+              '营销推广',
+              '为新生成的草稿提供可复用的推广背景。系统要求正文围绕真实读者问题展开，保留限制、替代方案和可核验依据，避免硬广；编辑后请点击上方“保存自动化设置”。',
+              icon: Icons.campaign_outlined,
+              action: OutlinedButton.icon(
+                onPressed: _saving ? null : _editPromotion,
+                icon: const Icon(Icons.edit_outlined),
+                label: Text(enabled ? '编辑推广内容' : '设置推广内容'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              enabled
+                  ? (content.isEmpty
+                        ? '已启用，但尚未填写推广内容。保存时会被拒绝。'
+                        : '已启用：每篇新草稿会在合适位置自然嵌入一次。')
+                  : '未启用；生成文章不会加入推广内容。',
+            ),
+            if (content.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                content.length > 240
+                    ? '${content.substring(0, 240)}…'
+                    : content,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSeedsCard() {
     return Card(
       child: Padding(
@@ -1217,6 +1337,8 @@ class _TopicsPageState extends State<TopicsPage>
             const SizedBox(height: 12),
             if (_topics.isEmpty && !_loading && topicGroups.isEmpty)
               const Text('还没有主题。可以先配置查询种子，再手动运行一次全网搜索。')
+            else if (seedTabs.isEmpty)
+              const Text('正在刷新主题分组，请稍后重试。')
             else
               _TopicHorizontalTabs(
                 items: seedTabs,
@@ -1309,6 +1431,7 @@ class _TopicsPageState extends State<TopicsPage>
         .take(12)
         .toList();
     final canReview = status == 'SUGGESTED' || status == 'APPROVED';
+    final execution = _mapValue(topic['execution']);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -1332,6 +1455,10 @@ class _TopicsPageState extends State<TopicsPage>
             ),
             const SizedBox(height: 8),
             Text(topic['rationale']?.toString() ?? '暂无理由'),
+            if (execution.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _executionTimeline(execution),
+            ],
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -1377,6 +1504,57 @@ class _TopicsPageState extends State<TopicsPage>
                   ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _executionTimeline(Map<String, dynamic> execution) {
+    final events = _mapList(execution['events']);
+    final attempts = _mapList(execution['attempts']);
+    final latestEvents = events.reversed.take(5).toList().reversed;
+    final attemptCount =
+        _intValue(execution['attemptCount']) ?? attempts.length;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '执行过程${attemptCount == 0 ? '' : ' · 第 $attemptCount 次尝试'}',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 5),
+            if (latestEvents.isEmpty)
+              const Text('任务已排队，等待 Codex 开始执行。')
+            else
+              ...latestEvents.map((event) {
+                final message = event['message']?.toString() ?? '正在执行';
+                final query = event['query']?.toString().trim() ?? '';
+                final at = event['at']?.toString() ?? '';
+                return Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(
+                    '• $message${query.isEmpty ? '' : '：$query'}${at.isEmpty ? '' : '（$at）'}',
+                  ),
+                );
+              }),
+            if ((execution['error']?.toString().trim() ?? '').isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 5),
+                child: Text(
+                  '最近错误：${execution['error']}',
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
           ],
         ),
       ),
@@ -1595,7 +1773,7 @@ class _TopicHorizontalTabs<T> extends StatefulWidget {
 }
 
 class _TopicHorizontalTabsState<T> extends State<_TopicHorizontalTabs<T>>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _controller;
 
   @override
@@ -1626,6 +1804,7 @@ class _TopicHorizontalTabsState<T> extends State<_TopicHorizontalTabs<T>>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.items.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1642,9 +1821,13 @@ class _TopicHorizontalTabsState<T> extends State<_TopicHorizontalTabs<T>>
         const SizedBox(height: 8),
         AnimatedBuilder(
           animation: _controller,
-          builder: (context, _) => widget.childBuilder(
-            widget.items[_controller.index.clamp(0, widget.items.length - 1)],
-          ),
+          builder: (context, _) {
+            final selectedIndex = _controller.index.clamp(
+              0,
+              widget.items.length - 1,
+            );
+            return widget.childBuilder(widget.items[selectedIndex]);
+          },
         ),
       ],
     );
