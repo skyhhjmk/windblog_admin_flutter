@@ -169,13 +169,6 @@ class _TopicsPageState extends State<TopicsPage>
     final settings = _mapValue(_automation?['settings']);
     if (mounted) setState(() => _saving = true);
     try {
-      final stepUpToken = await AdminStepUpAuthorization.obtain(
-        context,
-        widget.api,
-        title: '确认主题自动化设置',
-      );
-      if (stepUpToken == null) return;
-
       final saved = await widget.api.updateCodexCreatorTopicAutomation({
         'enabled': settings['enabled'] == true,
         'intervalMinutes': _intValue(settings['intervalMinutes']) ?? 360,
@@ -183,9 +176,14 @@ class _TopicsPageState extends State<TopicsPage>
         'maxTopicsPerRun': _intValue(settings['maxTopicsPerRun']) ?? 20,
         'promotionEnabled': settings['promotionEnabled'] == true,
         'promotionMarkdown': settings['promotionMarkdown']?.toString() ?? '',
-      }, stepUpToken: stepUpToken);
+      });
       if (!mounted) return;
       setState(() => _automation = {...?_automation, 'settings': saved});
+      // Confirm against the read endpoint instead of relying solely on the
+      // mutation response. This keeps the promotion state aligned with what a
+      // browser refresh will display.
+      await _load();
+      if (!mounted) return;
       AdminFeedback.showSnackBar(
         context,
         const SnackBar(
@@ -216,14 +214,7 @@ class _TopicsPageState extends State<TopicsPage>
     if (profileId == null || !mounted) return;
     if (mounted) setState(() => _saving = true);
     try {
-      final stepUpToken = await AdminStepUpAuthorization.obtain(
-        context,
-        widget.api,
-        title: '确认立即执行主题发现',
-      );
-      if (stepUpToken == null) return;
       final run = await widget.api.startCodexCreatorTopicRun(
-        stepUpToken: stepUpToken,
         profileId: profileId,
       );
       if (!mounted) return;
@@ -265,24 +256,11 @@ class _TopicsPageState extends State<TopicsPage>
 
     setState(() => _saving = true);
     try {
-      final stepUpToken = await AdminStepUpAuthorization.obtain(
-        context,
-        widget.api,
-        title: seed == null ? '确认新增主题查询种子' : '确认修改主题查询种子',
-      );
-      if (stepUpToken == null) return;
       final id = _intValue(seed?['id']);
       if (id == null) {
-        await widget.api.createCodexCreatorTopicSeed(
-          result,
-          stepUpToken: stepUpToken,
-        );
+        await widget.api.createCodexCreatorTopicSeed(result);
       } else {
-        await widget.api.updateCodexCreatorTopicSeed(
-          id,
-          result,
-          stepUpToken: stepUpToken,
-        );
+        await widget.api.updateCodexCreatorTopicSeed(id, result);
       }
       await _load();
     } on UnauthorizedException {
@@ -323,16 +301,7 @@ class _TopicsPageState extends State<TopicsPage>
 
     setState(() => _saving = true);
     try {
-      final stepUpToken = await AdminStepUpAuthorization.obtain(
-        context,
-        widget.api,
-        title: '确认删除主题查询种子',
-      );
-      if (stepUpToken == null) return;
-      await widget.api.deleteCodexCreatorTopicSeed(
-        id,
-        stepUpToken: stepUpToken,
-      );
+      await widget.api.deleteCodexCreatorTopicSeed(id);
       await _load();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -353,17 +322,7 @@ class _TopicsPageState extends State<TopicsPage>
     if (id == null) return;
     setState(() => _saving = true);
     try {
-      final stepUpToken = await AdminStepUpAuthorization.obtain(
-        context,
-        widget.api,
-        title: decision == 'APPROVE' ? '确认批准主题' : '确认忽略主题',
-      );
-      if (stepUpToken == null) return;
-      await widget.api.reviewCodexCreatorTopic(
-        id,
-        decision,
-        stepUpToken: stepUpToken,
-      );
+      await widget.api.reviewCodexCreatorTopic(id, decision);
       await _load();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -399,12 +358,6 @@ class _TopicsPageState extends State<TopicsPage>
 
     setState(() => _saving = true);
     try {
-      final stepUpToken = await AdminStepUpAuthorization.obtain(
-        context,
-        widget.api,
-        title: '确认指派并生成文章草稿',
-      );
-      if (stepUpToken == null) return;
       final job = await widget.api.startCodexCreatorDraft(
         topicId,
         language: request.language,
@@ -413,7 +366,6 @@ class _TopicsPageState extends State<TopicsPage>
         reasoningEffort: request.reasoningEffort,
         requiresPracticalVerification: request.practicalVerification,
         testServerIds: request.testServerIds,
-        stepUpToken: stepUpToken,
       );
       final jobId = _intValue(job['id']);
       if (jobId == null) throw Exception('服务器没有返回草稿任务编号');
@@ -457,17 +409,10 @@ class _TopicsPageState extends State<TopicsPage>
 
     setState(() => _saving = true);
     try {
-      final stepUpToken = await AdminStepUpAuthorization.obtain(
-        context,
-        widget.api,
-        title: '确认重新生成文章草稿',
-      );
-      if (stepUpToken == null) return;
       final job = await widget.api.regenerateCodexCreatorDraft(
         topicId,
         profileId: choice.profileId,
         reasoningEffort: choice.reasoningEffort,
-        stepUpToken: stepUpToken,
       );
       final jobId = _intValue(job['id']);
       if (jobId == null) throw Exception('服务器没有返回草稿任务编号');
@@ -547,7 +492,9 @@ class _TopicsPageState extends State<TopicsPage>
                         (model) => DropdownMenuItem<String>(
                           value: model['profileId']?.toString(),
                           child: Text(
-                            '${model['displayName'] ?? model['modelId']} · ${model['reasoningEffort'] ?? ''}',
+                            model['displayName']?.toString() ??
+                                model['modelId']?.toString() ??
+                                '未命名模型',
                           ),
                         ),
                       )
@@ -2267,10 +2214,11 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
                       '${server['sshUser'] ?? 'root'}@${server['host']}:${server['sshPort'] ?? 22}',
                     ),
                     onChanged: (checked) => setState(() {
-                      if (checked == true)
+                      if (checked == true) {
                         _testServerIds.add(id);
-                      else
+                      } else {
                         _testServerIds.remove(id);
+                      }
                     }),
                   );
                 }),
@@ -2295,7 +2243,9 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
                       (model) => DropdownMenuItem<String>(
                         value: model['profileId']?.toString(),
                         child: Text(
-                          '${model['displayName'] ?? model['modelId']} · ${model['reasoningEffort'] ?? ''}',
+                          model['displayName']?.toString() ??
+                              model['modelId']?.toString() ??
+                              '未命名模型',
                         ),
                       ),
                     )

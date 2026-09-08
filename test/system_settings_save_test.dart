@@ -9,75 +9,65 @@ import 'package:windblog_admin_flutter/l10n/app_localizations.dart';
 import 'package:windblog_admin_flutter/main.dart';
 
 void main() {
-  testWidgets('saving site info SEO settings closes step-up safely', (
-    WidgetTester tester,
-  ) async {
-    AdminStepUpAuthorization.clear();
-    final api = _SystemSettingsApiStub();
-    final notifications = AdminNotificationController();
-    addTearDown(() async {
+  testWidgets(
+    'saving site info SEO settings is a daily operation without step-up',
+    (WidgetTester tester) async {
       AdminStepUpAuthorization.clear();
-      notifications.clear();
-      await tester.binding.setSurfaceSize(null);
-    });
-    await tester.binding.setSurfaceSize(const Size(1200, 1600));
+      final api = _SystemSettingsApiStub();
+      final notifications = AdminNotificationController();
+      addTearDown(() async {
+        AdminStepUpAuthorization.clear();
+        notifications.clear();
+        await tester.binding.setSurfaceSize(null);
+      });
+      await tester.binding.setSurfaceSize(const Size(1200, 1600));
 
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [Locale('en'), Locale('zh')],
-        locale: const Locale('zh'),
-        home: AdminNotificationHost(
-          api: api,
-          controller: notifications,
-          child: AdminShortcutHost(
-            child: Theme(
-              data: AdminTheme.build(),
-              child: Scaffold(
-                body: SystemSettingsPage(api: api, onAuthError: () {}),
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en'), Locale('zh')],
+          locale: const Locale('zh'),
+          home: AdminNotificationHost(
+            api: api,
+            controller: notifications,
+            child: AdminShortcutHost(
+              child: Theme(
+                data: AdminTheme.build(),
+                child: Scaffold(
+                  body: SystemSettingsPage(api: api, onAuthError: () {}),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.text('保存配置'), findsOneWidget);
-    expect(find.text('SEO描述'), findsOneWidget);
-    await tester.enterText(find.byType(TextFormField).at(2), '更新后的 SEO 描述');
-    await tester.tap(find.text('保存配置'));
-    await tester.pump();
+      expect(find.text('保存配置'), findsOneWidget);
+      expect(find.text('SEO描述'), findsOneWidget);
+      await tester.enterText(find.byType(TextFormField).at(2), '更新后的 SEO 描述');
+      await tester.tap(find.text('保存配置'));
+      await tester.pump();
 
-    expect(find.text('确认系统设置操作'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).last, 'password');
-    await tester.tap(find.byType(FilledButton).last);
+      await tester.pump();
+      expect(find.text('确认系统设置操作'), findsNothing);
 
-    // Exercise the dialog's exit transition. The old implementation disposed
-    // this controller as soon as showDialog returned, before this transition
-    // had finished.
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(tester.takeException(), isNull);
-    await tester.pump(const Duration(milliseconds: 250));
-    expect(tester.takeException(), isNull);
-
-    api.reloadCompleter.complete([api.setting]);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(api.updateCalls, 1);
-    expect(api.updatedKey, 'site_info');
-    expect(api.updatedValue?['description'], '更新后的 SEO 描述');
-    expect(tester.takeException(), isNull);
-    await tester.pump(const Duration(seconds: 5));
-  });
+      api.reloadCompleter.complete([api.setting]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(api.updateCalls, 1);
+      expect(api.updatedKey, 'site_info');
+      expect(api.updatedValue?['description'], '更新后的 SEO 描述');
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 5));
+    },
+  );
 }
 
 class _SystemSettingsApiStub extends AdminApiClient {

@@ -590,6 +590,7 @@ class AdminApiClient {
       _post(
         '/api/admin/posts/$id/publish',
         body: {'sendArticleUpdate': sendArticleUpdate},
+        idempotencyKey: _newIdempotencyKey(),
       );
 
   Future<void> publishLatestDraftPost(
@@ -604,6 +605,7 @@ class AdminApiClient {
       'channelGroupId': channelGroupId,
       'channelId': channelId,
     },
+    idempotencyKey: _newIdempotencyKey(),
   );
 
   Future<void> publishPostRevision(
@@ -619,6 +621,7 @@ class AdminApiClient {
       'channelGroupId': channelGroupId,
       'channelId': channelId,
     },
+    idempotencyKey: _newIdempotencyKey(),
   );
 
   Future<String> issueAdminStepUp(String password) async {
@@ -698,8 +701,16 @@ class AdminApiClient {
         .toList();
   }
 
-  Future<void> createEmailCampaign(Map<String, dynamic> values) async {
-    await _post('/api/admin/email-campaigns', body: values);
+  Future<void> createEmailCampaign(
+    Map<String, dynamic> values, {
+    required String stepUpToken,
+  }) async {
+    await _post(
+      '/api/admin/email-campaigns',
+      body: values,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
   }
 
   Future<PaginatedEmailDeliveryResult> listEmailDeliveries({
@@ -718,6 +729,7 @@ class AdminApiClient {
     await _post(
       '/api/admin/email-deliveries/$deliveryId/retry',
       body: const {},
+      idempotencyKey: _newIdempotencyKey(),
     );
   }
 
@@ -735,7 +747,7 @@ class AdminApiClient {
   Future<void> testEmailChannel(
     int channelId,
     String recipientAddress, {
-    required String stepUpToken,
+    String? stepUpToken,
   }) async {
     await _post(
       '/api/admin/email-channels/$channelId/test',
@@ -1299,6 +1311,7 @@ class AdminApiClient {
     await _post(
       '/api/admin/queues/${Uri.encodeComponent(queueName)}/publish',
       body: body,
+      idempotencyKey: _newIdempotencyKey(),
     );
   }
 

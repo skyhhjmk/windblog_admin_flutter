@@ -36,7 +36,8 @@ void main() {
     await tester.tap(find.text('指派并生成草稿'));
     await tester.pumpAndSettle();
     expect(find.text('生成模型'), findsOneWidget);
-    expect(find.text('Codex 自动 · high'), findsOneWidget);
+    expect(find.text('Codex 自动'), findsOneWidget);
+    expect(find.text('high'), findsNothing);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
 

@@ -211,11 +211,12 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
         widget.api.codexCreatorTestServers(),
         widget.api.codexCreatorTestServerGuide(),
       ]);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _testServers = values[0] as List<Map<String, dynamic>>;
           _testServerGuide = values[1] as Map<String, dynamic>;
         });
+      }
     } catch (error) {
       firstError ??= '读取测试服务器失败：$error';
     }
@@ -336,7 +337,7 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
         id: server?['id'] as int?,
         stepUpToken: token,
       );
-      if (mounted)
+      if (mounted) {
         AdminFeedback.showSnackBar(
           context,
           const SnackBar(
@@ -344,13 +345,15 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
             backgroundColor: Colors.green,
           ),
         );
+      }
       await _load();
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         AdminFeedback.showSnackBar(
           context,
           SnackBar(content: Text('保存失败：$error')),
         );
+      }
     }
   }
 

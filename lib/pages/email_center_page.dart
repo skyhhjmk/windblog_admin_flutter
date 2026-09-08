@@ -234,13 +234,11 @@ class _EmailCenterPageState extends State<EmailCenterPage>
     }
   }
 
-  Future<String?> _requestStepUpToken() async {
-    return AdminStepUpAuthorization.obtain(
-      context,
-      widget.api,
-      title: '确认高风险邮件操作',
-    );
-  }
+  Future<String?> _requestStepUpToken() => AdminStepUpAuthorization.obtain(
+    context,
+    widget.api,
+    title: '确认批量失败待发送邮件',
+  );
 
   Future<void> _testChannel(Map<String, dynamic> channel) async {
     final recipient = TextEditingController(
@@ -283,13 +281,10 @@ class _EmailCenterPageState extends State<EmailCenterPage>
     Map<String, dynamic> channel,
     String recipientAddress,
   ) async {
-    final stepUpToken = await _requestStepUpToken();
-    if (stepUpToken == null) return;
     try {
       await widget.api.testEmailChannel(
         (channel['id'] as num).toInt(),
         recipientAddress,
-        stepUpToken: stepUpToken,
       );
       await _loadDeliveries();
       _showMessage('测试邮件已加入投递队列');
@@ -569,12 +564,27 @@ class _EmailCenterPageState extends State<EmailCenterPage>
       ),
     );
     if (saved == true) {
+      if (!mounted) {
+        name.dispose();
+        subject.dispose();
+        return;
+      }
+      final stepUpToken = await AdminStepUpAuthorization.obtain(
+        context,
+        widget.api,
+        title: '确认创建批量邮件活动',
+      );
+      if (stepUpToken == null) {
+        name.dispose();
+        subject.dispose();
+        return;
+      }
       await widget.api.createEmailCampaign({
         'name': name.text.trim(),
         'subject': subject.text.trim(),
         'templateId': templateId,
         'recipientType': recipientType,
-      });
+      }, stepUpToken: stepUpToken);
       await _load();
     }
     name.dispose();

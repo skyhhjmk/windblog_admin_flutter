@@ -353,12 +353,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                     OutlinedButton(
                       onPressed: () async {
                         try {
-                          final stepUpToken = await _getStepUpToken();
-                          if (stepUpToken == null) return;
                           final result = await widget.api.simulateClientIp(
                             remoteIp: remoteIpController.text.trim(),
                             headerValue: headerValueController.text.trim(),
-                            stepUpToken: stepUpToken,
                           );
                           setDialogState(() {
                             simulatedResult = result;
@@ -394,8 +391,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   }
 
   Future<void> _saveSetting(String key, Map<String, dynamic> values) async {
-    final stepUpToken = await _getStepUpToken();
-    if (stepUpToken == null) return;
+    final stepUpToken = await _stepUpTokenFor(key);
+    if (_requiresStepUp(key) && stepUpToken == null) return;
     try {
       await widget.api.updateSystemSetting(
         key,
@@ -424,8 +421,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   }
 
   Future<void> _confirmSetting(String key) async {
-    final stepUpToken = await _getStepUpToken();
-    if (stepUpToken == null) return;
+    final stepUpToken = await _stepUpTokenFor(key);
+    if (_requiresStepUp(key) && stepUpToken == null) return;
     try {
       await widget.api.confirmSystemSetting(key, stepUpToken: stepUpToken);
       if (mounted) {
@@ -449,8 +446,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   }
 
   Future<void> _rollbackSetting(String key) async {
-    final stepUpToken = await _getStepUpToken();
-    if (stepUpToken == null) return;
+    final stepUpToken = await _stepUpTokenFor(key);
+    if (_requiresStepUp(key) && stepUpToken == null) return;
     try {
       await widget.api.rollbackSystemSetting(key, stepUpToken: stepUpToken);
       if (mounted) {
@@ -480,6 +477,27 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       title: '确认系统设置操作',
     );
   }
+
+  bool _requiresStepUp(String key) {
+    final normalized = key.toLowerCase();
+    return const [
+      'secret',
+      'password',
+      'token',
+      'credential',
+      'key',
+      'auth',
+      'security',
+      'elasticsearch',
+      'redis',
+      'database',
+      'storage',
+      'mail',
+    ].any(normalized.contains);
+  }
+
+  Future<String?> _stepUpTokenFor(String key) =>
+      _requiresStepUp(key) ? _getStepUpToken() : Future.value();
 
   String _getGroupLabel(String g) {
     return g;
