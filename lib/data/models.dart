@@ -3083,7 +3083,7 @@ class ImageProcessingMetadata {
   }
 }
 
-enum EdgeConnectionType { heartbeat, activePoll }
+enum EdgeConnectionType { wesp, heartbeat, activePoll }
 
 class EdgeNode {
   final String nodeId;
@@ -3162,6 +3162,9 @@ class EdgeNode {
   }
 
   static EdgeConnectionType _parseConnectionType(dynamic value) {
+    if (value == 'wesp' || value == 'WESP' || value == 'WESP_V1') {
+      return EdgeConnectionType.wesp;
+    }
     if (value == 'activePoll' || value == 'ACTIVE_POLL') {
       return EdgeConnectionType.activePoll;
     }
@@ -3181,6 +3184,37 @@ class EdgeNode {
       'edgeGrpcPort': edgeGrpcPort,
     };
   }
+}
+
+class EdgeNodeConnectionResult {
+  EdgeNodeConnectionResult({
+    required this.node,
+    required this.targetUrl,
+    required this.checks,
+    required this.message,
+  });
+
+  final EdgeNode node;
+  final String targetUrl;
+  final Map<String, dynamic> checks;
+  final String message;
+
+  factory EdgeNodeConnectionResult.fromMap(Map<String, dynamic> map) {
+    return EdgeNodeConnectionResult(
+      node: EdgeNode.fromJson(_mapValue(map['node'])),
+      targetUrl: map['targetUrl']?.toString() ?? '',
+      checks: _mapValue(map['checks']),
+      message: map['message']?.toString() ?? '节点已连接',
+    );
+  }
+}
+
+Map<String, dynamic> _mapValue(dynamic value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) {
+    return value.map((key, item) => MapEntry(key.toString(), item));
+  }
+  return <String, dynamic>{};
 }
 
 class NodeDeploymentPackage {

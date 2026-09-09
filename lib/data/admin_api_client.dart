@@ -1858,7 +1858,47 @@ class AdminApiClient {
     return list.map((e) => EdgeNode.fromJson(_map(e))).toList();
   }
 
-  Future<EdgeNode> createEdgeNode(EdgeNode node, {String? nodeIp}) async {
+  Future<EdgeNodeConnectionResult> connectEdgeNode({
+    required String nodeId,
+    required String nodeName,
+    required BlogRegion region,
+    required String targetUrl,
+    required String username,
+    required String password,
+    String? externalUrl,
+    String? stepUpToken,
+  }) async {
+    final res = await _post(
+      '/api/admin/edge-nodes/connect',
+      body: {
+        'nodeId': nodeId.trim(),
+        'nodeName': nodeName.trim(),
+        'region': region.code,
+        'targetUrl': targetUrl.trim(),
+        'username': username.trim(),
+        'password': password,
+        if (externalUrl != null && externalUrl.trim().isNotEmpty)
+          'externalUrl': externalUrl.trim(),
+      },
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    return EdgeNodeConnectionResult.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<Map<String, dynamic>> probeEdgeNode(String targetUrl) async {
+    final res = await _get(
+      '/api/admin/edge-nodes/connect/probe',
+      query: {'targetUrl': targetUrl.trim()},
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<EdgeNode> createEdgeNode(
+    EdgeNode node, {
+    String? nodeIp,
+    String? stepUpToken,
+  }) async {
     final res = await _post(
       '/api/admin/edge-nodes',
       body: {
@@ -1867,28 +1907,50 @@ class AdminApiClient {
         'region': node.region.code,
         'connectionType': node.connectionType.name,
         'edgeGrpcPort': node.edgeGrpcPort,
+        if (node.externalUrl != null && node.externalUrl!.isNotEmpty)
+          'externalUrl': node.externalUrl,
+        if (node.apiUrl != null && node.apiUrl!.isNotEmpty)
+          'apiUrl': node.apiUrl,
         if (nodeIp != null && nodeIp.isNotEmpty) 'nodeIp': nodeIp,
       },
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
-  Future<EdgeNode> updateEdgeNode(String nodeId, EdgeNode node) async {
+  Future<EdgeNode> updateEdgeNode(
+    String nodeId,
+    EdgeNode node, {
+    String? stepUpToken,
+  }) async {
     final res = await _put(
       '/api/admin/edge-nodes/$nodeId',
       body: node.toJson(),
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
-  Future<void> deleteEdgeNode(String nodeId) async {
-    await _delete('/api/admin/edge-nodes/$nodeId');
+  Future<void> deleteEdgeNode(String nodeId, {String? stepUpToken}) async {
+    await _delete(
+      '/api/admin/edge-nodes/$nodeId',
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
   }
 
-  Future<void> toggleEdgeNode(String nodeId, bool enabled) async {
+  Future<void> toggleEdgeNode(
+    String nodeId,
+    bool enabled, {
+    String? stepUpToken,
+  }) async {
     await _put(
       '/api/admin/edge-nodes/$nodeId/toggle',
       query: {'enabled': '$enabled'},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
   }
 
@@ -1897,11 +1959,17 @@ class AdminApiClient {
     return EdgeNode.fromJson(_map(jsonDecode(res.body)));
   }
 
-  Future<void> triggerEdgeNodeSync(String nodeId, {bool force = false}) async {
+  Future<void> triggerEdgeNodeSync(
+    String nodeId, {
+    bool force = false,
+    String? stepUpToken,
+  }) async {
     await _post(
       '/api/admin/edge-nodes/$nodeId/sync',
       body: {},
       query: {'force': force.toString()},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
   }
 
