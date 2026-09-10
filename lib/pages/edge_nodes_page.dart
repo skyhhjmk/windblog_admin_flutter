@@ -317,213 +317,11 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
   }
 
   Future<void> _showAddNodeDialog() async {
-    final idController = TextEditingController();
-    final nameController = TextEditingController();
-    final targetController = TextEditingController();
-    final externalController = TextEditingController();
-    final usernameController = TextEditingController();
-    final passwordController = TextEditingController();
-    BlogRegion selectedRegion = BlogRegion.global;
-    int phase = 0;
-    bool loading = false;
-    String? reachableUrl;
-
     final connected = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          final probing = phase == 0;
-          return AlertDialog(
-            title: Text(probing ? '新增节点' : '登录目标节点'),
-            content: SizedBox(
-              width: 560,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (probing) ...[
-                      const Text('填写目标节点基本信息后，先进行可达性检查；检查通过后再输入目标管理员账号和密码。'),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: idController,
-                        decoration: const InputDecoration(
-                          labelText: '节点 ID（唯一）',
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: '节点名称（可选）',
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: targetController,
-                        decoration: const InputDecoration(
-                          labelText: '目标节点地址',
-                          hintText: 'http://127.0.0.1:58181',
-                          helperText: '容器部署时填写目标节点发布的 HTTP 地址；本机回环地址会自动兼容。',
-                        ),
-                        keyboardType: TextInputType.url,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: externalController,
-                        decoration: const InputDecoration(
-                          labelText: '节点展示地址（可选）',
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<BlogRegion>(
-                        initialValue: selectedRegion,
-                        decoration: const InputDecoration(labelText: '所属区域'),
-                        items: BlogRegion.values
-                            .map(
-                              (region) => DropdownMenuItem(
-                                value: region,
-                                child: Text(region.displayName),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() => selectedRegion = value);
-                          }
-                        },
-                      ),
-                    ] else ...[
-                      Text(
-                        '已连接到 ${reachableUrl ?? targetController.text.trim()}',
-                      ),
-                      const SizedBox(height: 8),
-                      const Text('请输入目标节点的管理员账号和密码。凭据只用于本次登录和连接引导，不会保存。'),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: usernameController,
-                        decoration: const InputDecoration(labelText: '目标管理员账号'),
-                        autofocus: true,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(labelText: '目标管理员密码'),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: loading ? null : () => Navigator.pop(dialogContext),
-                child: const Text('取消'),
-              ),
-              FilledButton.icon(
-                onPressed: loading
-                    ? null
-                    : () async {
-                        if (probing) {
-                          if (idController.text.trim().isEmpty ||
-                              targetController.text.trim().isEmpty) {
-                            AdminFeedback.showSnackBar(
-                              dialogContext,
-                              const SnackBar(
-                                content: Text('节点 ID 和目标节点地址不能为空'),
-                              ),
-                            );
-                            return;
-                          }
-                          setDialogState(() => loading = true);
-                          try {
-                            final result = await widget.api.probeEdgeNode(
-                              targetController.text,
-                            );
-                            reachableUrl = result['targetUrl']?.toString();
-                            if (dialogContext.mounted) {
-                              setDialogState(() => phase = 1);
-                            }
-                          } catch (error) {
-                            if (dialogContext.mounted) {
-                              AdminFeedback.showSnackBar(
-                                dialogContext,
-                                SnackBar(content: Text('目标节点不可达: $error')),
-                              );
-                            }
-                          } finally {
-                            if (dialogContext.mounted) {
-                              setDialogState(() => loading = false);
-                            }
-                          }
-                        } else {
-                          if (usernameController.text.trim().isEmpty ||
-                              passwordController.text.isEmpty) {
-                            AdminFeedback.showSnackBar(
-                              dialogContext,
-                              const SnackBar(content: Text('目标管理员账号和密码不能为空')),
-                            );
-                            return;
-                          }
-                          setDialogState(() => loading = true);
-                          try {
-                            if (!dialogContext.mounted) return;
-                            final stepUp =
-                                await AdminStepUpAuthorization.obtain(
-                                  dialogContext,
-                                  widget.api,
-                                  title: '新增边缘节点需要管理员确认',
-                                );
-                            if (stepUp == null) return;
-                            await widget.api.connectEdgeNode(
-                              nodeId: idController.text.trim(),
-                              nodeName: nameController.text.trim(),
-                              region: selectedRegion,
-                              targetUrl: targetController.text.trim(),
-                              externalUrl: externalController.text.trim(),
-                              username: usernameController.text.trim(),
-                              password: passwordController.text,
-                              stepUpToken: stepUp,
-                            );
-                            if (dialogContext.mounted) {
-                              Navigator.pop(dialogContext, true);
-                            }
-                          } catch (error) {
-                            if (dialogContext.mounted) {
-                              AdminFeedback.showSnackBar(
-                                dialogContext,
-                                SnackBar(content: Text('登录并连接失败: $error')),
-                              );
-                            }
-                          } finally {
-                            if (dialogContext.mounted) {
-                              setDialogState(() => loading = false);
-                            }
-                          }
-                        }
-                      },
-                icon: loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(probing ? Icons.link : Icons.login),
-                label: Text(probing ? '测试连接' : '登录并连接'),
-              ),
-            ],
-          );
-        },
-      ),
+      builder: (_) => _AddEdgeNodeDialog(api: widget.api),
     );
-    idController.dispose();
-    nameController.dispose();
-    targetController.dispose();
-    externalController.dispose();
-    usernameController.dispose();
-    passwordController.dispose();
-    if (connected == true) await _loadData();
+    if (connected == true && mounted) await _loadData();
   }
 
   Future<void> _showEditDialog(EdgeNode? node) async {
@@ -932,6 +730,225 @@ class _EdgeNodesPageState extends State<EdgeNodesPage> {
     showDialog(
       context: context,
       builder: (context) => _EdgeNodeDetailDialog(node: node, api: widget.api),
+    );
+  }
+}
+
+class _AddEdgeNodeDialog extends StatefulWidget {
+  const _AddEdgeNodeDialog({required this.api});
+
+  final AdminApiClient api;
+
+  @override
+  State<_AddEdgeNodeDialog> createState() => _AddEdgeNodeDialogState();
+}
+
+class _AddEdgeNodeDialogState extends State<_AddEdgeNodeDialog> {
+  late final TextEditingController _idController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _targetController;
+  late final TextEditingController _externalController;
+  late final TextEditingController _usernameController;
+  late final TextEditingController _passwordController;
+
+  BlogRegion _selectedRegion = BlogRegion.global;
+  int _phase = 0;
+  bool _loading = false;
+  String? _reachableUrl;
+
+  bool get _probing => _phase == 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _idController = TextEditingController();
+    _nameController = TextEditingController();
+    _targetController = TextEditingController();
+    _externalController = TextEditingController();
+    _usernameController = TextEditingController();
+    _passwordController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _idController.dispose();
+    _nameController.dispose();
+    _targetController.dispose();
+    _externalController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _probe() async {
+    if (_idController.text.trim().isEmpty ||
+        _targetController.text.trim().isEmpty) {
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(content: Text('节点 ID 和目标节点地址不能为空')),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final result = await widget.api.probeEdgeNode(_targetController.text);
+      if (result['reachable'] != true) {
+        throw Exception(result['message']?.toString() ?? '目标节点不可达');
+      }
+      if (!mounted) return;
+      setState(() {
+        _reachableUrl = result['targetUrl']?.toString();
+        _phase = 1;
+      });
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('目标节点不可达: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _connect() async {
+    if (_usernameController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty) {
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(content: Text('目标管理员账号和密码不能为空')),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final stepUp = await AdminStepUpAuthorization.obtain(
+        context,
+        widget.api,
+        title: '新增边缘节点需要管理员确认',
+      );
+      if (!mounted || stepUp == null) return;
+
+      await widget.api.connectEdgeNode(
+        nodeId: _idController.text.trim(),
+        nodeName: _nameController.text.trim(),
+        region: _selectedRegion,
+        targetUrl: _targetController.text.trim(),
+        externalUrl: _externalController.text.trim(),
+        username: _usernameController.text.trim(),
+        password: _passwordController.text,
+        stepUpToken: stepUp,
+      );
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('登录并连接失败: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_probing ? '新增节点' : '登录目标节点'),
+      content: SizedBox(
+        width: 560,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_probing) ...[
+                const Text('填写目标节点基本信息后，先进行可达性检查；检查通过后再输入目标管理员账号和密码。'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _idController,
+                  decoration: const InputDecoration(labelText: '节点 ID（唯一）'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: '节点名称（可选）'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _targetController,
+                  decoration: const InputDecoration(
+                    labelText: '目标节点地址',
+                    hintText: 'http://127.0.0.1:58181',
+                    helperText: '容器部署时填写目标节点发布的 HTTP 地址；本机回环地址会自动兼容。',
+                  ),
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _externalController,
+                  decoration: const InputDecoration(labelText: '节点展示地址（可选）'),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<BlogRegion>(
+                  initialValue: _selectedRegion,
+                  decoration: const InputDecoration(labelText: '所属区域'),
+                  items: BlogRegion.values
+                      .map(
+                        (region) => DropdownMenuItem(
+                          value: region,
+                          child: Text(region.displayName),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedRegion = value);
+                    }
+                  },
+                ),
+              ] else ...[
+                Text('已连接到 ${_reachableUrl ?? _targetController.text.trim()}'),
+                const SizedBox(height: 8),
+                const Text('请输入目标节点的管理员账号和密码。凭据只用于本次登录和连接引导，不会保存。'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(labelText: '目标管理员账号'),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: '目标管理员密码'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton.icon(
+          onPressed: _loading ? null : (_probing ? _probe : _connect),
+          icon: _loading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(_probing ? Icons.link : Icons.login),
+          label: Text(_probing ? '测试连接' : '登录并连接'),
+        ),
+      ],
     );
   }
 }
