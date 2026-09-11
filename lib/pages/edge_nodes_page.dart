@@ -1321,8 +1321,22 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          children: [
+            const Text(
+              '心跳延迟趋势',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '蓝线为状态新鲜度，红色短线表示离线',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
         Container(
-          height: 90,
+          height: 160,
           width: double.infinity,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
@@ -1332,7 +1346,11 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
             borderRadius: BorderRadius.circular(6),
           ),
           child: CustomPaint(
-            painter: _AvailabilityTimelinePainter(history.samples),
+            painter: _AvailabilityTimelinePainter(
+              history.samples,
+              from: history.from,
+              to: history.to,
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -1855,57 +1873,82 @@ class _EdgeNodeDetailDialogState extends State<_EdgeNodeDetailDialog> {
 }
 
 class _AvailabilityTimelinePainter extends CustomPainter {
-  _AvailabilityTimelinePainter(this.samples);
+  _AvailabilityTimelinePainter(this.samples, {this.from, this.to});
 
   final List<EdgeNodeAvailabilitySamplePoint> samples;
+  final DateTime? from;
+  final DateTime? to;
 
   @override
   void paint(Canvas canvas, Size size) {
     final backgroundPaint = Paint()
       ..color = Colors.grey.withValues(alpha: 0.12)
       ..style = PaintingStyle.fill;
-    final borderPaint = Paint()
-      ..color = Colors.grey.withValues(alpha: 0.25)
-      ..strokeWidth = 1;
-    final onlinePaint = Paint()
-      ..color = Colors.green
-      ..strokeWidth = 3;
+    final curvePaint = Paint()
+      ..color = Colors.blue.shade600
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+    final pointPaint = Paint()
+      ..color = Colors.blue.shade700
+      ..style = PaintingStyle.fill;
     final offlinePaint = Paint()
       ..color = Colors.redAccent
-      ..strokeWidth = 3;
+      ..strokeWidth = 2;
 
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, const Radius.circular(6)),
       backgroundPaint,
     );
-    canvas.drawLine(
-      Offset(0, size.height - 18),
-      Offset(size.width, size.height - 18),
-      borderPaint,
-    );
-
     if (samples.isEmpty) {
       _drawCenteredText(canvas, size, '暂无采样');
       return;
     }
 
-    final DateTime? firstTime = samples.first.sampledAt;
-    final DateTime? lastTime = samples.last.sampledAt;
-    if (firstTime == null || lastTime == null) {
+    final validTimes = samples
+        .map((sample) => sample.sampledAt)
+        .whereType<DateTime>()
+        .toList();
+    if (validTimes.isEmpty) {
       _drawCenteredText(canvas, size, '采样时间无效');
       return;
     }
 
-    final int totalMilliseconds = lastTime
-        .difference(firstTime)
-        .inMilliseconds
-        .abs();
-    final double lineTop = 10;
-    final double lineBottom = size.height - 28;
-    final double onlineY = lineTop + 10;
-    final double offlineY = lineBottom - 10;
+    DateTime firstTime = from ?? validTimes.first;
+    DateTime lastTime = to ?? validTimes.last;
+    if (!lastTime.isAfter(firstTime)) {
+      lastTime = firstTime.add(const Duration(minutes: 1));
+    }
+    final int totalMilliseconds = lastTime.difference(firstTime).inMilliseconds;
+    final double chartLeft = 38;
+    final double chartRight = size.width - 8;
+    final double chartTop = 24;
+    final double chartBottom = size.height - 24;
+    final double chartHeight = chartBottom - chartTop;
 
+    final latencyValues = samples
+        .where((sample) => sample.online && sample.latencyMs != null)
+        .map((sample) => sample.latencyMs!.toDouble())
+        .toList();
+    final double maxLatency = _niceMaxLatency(latencyValues);
+    final gridPaint = Paint()
+      ..color = Colors.grey.withValues(alpha: 0.22)
+      ..strokeWidth = 1;
+    for (int index = 0; index <= 2; index++) {
+      final double y = chartTop + chartHeight * index / 2;
+      canvas.drawLine(Offset(chartLeft, y), Offset(chartRight, y), gridPaint);
+    }
+    _drawLabel(canvas, '延迟 ms', Offset(4, 3), Colors.grey.shade700);
+    _drawLabel(canvas, '0', Offset(17, chartBottom - 6), Colors.grey.shade600);
+    _drawLabel(
+      canvas,
+      '${maxLatency.round()}',
+      Offset(4, chartTop - 7),
+      Colors.grey.shade600,
+    );
+
+    DateTime? previousTime;
+    int? previousLatency;
     for (int index = 0; index < samples.length; index++) {
       final sample = samples[index];
       final DateTime? sampledAt = sample.sampledAt;
@@ -1913,36 +1956,68 @@ class _AvailabilityTimelinePainter extends CustomPainter {
         continue;
       }
 
-      double x = 0;
-      if (totalMilliseconds > 0) {
-        final int sampleOffset = sampledAt.difference(firstTime).inMilliseconds;
-        x = size.width * sampleOffset / totalMilliseconds;
+      final int sampleOffset = sampledAt.difference(firstTime).inMilliseconds;
+      final double x =
+          chartLeft +
+          (chartRight - chartLeft) *
+              (sampleOffset.clamp(0, totalMilliseconds).toDouble() /
+                  totalMilliseconds.toDouble());
+      if (!sample.online) {
+        canvas.drawLine(
+          Offset(x, chartBottom - 2),
+          Offset(x, chartBottom - 9),
+          offlinePaint,
+        );
+        previousTime = null;
+        previousLatency = null;
+        continue;
       }
 
-      final Paint pointPaint = sample.online ? onlinePaint : offlinePaint;
-      final double y = sample.online ? onlineY : offlineY;
+      final latency = sample.latencyMs;
+      if (latency == null) {
+        previousTime = null;
+        previousLatency = null;
+        continue;
+      }
+      final double y =
+          chartBottom -
+          chartHeight * (latency.clamp(0, maxLatency).toDouble() / maxLatency);
       canvas.drawCircle(Offset(x, y), 2.5, pointPaint);
-
-      if (index > 0) {
-        final previousSample = samples[index - 1];
-        final DateTime? previousTime = previousSample.sampledAt;
-        if (previousTime == null) {
-          continue;
-        }
-        double previousX = 0;
-        if (totalMilliseconds > 0) {
-          final int previousOffset = previousTime
-              .difference(firstTime)
-              .inMilliseconds;
-          previousX = size.width * previousOffset / totalMilliseconds;
-        }
-        final double previousY = previousSample.online ? onlineY : offlineY;
-        canvas.drawLine(Offset(previousX, previousY), Offset(x, y), pointPaint);
+      if (previousTime != null && previousLatency != null) {
+        final int previousOffset = previousTime
+            .difference(firstTime)
+            .inMilliseconds;
+        final double previousX =
+            chartLeft +
+            (chartRight - chartLeft) *
+                (previousOffset.clamp(0, totalMilliseconds).toDouble() /
+                    totalMilliseconds.toDouble());
+        final double previousY =
+            chartBottom -
+            chartHeight *
+                (previousLatency.clamp(0, maxLatency).toDouble() / maxLatency);
+        canvas.drawLine(Offset(previousX, previousY), Offset(x, y), curvePaint);
       }
+      previousTime = sampledAt;
+      previousLatency = latency;
     }
 
-    _drawLabel(canvas, '在线', Offset(6, onlineY - 9), Colors.green);
-    _drawLabel(canvas, '离线', Offset(6, offlineY - 9), Colors.redAccent);
+    if (latencyValues.isEmpty) {
+      _drawCenteredText(canvas, size, '暂无延迟采样（等待下一次心跳）');
+    }
+    _drawLabel(
+      canvas,
+      '离线',
+      Offset(chartRight - 30, chartBottom + 5),
+      Colors.redAccent,
+    );
+  }
+
+  double _niceMaxLatency(List<double> values) {
+    if (values.isEmpty) return 100;
+    final double maximum = values.reduce(max);
+    final double step = maximum <= 1000 ? 50 : 100;
+    return max(step, (maximum / step).ceil() * step);
   }
 
   void _drawCenteredText(Canvas canvas, Size size, String text) {
@@ -1977,7 +2052,9 @@ class _AvailabilityTimelinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AvailabilityTimelinePainter oldDelegate) {
-    return oldDelegate.samples != samples;
+    return oldDelegate.samples != samples ||
+        oldDelegate.from != from ||
+        oldDelegate.to != to;
   }
 }
 

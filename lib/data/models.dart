@@ -3485,15 +3485,18 @@ class EdgeNodeAvailabilitySamplePoint {
   EdgeNodeAvailabilitySamplePoint({
     required this.sampledAt,
     required this.online,
+    this.latencyMs,
   });
 
   final DateTime? sampledAt;
   final bool online;
+  final int? latencyMs;
 
   factory EdgeNodeAvailabilitySamplePoint.fromMap(Map<String, dynamic> map) {
     return EdgeNodeAvailabilitySamplePoint(
       sampledAt: parseDate(map['sampledAt']),
       online: toBool(map['online']) ?? false,
+      latencyMs: toInt(map['latencyMs']),
     );
   }
 }
