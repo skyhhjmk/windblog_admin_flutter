@@ -84,12 +84,31 @@ void main() {
     expect(find.text('AI 工程实践'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('话题列表中的生成失败任务显示重新生成按钮', (WidgetTester tester) async {
+    final api = _TopicsApiStub()..showFailedTopic = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Theme(
+          data: AdminTheme.build(),
+          child: Scaffold(
+            body: TopicsPage(api: api, onAuthError: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('生成失败测试话题'), findsOneWidget);
+    expect(find.text('重新生成'), findsOneWidget);
+  });
 }
 
 class _TopicsApiStub extends AdminApiClient {
   final List<int> requestedPages = [];
   final List<String?> requestedStatuses = [];
   int seedCount = 1;
+  bool showFailedTopic = false;
 
   @override
   Future<Map<String, dynamic>> codexCreatorModels() async => {
@@ -165,6 +184,26 @@ class _TopicsApiStub extends AdminApiClient {
             ],
           },
         },
+        if (showFailedTopic && status != 'ASSIGNED')
+          {
+            'id': 88,
+            'title': '生成失败测试话题',
+            'rationale': '用于验证失败任务可以重新生成。',
+            'recommendation': 'WRITE',
+            'status': 'SUGGESTED',
+            'articleJobStatus': 'FAILED',
+            'articleJobId': 123,
+            'articleError': '测试失败原因',
+            'occurrenceCount': 1,
+            'source': {
+              'primarySeed': {
+                'id': 7,
+                'name': 'AI 产业观察',
+                'query': 'AI industry',
+              },
+              'sources': <Map<String, String>>[],
+            },
+          },
         if (status == 'ASSIGNED')
           {
             'id': 99,

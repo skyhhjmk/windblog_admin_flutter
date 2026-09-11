@@ -1483,6 +1483,8 @@ class _TopicsPageState extends State<TopicsPage>
 
   Widget _topicCard(Map<String, dynamic> topic) {
     final status = topic['status']?.toString() ?? 'SUGGESTED';
+    final articleJobStatus = topic['articleJobStatus']?.toString() ?? '';
+    final generationFailed = status == 'FAILED' || articleJobStatus == 'FAILED';
     final source = _mapValue(topic['source']);
     final sourceCount = _mapList(source['sources']).length;
     final keywords = (source['keywords'] as List<dynamic>? ?? [])
@@ -1539,6 +1541,12 @@ class _TopicsPageState extends State<TopicsPage>
                   icon: const Icon(Icons.source_outlined),
                   label: const Text('来源详情'),
                 ),
+                if (generationFailed)
+                  FilledButton.tonalIcon(
+                    onPressed: _saving ? null : () => _assignDraft(topic),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('重新生成'),
+                  ),
                 if (canReview)
                   OutlinedButton.icon(
                     onPressed: _saving
