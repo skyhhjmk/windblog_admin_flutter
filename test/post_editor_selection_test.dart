@@ -119,6 +119,7 @@ void main() {
 
     final editable = tester.widget<EditableText>(find.byType(EditableText));
     final state = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(editable.cursorOpacityAnimates, isTrue);
     expect(editable.selectionColor, isNotNull);
     expect(state.renderEditable.selection, controller.selection);
     expect(state.renderEditable.selectionColor, editable.selectionColor);
@@ -172,6 +173,8 @@ void main() {
     );
     await tester.pump();
 
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    expect(textField.cursorOpacityAnimates, isTrue);
     await tester.tap(find.byType(EditableText));
     await tester.pump();
     final state = tester.state<EditableTextState>(find.byType(EditableText));

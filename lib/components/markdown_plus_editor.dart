@@ -1308,6 +1308,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
                               color: Colors.black87,
                             ),
                             cursorColor: Theme.of(context).colorScheme.primary,
+                            cursorOpacityAnimates: true,
                             selectionColor: Theme.of(
                               context,
                             ).colorScheme.primary.withValues(alpha: 0.28),

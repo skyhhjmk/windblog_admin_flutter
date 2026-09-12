@@ -78,6 +78,7 @@ class HtmlSyntaxEditor extends StatelessWidget {
             maxLines: null,
             expands: true,
             onChanged: (_) => onChanged(),
+            cursorOpacityAnimates: true,
             decoration: const InputDecoration(
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
