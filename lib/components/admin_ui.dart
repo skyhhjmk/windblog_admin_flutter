@@ -388,6 +388,35 @@ class AdminFeedback {
     _show(context, message, Theme.of(context).colorScheme.primary);
   }
 
+  static void showTransient(
+    BuildContext context, {
+    required String message,
+    String title = '提示',
+    AdminNotificationSeverity severity = AdminNotificationSeverity.info,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final controller = AdminNotificationScope.maybeOf(context);
+    if (controller != null) {
+      controller.showTransient(
+        message: message,
+        title: title,
+        severity: severity,
+        actionLabel: actionLabel,
+        onAction: onAction,
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: actionLabel == null || onAction == null
+            ? null
+            : SnackBarAction(label: actionLabel, onPressed: onAction),
+      ),
+    );
+  }
+
   static void showSnackBar(BuildContext context, SnackBar snackBar) {
     final controller = AdminNotificationScope.maybeOf(context);
     if (controller == null) {

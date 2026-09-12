@@ -516,17 +516,14 @@ class _PostEditorPageState extends State<PostEditorPage>
         });
         await _loadRevisions();
         if (!mounted) return false;
-        AdminFeedback.showSnackBar(
+        AdminFeedback.showTransient(
           context,
-          SnackBar(
-            content: Text(draftSaveSuccessText),
-            action: SnackBarAction(
-              label: publishNowText,
-              onPressed: () {
-                _publishLatestDraft();
-              },
-            ),
-          ),
+          message: draftSaveSuccessText,
+          severity: AdminNotificationSeverity.success,
+          actionLabel: publishNowText,
+          onAction: () {
+            _publishLatestDraft();
+          },
         );
       }
       return true;
@@ -998,10 +995,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                 onPressed: _isSaving
                     ? null
                     : () async {
-                        final success = await _save();
-                        if (success && mounted) {
-                          navigator.pop(null);
-                        }
+                        await _save();
                       },
                 icon: _isSaving
                     ? const SizedBox(
@@ -1017,10 +1011,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                 onPressed: _isSaving
                     ? null
                     : () async {
-                        final success = await _save();
-                        if (success && mounted) {
-                          navigator.pop(null);
-                        }
+                        await _save();
                       },
                 child: _isSaving
                     ? const SizedBox(
