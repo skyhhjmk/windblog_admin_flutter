@@ -219,10 +219,19 @@ class _PostsPageState extends State<PostsPage> {
       }
       if (!mounted) return;
 
+      final notifications = AdminNotificationScope.maybeOf(context);
       await Navigator.push<PostEditRequest?>(
         context,
         MaterialPageRoute(
-          builder: (_) => PostEditorPage(detail: detail, api: widget.api),
+          builder: (_) {
+            final editor = PostEditorPage(detail: detail, api: widget.api);
+            if (notifications == null) return editor;
+            return AdminNotificationHost(
+              api: widget.api,
+              controller: notifications,
+              child: editor,
+            );
+          },
         ),
       );
 

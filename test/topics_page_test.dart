@@ -9,6 +9,8 @@ import 'package:windblog_admin_flutter/main.dart';
 void main() {
   testWidgets('话题页使用服务端分页并显示主题内容', (WidgetTester tester) async {
     final api = _TopicsApiStub();
+    final notifications = AdminNotificationController();
+    addTearDown(notifications.clear);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -20,10 +22,14 @@ void main() {
         ],
         supportedLocales: const [Locale('zh', ''), Locale('en', '')],
         locale: const Locale('zh', ''),
-        home: Theme(
-          data: AdminTheme.build(),
-          child: Scaffold(
-            body: TopicsPage(api: api, onAuthError: () {}),
+        home: AdminNotificationHost(
+          api: api,
+          controller: notifications,
+          child: Theme(
+            data: AdminTheme.build(),
+            child: Scaffold(
+              body: TopicsPage(api: api, onAuthError: () {}),
+            ),
           ),
         ),
       ),
@@ -72,13 +78,16 @@ void main() {
     expect(find.text('重试生成'), findsOneWidget);
     expect(api.requestedStatuses.last, 'ASSIGNED');
     expect(find.byType(PaginationBar), findsOneWidget);
+    expect(find.byType(AdminNotificationScope), findsOneWidget);
 
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1;
     await tester.tap(find.text('查看文章'));
     await tester.pumpAndSettle();
     expect(find.byType(PostEditorPage), findsOneWidget);
+    expect(find.byType(AdminNotificationHost), findsOneWidget);
     expect(api.requestedPostId, 9);
+    notifications.clear();
     tester.view.reset();
   });
 
