@@ -150,6 +150,7 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
   bool _enabled = true;
   String? _error;
   Map<String, dynamic>? _status;
+  Map<String, dynamic>? _quota;
   Map<String, dynamic>? _config;
   List<Map<String, dynamic>> _testServers = const [];
   Map<String, dynamic>? _testServerGuide;
@@ -205,6 +206,16 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
       return;
     } catch (error) {
       firstError ??= '读取服务状态失败：$error';
+    }
+    try {
+      final quota = await widget.api.codexCreatorQuota();
+      if (mounted) setState(() => _quota = quota);
+    } on UnauthorizedException {
+      widget.onAuthError();
+      if (mounted) setState(() => _loading = false);
+      return;
+    } catch (error) {
+      firstError ??= '读取 Codex 额度失败：$error';
     }
     try {
       final values = await Future.wait([
@@ -308,6 +319,8 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
               const SizedBox(height: 12),
             ],
             _buildStatusCard(),
+            const SizedBox(height: 16),
+            _buildQuotaCard(),
             const SizedBox(height: 16),
             _buildConnectionCard(),
             const SizedBox(height: 16),
@@ -572,6 +585,64 @@ class _CodexCreatorPageState extends State<CodexCreatorPage> {
                 label: Text(_saving ? '保存中…' : '保存连接配置'),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuotaCard() {
+    final status = _quota?['status']?.toString() ?? 'LIMIT_UNAVAILABLE';
+    final five = _quota?['fiveHour'] is Map
+        ? Map<String, dynamic>.from(_quota!['fiveHour'] as Map)
+        : <String, dynamic>{};
+    final weekly = _quota?['weekly'] is Map
+        ? Map<String, dynamic>.from(_quota!['weekly'] as Map)
+        : <String, dynamic>{};
+    String bucket(Map<String, dynamic> value, String label) {
+      if (value.isEmpty) return '$label：不可用';
+      return '$label：剩余 ${value['remainingPercent'] ?? '-'}% · 重置 ${value['resetsAt'] ?? '-'}';
+    }
+
+    final color = status == 'NORMAL'
+        ? Colors.green
+        : status == 'ACCELERATED'
+        ? Colors.blue
+        : Colors.orange;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.speed_outlined, color: color),
+                const SizedBox(width: 10),
+                Text(
+                  'Codex 额度',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Text(
+                  status,
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(bucket(five, '5 小时窗口')),
+            const SizedBox(height: 4),
+            Text(bucket(weekly, 'Weekly 窗口')),
+            if ((_quota?['lastError']?.toString() ?? '').isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _quota!['lastError'].toString(),
+                style: const TextStyle(color: Colors.orange),
+              ),
+            ],
           ],
         ),
       ),

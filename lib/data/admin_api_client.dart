@@ -127,6 +127,12 @@ class AdminApiClient {
     return _map(jsonDecode(res.body));
   }
 
+  Future<Map<String, dynamic>> codexCreatorQuota() async {
+    final res = await _get('/api/admin/codex-creator/quota');
+    final map = _map(jsonDecode(res.body));
+    return _map(map['data']);
+  }
+
   Future<Map<String, dynamic>> codexCreatorConfig() async {
     final res = await _get('/api/admin/codex-creator/config');
     final map = _map(jsonDecode(res.body));
@@ -221,12 +227,15 @@ class AdminApiClient {
     String? stepUpToken,
     String? idempotencyKey,
     String? profileId,
+    bool forceQuota = false,
   }) async {
+    final body = <String, dynamic>{'forceQuota': forceQuota};
+    if (profileId != null && profileId.isNotEmpty) {
+      body['profileId'] = profileId;
+    }
     final res = await _post(
       '/api/admin/codex-creator/topic-runs',
-      body: profileId == null || profileId.isEmpty
-          ? const {}
-          : {'profileId': profileId},
+      body: body,
       stepUpToken: stepUpToken,
       idempotencyKey: idempotencyKey ?? _newIdempotencyKey(),
     );
@@ -304,6 +313,7 @@ class AdminApiClient {
     String? repostPolicyCode,
     bool requiresPracticalVerification = false,
     List<int> testServerIds = const [],
+    bool forceQuota = false,
     String? stepUpToken,
   }) async {
     final body = <String, dynamic>{
@@ -311,6 +321,7 @@ class AdminApiClient {
       'instructions': instructions,
       'requiresPracticalVerification': requiresPracticalVerification,
       'testServerIds': testServerIds,
+      'forceQuota': forceQuota,
     };
     if (categoryId != null) body['categoryId'] = categoryId;
     if (profileId != null && profileId.isNotEmpty) {
@@ -336,9 +347,11 @@ class AdminApiClient {
     int topicId, {
     String? profileId,
     String? reasoningEffort,
+    bool forceQuota = false,
     String? stepUpToken,
   }) async {
     final body = <String, dynamic>{};
+    body['forceQuota'] = forceQuota;
     if (profileId != null && profileId.isNotEmpty) {
       body['profileId'] = profileId;
     }
