@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/material.dart';
 
 /// Stub implementation for non-web platforms (desktop/mobile).
 void disableBrowserContextMenu() {
@@ -14,13 +15,17 @@ void enableBrowserContextMenu() {
 }
 
 StreamSubscription? listenToNativePaste(
-    void Function(Uint8List bytes, String fileName, String mimeType) onImagePasted) {
+  void Function(Uint8List bytes, String fileName, String mimeType)
+  onImagePasted,
+) {
   return null;
 }
 
 void openUrl(String url) {
   launchUrl(Uri.parse(url));
 }
+
+Widget buildIFrame(String url) => Center(child: SelectableText(url));
 
 void downloadFile(Uint8List bytes, String fileName, String mimeType) {
   final downloadsPath = _getDownloadsDirectory();

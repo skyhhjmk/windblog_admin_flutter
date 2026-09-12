@@ -1,7 +1,27 @@
 // ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter, unnecessary_cast
 import 'dart:async';
 import 'dart:html' as html;
+import 'dart:ui_web' as ui_web;
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+
+final Set<String> _registeredGrafanaFrames = <String>{};
+
+Widget buildIFrame(String url) {
+  final viewType = 'windblog-grafana-${url.hashCode}';
+  if (_registeredGrafanaFrames.add(viewType)) {
+    ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
+      return html.IFrameElement()
+        ..src = url
+        ..style.border = '0'
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..setAttribute('referrerpolicy', 'same-origin')
+        ..setAttribute('allow', 'fullscreen');
+    });
+  }
+  return HtmlElementView(viewType: viewType);
+}
 
 /// Web implementation using dart:html.
 void disableBrowserContextMenu() {
@@ -14,7 +34,9 @@ void enableBrowserContextMenu() {
 }
 
 StreamSubscription? listenToNativePaste(
-    void Function(Uint8List bytes, String fileName, String mimeType) onImagePasted) {
+  void Function(Uint8List bytes, String fileName, String mimeType)
+  onImagePasted,
+) {
   return html.document.onPaste.listen((event) {
     final clipboardEvent = event as html.ClipboardEvent;
     final items = clipboardEvent.clipboardData?.items;
@@ -34,9 +56,7 @@ StreamSubscription? listenToNativePaste(
             final bytes = reader.result as Uint8List;
             final fileName = blob.name.isNotEmpty
                 ? blob.name
-                : 'pasted_image_${DateTime
-                .now()
-                .millisecondsSinceEpoch}.png';
+                : 'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png';
             onImagePasted(bytes, fileName, blob.type);
           });
           break;
@@ -71,7 +91,8 @@ void saveFileWithPicker(Uint8List bytes, String fileName) {
   final blob = html.Blob([bytes], 'application/zip');
   final blobUrl = html.Url.createObjectUrlFromBlob(blob);
 
-  final htmlContent = '<!DOCTYPE html><html><body><script>'
+  final htmlContent =
+      '<!DOCTYPE html><html><body><script>'
       'window.parent._windblogSavePicker("$blobUrl","$fileName");'
       '</script></body></html>';
 

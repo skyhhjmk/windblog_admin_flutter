@@ -72,6 +72,7 @@ part 'components/diff_viewer.dart';
 part 'components/config_dynamic_form.dart';
 
 part 'components/html_syntax_editor.dart';
+part 'components/grafana_embed.dart';
 
 part 'components/pagination_bar.dart';
 

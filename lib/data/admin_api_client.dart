@@ -122,6 +122,11 @@ class AdminApiClient {
     return _map(map['data']);
   }
 
+  Future<Map<String, dynamic>> grafanaEmbedUrl() async {
+    final res = await _get('/api/admin/system/observability/grafana-embed-url');
+    return _map(jsonDecode(res.body));
+  }
+
   Future<Map<String, dynamic>> codexCreatorStatus() async {
     final res = await _get('/api/admin/codex-creator/status');
     return _map(jsonDecode(res.body));

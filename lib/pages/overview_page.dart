@@ -66,12 +66,18 @@ class _OverviewPageState extends State<OverviewPage> {
           shadowColor: primaryColor.withValues(alpha: 0.1),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: primaryColor.withValues(alpha: 0.15), width: 1.5),
+            side: BorderSide(
+              color: primaryColor.withValues(alpha: 0.15),
+              width: 1.5,
+            ),
           ),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [primaryColor.withValues(alpha: 0.06), primaryColor.withValues(alpha: 0.01)],
+                colors: [
+                  primaryColor.withValues(alpha: 0.06),
+                  primaryColor.withValues(alpha: 0.01),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -94,11 +100,12 @@ class _OverviewPageState extends State<OverviewPage> {
                       const SizedBox(height: 12),
                       Text(
                         '$value',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: Theme.of(context).colorScheme.onSurface,
-                          height: 1,
-                        ),
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              height: 1,
+                            ),
                       ),
                     ],
                   ),
@@ -134,11 +141,27 @@ class _OverviewPageState extends State<OverviewPage> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              card(t(context, 'users_count'), map['users'] ?? 0, Icons.people_alt),
+              card(
+                t(context, 'users_count'),
+                map['users'] ?? 0,
+                Icons.people_alt,
+              ),
               card(t(context, 'posts_count'), map['posts'] ?? 0, Icons.article),
-              card(t(context, 'comments_count'), map['comments'] ?? 0, Icons.comment),
-              card(t(context, 'tags_count'), map['tags'] ?? 0, Icons.local_offer),
-              card(t(context, 'categories_count'), map['categories'] ?? 0, Icons.folder),
+              card(
+                t(context, 'comments_count'),
+                map['comments'] ?? 0,
+                Icons.comment,
+              ),
+              card(
+                t(context, 'tags_count'),
+                map['tags'] ?? 0,
+                Icons.local_offer,
+              ),
+              card(
+                t(context, 'categories_count'),
+                map['categories'] ?? 0,
+                Icons.folder,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -186,6 +209,22 @@ class _OverviewPageState extends State<OverviewPage> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            elevation: 2,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: GrafanaEmbed(
+                api: widget.api,
+                onAuthError: widget.onAuthError,
               ),
             ),
           ),
