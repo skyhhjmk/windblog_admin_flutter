@@ -23,7 +23,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   late final TextEditingController freeLinesCtrl;
   late final TextEditingController passwordCtrl;
   late final TabController _sidebarTabController;
-  final ScrollController _contentScrollController = ScrollController();
+  final ScrollController _contentScrollController = SmoothScrollController();
 
   int status = 0;
   int visibility = 0;
@@ -1145,16 +1145,22 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Widget _buildEditor() {
-    if (renderType == 1) {
-      return HtmlSyntaxEditor(controller: contentCtrl, onChanged: _markDirty);
-    }
-    return MarkdownPlusEditor(
-      controller: contentCtrl,
-      api: widget.api,
-      isBlockMode: renderType == 6,
-      onChanged: _markDirty,
-      scrollController: _contentScrollController,
+    final theme = Theme.of(context);
+    final selectionTheme = theme.textSelectionTheme.copyWith(
+      selectionColor: theme.colorScheme.primary.withValues(alpha: 0.28),
+      selectionHandleColor: theme.colorScheme.primary,
+      cursorColor: theme.colorScheme.primary,
     );
+    final editor = renderType == 1
+        ? HtmlSyntaxEditor(controller: contentCtrl, onChanged: _markDirty)
+        : MarkdownPlusEditor(
+            controller: contentCtrl,
+            api: widget.api,
+            isBlockMode: renderType == 6,
+            onChanged: _markDirty,
+            scrollController: _contentScrollController,
+          );
+    return TextSelectionTheme(data: selectionTheme, child: editor);
   }
 
   Widget _buildSidebar() {

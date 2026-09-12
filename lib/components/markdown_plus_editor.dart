@@ -2,9 +2,6 @@ part of 'package:windblog_admin_flutter/main.dart';
 
 // Regex for markdown image syntax: ![alt](url)
 final _imageRegExp = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
-final _markdownLinkRegExp = RegExp(
-  r'(?<!!)\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)',
-);
 
 class MarkdownSyntaxController extends TextEditingController {
   MarkdownSyntaxController({super.text});
@@ -49,26 +46,6 @@ class MarkdownSyntaxController extends TextEditingController {
 
     return TextSpan(style: style, children: spans);
   }
-
-  /// Returns the image URL if [offset] (character offset in text) falls
-  /// inside a `![alt](url)` match, otherwise null.
-  String? imageUrlAtOffset(int offset) {
-    for (final match in _imageRegExp.allMatches(text)) {
-      if (offset >= match.start && offset <= match.end) {
-        return match.group(2);
-      }
-    }
-    return null;
-  }
-
-  String? linkUrlAtOffset(int offset) {
-    for (final match in _markdownLinkRegExp.allMatches(text)) {
-      if (offset >= match.start && offset <= match.end) {
-        return match.group(2);
-      }
-    }
-    return null;
-  }
 }
 
 class MarkdownPlusEditor extends StatefulWidget {
@@ -91,14 +68,19 @@ class MarkdownPlusEditor extends StatefulWidget {
   State<MarkdownPlusEditor> createState() => _MarkdownPlusEditorState();
 }
 
-class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
+class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
+    implements TextSelectionGestureDetectorBuilderDelegate {
   bool isPreviewVisible = true;
   bool isFullScreen = false;
   bool isOutlineVisible = false;
   int _mobileEditorMode = 0;
   final FocusNode _focusNode = FocusNode();
+  final GlobalKey<EditableTextState> _editableTextKey =
+      GlobalKey<EditableTextState>();
+  late final TextSelectionGestureDetectorBuilder
+  _selectionGestureDetectorBuilder;
   ScrollController? _internalScrollController;
-  final ScrollController _previewScrollController = ScrollController();
+  final ScrollController _previewScrollController = SmoothScrollController();
   dynamic _pasteSubscription;
 
   ScrollController get _editorScrollController =>
@@ -112,14 +94,15 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
   Timer? _highlightTimer;
   String _lastText = '';
   bool _isPointerDown = false;
-  Offset? _pointerDownPosition;
-  DateTime? _pointerDownTime;
 
   @override
   void initState() {
     super.initState();
+    _selectionGestureDetectorBuilder = TextSelectionGestureDetectorBuilder(
+      delegate: this,
+    );
     if (widget.scrollController == null) {
-      _internalScrollController = ScrollController();
+      _internalScrollController = SmoothScrollController();
     }
     _lastText = widget.controller.text;
     widget.controller.addListener(_updateOutline);
@@ -138,26 +121,14 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     }
   }
 
-  void _checkImageTap() {
-    if (widget.controller is! MarkdownSyntaxController) return;
-    final ctrl = widget.controller as MarkdownSyntaxController;
-    final offset = ctrl.selection.baseOffset;
-    if (offset < 0) return;
+  @override
+  GlobalKey<EditableTextState> get editableTextKey => _editableTextKey;
 
-    // Only trigger if selection is collapsed (a simple tap, not a range selection)
-    if (ctrl.selection.baseOffset != ctrl.selection.extentOffset) return;
+  @override
+  bool get forcePressEnabled => false;
 
-    final url = ctrl.imageUrlAtOffset(offset);
-    if (url != null && url.isNotEmpty) {
-      _handleImageTap(url);
-      return;
-    }
-
-    final linkUrl = ctrl.linkUrlAtOffset(offset);
-    if (linkUrl != null && linkUrl.isNotEmpty) {
-      _handleMarkdownLinkTap(linkUrl);
-    }
-  }
+  @override
+  bool get selectionEnabled => true;
 
   Future<void> _handleMarkdownLinkTap(String rawUrl) async {
     showDialog(
@@ -661,7 +632,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
         _internalScrollController = null;
       }
       if (widget.scrollController == null) {
-        _internalScrollController = ScrollController();
+        _internalScrollController = SmoothScrollController();
       }
     }
     if (widget.controller != oldWidget.controller) {
@@ -1277,28 +1248,12 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
     return Container(
       color: Colors.white,
       child: Listener(
-        onPointerDown: (PointerDownEvent details) {
+        onPointerDown: (_) {
           _isPointerDown = true;
-          _pointerDownPosition = details.position;
-          _pointerDownTime = DateTime.now();
         },
-        onPointerUp: (PointerUpEvent details) {
-          if (_pointerDownPosition != null) {
-            if (_pointerDownTime != null) {
-              Duration duration = DateTime.now().difference(_pointerDownTime!);
-              double delta =
-                  (details.position - _pointerDownPosition!).distance;
-              if (duration.inMilliseconds < 300) {
-                if (delta < 10) {
-                  Future.delayed(Duration.zero, () {
-                    if (mounted) {
-                      _checkImageTap();
-                    }
-                  });
-                }
-              }
-            }
-          }
+        // The source editor is for caret placement and text selection.
+        // Link and image dialogs are handled by the rendered preview below.
+        onPointerUp: (_) {
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted) {
               _isPointerDown = false;
@@ -1339,26 +1294,35 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor> {
                     ),
                   ),
                   Positioned.fill(
-                    child: EditableText(
-                      controller: widget.controller,
-                      focusNode: _focusNode,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: isPhone ? 14 : 15,
-                        height: 1.6,
-                        color: Colors.black87,
-                      ),
-                      cursorColor: Theme.of(context).colorScheme.primary,
-                      backgroundCursorColor: Colors.grey,
-                      maxLines: null,
-                      expands: true,
-                      scrollController: _editorScrollController,
-                      keyboardType: TextInputType.multiline,
-                      onChanged: (_) {
-                        widget.onChanged?.call();
-                      },
-                      selectionControls: materialTextSelectionControls,
-                    ),
+                    child: _selectionGestureDetectorBuilder
+                        .buildGestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          child: EditableText(
+                            key: _editableTextKey,
+                            controller: widget.controller,
+                            focusNode: _focusNode,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: isPhone ? 14 : 15,
+                              height: 1.6,
+                              color: Colors.black87,
+                            ),
+                            cursorColor: Theme.of(context).colorScheme.primary,
+                            selectionColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.28),
+                            backgroundCursorColor: Colors.grey,
+                            maxLines: null,
+                            expands: true,
+                            scrollController: _editorScrollController,
+                            keyboardType: TextInputType.multiline,
+                            onChanged: (_) {
+                              widget.onChanged?.call();
+                            },
+                            rendererIgnoresPointer: true,
+                            selectionControls: materialTextSelectionControls,
+                          ),
+                        ),
                   ),
                 ],
               );

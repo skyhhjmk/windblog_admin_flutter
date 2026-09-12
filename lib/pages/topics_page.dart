@@ -940,6 +940,7 @@ class _TopicsPageState extends State<TopicsPage>
 
   Widget _assignedTopicCard(Map<String, dynamic> topic) {
     final status = topic['status']?.toString() ?? 'WRITING';
+    final postId = _intValue(topic['postId']);
     final source = _mapValue(topic['source']);
     final sourceCount = _mapList(source['sources']).length;
     final error = topic['articleError']?.toString().trim() ?? '';
@@ -1000,6 +1001,12 @@ class _TopicsPageState extends State<TopicsPage>
                     onPressed: _saving ? null : () => _regenerateDraft(topic),
                     icon: const Icon(Icons.autorenew),
                     label: const Text('重新生成'),
+                  ),
+                if (status == 'DRAFT_CREATED' && postId != null)
+                  OutlinedButton.icon(
+                    onPressed: _saving ? null : () => _openPostEditor(postId),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('查看文章'),
                   ),
                 if (status == 'FAILED')
                   FilledButton.tonalIcon(

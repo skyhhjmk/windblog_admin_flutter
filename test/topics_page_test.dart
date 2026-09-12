@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:windblog_admin_flutter/data/admin_api_client.dart';
 import 'package:windblog_admin_flutter/data/models.dart';
+import 'package:windblog_admin_flutter/l10n/app_localizations.dart';
 import 'package:windblog_admin_flutter/main.dart';
 
 void main() {
@@ -10,6 +12,14 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh', ''), Locale('en', '')],
+        locale: const Locale('zh', ''),
         home: Theme(
           data: AdminTheme.build(),
           child: Scaffold(
@@ -57,10 +67,19 @@ void main() {
 
     expect(find.text('已指派测试任务'), findsOneWidget);
     expect(find.text('重新生成'), findsOneWidget);
+    expect(find.text('查看文章'), findsOneWidget);
     expect(find.text('失败测试任务'), findsOneWidget);
     expect(find.text('重试生成'), findsOneWidget);
     expect(api.requestedStatuses.last, 'ASSIGNED');
     expect(find.byType(PaginationBar), findsOneWidget);
+
+    tester.view.physicalSize = const Size(1600, 1200);
+    tester.view.devicePixelRatio = 1;
+    await tester.tap(find.text('查看文章'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PostEditorPage), findsOneWidget);
+    expect(api.requestedPostId, 9);
+    tester.view.reset();
   });
 
   testWidgets('刷新种子分组时可替换话题标签控制器', (WidgetTester tester) async {
@@ -109,6 +128,7 @@ class _TopicsApiStub extends AdminApiClient {
   final List<String?> requestedStatuses = [];
   int seedCount = 1;
   bool showFailedTopic = false;
+  int? requestedPostId;
 
   @override
   Future<Map<String, dynamic>> codexCreatorModels() async => {
@@ -175,6 +195,7 @@ class _TopicsApiStub extends AdminApiClient {
           'rationale': '用于验证分页组件。',
           'recommendation': 'WRITE',
           'status': status == 'ASSIGNED' ? 'DRAFT_CREATED' : 'SUGGESTED',
+          if (status == 'ASSIGNED') 'postId': 9,
           'occurrenceCount': 1,
           'source': {
             'primarySeed': {'id': 7, 'name': 'AI 产业观察', 'query': 'AI industry'},
@@ -242,4 +263,19 @@ class _TopicsApiStub extends AdminApiClient {
 
   @override
   Future<List<CategoryItem>> listCategories() async => <CategoryItem>[];
+
+  @override
+  Future<PostDetail> postDetail(int id) async {
+    requestedPostId = id;
+    return PostDetail.fromMap({
+      'id': id,
+      'slug': 'generated-draft',
+      'title': {'zh-cn': '已生成文章'},
+      'summary': {'zh-cn': '测试摘要'},
+      'contentMarkdown': {'zh-cn': '测试正文'},
+      'status': 0,
+      'renderType': 0,
+      'editorType': 0,
+    });
+  }
 }

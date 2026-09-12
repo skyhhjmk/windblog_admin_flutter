@@ -45,6 +45,11 @@ class AdminTheme {
     return ThemeData(
       colorScheme: colorScheme,
       useMaterial3: true,
+      textSelectionTheme: TextSelectionThemeData(
+        selectionColor: colorScheme.primary.withValues(alpha: 0.28),
+        selectionHandleColor: colorScheme.primary,
+        cursorColor: colorScheme.primary,
+      ),
       scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       visualDensity: VisualDensity.standard,
       cardTheme: CardThemeData(

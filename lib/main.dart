@@ -108,7 +108,6 @@ class SmoothScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
     PointerDeviceKind.touch,
-    PointerDeviceKind.mouse,
     PointerDeviceKind.trackpad,
   };
 
@@ -125,6 +124,108 @@ class SmoothScrollBehavior extends MaterialScrollBehavior {
       interactive: true,
       child: child,
     );
+  }
+}
+
+/// Scroll controller that animates mouse-wheel movement instead of applying
+/// each wheel tick as an immediate one-line jump.
+class SmoothScrollController extends ScrollController {
+  SmoothScrollController({
+    super.initialScrollOffset,
+    super.keepScrollOffset,
+    super.debugLabel,
+    super.onAttach,
+    super.onDetach,
+  });
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) {
+    return _SmoothScrollPosition(
+      physics: physics,
+      context: context,
+      initialPixels: initialScrollOffset,
+      keepScrollOffset: keepScrollOffset,
+      oldPosition: oldPosition,
+      debugLabel: debugLabel,
+    );
+  }
+}
+
+class _SmoothScrollPosition extends ScrollPositionWithSingleContext {
+  _SmoothScrollPosition({
+    required super.physics,
+    required super.context,
+    super.initialPixels,
+    super.keepScrollOffset,
+    super.oldPosition,
+    super.debugLabel,
+  });
+
+  static const _wheelAnimationDuration = Duration(milliseconds: 180);
+  double? _pendingWheelTarget;
+  int _wheelAnimationGeneration = 0;
+
+  void _clearPendingWheelTarget() {
+    _pendingWheelTarget = null;
+    _wheelAnimationGeneration++;
+  }
+
+  @override
+  void pointerScroll(double delta) {
+    if (delta == 0.0) {
+      _clearPendingWheelTarget();
+      super.pointerScroll(delta);
+      return;
+    }
+
+    final baseOffset = _pendingWheelTarget ?? pixels;
+    final targetOffset = (baseOffset + delta)
+        .clamp(minScrollExtent, maxScrollExtent)
+        .toDouble();
+    if (targetOffset == pixels) {
+      _clearPendingWheelTarget();
+      return;
+    }
+
+    _pendingWheelTarget = targetOffset;
+    final generation = ++_wheelAnimationGeneration;
+    super
+        .animateTo(
+          targetOffset,
+          duration: _wheelAnimationDuration,
+          curve: Curves.easeOutCubic,
+        )
+        .whenComplete(() {
+          if (generation == _wheelAnimationGeneration) {
+            _pendingWheelTarget = null;
+          }
+        });
+  }
+
+  @override
+  void applyUserOffset(double delta) {
+    _clearPendingWheelTarget();
+    super.applyUserOffset(delta);
+  }
+
+  @override
+  void jumpTo(double value) {
+    _clearPendingWheelTarget();
+    super.jumpTo(value);
+  }
+
+  @override
+  Future<void> animateTo(
+    double to, {
+    required Duration duration,
+    required Curve curve,
+  }) {
+    _clearPendingWheelTarget();
+    return super.animateTo(to, duration: duration, curve: curve);
   }
 }
 
