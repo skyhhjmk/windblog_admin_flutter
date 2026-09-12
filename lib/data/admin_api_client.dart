@@ -301,6 +301,7 @@ class AdminApiClient {
     String instructions = '',
     String? profileId,
     String? reasoningEffort,
+    String? repostPolicyCode,
     bool requiresPracticalVerification = false,
     List<int> testServerIds = const [],
     String? stepUpToken,
@@ -317,6 +318,9 @@ class AdminApiClient {
     }
     if (reasoningEffort != null && reasoningEffort.isNotEmpty) {
       body['reasoningEffort'] = reasoningEffort;
+    }
+    if (repostPolicyCode != null && repostPolicyCode.isNotEmpty) {
+      body['repostPolicyCode'] = repostPolicyCode;
     }
     final res = await _post(
       '/api/admin/codex-creator/topics/$topicId/draft',

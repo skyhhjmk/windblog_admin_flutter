@@ -9,6 +9,8 @@ class StorageService {
   static const String _keyLastArticleModel = 'codex_creator_last_article_model';
   static const String _keyLastArticleReasoningEffort =
       'codex_creator_last_article_reasoning_effort';
+  static const String _keyLastArticleRepostPolicy =
+      'codex_creator_last_article_repost_policy';
 
   static const _secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -69,15 +71,20 @@ class StorageService {
     return {
       'profileId': prefs.getString(_keyLastArticleModel),
       'reasoningEffort': prefs.getString(_keyLastArticleReasoningEffort),
+      'repostPolicyCode': prefs.getString(_keyLastArticleRepostPolicy),
     };
   }
 
   static Future<void> saveLastArticleGenerationChoice(
     String profileId,
-    String reasoningEffort,
-  ) async {
+    String reasoningEffort, [
+    String? repostPolicyCode,
+  ]) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLastArticleModel, profileId);
     await prefs.setString(_keyLastArticleReasoningEffort, reasoningEffort);
+    if (repostPolicyCode != null && repostPolicyCode.isNotEmpty) {
+      await prefs.setString(_keyLastArticleRepostPolicy, repostPolicyCode);
+    }
   }
 }

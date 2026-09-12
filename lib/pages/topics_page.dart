@@ -342,9 +342,18 @@ class _TopicsPageState extends State<TopicsPage>
     final topicId = _intValue(topic['id']);
     if (topicId == null) return;
     List<Map<String, dynamic>> servers = const [];
+    List<RepostPolicyItem> policies = const [];
     try {
-      servers = await widget.api.codexCreatorTestServers();
+      final results = await Future.wait<Object>([
+        widget.api.codexCreatorTestServers(),
+        widget.api.listRepostPolicies(),
+      ]);
+      servers = results[0] as List<Map<String, dynamic>>;
+      policies = results[1] as List<RepostPolicyItem>;
     } catch (_) {}
+    if (policies.isEmpty) {
+      policies = [_fallbackRepostPolicy()];
+    }
     if (!mounted) return;
 
     final request = await showDialog<_DraftRequest>(
@@ -352,6 +361,7 @@ class _TopicsPageState extends State<TopicsPage>
       builder: (_) => _DraftRequestDialog(
         models: _modelOptions('article'),
         servers: servers,
+        policies: policies,
       ),
     );
     if (request == null || !mounted) return;
@@ -364,6 +374,7 @@ class _TopicsPageState extends State<TopicsPage>
         instructions: request.instructions,
         profileId: request.profileId,
         reasoningEffort: request.reasoningEffort,
+        repostPolicyCode: request.repostPolicyCode,
         requiresPracticalVerification: request.practicalVerification,
         testServerIds: request.testServerIds,
       );
@@ -397,6 +408,22 @@ class _TopicsPageState extends State<TopicsPage>
       }
     }
   }
+
+  RepostPolicyItem _fallbackRepostPolicy() => const RepostPolicyItem(
+    code: RepostPolicyItem.defaultCode,
+    name: '转载前需申请授权',
+    nameEn: 'Request authorization before reposting',
+    licenseUrl: null,
+    requiresApplication: true,
+    summary: '转载前需要申请授权，并保留授权码、原文地址和转载链路。',
+    summaryEn:
+        'Request authorization before reposting and retain attribution details.',
+    conditions: ['转载前申请授权', '保留授权码和原文地址'],
+    conditionsEn: [
+      'Authorization is required before reposting',
+      'Keep the original URL',
+    ],
+  );
 
   Future<void> _regenerateDraft(Map<String, dynamic> topic) async {
     final topicId = _intValue(topic['id']);
@@ -1215,7 +1242,7 @@ class _TopicsPageState extends State<TopicsPage>
                 'promotionEnabled': enabled,
                 'promotionMarkdown': controller.text.trim(),
               }),
-              child: const Text('应用'),
+              child: const Text('保存并应用'),
             ),
           ],
         ),
@@ -1229,6 +1256,10 @@ class _TopicsPageState extends State<TopicsPage>
         'settings': {...settings, ...result},
       };
     });
+    // The dialog action is presented as applying the promotion settings. Save
+    // them immediately so a refresh or navigation cannot discard the in-memory
+    // edit before the separate automation-settings button is pressed.
+    await _saveAutomation();
   }
 
   Widget _buildPromotionCard() {
@@ -2063,6 +2094,7 @@ class _DraftRequest {
     required this.instructions,
     required this.profileId,
     required this.reasoningEffort,
+    required this.repostPolicyCode,
     required this.practicalVerification,
     required this.testServerIds,
   });
@@ -2071,6 +2103,7 @@ class _DraftRequest {
   final String instructions;
   final String profileId;
   final String reasoningEffort;
+  final String repostPolicyCode;
   final bool practicalVerification;
   final List<int> testServerIds;
 }
@@ -2083,10 +2116,15 @@ class _ArticleGenerationChoice {
 }
 
 class _DraftRequestDialog extends StatefulWidget {
-  const _DraftRequestDialog({required this.models, required this.servers});
+  const _DraftRequestDialog({
+    required this.models,
+    required this.servers,
+    required this.policies,
+  });
 
   final List<Map<String, dynamic>> models;
   final List<Map<String, dynamic>> servers;
+  final List<RepostPolicyItem> policies;
 
   @override
   State<_DraftRequestDialog> createState() => _DraftRequestDialogState();
@@ -2097,6 +2135,7 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
   late final TextEditingController _instructionsController;
   String? _profileId;
   String _reasoningEffort = 'high';
+  String _repostPolicyCode = RepostPolicyItem.defaultCode;
   String? _error;
   bool _practicalVerification = false;
   final Set<int> _testServerIds = {};
@@ -2130,6 +2169,14 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
       if (const {'low', 'medium', 'high', 'xhigh'}.contains(savedEffort)) {
         _reasoningEffort = savedEffort!;
       }
+      final savedPolicy = saved['repostPolicyCode'];
+      if (widget.policies.any((policy) => policy.code == savedPolicy)) {
+        _repostPolicyCode = savedPolicy!;
+      } else if (widget.policies.any(
+        (policy) => policy.code == RepostPolicyItem.defaultCode,
+      )) {
+        _repostPolicyCode = RepostPolicyItem.defaultCode;
+      }
     });
   }
 
@@ -2157,6 +2204,7 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
     StorageService.saveLastArticleGenerationChoice(
       _profileId!,
       _reasoningEffort,
+      _repostPolicyCode,
     );
     Navigator.pop(
       context,
@@ -2165,6 +2213,7 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
         instructions: _instructionsController.text.trim(),
         profileId: _profileId!,
         reasoningEffort: _reasoningEffort,
+        repostPolicyCode: _repostPolicyCode,
         practicalVerification: _practicalVerification,
         testServerIds: _testServerIds.toList(),
       ),
@@ -2237,6 +2286,44 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
                   labelText: '文章语言',
                   hintText: 'zh-CN',
                 ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey('article-repost-policy-$_repostPolicyCode'),
+                initialValue: _repostPolicyCode,
+                decoration: const InputDecoration(
+                  labelText: '转载协议',
+                  prefixIcon: Icon(Icons.copyright_outlined),
+                ),
+                items: widget.policies
+                    .map(
+                      (policy) => DropdownMenuItem<String>(
+                        value: policy.code,
+                        child: Text(policy.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() {
+                  _repostPolicyCode = value ?? RepostPolicyItem.defaultCode;
+                }),
+              ),
+              Builder(
+                builder: (context) {
+                  final policy = widget.policies.firstWhere(
+                    (item) => item.code == _repostPolicyCode,
+                    orElse: () => widget.policies.first,
+                  );
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        policy.summary,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
