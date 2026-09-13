@@ -115,6 +115,24 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
           readOnly: widget.isFrozen,
           onSaved: (value) => _values[field.key] = value ?? '',
         );
+      case 'textarea':
+        return TextFormField(
+          initialValue: _values[field.key]?.toString(),
+          decoration: InputDecoration(
+            labelText: field.label,
+            helperText: field.hint ?? '支持安全的 HTML 内容',
+            border: const OutlineInputBorder(),
+            alignLabelWithHint: true,
+          ),
+          minLines: 10,
+          maxLines: 24,
+          keyboardType: TextInputType.multiline,
+          readOnly: widget.isFrozen,
+          onSaved: (value) => _values[field.key] = value ?? '',
+          validator: field.required
+              ? (value) => (value == null || value.trim().isEmpty) ? '该项必填' : null
+              : null,
+        );
       case 'number':
         return TextFormField(
           initialValue: _values[field.key]?.toString(),

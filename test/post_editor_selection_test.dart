@@ -79,7 +79,44 @@ PostDetail _postForSaveTest() {
   );
 }
 
+PostDetail _legacyPostForDirtyTest() {
+  return PostDetail(
+    id: 12,
+    slug: 'legacy-post',
+    title: const {'zh-cn': '旧版文章'},
+    summary: const {'zh-cn': '摘要'},
+    aiSummary: const {},
+    contentMarkdown: const {'zh-cn': '正文'},
+    status: 0,
+    visibility: 0,
+    hasPassword: false,
+    renderType: 0,
+    editorType: 0,
+    aiSummaryStatus: 0,
+    currentRevisionNumber: 1,
+    version: 1,
+    publishedRevisionNumber: 0,
+    hasPublishedRevision: false,
+  );
+}
+
 void main() {
+  test('Markdown outline analysis is a pure serializable computation', () {
+    final result = analyzeMarkdownOutline('''# 标题
+::: quick {group=security, title="检查项", exclude=cn,us}
+内容
+::: /quick''');
+
+    expect(result['outline'], ['# 标题']);
+    expect(result['stats'], {'quick': 1});
+    final blocks = result['blocks']! as List<Object?>;
+    expect(blocks, hasLength(1));
+    final block = blocks.single as Map<Object?, Object?>;
+    expect(block['level'], 'quick');
+    expect(block['group'], 'security');
+    expect(block['exclude'], ['cn']);
+  });
+
   testWidgets('saving stays in the editor and uses a transient notification', (
     WidgetTester tester,
   ) async {
@@ -123,7 +160,35 @@ void main() {
       ),
       isTrue,
     );
+    expect(find.text('未保存'), findsNothing);
     notifications.clear();
+  });
+
+  testWidgets('legacy editor defaults do not create an unsaved state', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1200, 1600));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh'), Locale('en')],
+        locale: const Locale('zh'),
+        theme: AdminTheme.build(),
+        home: PostEditorPage(
+          api: _PostSaveApi(),
+          detail: _legacyPostForDirtyTest(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('未保存'), findsNothing);
   });
 
   testWidgets('mouse-wheel scrolling animates toward the target offset', (
@@ -233,6 +298,81 @@ void main() {
     expect(editable.selectionColor, isNotNull);
     expect(state.renderEditable.selection, controller.selection);
     expect(state.renderEditable.selectionColor, editable.selectionColor);
+  });
+
+  testWidgets('Markdown preview keeps GFM table rows in one block', (
+    WidgetTester tester,
+  ) async {
+    final controller = MarkdownSyntaxController(
+      text: '''| 控制层 | 应回答的问题 | 常见遗漏 |
+| --- | --- | --- |
+| 云安全组 | 哪些 IP 或网段能到达面板端口？ | 排障后遗留全网放行 |
+| 主机防火墙 | 云侧规则变化后，实例仍拒绝什么？ | 未核对服务监听地址与端口 |
+| 面板账户 | 谁能登录、权限多大、能否追溯？ | 共用管理员账号或只靠密码 |''',
+    );
+    addTearDown(controller.dispose);
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AdminTheme.build(),
+        home: Scaffold(
+          body: MarkdownPlusEditor(
+            controller: controller,
+            api: AdminApiClient(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(Table), findsOneWidget);
+  });
+
+  testWidgets('Markdown preview keeps compound blocks intact', (
+    WidgetTester tester,
+  ) async {
+    final controller = MarkdownSyntaxController(
+      text: '''- 第一项
+  - 嵌套项
+- 第二项
+
+> **粗体引用**
+> [引用链接](https://example.com)
+
+~~~dart
+# 不是标题
+- 不是列表
+
+~~~
+
+::: quick {group=security, title="检查项"}
+- [x] 容器内任务
+::: /quick
+
+尾段''',
+    );
+    addTearDown(controller.dispose);
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AdminTheme.build(),
+        home: Scaffold(
+          body: MarkdownPlusEditor(
+            controller: controller,
+            api: AdminApiClient(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // List, quote, ~~~ code fence, custom container, and trailing prose.
+    expect(find.byType(MarkdownBlockWrapper), findsNWidgets(5));
+    expect(find.text('尾段'), findsOneWidget);
   });
 
   testWidgets('clicking a Markdown link in the source does not open a dialog', (

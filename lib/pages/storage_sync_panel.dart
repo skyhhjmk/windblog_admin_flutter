@@ -17,6 +17,7 @@ class StorageSyncPanel extends StatefulWidget {
 class _StorageSyncPanelState extends State<StorageSyncPanel> {
   StorageSyncStatus? syncStatus;
   bool loading = false;
+  bool _batchSyncing = false;
   int _currentPage = 1;
   final int _pageSize = 20;
 
@@ -37,7 +38,10 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context, SnackBar(content: Text('加载失败: $e')));
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('加载失败: $e')),
+        );
       }
     } finally {
       if (mounted) {
@@ -54,18 +58,28 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
   }
 
   Future<void> _batchSync() async {
+    if (_batchSyncing) return;
+    setState(() => _batchSyncing = true);
     try {
       await widget.api.triggerBatchStorageSync();
       if (mounted) {
-        AdminFeedback.showSnackBar(context, const SnackBar(content: Text('批量同步任务已提交')));
+        AdminFeedback.showSnackBar(
+          context,
+          const SnackBar(content: Text('批量同步任务已提交')),
+        );
       }
       await _loadStatus();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context, SnackBar(content: Text('触发同步失败: $e')));
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('触发同步失败: $e')),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _batchSyncing = false);
     }
   }
 
@@ -77,12 +91,19 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
         AdminActionButton(
           label: '批量同步',
           icon: Icons.sync,
-          onPressed: _batchSync,
+          onPressed: _batchSyncing ? null : _batchSync,
+          isBusy: _batchSyncing,
         ),
         OutlinedButton.icon(
-          onPressed: _loadStatus,
-          icon: const Icon(Icons.refresh, size: 18),
-          label: const Text('刷新'),
+          onPressed: loading ? null : _loadStatus,
+          icon: loading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh, size: 18),
+          label: Text(loading ? '加载中' : '刷新'),
         ),
       ],
       body: loading

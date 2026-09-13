@@ -1,9 +1,38 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
+md.ExtensionSet markdownEditorExtensionSet() => md.ExtensionSet(
+  [
+    ...md.ExtensionSet.gitHubWeb.blockSyntaxes,
+    const CustomContainerSyntax(),
+    const CalloutSyntax(),
+    const HideContentSyntax(),
+  ],
+  [
+    ...md.ExtensionSet.gitHubWeb.inlineSyntaxes,
+    HighlightSyntax(),
+    KeyboardSyntax(),
+    ProgressSyntax(),
+    StatusBadgeSyntax(),
+    StoreItemSyntax(),
+  ],
+);
+
+Map<String, MarkdownElementBuilder> markdownEditorBuilders() => {
+  'mdplus-callout': CalloutElementBuilder(),
+  'mark': HighlightElementBuilder(),
+  'kbd': KeyboardElementBuilder(),
+  'progress': ProgressElementBuilder(),
+  'badge': StatusBadgeElementBuilder(),
+  'error-block': ErrorBlockBuilder(),
+  'custom-container': CustomContainerBuilder(),
+  'gamification-hide': GamificationHideBuilder(),
+  'store-item': StoreItemBuilder(),
+};
+
 /// Custom Container Syntax (::: `<name>`)
 class CustomContainerSyntax extends md.BlockSyntax {
   @override
-  RegExp get pattern => RegExp(r'^:::\s+([a-zA-Z0-9_-]+)$');
+  RegExp get pattern => RegExp(r'^:::\s+([a-zA-Z0-9_-]+)(?:\s+\{[^}]*\})?\s*$');
 
   const CustomContainerSyntax();
 
@@ -30,8 +59,7 @@ class CustomContainerSyntax extends md.BlockSyntax {
     }
 
     if (!foundEnd) {
-      return md.Element(
-          'error-block', [md.Text('解析错误：缺少闭合标签 ::: /$name')])
+      return md.Element('error-block', [md.Text('解析错误：缺少闭合标签 ::: /$name')])
         ..attributes['name'] = name;
     }
 
@@ -56,16 +84,26 @@ class CalloutSyntax extends md.BlockSyntax {
     final content = match.group(2) ?? '';
     String type;
     switch (symbol) {
-      case '!': type = 'warning'; break;
-      case '!!': type = 'danger'; break;
-      case '?': type = 'question'; break;
-      case 'i': type = 'info'; break;
-      default: type = 'info';
+      case '!':
+        type = 'warning';
+        break;
+      case '!!':
+        type = 'danger';
+        break;
+      case '?':
+        type = 'question';
+        break;
+      case 'i':
+        type = 'info';
+        break;
+      default:
+        type = 'info';
     }
 
     parser.advance();
     // Use a unique tag 'mdplus-callout' to avoid conflicts and force block rendering
-    return md.Element('mdplus-callout', [md.Text(content)])..attributes['type'] = type;
+    return md.Element('mdplus-callout', [md.Text(content)])
+      ..attributes['type'] = type;
   }
 }
 
@@ -127,8 +165,7 @@ class StoreItemSyntax extends md.InlineSyntax {
 class HideContentSyntax extends md.BlockSyntax {
   @override
   RegExp get pattern =>
-      RegExp(r'^\[(hide-text|hide-attachment)(.*)\]\s*$',
-          caseSensitive: false);
+      RegExp(r'^\[(hide-text|hide-attachment)(.*)\]\s*$', caseSensitive: false);
 
   const HideContentSyntax();
 
@@ -143,15 +180,18 @@ class HideContentSyntax extends md.BlockSyntax {
     // 提取属性
     String price = '0';
     final priceMatch = RegExp(
-        r'price\s*=\s*(?:"([^"]*)"|(\d+))', caseSensitive: false).firstMatch(
-        attrStr);
+      r'price\s*=\s*(?:"([^"]*)"|(\d+))',
+      caseSensitive: false,
+    ).firstMatch(attrStr);
     if (priceMatch != null) {
       price = priceMatch.group(1) ?? priceMatch.group(2) ?? '0';
     }
 
     String? showText;
-    final showMatch = RegExp(r'show\s*=\s*"([^"]*)"', caseSensitive: false)
-        .firstMatch(attrStr);
+    final showMatch = RegExp(
+      r'show\s*=\s*"([^"]*)"',
+      caseSensitive: false,
+    ).firstMatch(attrStr);
     if (showMatch != null) {
       showText = showMatch.group(1);
     }
@@ -178,8 +218,9 @@ class HideContentSyntax extends md.BlockSyntax {
     }
 
     // 将捕获到的所有行合并，并包装成 gamification-hide 元素
-    final el = md.Element(
-        'gamification-hide', [md.Text(childLines.join('\n'))]);
+    final el = md.Element('gamification-hide', [
+      md.Text(childLines.join('\n')),
+    ]);
     el.attributes['type'] = type;
     el.attributes['price'] = price;
     if (showText != null) el.attributes['show'] = showText;
@@ -212,8 +253,12 @@ class BlockquoteBuilder extends MarkdownElementBuilder {
         children: [
           const Icon(icon, color: color, size: 20),
           const SizedBox(width: 12),
-          Expanded(child: Text(element.textContent,
-              style: const TextStyle(fontSize: 14, height: 1.5))),
+          Expanded(
+            child: Text(
+              element.textContent,
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+          ),
         ],
       ),
     );
@@ -227,7 +272,7 @@ class CalloutElementBuilder extends MarkdownElementBuilder {
     Color color;
     String label;
     IconData icon;
-    
+
     switch (type) {
       case 'danger':
         color = Colors.red;
@@ -309,7 +354,11 @@ class ProgressElementBuilder extends MarkdownElementBuilder {
     return Container(
       width: 120,
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: LinearProgressIndicator(value: value / 100, minHeight: 6, borderRadius: BorderRadius.circular(3)),
+      child: LinearProgressIndicator(
+        value: value / 100,
+        minHeight: 6,
+        borderRadius: BorderRadius.circular(3),
+      ),
     );
   }
 }
@@ -318,11 +367,26 @@ class StatusBadgeElementBuilder extends MarkdownElementBuilder {
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     final status = element.attributes['status'] ?? 'default';
-    Color color = status == 'p' ? Colors.green : (status == 'w' ? Colors.orange : (status == 'e' ? Colors.red : Colors.blue));
+    Color color = status == 'p'
+        ? Colors.green
+        : (status == 'w'
+              ? Colors.orange
+              : (status == 'e' ? Colors.red : Colors.blue));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withValues(alpha: 0.2))),
-      child: Text(element.textContent, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        element.textContent,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
@@ -332,8 +396,22 @@ class KeyboardElementBuilder extends MarkdownElementBuilder {
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(color: Colors.grey.shade100, border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(4), boxShadow: [BoxShadow(color: Colors.grey.shade300, offset: const Offset(0, 1))]),
-      child: Text(element.textContent, style: const TextStyle(fontFamily: 'monospace', fontSize: 12, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.shade300, offset: const Offset(0, 1)),
+        ],
+      ),
+      child: Text(
+        element.textContent,
+        style: const TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
@@ -341,7 +419,14 @@ class KeyboardElementBuilder extends MarkdownElementBuilder {
 class HighlightElementBuilder extends MarkdownElementBuilder {
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    return Container(color: Colors.yellow.withValues(alpha: 0.3), padding: const EdgeInsets.symmetric(horizontal: 2), child: Text(element.textContent, style: const TextStyle(fontWeight: FontWeight.w500)));
+    return Container(
+      color: Colors.yellow.withValues(alpha: 0.3),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Text(
+        element.textContent,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      ),
+    );
   }
 }
 
@@ -363,9 +448,11 @@ class ErrorBlockBuilder extends MarkdownElementBuilder {
           const SizedBox(width: 8),
           Text(
             element.textContent,
-            style: TextStyle(color: Colors.red.shade700,
-                fontWeight: FontWeight.bold,
-                fontSize: 13),
+            style: TextStyle(
+              color: Colors.red.shade700,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -382,35 +469,8 @@ class CustomContainerBuilder extends MarkdownElementBuilder {
       child: MarkdownBody(
         data: element.textContent,
         selectable: false,
-        extensionSet: md.ExtensionSet(
-          [
-            const md.FencedCodeBlockSyntax(),
-            const md.TableSyntax(),
-            const CustomContainerSyntax(),
-            const CalloutSyntax(),
-            const HideContentSyntax(),
-          ],
-          [
-            md.EmojiSyntax(),
-            HighlightSyntax(),
-            KeyboardSyntax(),
-            ProgressSyntax(),
-            StatusBadgeSyntax(),
-            StoreItemSyntax(),
-          ],
-        ),
-        builders: {
-          'blockquote': BlockquoteBuilder(),
-          'mdplus-callout': CalloutElementBuilder(),
-          'mark': HighlightElementBuilder(),
-          'kbd': KeyboardElementBuilder(),
-          'progress': ProgressElementBuilder(),
-          'badge': StatusBadgeElementBuilder(),
-          'error-block': ErrorBlockBuilder(),
-          'custom-container': CustomContainerBuilder(),
-          'gamification-hide': GamificationHideBuilder(),
-          'store-item': StoreItemBuilder(),
-        },
+        extensionSet: markdownEditorExtensionSet(),
+        builders: markdownEditorBuilders(),
       ),
     );
   }
@@ -441,30 +501,42 @@ class GamificationHideBuilder extends MarkdownElementBuilder {
             decoration: BoxDecoration(
               color: Colors.amber.withValues(alpha: 0.8),
               borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(7), topRight: Radius.circular(7)),
+                topLeft: Radius.circular(7),
+                topRight: Radius.circular(7),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(isAttachment ? Icons.attach_file : Icons.lock_open,
-                    color: Colors.white, size: 14),
+                Icon(
+                  isAttachment ? Icons.attach_file : Icons.lock_open,
+                  color: Colors.white,
+                  size: 14,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   showText ?? (isAttachment ? '付费附件区块' : '付费隐藏内容'),
-                  style: const TextStyle(color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 if (price != '0') ...[
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 1),
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4)),
-                    child: Text('$price 积分', style: const TextStyle(
-                        color: Colors.white, fontSize: 10)),
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '$price 积分',
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
                   ),
                 ],
               ],
@@ -473,24 +545,18 @@ class GamificationHideBuilder extends MarkdownElementBuilder {
           Padding(
             padding: const EdgeInsets.all(12),
             child: MarkdownBody(
-              data: content
-                  .trim()
-                  .isEmpty ? '_该区块内容为空_' : content,
+              data: content.trim().isEmpty ? '_该区块内容为空_' : content,
               selectable: true,
               softLineBreak: true,
               // 启用软换行
-              extensionSet: md.ExtensionSet(
-                [
-                  const md.FencedCodeBlockSyntax(),
-                  const md.TableSyntax(),
-                ],
-                [
-                  md.EmojiSyntax(),
-                ],
-              ),
+              extensionSet: markdownEditorExtensionSet(),
+              builders: markdownEditorBuilders(),
               styleSheet: MarkdownStyleSheet(
                 p: TextStyle(
-                    color: Colors.grey.shade800, fontSize: 13, height: 1.5),
+                  color: Colors.grey.shade800,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
               ),
             ),
           ),
@@ -520,7 +586,10 @@ class StoreItemBuilder extends MarkdownElementBuilder {
           Text(
             '商店物品引用 (ID: $id)',
             style: const TextStyle(
-                color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13),
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(width: 4),
           const Icon(Icons.arrow_forward_ios, color: Colors.blue, size: 10),

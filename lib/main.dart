@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -428,7 +429,32 @@ class _AdminRootPageState extends State<AdminRootPage> {
     return AdminNotificationHost(
       api: api,
       controller: notificationController,
-      child: AdminShortcutHost(child: content),
+      child: AdminShortcutHost(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.985, end: 1).animate(animation),
+              child: child,
+            ),
+          ),
+          child: KeyedSubtree(
+            key: ValueKey<String>(
+              _loading
+                  ? 'bootstrap'
+                  : _showInstallationPage
+                  ? 'installation'
+                  : api.token == null
+                  ? 'login'
+                  : 'workspace',
+            ),
+            child: content,
+          ),
+        ),
+      ),
     );
   }
 }

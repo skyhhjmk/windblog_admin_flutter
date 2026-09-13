@@ -64,6 +64,11 @@ class _PostEditorPageState extends State<PostEditorPage>
   List<String>? _initialVisibilityRegions;
   List<String>? _initialContentDeclarations;
   String? _initialRepostPolicyCode;
+  String? _initialPointsPrice;
+  String? _initialFreeLines;
+  Map<String, String> _initialTitles = {};
+  Map<String, String> _initialSummaries = {};
+  Map<String, String> _initialContents = {};
 
   PostDetail? _currentDetail;
 
@@ -112,26 +117,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     contentDeclarations = List<String>.from(d?.contentDeclarations ?? []);
     repostPolicyCode = d?.repostPolicyCode ?? RepostPolicyItem.defaultCode;
 
-    _initialSlug = d?.slug;
-    _initialTitle = d?.zhTitle;
-    _initialSummary = d?.zhSummary;
-    _initialContent = d?.zhContent;
-    _initialStatus = d?.status;
-    _initialVisibility = d?.visibility;
-    _initialRenderType = d?.renderType;
-    _initialEditorType = d?.editorType;
-    _initialAiSummaryStatus = d?.aiSummaryStatus;
-    _initialCategoryId = d?.categoryId;
-    _initialTagIds = d?.tagIds != null ? List<int>.from(d!.tagIds) : null;
-    _initialVisibilityRegions = d?.visibilityRegions != null
-        ? List<String>.from(d!.visibilityRegions)
-        : null;
-    _initialContentDeclarations = d?.contentDeclarations != null
-        ? List<String>.from(d!.contentDeclarations)
-        : null;
-    _initialRepostPolicyCode =
-        d?.repostPolicyCode ??
-        (d == null ? RepostPolicyItem.defaultCode : null);
+    _captureBaseline();
 
     _sidebarTabController = TabController(length: 3, vsync: this);
 
@@ -173,33 +159,50 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   void _markDirty() {
-    if (!_isDirty) {
+    final isDirty = _checkIfDirty();
+    if (_isDirty != isDirty) {
       setState(() {
-        _isDirty = true;
+        _isDirty = isDirty;
       });
     }
   }
 
+  void _captureBaseline() {
+    _initialSlug = slugCtrl.text.trim();
+    _initialTitle = titleCtrl.text.trim();
+    _initialSummary = summaryCtrl.text.trim();
+    _initialContent = contentCtrl.text.trim();
+    _initialStatus = status;
+    _initialVisibility = visibility;
+    _initialRenderType = renderType;
+    _initialEditorType = editorType;
+    _initialAiSummaryStatus = aiSummaryStatus;
+    _initialCategoryId = categoryId;
+    _initialTagIds = List<int>.from(tagIds);
+    _initialVisibilityRegions = List<String>.from(visibilityRegions);
+    _initialContentDeclarations = List<String>.from(contentDeclarations);
+    _initialRepostPolicyCode = repostPolicyCode;
+    _initialPointsPrice = pointsPriceCtrl.text.trim();
+    _initialFreeLines = freeLinesCtrl.text.trim();
+    _initialTitles = Map<String, String>.from(_titles)
+      ..['zh-cn'] = _initialTitle!;
+    _initialSummaries = Map<String, String>.from(_summaries)
+      ..['zh-cn'] = _initialSummary!;
+    _initialContents = Map<String, String>.from(_contents)
+      ..['zh-cn'] = _initialContent!;
+  }
+
   bool _checkIfDirty() {
-    final d = _currentDetail;
     final currentSlug = slugCtrl.text.trim();
     final currentTitle = titleCtrl.text.trim();
     final currentSummary = summaryCtrl.text.trim();
     final currentContent = contentCtrl.text.trim();
-
-    if (d == null) {
-      return currentSlug.isNotEmpty ||
-          currentTitle.isNotEmpty ||
-          currentSummary.isNotEmpty ||
-          currentContent.isNotEmpty ||
-          status != 0 ||
-          visibility != 0 ||
-          passwordCtrl.text.trim().isNotEmpty ||
-          categoryId != null ||
-          tagIds.isNotEmpty ||
-          contentDeclarations.isNotEmpty ||
-          repostPolicyCode != RepostPolicyItem.defaultCode;
-    }
+    final currentTitles = Map<String, String>.from(_titles)
+      ..['zh-cn'] = currentTitle;
+    final currentSummaries = Map<String, String>.from(_summaries)
+      ..['zh-cn'] = currentSummary;
+    final currentContents = Map<String, String>.from(_contents)
+      ..['zh-cn'] = currentContent;
 
     return currentSlug != _initialSlug ||
         currentTitle != _initialTitle ||
@@ -208,6 +211,8 @@ class _PostEditorPageState extends State<PostEditorPage>
         status != _initialStatus ||
         visibility != _initialVisibility ||
         passwordCtrl.text.trim().isNotEmpty ||
+        pointsPriceCtrl.text.trim() != _initialPointsPrice ||
+        freeLinesCtrl.text.trim() != _initialFreeLines ||
         renderType != _initialRenderType ||
         editorType != _initialEditorType ||
         aiSummaryStatus != _initialAiSummaryStatus ||
@@ -215,7 +220,10 @@ class _PostEditorPageState extends State<PostEditorPage>
         !_listEquals(tagIds, _initialTagIds) ||
         !_listEqualsString(visibilityRegions, _initialVisibilityRegions) ||
         !_listEqualsString(contentDeclarations, _initialContentDeclarations) ||
-        repostPolicyCode != _initialRepostPolicyCode;
+        repostPolicyCode != _initialRepostPolicyCode ||
+        !mapEquals(currentTitles, _initialTitles) ||
+        !mapEquals(currentSummaries, _initialSummaries) ||
+        !mapEquals(currentContents, _initialContents);
   }
 
   bool _listEqualsString(List<String>? a, List<String>? b) {
@@ -447,7 +455,7 @@ class _PostEditorPageState extends State<PostEditorPage>
       _titles[language] = result['title'] ?? '';
       _summaries[language] = result['summary'] ?? '';
       _contents[language] = result['contentMarkdown'] ?? '';
-      _isDirty = true;
+      _isDirty = _checkIfDirty();
     });
   }
 
@@ -510,7 +518,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           _summaries = Map<String, String>.from(savedDetail.summary);
           _contents = Map<String, String>.from(savedDetail.contentMarkdown);
           repostPolicyCode = savedDetail.repostPolicyCode;
-          _initialRepostPolicyCode = savedDetail.repostPolicyCode;
+          passwordCtrl.clear();
+          _captureBaseline();
           _isSaving = false;
           _isDirty = false;
         });
@@ -738,24 +747,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           );
           repostPolicyCode = newDetail.repostPolicyCode;
 
-          _initialSlug = newDetail.slug;
-          _initialTitle = newDetail.zhTitle;
-          _initialSummary = newDetail.zhSummary;
-          _initialContent = newDetail.zhContent;
-          _initialStatus = newDetail.status;
-          _initialVisibility = newDetail.visibility;
-          _initialRenderType = newDetail.renderType;
-          _initialEditorType = newDetail.editorType;
-          _initialAiSummaryStatus = newDetail.aiSummaryStatus;
-          _initialCategoryId = newDetail.categoryId;
-          _initialTagIds = List<int>.from(newDetail.tagIds);
-          _initialVisibilityRegions = List<String>.from(
-            newDetail.visibilityRegions,
-          );
-          _initialContentDeclarations = List<String>.from(
-            newDetail.contentDeclarations,
-          );
-          _initialRepostPolicyCode = newDetail.repostPolicyCode;
+          _captureBaseline();
 
           _isDirty = false;
         });
@@ -1569,7 +1561,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                 if (value == null || value == repostPolicyCode) return;
                 setState(() {
                   repostPolicyCode = value;
-                  _isDirty = true;
+                  _isDirty = _checkIfDirty();
                 });
               },
             ),

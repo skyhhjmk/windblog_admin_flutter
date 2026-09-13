@@ -3,6 +3,78 @@ part of 'package:windblog_admin_flutter/main.dart';
 // Regex for markdown image syntax: ![alt](url)
 final _imageRegExp = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
 
+/// Pure document analysis deliberately kept outside the widget state.  `compute`
+/// can run it in a helper isolate on native targets, while the debounce at the
+/// call site still prevents a burst of keystrokes from repeatedly parsing the
+/// whole document on web.
+Map<String, Object?> analyzeMarkdownOutline(String text) {
+  final lines = text.split('\n');
+  final outline = <String>[];
+  final stats = <String, int>{};
+  final blocks = <Map<String, Object?>>[];
+  final blockPattern = RegExp(r'^:::\s+([a-zA-Z0-9_-]+)(?:\s+\{([^}]+)\})?');
+  final attributePattern = RegExp(
+    r'([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|([^,\s]+))',
+  );
+
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    final trimmed = line.trim();
+    if (trimmed.startsWith('#')) {
+      outline.add(line);
+      continue;
+    }
+    if (!trimmed.startsWith('::: ') || trimmed.startsWith('::: /')) {
+      continue;
+    }
+    final match = blockPattern.firstMatch(trimmed);
+    if (match == null) continue;
+
+    final level = match.group(1) ?? 'quick';
+    String? group;
+    String? title;
+    var exclude = <String>[];
+    final attributes = match.group(2);
+    if (attributes != null && attributes.isNotEmpty) {
+      for (final attribute in attributePattern.allMatches(attributes)) {
+        final key = attribute.group(1)?.toLowerCase();
+        final value = attribute.group(2) ?? attribute.group(3) ?? '';
+        if (key == 'group') group = value;
+        if (key == 'title') title = value;
+        if (key == 'exclude') {
+          exclude = value.split(',').map((item) => item.trim()).toList();
+        }
+      }
+    }
+
+    var closed = false;
+    for (var cursor = i + 1; cursor < lines.length; cursor++) {
+      if (lines[cursor].trim() == '::: /$level') {
+        closed = true;
+        break;
+      }
+    }
+    if (!closed) {
+      stats['错误块 (Error)'] = (stats['错误块 (Error)'] ?? 0) + 1;
+      continue;
+    }
+    stats[level] = (stats[level] ?? 0) + 1;
+    blocks.add(<String, Object?>{
+      'lineIndex': i,
+      'level': level,
+      'group': group,
+      'title': title,
+      'exclude': exclude,
+      'rawLine': line,
+    });
+  }
+  return <String, Object?>{
+    'outline': outline,
+    'stats': stats,
+    'blocks': blocks,
+  };
+}
+
 class MarkdownSyntaxController extends TextEditingController {
   MarkdownSyntaxController({super.text});
 
@@ -89,9 +161,12 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   List<String> _outline = [];
   Map<String, int> _blockStats = {};
   List<_BlockOutlineInfo> _customBlocks = [];
+  List<MarkdownBlock> _previewBlocks = [];
   int _lastSyncedLine = -1;
   int _activeHighlightIndex = -1;
   Timer? _highlightTimer;
+  Timer? _documentAnalysisTimer;
+  int _documentAnalysisGeneration = 0;
   String _lastText = '';
   bool _isPointerDown = false;
 
@@ -105,10 +180,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
       _internalScrollController = SmoothScrollController();
     }
     _lastText = widget.controller.text;
-    widget.controller.addListener(_updateOutline);
-    widget.controller.addListener(_onTextChanged);
+    _previewBlocks = _splitMarkdownBlocks(_lastText);
+    widget.controller.addListener(_scheduleDocumentAnalysis);
     widget.controller.addListener(_onSelectionChanged);
-    _updateOutline();
+    _scheduleDocumentAnalysis(immediate: true);
     if (kIsWeb) {
       web_helper.disableBrowserContextMenu();
       _pasteSubscription = web_helper.listenToNativePaste((
@@ -515,8 +590,13 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     if (!isPreviewVisible || !mounted) return;
 
     final text = widget.controller.text;
-    final isTextEdit = text != _lastText;
-    _lastText = text;
+    // Text edits are handled by the debounced analysis pipeline.  Cursor-only
+    // events may synchronize scrolling, but must not scan a long document for
+    // every character typed.
+    if (text != _lastText) {
+      _lastText = text;
+      return;
+    }
 
     final selection = widget.controller.selection;
     if (!selection.isValid) return;
@@ -528,7 +608,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
 
     if (currentLine != _lastSyncedLine) {
       _lastSyncedLine = currentLine;
-      _syncPreview(shouldHighlight: _isPointerDown && !isTextEdit);
+      _syncPreview(shouldHighlight: _isPointerDown);
       _autoScrollEditor(currentLine);
     }
   }
@@ -590,14 +670,12 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   }
 
   void _highlightCurrentBlock() {
-    final text = widget.controller.text;
-    final blocks = _splitMarkdownBlocks(text);
     int targetIndex = -1;
 
-    for (int i = 0; i < blocks.length; i++) {
-      final block = blocks[i];
-      final nextStart = (i + 1 < blocks.length)
-          ? blocks[i + 1].startLine
+    for (int i = 0; i < _previewBlocks.length; i++) {
+      final block = _previewBlocks[i];
+      final nextStart = (i + 1 < _previewBlocks.length)
+          ? _previewBlocks[i + 1].startLine
           : 1000000;
       if (_lastSyncedLine >= block.startLine && _lastSyncedLine < nextStart) {
         targetIndex = i;
@@ -616,12 +694,6 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     }
   }
 
-  void _onTextChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   @override
   void didUpdateWidget(MarkdownPlusEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -636,25 +708,24 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
       }
     }
     if (widget.controller != oldWidget.controller) {
-      oldWidget.controller.removeListener(_updateOutline);
-      oldWidget.controller.removeListener(_onTextChanged);
+      oldWidget.controller.removeListener(_scheduleDocumentAnalysis);
       oldWidget.controller.removeListener(_onSelectionChanged);
-      widget.controller.addListener(_updateOutline);
-      widget.controller.addListener(_onTextChanged);
+      widget.controller.addListener(_scheduleDocumentAnalysis);
       widget.controller.addListener(_onSelectionChanged);
-      _updateOutline();
+      _lastText = widget.controller.text;
+      _scheduleDocumentAnalysis(immediate: true);
     }
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_updateOutline);
-    widget.controller.removeListener(_onTextChanged);
+    widget.controller.removeListener(_scheduleDocumentAnalysis);
     widget.controller.removeListener(_onSelectionChanged);
     _internalScrollController?.dispose();
     _focusNode.dispose();
     _previewScrollController.dispose();
     _highlightTimer?.cancel();
+    _documentAnalysisTimer?.cancel();
     _pasteSubscription?.cancel();
     if (kIsWeb) {
       web_helper.enableBrowserContextMenu();
@@ -662,73 +733,51 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     super.dispose();
   }
 
-  void _updateOutline() {
-    final text = widget.controller.text;
-    final lines = text.split('\n');
-    final newOutline = <String>[];
-    final newStats = <String, int>{};
-    final newBlocks = <_BlockOutlineInfo>[];
+  void _scheduleDocumentAnalysis({bool immediate = false}) {
+    _documentAnalysisTimer?.cancel();
+    final generation = ++_documentAnalysisGeneration;
+    final snapshot = widget.controller.text;
+    _documentAnalysisTimer = Timer(
+      immediate ? Duration.zero : const Duration(milliseconds: 220),
+      () => _analyzeDocument(snapshot, generation),
+    );
+  }
 
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final trimmed = line.trim();
-      if (trimmed.startsWith('#')) {
-        newOutline.add(line);
-      } else if (trimmed.startsWith('::: ') && !trimmed.startsWith('::: /')) {
-        final regExp = RegExp(r'^:::\s+([a-zA-Z0-9_-]+)(?:\s+\{([^}]+)\})?');
-        final match = regExp.firstMatch(trimmed);
-        if (match != null) {
-          final level = match.group(1) ?? 'quick';
-          final attrStr = match.group(2);
-          String? group;
-          String? title;
-          List<String> exclude = [];
-          if (attrStr != null && attrStr.isNotEmpty) {
-            final attrReg = RegExp(
-              r'([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|([^,\s]+))',
-            );
-            for (final m in attrReg.allMatches(attrStr)) {
-              final key = m.group(1)?.toLowerCase();
-              final val = m.group(2) ?? m.group(3) ?? '';
-              if (key == 'group') group = val;
-              if (key == 'title') title = val;
-              if (key == 'exclude') {
-                exclude = val.split(',').map((e) => e.trim()).toList();
-              }
-            }
-          }
+  Future<void> _analyzeDocument(String snapshot, int generation) async {
+    if (!mounted) return;
+    final result = await compute(analyzeMarkdownOutline, snapshot);
+    if (!mounted || generation != _documentAnalysisGeneration) return;
 
-          bool foundClosed = false;
-          for (int j = i + 1; j < lines.length; j++) {
-            if (lines[j].trim() == '::: /$level') {
-              foundClosed = true;
-              break;
-            }
-          }
+    final rawBlocks = (result['blocks'] as List<Object?>? ?? const []);
+    final analyzedBlocks = rawBlocks
+        .whereType<Map<Object?, Object?>>()
+        .map(
+          (item) => _BlockOutlineInfo(
+            item['lineIndex'] as int,
+            item['level'] as String,
+            item['group'] as String?,
+            item['title'] as String?,
+            List<String>.from(item['exclude'] as List<Object?>? ?? const []),
+            item['rawLine'] as String,
+          ),
+        )
+        .toList();
+    final analyzedOutline = List<String>.from(
+      result['outline'] as List<Object?>? ?? const [],
+    );
+    final analyzedStats = Map<String, int>.from(
+      result['stats'] as Map<Object?, Object?>? ?? const {},
+    );
 
-          if (foundClosed) {
-            newStats[level] = (newStats[level] ?? 0) + 1;
-            newBlocks.add(
-              _BlockOutlineInfo(i, level, group, title, exclude, line),
-            );
-          } else {
-            newStats['错误块 (Error)'] = (newStats['错误块 (Error)'] ?? 0) + 1;
-          }
-        }
-      }
-    }
-
-    bool outlineChanged = !listEquals(_outline, newOutline);
-    bool statsChanged = !mapEquals(_blockStats, newStats);
-    bool blocksChanged = !listEquals(_customBlocks, newBlocks);
-
-    if (outlineChanged || statsChanged || blocksChanged) {
-      setState(() {
-        _outline = newOutline;
-        _blockStats = newStats;
-        _customBlocks = newBlocks;
-      });
-    }
+    // Widget construction is intentionally kept on the UI isolate.  The
+    // expensive, pure document scan above is not.  Updating this snapshot in
+    // one state change prevents stale intermediate previews from being built.
+    setState(() {
+      _outline = analyzedOutline;
+      _blockStats = analyzedStats;
+      _customBlocks = analyzedBlocks;
+      _previewBlocks = _splitMarkdownBlocks(snapshot);
+    });
   }
 
   void _insertText(String prefix, [String suffix = '']) {
@@ -1338,24 +1387,28 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     final isPhone = AdminBreakpoints.isPhone(context);
     return Container(
       color: Colors.grey.shade50,
-      child: SelectionArea(
-        child: SingleChildScrollView(
-          controller: _previewScrollController,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1000),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  isPhone ? 16 : 48,
-                  isPhone ? 16 : 32,
-                  isPhone ? 16 : 48,
-                  300,
+      child: Stack(
+        children: [
+          SelectionArea(
+            child: ListView.builder(
+              controller: _previewScrollController,
+              scrollCacheExtent: const ScrollCacheExtent.pixels(800),
+              padding: EdgeInsets.fromLTRB(
+                isPhone ? 16 : 48,
+                isPhone ? 16 : 32,
+                isPhone ? 16 : 48,
+                300,
+              ),
+              itemCount: _previewBlocks.length,
+              itemBuilder: (context, index) => Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1000),
+                  child: _buildPreviewBlock(_previewBlocks[index], index),
                 ),
-                child: _buildPreviewBlocks(),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1474,29 +1527,17 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     );
   }
 
-  Widget _buildPreviewBlocks() {
-    final text = widget.controller.text;
-    final blocks = _splitMarkdownBlocks(text);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: List.generate(blocks.length, (index) {
-        final block = blocks[index];
-
-        final isHighlighted = _activeHighlightIndex == index;
-
-        return MarkdownBlockWrapper(
-          key: ValueKey('block-$index-${block.content.hashCode}'),
-          block: block,
-          isHighlighted: isHighlighted,
-          onJumpToSource: () => _jumpToEditorLine(block.startLine),
-          onImageTap: (url) => _handleImageTap(url),
-          onLinkTap: (url) => _handleMarkdownLinkTap(url),
-          onCopyHtml: (styled) => _copyBlockAsHtml(block.content, styled),
-          onCopyMarkdown: () => _copyBlockAsMarkdown(block.content),
-          api: widget.api,
-        );
-      }),
+  Widget _buildPreviewBlock(MarkdownBlock block, int index) {
+    return MarkdownBlockWrapper(
+      key: ValueKey('block-$index-${block.content.hashCode}'),
+      block: block,
+      isHighlighted: _activeHighlightIndex == index,
+      onJumpToSource: () => _jumpToEditorLine(block.startLine),
+      onImageTap: (url) => _handleImageTap(url),
+      onLinkTap: (url) => _handleMarkdownLinkTap(url),
+      onCopyHtml: (styled) => _copyBlockAsHtml(block.content, styled),
+      onCopyMarkdown: () => _copyBlockAsMarkdown(block.content),
+      api: widget.api,
     );
   }
 
@@ -1506,9 +1547,16 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
 
     if (lines.isEmpty) return [];
 
+    // Link references and footnote definitions are document-scoped in the
+    // Markdown parser. Keep such documents together so a definition after a
+    // blank line can still resolve references in an earlier paragraph.
+    if (RegExp(r'^\s*\[[^\]]+\]:', multiLine: true).hasMatch(text)) {
+      return [MarkdownBlock(1, text)];
+    }
+
     List<String> currentBlockLines = [];
     int blockStartLine = 1;
-    bool inCodeBlock = false;
+    String? codeFenceMarker;
     bool inCustomBlock = false;
     String customBlockName = '';
     bool inHideBlock = false;
@@ -1518,36 +1566,49 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
       final line = lines[i];
       final trimmed = line.trim();
 
-      // Handle code block boundaries
-      if (trimmed.startsWith('```')) {
-        if (!inCodeBlock && currentBlockLines.isNotEmpty) {
+      // Keep both CommonMark fence forms (``` and ~~~) intact. The Markdown
+      // package supports both, so the preview splitter must too.
+      final fenceMatch = RegExp(r'^(`{3,}|~{3,})').firstMatch(trimmed);
+      if (fenceMatch != null) {
+        final marker = fenceMatch.group(1)!;
+        final openingMarker = codeFenceMarker;
+        final closesFence =
+            openingMarker != null &&
+            marker[0] == openingMarker[0] &&
+            marker.length >= openingMarker.length;
+        if (codeFenceMarker == null && currentBlockLines.isNotEmpty) {
           blocks.add(
             MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
           );
           currentBlockLines = [];
           blockStartLine = i + 1;
         }
-        inCodeBlock = !inCodeBlock;
         currentBlockLines.add(line);
-        if (!inCodeBlock) {
+        if (codeFenceMarker == null) {
+          codeFenceMarker = marker;
+        } else if (closesFence) {
           blocks.add(
             MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
           );
           currentBlockLines = [];
           blockStartLine = i + 2;
+          codeFenceMarker = null;
         }
         continue;
       }
 
-      if (inCodeBlock) {
+      if (codeFenceMarker != null) {
         currentBlockLines.add(line);
         continue;
       }
 
       // Handle custom block boundaries
-      if (trimmed.startsWith('::: ')) {
+      final customHeader = RegExp(
+        r'^:::\s+([a-zA-Z0-9_-]+)(?:\s+\{[^}]*\})?\s*$',
+      ).firstMatch(trimmed);
+      if (customHeader != null || trimmed.startsWith('::: /')) {
         if (!inCustomBlock && !trimmed.startsWith('::: /')) {
-          final name = trimmed.substring(4).trim();
+          final name = customHeader?.group(1) ?? '';
           if (name.isNotEmpty) {
             if (currentBlockLines.isNotEmpty) {
               blocks.add(
@@ -1614,25 +1675,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
         continue;
       }
 
-      // Handle block starters
-      final isBlockStarter =
-          trimmed.startsWith('#') ||
-          trimmed.startsWith('- ') ||
-          trimmed.startsWith('* ') ||
-          trimmed.startsWith('> ') ||
-          trimmed.startsWith('|') ||
-          RegExp(r'^\d+\. ').hasMatch(trimmed);
-
-      if (isBlockStarter &&
-          currentBlockLines.isNotEmpty &&
-          trimmed.isNotEmpty) {
-        blocks.add(MarkdownBlock(blockStartLine, currentBlockLines.join('\n')));
-        currentBlockLines = [line];
-        blockStartLine = i + 1;
-        continue;
-      }
-
       if (trimmed.isEmpty) {
+        if (_blankLineBelongsToList(currentBlockLines, lines, i)) {
+          currentBlockLines.add(line);
+          continue;
+        }
         if (currentBlockLines.isNotEmpty) {
           blocks.add(
             MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
@@ -1651,6 +1698,28 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     }
 
     return blocks;
+  }
+
+  bool _blankLineBelongsToList(
+    List<String> currentBlockLines,
+    List<String> lines,
+    int blankLineIndex,
+  ) {
+    if (currentBlockLines.isEmpty || blankLineIndex + 1 >= lines.length) {
+      return false;
+    }
+    final listMarker = RegExp(r'^(?:[-+*]|\d+[.)])\s+');
+    if (!currentBlockLines.any(
+      (line) => listMarker.hasMatch(line.trimLeft()),
+    )) {
+      return false;
+    }
+
+    final next = lines[blankLineIndex + 1];
+    final nextTrimmed = next.trimLeft();
+    return listMarker.hasMatch(nextTrimmed) ||
+        next.startsWith('  ') ||
+        next.startsWith('\t');
   }
 
   void _jumpToEditorLine(int line) {
@@ -1676,7 +1745,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   }
 
   void _copyBlockAsHtml(String markdown, bool styled) {
-    final htmlContent = md.markdownToHtml(markdown);
+    final htmlContent = md.markdownToHtml(
+      markdown,
+      extensionSet: markdownEditorExtensionSet(),
+    );
     final finalHtml = styled
         ? '<div style="font-family: sans-serif; line-height: 1.6;">$htmlContent</div>'
         : htmlContent;
@@ -2064,22 +2136,7 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
           child: MarkdownBody(
             data: widget.block.content,
             selectable: false,
-            extensionSet: md.ExtensionSet(
-              [
-                ...md.ExtensionSet.gitHubWeb.blockSyntaxes,
-                const CustomContainerSyntax(),
-                const CalloutSyntax(),
-                const HideContentSyntax(),
-              ],
-              [
-                ...md.ExtensionSet.gitHubWeb.inlineSyntaxes,
-                HighlightSyntax(),
-                KeyboardSyntax(),
-                ProgressSyntax(),
-                StatusBadgeSyntax(),
-                StoreItemSyntax(),
-              ],
-            ),
+            extensionSet: markdownEditorExtensionSet(),
             imageBuilder: (uri, title, alt) {
               final url = uri.toString();
               return GestureDetector(
@@ -2154,18 +2211,7 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
               }
               widget.onLinkTap(href);
             },
-            builders: {
-              'blockquote': BlockquoteBuilder(),
-              'mdplus-callout': CalloutElementBuilder(),
-              'mark': HighlightElementBuilder(),
-              'kbd': KeyboardElementBuilder(),
-              'progress': ProgressElementBuilder(),
-              'badge': StatusBadgeElementBuilder(),
-              'error-block': ErrorBlockBuilder(),
-              'custom-container': CustomContainerBuilder(),
-              'gamification-hide': GamificationHideBuilder(),
-              'store-item': StoreItemBuilder(),
-            },
+            builders: markdownEditorBuilders(),
           ),
         ),
       ),

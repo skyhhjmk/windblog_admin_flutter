@@ -345,14 +345,21 @@ class AdminActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget iconWidget = Icon(icon, size: 18);
-    if (isBusy) {
-      iconWidget = const SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
+    final iconWidget = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 150),
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(scale: animation, child: child),
+      ),
+      child: isBusy
+          ? const SizedBox(
+              key: ValueKey('busy'),
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(icon, key: const ValueKey('idle'), size: 18),
+    );
 
     if (danger) {
       return OutlinedButton.icon(
