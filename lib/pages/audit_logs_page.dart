@@ -137,6 +137,11 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
               AdminShortcutDefinitions.keyByAction['search']!,
             ),
           ),
+          OutlinedButton.icon(
+            onPressed: _loading ? null : _loadData,
+            icon: const Icon(Icons.refresh),
+            label: Text(t(context, 'refresh')),
+          ),
         ],
       ),
       body: _loading && _logs.isEmpty

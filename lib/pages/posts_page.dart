@@ -79,6 +79,10 @@ class _PostsPageState extends State<PostsPage> {
     }
   }
 
+  Future<void> _refresh() async {
+    await Future.wait([_loadAllCategories(), load()]);
+  }
+
   void _buildCategoryTree() {
     _categoryTreeCache.clear();
 
@@ -389,8 +393,8 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Widget _buildPostActions(PostItem item) {
-    final compact = AdminBreakpoints.isPhone(context) ||
-        AdminBreakpoints.isTablet(context);
+    final compact =
+        AdminBreakpoints.isPhone(context) || AdminBreakpoints.isTablet(context);
     if (compact) {
       return PopupMenuButton<_PostAction>(
         tooltip: t(context, 'more_actions'),
@@ -447,10 +451,7 @@ class _PostsPageState extends State<PostsPage> {
       children: [
         TextButton(
           onPressed: () => createOrEdit(item: item),
-          child: Text(
-            t(context, 'edit'),
-            style: const TextStyle(fontSize: 12),
-          ),
+          child: Text(t(context, 'edit'), style: const TextStyle(fontSize: 12)),
         ),
         TextButton(
           onPressed: () => _publishLatestDraft(item),
@@ -752,6 +753,11 @@ class _PostsPageState extends State<PostsPage> {
     return AdminPageScaffold(
       title: t(context, 'posts'),
       actions: [
+        IconButton(
+          tooltip: t(context, 'refresh'),
+          onPressed: _loading ? null : _refresh,
+          icon: const Icon(Icons.refresh),
+        ),
         AdminActionButton(
           label: t(context, 'create'),
           icon: Icons.add,

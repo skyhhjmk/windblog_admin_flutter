@@ -117,6 +117,10 @@ class _EmailCenterPageState extends State<EmailCenterPage>
     }
   }
 
+  Future<void> _refresh() async {
+    await _load();
+  }
+
   void _selectDeliveryStatus(int index) {
     if (index == deliveryStatusIndex) return;
     setState(() {
@@ -1014,6 +1018,11 @@ class _EmailCenterPageState extends State<EmailCenterPage>
     return AdminPageScaffold(
       title: '邮件中心',
       actions: [
+        IconButton(
+          tooltip: t(context, 'refresh'),
+          onPressed: loading ? null : _refresh,
+          icon: const Icon(Icons.refresh),
+        ),
         FilledButton.icon(
           onPressed: _createChannel,
           icon: const Icon(Icons.add),

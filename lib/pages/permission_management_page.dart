@@ -13,7 +13,8 @@ class PermissionManagementPage extends StatefulWidget {
   final VoidCallback onAuthError;
 
   @override
-  State<PermissionManagementPage> createState() => _PermissionManagementPageState();
+  State<PermissionManagementPage> createState() =>
+      _PermissionManagementPageState();
 }
 
 class _PermissionManagementPageState extends State<PermissionManagementPage> {
@@ -40,9 +41,7 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
   Future<void> _openRoleDialog([PermissionRoleItem? role]) async {
     final result = await showDialog<PermissionRoleRequest>(
       context: context,
-      builder: (_) => _RoleFormDialog(
-        role: role,
-      ),
+      builder: (_) => _RoleFormDialog(role: role),
     );
     if (result == null) return;
     try {
@@ -56,7 +55,8 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text('${t(context, 'save_role_failed')}$e')),
       );
     }
@@ -70,7 +70,8 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(content: Text('${t(context, 'delete_role_failed')}$e')),
       );
     }
@@ -86,6 +87,11 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
             children: [
               Text(t(context, 'permission_roles')),
               const Spacer(),
+              IconButton(
+                tooltip: t(context, 'refresh'),
+                onPressed: loading ? null : _loadRoles,
+                icon: const Icon(Icons.refresh),
+              ),
               ElevatedButton(
                 onPressed: widget.isSuperAdmin ? () => _openRoleDialog() : null,
                 child: Text(t(context, 'create_role')),
@@ -97,38 +103,38 @@ class _PermissionManagementPageState extends State<PermissionManagementPage> {
             child: loading
                 ? const Center(child: CircularProgressIndicator())
                 : roles.isEmpty
-                    ? Center(child: Text(t(context, 'no_roles')))
-                    : ListView.separated(
-                        itemCount: roles.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final role = roles[index];
-                          return ListTile(
-                            title: Text(role.displayName),
-                            subtitle: Text(
-                              role.allowedMimeTypes.join(', '),
+                ? Center(child: Text(t(context, 'no_roles')))
+                : ListView.separated(
+                    itemCount: roles.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final role = roles[index];
+                      return ListTile(
+                        title: Text(role.displayName),
+                        subtitle: Text(role.allowedMimeTypes.join(', ')),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: widget.isSuperAdmin
+                                  ? () => _openRoleDialog(role)
+                                  : null,
+                              icon: const Icon(Icons.edit),
                             ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  onPressed: widget.isSuperAdmin
-                                      ? () => _openRoleDialog(role)
-                                      : null,
-                                  icon: const Icon(Icons.edit),
-                                ),
-                                IconButton(
-                                  onPressed: widget.isSuperAdmin &&
-                                          !_defaultRoles.contains(role.name)
-                                      ? () => _deleteRole(role.name)
-                                      : null,
-                                  icon: const Icon(Icons.delete),
-                                ),
-                              ],
+                            IconButton(
+                              onPressed:
+                                  widget.isSuperAdmin &&
+                                      !_defaultRoles.contains(role.name)
+                                  ? () => _deleteRole(role.name)
+                                  : null,
+                              icon: const Icon(Icons.delete),
                             ),
-                          );
-                        },
-                      ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -189,7 +195,11 @@ class _RoleFormDialogState extends State<_RoleFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.role == null ? t(context, 'create_role') : t(context, 'edit_role')),
+      title: Text(
+        widget.role == null
+            ? t(context, 'create_role')
+            : t(context, 'edit_role'),
+      ),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -202,34 +212,45 @@ class _RoleFormDialogState extends State<_RoleFormDialog> {
               const SizedBox(height: 16),
               TextField(
                 controller: displayCtrl,
-                decoration: InputDecoration(labelText: t(context, 'display_name')),
+                decoration: InputDecoration(
+                  labelText: t(context, 'display_name'),
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: descriptionCtrl,
-                decoration: InputDecoration(labelText: t(context, 'description')),
+                decoration: InputDecoration(
+                  labelText: t(context, 'description'),
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: mimeCtrl,
-                decoration: InputDecoration(labelText: t(context, 'allowed_mime_types')),
+                decoration: InputDecoration(
+                  labelText: t(context, 'allowed_mime_types'),
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: singleCtrl,
-                decoration: InputDecoration(labelText: t(context, 'max_single_upload')),
+                decoration: InputDecoration(
+                  labelText: t(context, 'max_single_upload'),
+                ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: totalCtrl,
-                decoration: InputDecoration(labelText: t(context, 'max_total_upload')),
+                decoration: InputDecoration(
+                  labelText: t(context, 'max_total_upload'),
+                ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16),
               CheckboxListTile(
                 value: canUpload,
-                onChanged: (value) => setState(() => canUpload = value ?? false),
+                onChanged: (value) =>
+                    setState(() => canUpload = value ?? false),
                 title: Text(t(context, 'upload_permission')),
               ),
             ],
