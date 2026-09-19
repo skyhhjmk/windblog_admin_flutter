@@ -20,6 +20,7 @@ class ConfigDynamicForm extends StatefulWidget {
 
 class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
   final _formKey = GlobalKey<FormState>();
+  final Map<String, GlobalKey<_TagInputState>> _tagInputKeys = {};
   late Map<String, dynamic> _values;
 
   @override
@@ -38,8 +39,11 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
+      for (final key in _tagInputKeys.values) {
+        key.currentState?.commitPendingInput();
+      }
       _formKey.currentState!.save();
-      widget.onSave(_values);
+      widget.onSave(Map<String, dynamic>.from(_values));
     }
   }
 
@@ -97,7 +101,12 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
               .where((e) => e.isNotEmpty)
               .toList();
         }
+        final tagInputKey = _tagInputKeys.putIfAbsent(
+          field.key,
+          () => GlobalKey<_TagInputState>(),
+        );
         return _TagInput(
+          key: tagInputKey,
           label: field.label,
           initialValue: tags,
           onChanged: (val) => _values[field.key] = val,
@@ -851,6 +860,7 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
 
 class _TagInput extends StatefulWidget {
   const _TagInput({
+    super.key,
     required this.label,
     required this.initialValue,
     required this.onChanged,
@@ -898,6 +908,12 @@ class _TagInputState extends State<_TagInput> {
       _tags.remove(val);
       widget.onChanged(_tags);
     });
+  }
+
+  void commitPendingInput() {
+    if (!widget.readOnly) {
+      _add(_ctrl.text);
+    }
   }
 
   @override

@@ -51,6 +51,14 @@ void main() {
 
       expect(find.text('保存配置'), findsOneWidget);
       expect(find.text('SEO描述'), findsOneWidget);
+      await tester.enterText(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TextField &&
+              widget.decoration?.hintText?.startsWith('添加标签') == true,
+        ),
+        'new-keyword',
+      );
       await tester.enterText(find.byType(TextFormField).at(2), '更新后的 SEO 描述');
       await tester.tap(find.text('保存配置'));
       await tester.pump();
@@ -63,6 +71,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(api.updateCalls, 1);
       expect(api.updatedKey, 'site_info');
+      expect(api.updatedValue?['keywords'], ['blog', 'tech', 'new-keyword']);
       expect(api.updatedValue?['description'], '更新后的 SEO 描述');
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(seconds: 5));
