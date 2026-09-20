@@ -49,6 +49,11 @@ dependencies:
   shared_preferences: ^2.5.2
   flutter_secure_storage: ^9.2.4
   flutter_local_notifications: ^21.0.0
+  seeray_analytics_flutter:
+    git:
+      url: https://github.com/skyhhjmk/seeray-lens.git
+      path: sdk/flutter
+      ref: 64a10ee
 
 dev_dependencies:
   flutter_test:

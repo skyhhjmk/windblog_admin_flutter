@@ -581,6 +581,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.0"
+  seeray_analytics_flutter:
+    dependency: "direct main"
+    description:
+      path: "sdk/flutter"
+      ref: "64a10ee"
+      resolved-ref: "64a10ee5ac7cc8b27ef120ed91cb0c5fd22398a9"
+      url: "https://github.com/skyhhjmk/seeray-lens.git"
+    source: git
+    version: "0.1.0"
   shared_preferences:
     dependency: "direct main"
     description:

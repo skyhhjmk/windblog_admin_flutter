@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local checkout override for testing the unreleased SeeRay SDK source.
+pubspec_overrides.yaml
