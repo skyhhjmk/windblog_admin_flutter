@@ -21,6 +21,7 @@ import 'components/web_stub.dart'
     if (dart.library.html) 'components/web_impl.dart'
     as web_helper;
 import 'utils/storage_service.dart';
+import 'services/seeray_analytics_service.dart';
 
 part 'components/admin_ui.dart';
 part 'components/admin_step_up.dart';
@@ -231,7 +232,9 @@ class _SmoothScrollPosition extends ScrollPositionWithSingleContext {
   }
 }
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await WindBlogSeeRayAnalytics.initialize();
   runApp(const WindblogAdminApp());
 }
 

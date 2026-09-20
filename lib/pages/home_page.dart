@@ -277,6 +277,12 @@ class _HomePageState extends State<HomePage> {
   static const Color navigationColor = AdminTheme.navigationColor;
 
   @override
+  void initState() {
+    super.initState();
+    WindBlogSeeRayAnalytics.trackScreen('overview');
+  }
+
+  @override
   Widget build(BuildContext context) {
     bool isSuperAdmin = widget.user?.roleName == 'SUPER_ADMIN';
     bool isPhone = AdminBreakpoints.isPhone(context);
@@ -929,6 +935,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     AdminNotificationScope.maybeOf(context)?.recordNavigation();
+    WindBlogSeeRayAnalytics.trackScreen('admin_tab_$index');
 
     int direction = 1;
     if (index < tab) {

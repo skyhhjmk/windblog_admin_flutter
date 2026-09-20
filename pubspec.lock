@@ -585,8 +585,8 @@ packages:
     dependency: "direct main"
     description:
       path: "sdk/flutter"
-      ref: "64a10ee"
-      resolved-ref: "64a10ee5ac7cc8b27ef120ed91cb0c5fd22398a9"
+      ref: "3cdc853"
+      resolved-ref: "3cdc8530117ed37f04cb00b8470d13d4b0d5d491"
       url: "https://github.com/skyhhjmk/seeray-lens.git"
     source: git
     version: "0.1.0"

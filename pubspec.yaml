@@ -53,7 +53,7 @@ dependencies:
     git:
       url: https://github.com/skyhhjmk/seeray-lens.git
       path: sdk/flutter
-      ref: 64a10ee
+      ref: 3cdc853
 
 dev_dependencies:
   flutter_test:
