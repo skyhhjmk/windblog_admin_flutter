@@ -56,13 +56,28 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
     });
 
     try {
-      final result = await widget.api.decryptError(text);
-      setState(() {
-        _decryptedText = result;
-      });
+      final stepUpToken = await AdminStepUpAuthorization.obtain(
+        context,
+        widget.api,
+        title: '确认解密错误追踪文本',
+      );
+      if (stepUpToken == null || !mounted) return;
+
+      final result = await widget.api.decryptError(
+        text,
+        stepUpToken: stepUpToken,
+      );
+      if (mounted) {
+        setState(() {
+          _decryptedText = result;
+        });
+      }
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context, SnackBar(content: Text('解密失败: $e')));
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('解密失败: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _decrypting = false);

@@ -1377,10 +1377,15 @@ class AdminApiClient {
     return ClamAvStatus.fromMap(_map(map['data']));
   }
 
-  Future<String> decryptError(String trackingText) async {
+  Future<String> decryptError(
+    String trackingText, {
+    String? stepUpToken,
+  }) async {
     final res = await _post(
       '/api/admin/system/decrypt-error',
       body: {'trackingText': trackingText},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
     final map = _map(jsonDecode(res.body));
     return map['decrypted']?.toString() ?? '解密失败';
