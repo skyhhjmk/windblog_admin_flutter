@@ -13,6 +13,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:mime/mime.dart';
 import 'package:diff_match_patch/diff_match_patch.dart' as diff_match_patch;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/admin_api_client.dart';
 import 'data/models.dart';
@@ -21,6 +22,7 @@ import 'components/web_stub.dart'
     if (dart.library.html) 'components/web_impl.dart'
     as web_helper;
 import 'utils/storage_service.dart';
+import 'utils/instance_vault.dart';
 import 'services/seeray_analytics_service.dart';
 
 part 'components/admin_ui.dart';
@@ -28,6 +30,7 @@ part 'components/admin_step_up.dart';
 part 'components/admin_shortcuts.dart';
 part 'components/notification_center.dart';
 part 'pages/login_page.dart';
+part 'pages/instance_vault_page.dart';
 part 'pages/installation_page.dart';
 part 'pages/home_page.dart';
 part 'pages/overview_page.dart';
@@ -276,16 +279,33 @@ class _AdminRootPageState extends State<AdminRootPage> {
   bool _showSessionExpiredLogin = false;
   bool _showSessionExpiredNotice = false;
   bool _showInstallationPage = false;
+  bool _vaultLocked = false;
+  String? _instanceLoginError;
+  String? _activeInstanceId;
+  bool _connectingInstance = false;
+  bool _allowInstanceAutoLogin = false;
+  int _authContextGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     api.onSessionExpired = _handleSessionExpired;
+    api.onSessionRecovery = _recoverExpiredInstanceSession;
     api.onStepUpExpired = AdminStepUpAuthorization.clear;
     _loadSession();
   }
 
   Future<void> _loadSession() async {
+    if (await InstanceVault.exists) {
+      await StorageService.clearSession();
+      if (mounted) {
+        setState(() {
+          _vaultLocked = true;
+          _loading = false;
+        });
+      }
+      return;
+    }
     final session = await StorageService.getSession();
     final baseUrl = session['baseUrl'];
     final token = session['token'];
@@ -323,11 +343,103 @@ class _AdminRootPageState extends State<AdminRootPage> {
     }
   }
 
-  Future<void> onLogin(String baseUrl, String token) async {
+  Future<void> _unlockVault(String masterPassword) async {
+    if (!await InstanceVault.unlock(masterPassword)) {
+      throw StateError('主密码错误，或实例凭据已损坏');
+    }
+    if (mounted) setState(() => _vaultLocked = false);
+    final prefs = await SharedPreferences.getInstance();
+    final selectedId = prefs.getString('admin_active_instance_id');
+    final instances = InstanceVault.instances;
+    AdminInstance? selected;
+    for (final instance in instances) {
+      if (instance.id == selectedId) selected = instance;
+    }
+    selected ??= instances.isEmpty ? null : instances.first;
+    if (selected != null) {
+      _activeInstanceId = selected.id;
+      await _connectInstance(selected);
+    }
+  }
+
+  Future<void> _connectInstance(AdminInstance instance) async {
+    final generation = ++_authContextGeneration;
+    api.invalidateSessionContext();
+    _activeInstanceId = instance.id;
+    _allowInstanceAutoLogin = InstanceVault.isUnlocked;
+    if (mounted) {
+      setState(() {
+        _connectingInstance = true;
+        _instanceLoginError = null;
+      });
+    }
+    try {
+      api.baseUrl = api.normalizeBaseUrl(instance.baseUrl);
+      api.token = null;
+      final token = await api.login(
+        account: instance.account,
+        password: instance.password,
+      );
+      if (generation != _authContextGeneration) return;
+      final prefs = await SharedPreferences.getInstance();
+      if (generation != _authContextGeneration) return;
+      await prefs.setString('admin_active_instance_id', instance.id);
+      await onLogin(
+        api.baseUrl,
+        token,
+        fromSavedInstance: true,
+        authGeneration: generation,
+      );
+      _activeInstanceId = instance.id;
+      _instanceLoginError = null;
+    } catch (error) {
+      if (generation == _authContextGeneration) {
+        _allowInstanceAutoLogin = false;
+        api.token = null;
+        if (mounted) {
+          setState(() {
+            _instanceLoginError = '$error';
+          });
+        }
+      }
+    } finally {
+      if (mounted && generation == _authContextGeneration) {
+        setState(() => _connectingInstance = false);
+      }
+    }
+  }
+
+  Future<void> _manageInstances() async {
+    final selected = await showDialog<AdminInstance>(
+      context: context,
+      builder: (_) => const InstanceManagerDialog(),
+    );
+    if (await InstanceVault.exists && InstanceVault.isUnlocked) {
+      if (mounted) setState(() => _vaultLocked = false);
+    }
+    if (selected != null) await _connectInstance(selected);
+  }
+
+  Future<void> onLogin(
+    String baseUrl,
+    String token, {
+    bool fromSavedInstance = false,
+    int? authGeneration,
+  }) async {
+    if (authGeneration == null) api.invalidateSessionContext();
     api.baseUrl = baseUrl;
     api.token = token;
+    _allowInstanceAutoLogin = fromSavedInstance && InstanceVault.isUnlocked;
+    if (!_allowInstanceAutoLogin) _activeInstanceId = null;
     AdminUser authenticatedUser = await api.me();
-    await StorageService.saveSession(baseUrl, token);
+    if (authGeneration != null && authGeneration != _authContextGeneration) {
+      return;
+    }
+    if (InstanceVault.isUnlocked) {
+      await StorageService.clearSession();
+    } else {
+      await StorageService.saveSession(baseUrl, token);
+    }
     if (mounted) {
       setState(() {
         user = authenticatedUser;
@@ -355,6 +467,10 @@ class _AdminRootPageState extends State<AdminRootPage> {
   }
 
   void onLogout() async {
+    _authContextGeneration++;
+    api.invalidateSessionContext();
+    _allowInstanceAutoLogin = false;
+    _activeInstanceId = null;
     notificationController.clear();
     AdminStepUpAuthorization.clear();
     api.token = null;
@@ -363,6 +479,48 @@ class _AdminRootPageState extends State<AdminRootPage> {
     _showSessionExpiredNotice = false;
     await StorageService.clearSession();
     if (mounted) setState(() {});
+  }
+
+  Future<bool> _recoverExpiredInstanceSession(String requestBaseUrl) async {
+    if (!mounted || !_allowInstanceAutoLogin || !InstanceVault.isUnlocked) {
+      return false;
+    }
+
+    final generation = _authContextGeneration;
+    final activeId = _activeInstanceId;
+    AdminInstance? instance;
+    for (final saved in InstanceVault.instances) {
+      if (saved.id == activeId) {
+        instance = saved;
+        break;
+      }
+    }
+    if (instance == null) return false;
+
+    final instanceBaseUrl = api.normalizeBaseUrl(instance.baseUrl);
+    if (instanceBaseUrl != api.normalizeBaseUrl(requestBaseUrl) ||
+        instanceBaseUrl != api.normalizeBaseUrl(api.baseUrl)) {
+      return false;
+    }
+
+    try {
+      final token = await api.login(
+        account: instance.account,
+        password: instance.password,
+        applyToken: false,
+      );
+      if (!mounted ||
+          generation != _authContextGeneration ||
+          !_allowInstanceAutoLogin ||
+          activeId != _activeInstanceId ||
+          instanceBaseUrl != api.normalizeBaseUrl(api.baseUrl)) {
+        return false;
+      }
+      api.token = token;
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _handleSessionExpired() {
@@ -401,10 +559,12 @@ class _AdminRootPageState extends State<AdminRootPage> {
   @override
   Widget build(BuildContext context) {
     Widget content;
-    if (_loading) {
+    if (_loading || _connectingInstance) {
       content = const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
+    } else if (_vaultLocked) {
+      content = VaultUnlockPage(onUnlock: _unlockVault);
     } else if (_showInstallationPage) {
       content = InstallationPage(
         api: api,
@@ -416,6 +576,8 @@ class _AdminRootPageState extends State<AdminRootPage> {
         onLogin: onLogin,
         onInstallationRequired: onInstallationRequired,
         showSessionExpiredNotice: _showSessionExpiredNotice,
+        onManageInstances: _manageInstances,
+        instanceLoginError: _instanceLoginError,
       );
     } else {
       content = AdminAuthenticatedWorkspace(
@@ -426,6 +588,11 @@ class _AdminRootPageState extends State<AdminRootPage> {
           user: user,
           onLogout: onLogout,
           onAuthError: _handleSessionExpired,
+          instances: InstanceVault.isUnlocked
+              ? InstanceVault.instances
+              : const <AdminInstance>[],
+          activeInstanceId: _activeInstanceId,
+          onSwitchInstance: _connectInstance,
         ),
       );
     }
@@ -450,6 +617,8 @@ class _AdminRootPageState extends State<AdminRootPage> {
                   ? 'bootstrap'
                   : _showInstallationPage
                   ? 'installation'
+                  : _vaultLocked
+                  ? 'vault-lock'
                   : api.token == null
                   ? 'login'
                   : 'workspace',

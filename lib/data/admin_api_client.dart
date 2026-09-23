@@ -14,7 +14,14 @@ class AdminApiClient {
   String? token;
   VoidCallback? onSessionExpired;
   VoidCallback? onStepUpExpired;
+  Future<bool> Function(String requestBaseUrl)? onSessionRecovery;
   bool _sessionExpiredNotified = false;
+  Future<bool>? _sessionRecoveryInFlight;
+  int _sessionContextGeneration = 0;
+
+  void invalidateSessionContext() {
+    _sessionContextGeneration++;
+  }
 
   Future<void> install({
     required String username,
@@ -86,6 +93,7 @@ class AdminApiClient {
   Future<String> login({
     required String account,
     required String password,
+    bool applyToken = true,
   }) async {
     baseUrl = normalizeBaseUrl(baseUrl);
     _sessionExpiredNotified = false;
@@ -100,7 +108,7 @@ class AdminApiClient {
     if (t == null || t.isEmpty) {
       throw Exception('Missing token in login response');
     }
-    token = t;
+    if (applyToken) token = t;
     return t;
   }
 
@@ -469,22 +477,23 @@ class AdminApiClient {
     String? systemPrompt,
     bool stream = true,
   }) async* {
-    if (token == null || token!.isEmpty) {
-      _notifySessionExpired();
-      throw UnauthorizedException('登录已过期，请重新登录');
-    }
-    final uri = Uri.parse('$baseUrl/api/admin/ai/test/$id');
-    final request = http.Request('POST', uri);
-    request.headers['Authorization'] = 'Bearer $token';
-    request.headers['Content-Type'] = 'application/json';
-    request.body = jsonEncode({
-      'prompt': prompt,
-      'systemPrompt': systemPrompt,
-      'stream': stream,
-    });
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse('$requestBaseUrl/api/admin/ai/test/$id');
     final client = http.Client();
     try {
-      final response = await client.send(request);
+      final response = await _sendStreamWithSessionRecovery(
+        requestBaseUrl: requestBaseUrl,
+        send: () {
+          final request = http.Request('POST', uri);
+          request.headers.addAll(_headers(true));
+          request.body = jsonEncode({
+            'prompt': prompt,
+            'systemPrompt': systemPrompt,
+            'stream': stream,
+          });
+          return client.send(request);
+        },
+      );
       if (response.statusCode >= 400) {
         final body = await response.stream.bytesToString();
         throw Exception('测试失败: $body');
@@ -508,18 +517,20 @@ class AdminApiClient {
   }
 
   Stream<Map<String, dynamic>> importStream() async* {
-    if (token == null || token!.isEmpty) {
-      _notifySessionExpired();
-      throw UnauthorizedException('登录已过期，请重新登录');
-    }
-    final uri = Uri.parse('$baseUrl/api/admin/import/stream');
-    final request = http.Request('GET', uri);
-    request.headers['Authorization'] = 'Bearer $token';
-    request.headers['Accept'] = 'text/event-stream';
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse('$requestBaseUrl/api/admin/import/stream');
 
     final client = http.Client();
     try {
-      final response = await client.send(request);
+      final response = await _sendStreamWithSessionRecovery(
+        requestBaseUrl: requestBaseUrl,
+        send: () {
+          final request = http.Request('GET', uri);
+          request.headers.addAll(_headers(true, json: false));
+          request.headers['Accept'] = 'text/event-stream';
+          return client.send(request);
+        },
+      );
       if (response.statusCode >= 400) {
         final body = await response.stream.bytesToString();
         throw Exception('连接导入流失败: $body');
@@ -871,26 +882,30 @@ class AdminApiClient {
     required Uint8List bytes,
     String? mimeType,
   }) async {
-    final uri = Uri.parse('$baseUrl/api/admin/media/upload');
-    final request = http.MultipartRequest('POST', uri);
-    final headers = _headers(true, json: false);
-    request.headers.addAll(headers);
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse('$requestBaseUrl/api/admin/media/upload');
     final detected = mimeType ?? 'application/octet-stream';
     final parts = detected.split('/');
     final contentType = parts.length == 2
         ? MediaType(parts[0], parts[1])
         : MediaType('application', 'octet-stream');
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: fileName,
-        contentType: contentType,
-      ),
+    final response = await _sendWithSessionRecovery(
+      requestBaseUrl: requestBaseUrl,
+      send: () async {
+        final request = http.MultipartRequest('POST', uri);
+        request.headers.addAll(_headers(true, json: false));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            bytes,
+            filename: fileName,
+            contentType: contentType,
+          ),
+        );
+        return http.Response.fromStream(await request.send());
+      },
+      authFailureAsSessionExpired: true,
     );
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
-    _check(response, authFailureAsSessionExpired: true);
     return MediaItem.fromMap(
       _normalizeMediaItemMap(_map(jsonDecode(response.body))),
     );
@@ -923,48 +938,63 @@ class AdminApiClient {
     required Uint8List bytes,
     void Function(int sentBytes)? onChunkProgress,
   }) async {
+    final requestBaseUrl = baseUrl;
     final uri = Uri.parse(
-      '$baseUrl/api/admin/media/upload/session/$uploadId/chunk/$chunkIndex',
+      '$requestBaseUrl/api/admin/media/upload/session/$uploadId/chunk/$chunkIndex',
     );
-    final request = http.StreamedRequest('PUT', uri);
-    request.headers.addAll(_headers(true, json: false));
-    request.headers['Content-Type'] = 'application/octet-stream';
-    request.contentLength = bytes.length;
-    final responseFuture = request.send().timeout(const Duration(minutes: 30));
     const int transferBlockSize = 64 * 1024;
-    int sent = 0;
-    try {
-      while (sent < bytes.length) {
-        final end = (sent + transferBlockSize).clamp(0, bytes.length);
-        request.sink.add(bytes.sublist(sent, end));
-        sent = end;
-        onChunkProgress?.call(sent);
-      }
-      await request.sink.close();
-      final streamed = await responseFuture;
-      final response = await http.Response.fromStream(streamed);
-      _check(response, authFailureAsSessionExpired: true);
-      return MediaUploadSession.fromMap(_map(jsonDecode(response.body)));
-    } catch (_) {
-      await request.sink.close();
-      rethrow;
-    }
+    int reportedSent = 0;
+    final response = await _sendWithSessionRecovery(
+      requestBaseUrl: requestBaseUrl,
+      send: () async {
+        final request = http.StreamedRequest('PUT', uri);
+        request.headers.addAll(_headers(true, json: false));
+        request.headers['Content-Type'] = 'application/octet-stream';
+        request.contentLength = bytes.length;
+        final responseFuture = request.send().timeout(
+          const Duration(minutes: 30),
+        );
+        try {
+          int sent = 0;
+          while (sent < bytes.length) {
+            final end = (sent + transferBlockSize).clamp(0, bytes.length);
+            request.sink.add(bytes.sublist(sent, end));
+            sent = end;
+            if (sent > reportedSent) {
+              reportedSent = sent;
+              onChunkProgress?.call(sent);
+            }
+          }
+          await request.sink.close();
+          return await http.Response.fromStream(await responseFuture);
+        } catch (_) {
+          await request.sink.close();
+          rethrow;
+        }
+      },
+      authFailureAsSessionExpired: true,
+    );
+    return MediaUploadSession.fromMap(_map(jsonDecode(response.body)));
   }
 
   Future<MediaItem> completeMediaUpload(String uploadId) async {
     final client = createAdminHttpClient();
     try {
+      final requestBaseUrl = baseUrl;
       final uri = Uri.parse(
-        '$baseUrl/api/admin/media/upload/session/$uploadId/complete',
+        '$requestBaseUrl/api/admin/media/upload/session/$uploadId/complete',
       );
-      final response = await client
-          .post(
-            uri,
-            headers: _headers(true),
-            body: jsonEncode(const <String, dynamic>{}),
-          )
-          .timeout(const Duration(minutes: 10));
-      _check(response, authFailureAsSessionExpired: true);
+      final response = await _sendWithSessionRecovery(
+        requestBaseUrl: requestBaseUrl,
+        send: () => client
+            .post(
+              uri,
+              headers: _headers(true),
+              body: jsonEncode(const <String, dynamic>{}),
+            )
+            .timeout(const Duration(minutes: 10)),
+        authFailureAsSessionExpired: true,
+      );
       return MediaItem.fromMap(
         _normalizeMediaItemMap(_map(jsonDecode(response.body))),
       );
@@ -1227,21 +1257,28 @@ class AdminApiClient {
     required Uint8List bytes,
     required String stepUpToken,
   }) async {
-    final uri = Uri.parse('$baseUrl/api/admin/import/analyze-sql');
-    final request = http.MultipartRequest('POST', uri);
-    request.headers.addAll(
-      _headers(
-        true,
-        json: false,
-        stepUpToken: stepUpToken,
-        idempotencyKey: _newIdempotencyKey(),
-      ),
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse('$requestBaseUrl/api/admin/import/analyze-sql');
+    final idempotencyKey = _newIdempotencyKey();
+    final response = await _sendWithSessionRecovery(
+      requestBaseUrl: requestBaseUrl,
+      send: () async {
+        final request = http.MultipartRequest('POST', uri);
+        request.headers.addAll(
+          _headers(
+            true,
+            json: false,
+            stepUpToken: stepUpToken,
+            idempotencyKey: idempotencyKey,
+          ),
+        );
+        request.files.add(
+          http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+        );
+        return http.Response.fromStream(await request.send());
+      },
+      authFailureAsSessionExpired: true,
     );
-    request.files.add(
-      http.MultipartFile.fromBytes('file', bytes, filename: fileName),
-    );
-    final response = await http.Response.fromStream(await request.send());
-    _check(response, authFailureAsSessionExpired: true);
     return _map(jsonDecode(response.body));
   }
 
@@ -2066,13 +2103,17 @@ class AdminApiClient {
     String? imageReference,
     String imageVariant = 'native-micro',
   }) async {
+    final requestBaseUrl = baseUrl;
     final uri = _deploymentZipUri(
       nodeId,
       imageReference: imageReference,
       imageVariant: imageVariant,
     );
-    final res = await http.get(uri, headers: _headers(true));
-    _check(res, authFailureAsSessionExpired: true);
+    final res = await _sendWithSessionRecovery(
+      requestBaseUrl: requestBaseUrl,
+      send: () => http.get(uri, headers: _headers(true)),
+      authFailureAsSessionExpired: true,
+    );
     return res.bodyBytes;
   }
 
@@ -2083,18 +2124,23 @@ class AdminApiClient {
     void Function(double progress)? onProgress,
     void Function(String status)? onStatus,
   }) async {
+    final requestBaseUrl = baseUrl;
     final uri = _deploymentZipUri(
       nodeId,
       imageReference: imageReference,
       imageVariant: imageVariant,
     );
-    final request = http.Request('GET', uri);
-    request.headers.addAll(_headers(true));
-
     final client = http.Client();
     try {
       onStatus?.call('正在生成部署包...');
-      final streamedResponse = await client.send(request);
+      final streamedResponse = await _sendStreamWithSessionRecovery(
+        requestBaseUrl: requestBaseUrl,
+        send: () {
+          final request = http.Request('GET', uri);
+          request.headers.addAll(_headers(true));
+          return client.send(request);
+        },
+      );
 
       if (streamedResponse.statusCode < 200 ||
           streamedResponse.statusCode >= 300) {
@@ -2102,7 +2148,6 @@ class AdminApiClient {
         final mockResponse = http.Response(
           errorBody,
           streamedResponse.statusCode,
-          request: request,
         );
         _check(mockResponse, authFailureAsSessionExpired: true);
       }
@@ -2161,10 +2206,15 @@ class AdminApiClient {
   // ==================== Internal Helpers ====================
 
   Future<http.Response> _get(String path, {Map<String, String>? query}) async {
-    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
-    final res = await http.get(uri, headers: _headers(true));
-    _check(res, authFailureAsSessionExpired: true);
-    return res;
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse(
+      '$requestBaseUrl$path',
+    ).replace(queryParameters: query);
+    return _sendWithSessionRecovery(
+      requestBaseUrl: requestBaseUrl,
+      send: () => http.get(uri, headers: _headers(true)),
+      authFailureAsSessionExpired: true,
+    );
   }
 
   Future<http.Response> _post(
@@ -2176,18 +2226,24 @@ class AdminApiClient {
     String? stepUpToken,
     String? idempotencyKey,
   }) async {
-    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
-    final res = await http.post(
-      uri,
-      headers: _headers(
-        auth,
-        stepUpToken: stepUpToken,
-        idempotencyKey: idempotencyKey,
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse(
+      '$requestBaseUrl$path',
+    ).replace(queryParameters: query);
+    return _sendWithSessionRecovery(
+      requestBaseUrl: requestBaseUrl,
+      send: () => http.post(
+        uri,
+        headers: _headers(
+          auth,
+          stepUpToken: stepUpToken,
+          idempotencyKey: idempotencyKey,
+        ),
+        body: jsonEncode(body),
       ),
-      body: jsonEncode(body),
+      auth: auth,
+      authFailureAsSessionExpired: authFailureAsSessionExpired,
     );
-    _check(res, authFailureAsSessionExpired: authFailureAsSessionExpired);
-    return res;
   }
 
   Future<http.Response> _put(
@@ -2197,32 +2253,37 @@ class AdminApiClient {
     String? stepUpToken,
     String? idempotencyKey,
   }) async {
-    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
-    final res = await http.put(
-      uri,
-      headers: _headers(
-        true,
-        stepUpToken: stepUpToken,
-        idempotencyKey: idempotencyKey,
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse(
+      '$requestBaseUrl$path',
+    ).replace(queryParameters: query);
+    return _sendWithSessionRecovery(
+      requestBaseUrl: requestBaseUrl,
+      send: () => http.put(
+        uri,
+        headers: _headers(
+          true,
+          stepUpToken: stepUpToken,
+          idempotencyKey: idempotencyKey,
+        ),
+        body: jsonEncode(body),
       ),
-      body: jsonEncode(body),
+      authFailureAsSessionExpired: true,
     );
-    _check(res, authFailureAsSessionExpired: true);
-    return res;
   }
 
   Future<http.Response> _patch(
     String path, {
     Map<String, dynamic> body = const {},
   }) async {
-    final uri = Uri.parse('$baseUrl$path');
-    final res = await http.patch(
-      uri,
-      headers: _headers(true),
-      body: jsonEncode(body),
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse('$requestBaseUrl$path');
+    return _sendWithSessionRecovery(
+      requestBaseUrl: requestBaseUrl,
+      send: () =>
+          http.patch(uri, headers: _headers(true), body: jsonEncode(body)),
+      authFailureAsSessionExpired: true,
     );
-    _check(res, authFailureAsSessionExpired: true);
-    return res;
   }
 
   Future<http.Response> _delete(
@@ -2230,17 +2291,161 @@ class AdminApiClient {
     String? stepUpToken,
     String? idempotencyKey,
   }) async {
-    final uri = Uri.parse('$baseUrl$path');
-    final res = await http.delete(
-      uri,
-      headers: _headers(
-        true,
-        stepUpToken: stepUpToken,
-        idempotencyKey: idempotencyKey,
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse('$requestBaseUrl$path');
+    return _sendWithSessionRecovery(
+      requestBaseUrl: requestBaseUrl,
+      send: () => http.delete(
+        uri,
+        headers: _headers(
+          true,
+          stepUpToken: stepUpToken,
+          idempotencyKey: idempotencyKey,
+        ),
       ),
+      authFailureAsSessionExpired: true,
     );
-    _check(res, authFailureAsSessionExpired: true);
-    return res;
+  }
+
+  Future<http.Response> _sendWithSessionRecovery({
+    required String requestBaseUrl,
+    required Future<http.Response> Function() send,
+    required bool authFailureAsSessionExpired,
+    bool auth = true,
+  }) async {
+    final sessionContextGeneration = _sessionContextGeneration;
+    http.Response response;
+    bool recoveredOnce = false;
+    try {
+      response = await send();
+    } on UnauthorizedException {
+      if (sessionContextGeneration != _sessionContextGeneration) {
+        rethrow;
+      }
+      final recovered = auth && await _recoverSession(requestBaseUrl);
+      if (sessionContextGeneration != _sessionContextGeneration) {
+        rethrow;
+      }
+      if (!recovered) {
+        _notifySessionExpired();
+        rethrow;
+      }
+      recoveredOnce = true;
+      response = await send();
+    }
+
+    if (auth &&
+        !recoveredOnce &&
+        _isSessionAuthFailure(
+          response,
+          authFailureAsSessionExpired: authFailureAsSessionExpired,
+        )) {
+      if (sessionContextGeneration != _sessionContextGeneration) {
+        throw UnauthorizedException('请求对应的登录会话已切换');
+      }
+      if (await _recoverSession(requestBaseUrl)) {
+        response = await send();
+      } else if (sessionContextGeneration != _sessionContextGeneration) {
+        throw UnauthorizedException('请求对应的登录会话已切换');
+      }
+    }
+
+    _check(response, authFailureAsSessionExpired: authFailureAsSessionExpired);
+    return response;
+  }
+
+  Future<http.StreamedResponse> _sendStreamWithSessionRecovery({
+    required String requestBaseUrl,
+    required Future<http.StreamedResponse> Function() send,
+  }) async {
+    final sessionContextGeneration = _sessionContextGeneration;
+    http.StreamedResponse response;
+    try {
+      response = await send();
+    } on UnauthorizedException {
+      if (sessionContextGeneration != _sessionContextGeneration) rethrow;
+      final recovered = await _recoverSession(requestBaseUrl);
+      if (sessionContextGeneration != _sessionContextGeneration) rethrow;
+      if (!recovered) {
+        _notifySessionExpired();
+        rethrow;
+      }
+      response = await send();
+      if (response.statusCode == 401) {
+        final body = await response.stream.bytesToString();
+        _check(
+          http.Response(body, response.statusCode),
+          authFailureAsSessionExpired: true,
+        );
+      }
+      return response;
+    }
+
+    if (response.statusCode != 401) return response;
+    final body = await response.stream.bytesToString();
+    final failedResponse = http.Response(body, response.statusCode);
+    if (sessionContextGeneration != _sessionContextGeneration) {
+      throw UnauthorizedException('请求对应的登录会话已切换');
+    }
+    if (await _recoverSession(requestBaseUrl)) {
+      if (sessionContextGeneration != _sessionContextGeneration) {
+        throw UnauthorizedException('请求对应的登录会话已切换');
+      }
+      response = await send();
+      if (response.statusCode == 401) {
+        final retryBody = await response.stream.bytesToString();
+        _check(
+          http.Response(retryBody, response.statusCode),
+          authFailureAsSessionExpired: true,
+        );
+      }
+      return response;
+    }
+    if (sessionContextGeneration != _sessionContextGeneration) {
+      throw UnauthorizedException('请求对应的登录会话已切换');
+    }
+    _check(failedResponse, authFailureAsSessionExpired: true);
+    return response;
+  }
+
+  Future<bool> _recoverSession(String requestBaseUrl) async {
+    final existingRecovery = _sessionRecoveryInFlight;
+    if (existingRecovery != null) return existingRecovery;
+
+    final recovery = onSessionRecovery;
+    if (recovery == null) return false;
+
+    final pending = Future<bool>(() async {
+      try {
+        return await recovery(requestBaseUrl);
+      } catch (_) {
+        return false;
+      }
+    });
+    _sessionRecoveryInFlight = pending;
+    try {
+      return await pending;
+    } finally {
+      if (identical(_sessionRecoveryInFlight, pending)) {
+        _sessionRecoveryInFlight = null;
+      }
+    }
+  }
+
+  bool _isSessionAuthFailure(
+    http.Response response, {
+    required bool authFailureAsSessionExpired,
+  }) {
+    if (response.statusCode != 401) return false;
+    if (authFailureAsSessionExpired) return true;
+    try {
+      final code = _map(jsonDecode(response.body))['code']?.toString();
+      return code == 'AUTH_TOKEN_INVALID' ||
+          code == 'AUTH_ACCOUNT_INVALID' ||
+          code == 'ADMIN_ROLE_REQUIRED';
+    } catch (_) {
+      return false;
+    }
   }
 
   Map<String, String> _headers(
@@ -2256,7 +2461,6 @@ class AdminApiClient {
     }
     if (auth) {
       if (token == null || token!.isEmpty) {
-        _notifySessionExpired();
         throw UnauthorizedException('登录已过期，请重新登录');
       }
       headers['Authorization'] = 'Bearer $token';

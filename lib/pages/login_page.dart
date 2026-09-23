@@ -7,12 +7,16 @@ class LoginPage extends StatefulWidget {
     required this.onLogin,
     this.onInstallationRequired,
     this.showSessionExpiredNotice = false,
+    this.onManageInstances,
+    this.instanceLoginError,
   });
 
   final AdminApiClient api;
   final Future<void> Function(String baseUrl, String token) onLogin;
   final void Function(String baseUrl)? onInstallationRequired;
   final bool showSessionExpiredNotice;
+  final VoidCallback? onManageInstances;
+  final String? instanceLoginError;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -166,6 +170,16 @@ class _LoginPageState extends State<LoginPage> {
                                 size: 36,
                               ),
                             ),
+                            if (widget.onManageInstances != null) ...[
+                              const SizedBox(height: 10),
+                              TextButton.icon(
+                                onPressed: loading
+                                    ? null
+                                    : widget.onManageInstances,
+                                icon: const Icon(Icons.dns_outlined),
+                                label: const Text('多实例管理 / 保存登录方式'),
+                              ),
+                            ],
                             const SizedBox(height: 24),
                             Text(
                               t(context, 'login_title'),
@@ -176,6 +190,15 @@ class _LoginPageState extends State<LoginPage> {
                                     letterSpacing: 0.5,
                                   ),
                             ),
+                            if (widget.instanceLoginError != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                '实例自动登录失败：${widget.instanceLoginError}',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 8),
                             const Text(
                               'WindBlog Administration System',

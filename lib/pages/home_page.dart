@@ -7,12 +7,18 @@ class HomePage extends StatefulWidget {
     required this.user,
     required this.onLogout,
     required this.onAuthError,
+    this.instances = const <AdminInstance>[],
+    this.activeInstanceId,
+    this.onSwitchInstance,
   });
 
   final AdminApiClient api;
   final AdminUser? user;
   final VoidCallback onLogout;
   final VoidCallback onAuthError;
+  final List<AdminInstance> instances;
+  final String? activeInstanceId;
+  final Future<void> Function(AdminInstance instance)? onSwitchInstance;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -45,6 +51,22 @@ class _HomePageState extends State<HomePage> {
     '系统运维': false,
     '系统设置': false,
   };
+  bool _switchingInstance = false;
+
+  Future<void> _selectInstance(AdminInstance? instance) async {
+    if (instance == null ||
+        instance.id == widget.activeInstanceId ||
+        widget.onSwitchInstance == null ||
+        _switchingInstance) {
+      return;
+    }
+    setState(() => _switchingInstance = true);
+    try {
+      await widget.onSwitchInstance!(instance);
+    } finally {
+      if (mounted) setState(() => _switchingInstance = false);
+    }
+  }
 
   List<_AdminNavigationItem> get _navigationItems {
     return const [
@@ -292,7 +314,7 @@ class _HomePageState extends State<HomePage> {
 
     if (isPhone) {
       return Scaffold(
-        appBar: _buildAppBar(context, pageTitle, true),
+        appBar: _buildAppBar(context, pageTitle),
         drawer: _buildDrawer(context),
         body: _buildAnimatedPage(page),
       );
@@ -319,7 +341,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  AppBar _buildAppBar(BuildContext context, String pageTitle, bool showMenu) {
+  AppBar _buildAppBar(BuildContext context, String pageTitle) {
     final themeColor = brandColor;
     return AppBar(
       title: Text(
@@ -448,7 +470,15 @@ class _HomePageState extends State<HomePage> {
     List<Widget> navigationChildren = [
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        child: _buildBrand(extended),
+        child: Column(
+          children: [
+            _buildBrand(extended),
+            if (widget.instances.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _buildInstanceSelector(context, compact: !extended),
+            ],
+          ],
+        ),
       ),
     ];
     List<_AdminNavigationItem> items = _navigationItems;
@@ -480,6 +510,100 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildInstanceSelector(BuildContext context, {bool compact = false}) {
+    if (widget.instances.isEmpty) return const SizedBox.shrink();
+    AdminInstance? selected;
+    for (final instance in widget.instances) {
+      if (instance.id == widget.activeInstanceId) selected = instance;
+    }
+    selected ??= widget.instances.first;
+
+    final control = Container(
+      height: 42,
+      width: compact ? 48 : null,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<AdminInstance>(
+          value: selected,
+          isExpanded: !compact,
+          dropdownColor: navigationColor,
+          borderRadius: BorderRadius.circular(12),
+          iconEnabledColor: Colors.white70,
+          iconDisabledColor: Colors.white38,
+          icon: _switchingInstance
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+          selectedItemBuilder: (context) => widget.instances
+              .map(
+                (instance) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: compact
+                      ? const Icon(
+                          Icons.dns_outlined,
+                          color: Colors.white,
+                          size: 20,
+                        )
+                      : Text(
+                          instance.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                ),
+              )
+              .toList(),
+          items: widget.instances
+              .map(
+                (instance) => DropdownMenuItem<AdminInstance>(
+                  value: instance,
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.dns_outlined,
+                        size: 16,
+                        color: Colors.white70,
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          instance.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: _switchingInstance ? null : _selectInstance,
+        ),
+      ),
+    );
+    return compact ? Tooltip(message: selected.name, child: control) : control;
   }
 
   Widget _buildDesktopSubmenu(
@@ -653,10 +777,23 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildDrawer(BuildContext context) {
     List<Widget> children = [
-      DrawerHeader(
-        decoration: BoxDecoration(color: navigationColor),
-        margin: EdgeInsets.zero,
-        child: Align(alignment: Alignment.bottomLeft, child: _buildBrand(true)),
+      SizedBox(
+        height: widget.instances.isEmpty ? 100 : 150,
+        child: DrawerHeader(
+          decoration: BoxDecoration(color: navigationColor),
+          margin: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _buildBrand(true),
+              if (widget.instances.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildInstanceSelector(context),
+              ],
+            ],
+          ),
+        ),
       ),
     ];
 
