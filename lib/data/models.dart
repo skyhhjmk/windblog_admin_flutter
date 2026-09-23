@@ -592,6 +592,11 @@ Map<String, String> toStringMap(Object? value) {
   return {};
 }
 
+Map<String, dynamic> toDynamicMap(Object? value) {
+  if (value is Map) return Map<String, dynamic>.from(value);
+  return {};
+}
+
 class AiProviderConfig {
   AiProviderConfig({
     required this.id,
@@ -1702,6 +1707,130 @@ class WalletTransactionHistory {
   }
 }
 
+class InventorySnapshot {
+  InventorySnapshot({
+    required this.revision,
+    required this.items,
+    required this.containers,
+    required this.definitions,
+  });
+
+  final int revision;
+  final List<InventoryItemSnapshot> items;
+  final List<InventoryContainerSnapshot> containers;
+  final Map<String, Map<String, dynamic>> definitions;
+
+  factory InventorySnapshot.fromMap(Map<String, dynamic> map) {
+    final rawDefinitions = map['definitions'] is Map
+        ? Map<String, dynamic>.from(map['definitions'] as Map)
+        : <String, dynamic>{};
+    return InventorySnapshot(
+      revision: toInt(map['revision']) ?? 0,
+      items: (asDynamicList(map['items']) ?? [])
+          .map((item) => InventoryItemSnapshot.fromMap(toDynamicMap(item)))
+          .toList(),
+      containers: (asDynamicList(map['containers']) ?? [])
+          .map((item) => InventoryContainerSnapshot.fromMap(toDynamicMap(item)))
+          .toList(),
+      definitions: rawDefinitions.map(
+        (key, value) => MapEntry(
+          key,
+          value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{},
+        ),
+      ),
+    );
+  }
+}
+
+class InventoryItemSnapshot {
+  InventoryItemSnapshot({
+    required this.instanceUuid,
+    required this.itemCode,
+    required this.definitionVersion,
+    required this.quantity,
+    required this.maxStackSize,
+    required this.width,
+    required this.height,
+    required this.x,
+    required this.y,
+    required this.rotation,
+    required this.containerId,
+    required this.parentInstanceUuid,
+    required this.deprecated,
+    required this.metadata,
+  });
+
+  final String instanceUuid;
+  final String itemCode;
+  final String definitionVersion;
+  final int quantity;
+  final int maxStackSize;
+  final int width;
+  final int height;
+  final int x;
+  final int y;
+  final bool rotation;
+  final int? containerId;
+  final String? parentInstanceUuid;
+  final bool deprecated;
+  final Map<String, dynamic> metadata;
+
+  String get displayName =>
+      metadata['name']?.toString().trim().isNotEmpty == true
+      ? metadata['name'].toString()
+      : itemCode;
+
+  factory InventoryItemSnapshot.fromMap(Map<String, dynamic> map) {
+    return InventoryItemSnapshot(
+      instanceUuid: map['instanceUuid']?.toString() ?? '',
+      itemCode: map['itemCode']?.toString() ?? '',
+      definitionVersion: map['definitionVersion']?.toString() ?? '1',
+      quantity: toInt(map['quantity']) ?? 0,
+      maxStackSize: toInt(map['maxStackSize']) ?? 1,
+      width: toInt(map['width']) ?? 1,
+      height: toInt(map['height']) ?? 1,
+      x: toInt(map['x']) ?? 0,
+      y: toInt(map['y']) ?? 0,
+      rotation: toBool(map['rotation']) ?? false,
+      containerId: toInt(map['containerId']),
+      parentInstanceUuid: map['parentInstanceUuid']?.toString(),
+      deprecated: toBool(map['deprecated']) ?? false,
+      metadata: map['metadata'] is Map
+          ? Map<String, dynamic>.from(map['metadata'] as Map)
+          : <String, dynamic>{},
+    );
+  }
+}
+
+class InventoryContainerSnapshot {
+  InventoryContainerSnapshot({
+    required this.id,
+    required this.userId,
+    required this.parentItemUuid,
+    required this.rows,
+    required this.columns,
+    required this.revision,
+  });
+
+  final int? id;
+  final int? userId;
+  final String? parentItemUuid;
+  final int rows;
+  final int columns;
+  final int revision;
+
+  factory InventoryContainerSnapshot.fromMap(Map<String, dynamic> map) {
+    return InventoryContainerSnapshot(
+      id: toInt(map['id']),
+      userId: toInt(map['userId']),
+      parentItemUuid: map['parentItemUuid']?.toString(),
+      rows: toInt(map['rows']) ?? 0,
+      columns: toInt(map['columns']) ?? 0,
+      revision: toInt(map['revision']) ?? 0,
+    );
+  }
+}
+
 String _bizTypeText(String bizType) {
   switch (bizType) {
     case 'REGISTER':
@@ -2444,6 +2573,9 @@ class PaginatedEmailDeliveryResult {
 class StoreItem {
   StoreItem({
     required this.id,
+    this.itemCode,
+    this.definitionVersion = '1',
+    this.deprecated = false,
     required this.name,
     this.description,
     required this.price,
@@ -2451,11 +2583,20 @@ class StoreItem {
     this.type,
     this.extraInfo,
     required this.status,
+    this.width = 1,
+    this.height = 1,
+    this.stackable = false,
+    this.maxStackSize = 1,
+    this.containerRows,
+    this.containerColumns,
     this.createdAt,
     this.updatedAt,
   });
 
   final int id;
+  final String? itemCode;
+  final String definitionVersion;
+  final bool deprecated;
   final String name;
   final String? description;
   final int price;
@@ -2463,12 +2604,21 @@ class StoreItem {
   final String? type;
   final dynamic extraInfo;
   final int status;
+  final int width;
+  final int height;
+  final bool stackable;
+  final int maxStackSize;
+  final int? containerRows;
+  final int? containerColumns;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
   factory StoreItem.fromMap(Map<String, dynamic> map) {
     return StoreItem(
       id: toInt(map['id']) ?? 0,
+      itemCode: map['itemCode']?.toString(),
+      definitionVersion: map['definitionVersion']?.toString() ?? '1',
+      deprecated: toBool(map['deprecated']) ?? false,
       name: map['name']?.toString() ?? '',
       description: map['description']?.toString(),
       price: toInt(map['price']) ?? 0,
@@ -2476,6 +2626,12 @@ class StoreItem {
       type: map['type']?.toString(),
       extraInfo: map['extraInfo'],
       status: toInt(map['status']) ?? 1,
+      width: toInt(map['width']) ?? 1,
+      height: toInt(map['height']) ?? 1,
+      stackable: toBool(map['stackable']) ?? false,
+      maxStackSize: toInt(map['maxStackSize']) ?? 1,
+      containerRows: toInt(map['containerRows']),
+      containerColumns: toInt(map['containerColumns']),
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt'].toString())
           : null,
@@ -2489,31 +2645,52 @@ class StoreItem {
 class StoreItemRequest {
   StoreItemRequest({
     required this.name,
+    this.itemCode,
     this.description,
     required this.price,
     this.rarity,
     this.type,
     this.extraInfo,
     required this.status,
+    this.width = 1,
+    this.height = 1,
+    this.stackable = false,
+    this.maxStackSize = 1,
+    this.containerRows,
+    this.containerColumns,
   });
 
   final String name;
+  final String? itemCode;
   final String? description;
   final int price;
   final String? rarity;
   final String? type;
   final dynamic extraInfo;
   final int status;
+  final int width;
+  final int height;
+  final bool stackable;
+  final int maxStackSize;
+  final int? containerRows;
+  final int? containerColumns;
 
   Map<String, dynamic> toJson() {
     return {
       'name': name,
+      if (itemCode != null && itemCode!.isNotEmpty) 'itemCode': itemCode,
       if (description != null) 'description': description,
       'price': price,
       if (rarity != null) 'rarity': rarity,
       if (type != null) 'type': type,
       if (extraInfo != null) 'extraInfo': extraInfo,
       'status': status,
+      'width': width,
+      'height': height,
+      'stackable': stackable,
+      'maxStackSize': maxStackSize,
+      if (containerRows != null) 'containerRows': containerRows,
+      if (containerColumns != null) 'containerColumns': containerColumns,
     };
   }
 }

@@ -1072,12 +1072,40 @@ class AdminApiClient {
     int userId, {
     required int newBalance,
     String? description,
+    String? stepUpToken,
   }) async {
     final res = await _post(
       '/api/admin/users/$userId/wallet/adjust',
       body: {'newBalance': newBalance, 'description': description ?? '管理员手动调整'},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
     );
     return WalletInfo.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<InventorySnapshot> getUserInventory(int userId) async {
+    final res = await _get('/api/admin/users/$userId/inventory');
+    return InventorySnapshot.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<InventorySnapshot> grantUserInventoryItem(
+    int userId, {
+    required int storeItemId,
+    required int quantity,
+    String reason = 'ADMIN',
+    required String stepUpToken,
+  }) async {
+    final res = await _post(
+      '/api/admin/users/$userId/inventory/grant',
+      body: {
+        'storeItemId': storeItemId,
+        'quantity': quantity,
+        'reason': reason,
+      },
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    return InventorySnapshot.fromMap(_map(jsonDecode(res.body)));
   }
 
   Future<List<PermissionRoleItem>> listRoles() async {
