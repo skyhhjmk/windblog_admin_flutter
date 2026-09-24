@@ -83,6 +83,94 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
     }
   }
 
+  Future<void> _restoreBackup(int mediaId) async {
+    try {
+      final classes = (await widget.api.listStorageClasses())
+          .where((item) => item.isEnabled)
+          .toList();
+      if (!mounted || classes.isEmpty) return;
+      String target = classes.first.name;
+      String variant = 'ORIGINAL';
+      final selected = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: Text('从加密备份恢复媒体 $mediaId'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: target,
+                  decoration: const InputDecoration(labelText: '普通副本目标存储'),
+                  items: classes
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item.name,
+                          child: Text(item.displayName),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setDialogState(() {
+                    target = value ?? target;
+                  }),
+                ),
+                DropdownButtonFormField<String>(
+                  initialValue: variant,
+                  decoration: const InputDecoration(labelText: '媒体变体'),
+                  items:
+                      const ['ORIGINAL', 'WEBP', 'PLACEHOLDER', 'COVER', 'RAW']
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: (value) => setDialogState(() {
+                    variant = value ?? variant;
+                  }),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('恢复'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (selected != true || !mounted) return;
+      final stepUp = await AdminStepUpAuthorization.obtain(
+        context,
+        widget.api,
+        title: '恢复加密备份需要管理员确认',
+      );
+      if (stepUp == null) return;
+      await widget.api.restoreEncryptedStorageBackup(
+        mediaId: mediaId,
+        storageClassName: target,
+        variantType: variant,
+        stepUpToken: stepUp,
+      );
+      await _loadStatus();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('恢复失败: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AdminPageScaffold(
@@ -253,6 +341,7 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
           DataColumn(label: Text('文件名')),
           DataColumn(label: Text('MIME 类型')),
           DataColumn(label: Text('存储类状态')),
+          DataColumn(label: Text('恢复')),
         ],
         rows: _buildDetailRows(),
       ),
@@ -281,6 +370,13 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
           ),
           DataCell(Text(detail.mimeType)),
           DataCell(Text(storageClassStatus)),
+          DataCell(
+            IconButton(
+              tooltip: '从加密备份恢复',
+              icon: const Icon(Icons.restore),
+              onPressed: () => _restoreBackup(detail.mediaId),
+            ),
+          ),
         ],
       );
       rows.add(row);
@@ -292,7 +388,19 @@ class _StorageSyncPanelState extends State<StorageSyncPanel> {
     if (storageClasses == null) {
       return '未同步';
     }
-    final syncedCount = storageClasses.length;
-    return '$syncedCount 个存储类';
+    return storageClasses.entries
+        .map((entry) {
+          final variants = entry.value;
+          if (variants is! Map) return entry.key;
+          final backupCount = variants.values
+              .where(
+                (value) => value is Map && value['status'] == 'backup_synced',
+              )
+              .length;
+          return backupCount > 0
+              ? '${entry.key}: $backupCount 个加密备份'
+              : entry.key;
+        })
+        .join('，');
   }
 }

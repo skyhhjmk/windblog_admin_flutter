@@ -2967,6 +2967,8 @@ class StorageClassItem {
     this.cdnEnabled,
     this.serviceRegion,
     this.contentRegions = const [],
+    this.excludedContentRegions = const [],
+    this.allowEncryptedBackup = false,
     this.priority,
   });
 
@@ -2983,6 +2985,8 @@ class StorageClassItem {
   final bool? cdnEnabled;
   final String? serviceRegion;
   final List<String> contentRegions;
+  final List<String> excludedContentRegions;
+  final bool allowEncryptedBackup;
   final int? priority;
 
   String get providerTypeText {
@@ -3027,6 +3031,8 @@ class StorageClassItem {
       cdnEnabled: toBool(map['cdnEnabled']),
       serviceRegion: map['serviceRegion']?.toString(),
       contentRegions: toStringList(map['contentRegions']) ?? [],
+      excludedContentRegions: toStringList(map['excludedContentRegions']) ?? [],
+      allowEncryptedBackup: toBool(map['allowEncryptedBackup']) ?? false,
       priority: toInt(map['priority']),
     );
   }
@@ -3045,6 +3051,8 @@ class StorageClassItem {
       if (cdnEnabled != null) 'cdnEnabled': cdnEnabled,
       if (serviceRegion != null) 'serviceRegion': serviceRegion,
       'contentRegions': contentRegions,
+      'excludedContentRegions': excludedContentRegions,
+      'allowEncryptedBackup': allowEncryptedBackup,
       if (priority != null) 'priority': priority,
     };
   }
@@ -3060,6 +3068,8 @@ class StorageClassItem {
       if (cdnEnabled != null) 'cdnEnabled': cdnEnabled,
       if (serviceRegion != null) 'serviceRegion': serviceRegion,
       'contentRegions': contentRegions,
+      'excludedContentRegions': excludedContentRegions,
+      'allowEncryptedBackup': allowEncryptedBackup,
       if (priority != null) 'priority': priority,
     };
   }

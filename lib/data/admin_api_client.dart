@@ -1878,6 +1878,20 @@ class AdminApiClient {
     await _post('/api/admin/storage/sync/batch-trigger', body: {});
   }
 
+  Future<void> restoreEncryptedStorageBackup({
+    required int mediaId,
+    required String storageClassName,
+    required String variantType,
+    required String stepUpToken,
+  }) async {
+    await _post(
+      '/api/admin/storage/sync/restore/$mediaId',
+      body: {'storageClassName': storageClassName, 'variantType': variantType},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+  }
+
   // ==================== Image Processing Config API ====================
 
   Future<List<ImageProcessingConfigItem>> listImageProcessingConfigs() async {
