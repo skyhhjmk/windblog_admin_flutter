@@ -268,6 +268,22 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
               ),
             ),
           ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _copySetting(setting),
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('复制到剪贴板'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _importSettingFromClipboard(setting),
+                icon: const Icon(Icons.content_paste_go, size: 18),
+                label: const Text('从剪贴板导入'),
+              ),
+            ],
+          ),
           if (setting.configKey == 'security_network') ...[
             const SizedBox(height: 12),
             Align(
@@ -307,6 +323,86 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _copySetting(SystemSetting setting) async {
+    final value = setting.configValue is Map
+        ? Map<String, dynamic>.from(setting.configValue as Map)
+        : <String, dynamic>{};
+    await Clipboard.setData(
+      ClipboardData(text: const JsonEncoder.withIndent('  ').convert(value)),
+    );
+    if (mounted) {
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(content: Text('设置已复制到剪贴板')),
+      );
+    }
+  }
+
+  Future<void> _importSettingFromClipboard(SystemSetting setting) async {
+    final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = clipboard?.text?.trim();
+    if (text == null || text.isEmpty) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          const SnackBar(content: Text('剪贴板中没有可导入的内容')),
+        );
+      }
+      return;
+    }
+
+    Map<String, dynamic> values;
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is! Map) throw const FormatException('JSON 顶层必须是对象');
+      final object = Map<String, dynamic>.from(decoded);
+      if (object['configKey'] != null &&
+          object['configKey'].toString() != setting.configKey) {
+        throw const FormatException('剪贴板中的配置项与当前配置项不匹配');
+      }
+      final payload = object.containsKey('configValue')
+          ? object['configValue']
+          : object;
+      if (payload is! Map) throw const FormatException('配置内容必须是 JSON 对象');
+      values = Map<String, dynamic>.from(payload);
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('无法导入剪贴板内容：$error')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('导入“${setting.description ?? setting.configKey}”'),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            const JsonEncoder.withIndent('  ').convert(values),
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认导入并保存'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _saveSetting(setting.configKey, values);
+    }
   }
 
   Future<void> _showClientIpTools() async {
