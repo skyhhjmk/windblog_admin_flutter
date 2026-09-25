@@ -485,7 +485,9 @@ class AdminApiClient {
         requestBaseUrl: requestBaseUrl,
         send: () {
           final request = http.Request('POST', uri);
-          request.headers.addAll(_headers(true));
+          final headers = _headers(true);
+          headers['Accept'] = 'text/event-stream';
+          request.headers.addAll(headers);
           request.body = jsonEncode({
             'prompt': prompt,
             'systemPrompt': systemPrompt,
