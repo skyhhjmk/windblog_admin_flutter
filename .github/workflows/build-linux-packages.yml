@@ -26,7 +26,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.value }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -58,7 +58,7 @@ jobs:
           install -Dm644 LICENSE package-root/usr/share/licenses/windblog-admin/LICENSE
           install -Dm644 web/icons/Icon-512.png package-root/usr/share/pixmaps/windblog-admin.png
           tar -czf windblog-admin-root.tar.gz -C package-root .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windblog-admin-root
           path: windblog-admin-root.tar.gz
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build-linux-bundle
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windblog-admin-root
           path: stage
@@ -90,7 +90,7 @@ jobs:
           Description: Flutter desktop administration client for WindBlog
           EOF
           dpkg-deb --root-owner-group --build stage-root "dist/windblog-admin_${APP_VERSION}_amd64.deb"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windblog-admin-deb-${{ needs.build-linux-bundle.outputs.version }}
           path: dist/*.deb
@@ -100,7 +100,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build-linux-bundle
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windblog-admin-root
           path: stage
@@ -144,7 +144,7 @@ jobs:
           EOF
           rpmbuild -bb --define "_topdir $topdir" "$topdir/SPECS/windblog-admin.spec"
           find "$topdir/RPMS" -type f -name '*.rpm' -exec cp {} dist/ \;
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windblog-admin-rpm-${{ needs.build-linux-bundle.outputs.version }}
           path: dist/*.rpm
@@ -154,7 +154,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build-linux-bundle
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windblog-admin-root
           path: stage
@@ -193,7 +193,7 @@ jobs:
           '
           mkdir -p dist
           cp arch-build/*.pkg.tar.zst dist/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windblog-admin-arch-${{ needs.build-linux-bundle.outputs.version }}
           path: dist/*.pkg.tar.zst
@@ -203,7 +203,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build-linux-bundle
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windblog-admin-root
           path: stage
@@ -236,7 +236,7 @@ jobs:
           ARCH=x86_64 VERSION="$APP_VERSION" APPIMAGE_EXTRACT_AND_RUN=1 \
             ./appimagetool-x86_64.AppImage --no-appstream appdir \
             "dist/windblog-admin-${APP_VERSION}-x86_64.AppImage"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windblog-admin-appimage-${{ needs.build-linux-bundle.outputs.version }}
           path: dist/*.AppImage
@@ -249,19 +249,19 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windblog-admin-deb-${{ needs.build-linux-bundle.outputs.version }}
           path: dist
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windblog-admin-rpm-${{ needs.build-linux-bundle.outputs.version }}
           path: dist
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windblog-admin-arch-${{ needs.build-linux-bundle.outputs.version }}
           path: dist
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windblog-admin-appimage-${{ needs.build-linux-bundle.outputs.version }}
           path: dist
