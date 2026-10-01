@@ -60,6 +60,7 @@ class PostItem {
     required this.aiSummaryStatus,
     required this.version,
     this.categoryId,
+    this.categoryIds = const [],
     this.userName,
     this.tagIds = const [],
     required this.publishedRevisionNumber,
@@ -75,6 +76,7 @@ class PostItem {
   final int aiSummaryStatus;
   final int version;
   final int? categoryId;
+  final List<int> categoryIds;
   final String? userName;
   final List<int> tagIds;
   final int publishedRevisionNumber;
@@ -106,6 +108,8 @@ class PostItem {
       aiSummaryStatus: toInt(map['aiSummaryStatus']) ?? 0,
       version: toInt(map['version']) ?? 0,
       categoryId: toInt(map['categoryId']),
+      categoryIds: (asDynamicList(map['categoryIds']) ?? [])
+          .map((e) => toInt(e) ?? 0).where((id) => id > 0).toList(),
       userName: map['userName']?.toString(),
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
@@ -137,6 +141,7 @@ class PostDetail {
     required this.currentRevisionNumber,
     required this.version,
     this.categoryId,
+    this.categoryIds = const [],
     this.userName,
     this.tagIds = const [],
     this.visibilityRegions = const [],
@@ -169,6 +174,7 @@ class PostDetail {
   final int currentRevisionNumber;
   final int version;
   final int? categoryId;
+  final List<int> categoryIds;
   final String? userName;
   final List<int> tagIds;
   final List<String> visibilityRegions;
@@ -216,6 +222,8 @@ class PostDetail {
       currentRevisionNumber: toInt(map['currentRevisionNumber']) ?? 0,
       version: toInt(map['version']) ?? 0,
       categoryId: toInt(map['categoryId']),
+      categoryIds: (asDynamicList(map['categoryIds']) ?? [])
+          .map((e) => toInt(e) ?? 0).where((id) => id > 0).toList(),
       userName: map['userName']?.toString(),
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
@@ -375,6 +383,7 @@ class PostEditRequest {
     required this.aiSummaryStatus,
     required this.version,
     this.categoryId,
+    this.categoryIds = const [],
     this.tagIds = const [],
     this.visibilityRegions = const [],
     this.contentDeclarations = const [],
@@ -398,6 +407,7 @@ class PostEditRequest {
   final int aiSummaryStatus;
   final int version;
   final int? categoryId;
+  final List<int> categoryIds;
   final List<int> tagIds;
   final List<String> visibilityRegions;
   final List<String> contentDeclarations;
@@ -422,6 +432,7 @@ class PostEditRequest {
       'editorType': editorType,
       'aiSummaryStatus': aiSummaryStatus,
       'categoryId': categoryId,
+      'categoryIds': categoryIds,
       'tagIds': tagIds,
       'visibilityRegions': visibilityRegions,
       'contentDeclarations': contentDeclarations,
@@ -449,6 +460,7 @@ class PostEditRequest {
       'aiSummaryStatus': aiSummaryStatus,
       'version': version,
       'categoryId': categoryId,
+      'categoryIds': categoryIds,
       'tagIds': tagIds,
       'visibilityRegions': visibilityRegions,
       'contentDeclarations': contentDeclarations,
@@ -461,6 +473,7 @@ class PostEditRequest {
   PostEditRequest copyWith({
     int? version,
     int? categoryId,
+    List<int>? categoryIds,
     List<int>? tagIds,
     String? password,
     String? repostPolicyCode,
@@ -479,6 +492,7 @@ class PostEditRequest {
       aiSummaryStatus: aiSummaryStatus,
       version: version ?? this.version,
       categoryId: categoryId ?? this.categoryId,
+      categoryIds: categoryIds ?? this.categoryIds,
       tagIds: tagIds ?? this.tagIds,
       visibilityRegions: visibilityRegions,
       contentDeclarations: contentDeclarations,
@@ -1857,6 +1871,7 @@ class CommentItem {
     required this.postTitle,
     required this.userId,
     required this.userName,
+    this.guestEmail,
     required this.content,
     required this.status,
     required this.auditStatus,
@@ -1870,6 +1885,7 @@ class CommentItem {
   final String postTitle;
   final int userId;
   final String userName;
+  final String? guestEmail;
   final String content;
   final int status;
   final int auditStatus;
@@ -1919,6 +1935,7 @@ class CommentItem {
       postTitle: map['postTitle']?.toString() ?? '',
       userId: toInt(map['userId']) ?? 0,
       userName: map['userName']?.toString() ?? '',
+      guestEmail: map['guestEmail']?.toString(),
       content: map['content']?.toString() ?? '',
       status: toInt(map['status']) ?? 0,
       auditStatus: toInt(map['auditStatus']) ?? 0,

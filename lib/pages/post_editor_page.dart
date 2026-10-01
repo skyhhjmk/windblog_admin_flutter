@@ -36,6 +36,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   Map<String, String> _contents = {};
 
   int? categoryId;
+  List<int> categoryIds = [];
   List<int> tagIds = [];
   List<String> visibilityRegions = [];
   List<String> contentDeclarations = [];
@@ -60,6 +61,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   int? _initialEditorType;
   int? _initialAiSummaryStatus;
   int? _initialCategoryId;
+  List<int>? _initialCategoryIds;
   List<int>? _initialTagIds;
   List<String>? _initialVisibilityRegions;
   List<String>? _initialContentDeclarations;
@@ -112,6 +114,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     freeLinesCtrl = TextEditingController(text: d?.freeLines?.toString() ?? '');
     passwordCtrl = TextEditingController();
     categoryId = d?.categoryId;
+    categoryIds = List<int>.from(d?.categoryIds.isNotEmpty == true
+        ? d!.categoryIds
+        : (d?.categoryId == null ? const <int>[] : <int>[d!.categoryId!]));
     tagIds = d?.tagIds ?? [];
     visibilityRegions = d?.visibilityRegions ?? [];
     contentDeclarations = List<String>.from(d?.contentDeclarations ?? []);
@@ -178,6 +183,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     _initialEditorType = editorType;
     _initialAiSummaryStatus = aiSummaryStatus;
     _initialCategoryId = categoryId;
+    _initialCategoryIds = List<int>.from(categoryIds);
     _initialTagIds = List<int>.from(tagIds);
     _initialVisibilityRegions = List<String>.from(visibilityRegions);
     _initialContentDeclarations = List<String>.from(contentDeclarations);
@@ -217,6 +223,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         editorType != _initialEditorType ||
         aiSummaryStatus != _initialAiSummaryStatus ||
         categoryId != _initialCategoryId ||
+        !_listEquals(categoryIds, _initialCategoryIds) ||
         !_listEquals(tagIds, _initialTagIds) ||
         !_listEqualsString(visibilityRegions, _initialVisibilityRegions) ||
         !_listEqualsString(contentDeclarations, _initialContentDeclarations) ||
@@ -495,6 +502,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         pointsPrice: int.tryParse(pointsPriceCtrl.text.trim()),
         freeLines: int.tryParse(freeLinesCtrl.text.trim()),
         categoryId: categoryId,
+        categoryIds: categoryIds,
         tagIds: tagIds,
         visibilityRegions: visibilityRegions,
         contentDeclarations: contentDeclarations,
@@ -740,6 +748,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           renderType = newDetail.renderType;
           editorType = newDetail.editorType;
           categoryId = newDetail.categoryId;
+          categoryIds = List<int>.from(newDetail.categoryIds);
           tagIds = newDetail.tagIds;
           visibilityRegions = newDetail.visibilityRegions;
           contentDeclarations = List<String>.from(
@@ -1893,35 +1902,27 @@ class _PostEditorPageState extends State<PostEditorPage>
     return SectionCard(
       icon: Icons.category,
       title: t(context, 'category'),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<int?>(
-            value: _categories.any((c) => c.id == categoryId)
-                ? categoryId
-                : null,
-            isExpanded: true,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            hint: Text(t(context, 'select_category')),
-            items: [
-              ..._categories.map(
-                (cat) => DropdownMenuItem<int?>(
-                  value: cat.id,
-                  child: Text(cat.displayName),
-                ),
-              ),
-            ],
-            onChanged: (v) {
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        children: _categories.map((cat) {
+          final selected = categoryIds.contains(cat.id);
+          return FilterChip(
+            label: Text(cat.displayName),
+            selected: selected,
+            onSelected: (value) {
               setState(() {
-                categoryId = v;
+                if (value) {
+                  categoryIds = [...categoryIds, cat.id];
+                } else {
+                  categoryIds = categoryIds.where((id) => id != cat.id).toList();
+                }
+                categoryId = categoryIds.isEmpty ? null : categoryIds.first;
                 _markDirty();
               });
             },
-          ),
-        ),
+          );
+        }).toList(),
       ),
     );
   }
