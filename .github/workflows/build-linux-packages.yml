@@ -1,0 +1,271 @@
+name: Build Linux packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/build-linux-packages.yml'
+      - 'assets/**'
+      - 'lib/**'
+      - 'linux/**'
+      - 'LICENSE'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'packaging/**'
+      - 'web/icons/Icon-512.png'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux-bundle:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake libgtk-3-dev libsecret-1-dev liblzma-dev ninja-build pkg-config
+      - name: Read application version
+        id: version
+        shell: bash
+        run: |
+          value="$(sed -n 's/^version: *\([0-9][0-9.]*\)\(+.*\)\{0,1\}$/\1/p' pubspec.yaml | head -n1)"
+          test -n "$value"
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+      - name: Build Linux release bundle
+        run: |
+          # This override points at the maintainer's local checkout and is not usable in CI.
+          rm -f pubspec_overrides.yaml
+          flutter config --no-analytics
+          flutter pub get
+          flutter build linux --release
+      - name: Stage installable files
+        run: |
+          mkdir -p package-root/opt/windblog-admin
+          cp -a build/linux/x64/release/bundle/. package-root/opt/windblog-admin/
+          install -Dm755 packaging/aur/windblog-admin/windblog-admin package-root/usr/bin/windblog-admin
+          install -Dm644 packaging/aur/windblog-admin/windblog-admin.desktop package-root/usr/share/applications/windblog-admin.desktop
+          install -Dm644 LICENSE package-root/usr/share/licenses/windblog-admin/LICENSE
+          install -Dm644 web/icons/Icon-512.png package-root/usr/share/pixmaps/windblog-admin.png
+          tar -czf windblog-admin-root.tar.gz -C package-root .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windblog-admin-root
+          path: windblog-admin-root.tar.gz
+          if-no-files-found: error
+
+  build-deb:
+    runs-on: ubuntu-22.04
+    needs: build-linux-bundle
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windblog-admin-root
+          path: stage
+      - name: Extract install tree
+        run: mkdir stage-root && tar -xzf stage/windblog-admin-root.tar.gz -C stage-root
+      - name: Build Debian package
+        env:
+          APP_VERSION: ${{ needs.build-linux-bundle.outputs.version }}
+        run: |
+          mkdir -p stage-root/DEBIAN dist
+          cat > stage-root/DEBIAN/control <<EOF
+          Package: windblog-admin
+          Version: ${APP_VERSION}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Bili_Wind
+          Depends: libgtk-3-0, libsecret-1-0
+          Description: Flutter desktop administration client for WindBlog
+          EOF
+          dpkg-deb --root-owner-group --build stage-root "dist/windblog-admin_${APP_VERSION}_amd64.deb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windblog-admin-deb-${{ needs.build-linux-bundle.outputs.version }}
+          path: dist/*.deb
+          if-no-files-found: error
+
+  build-rpm:
+    runs-on: ubuntu-22.04
+    needs: build-linux-bundle
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windblog-admin-root
+          path: stage
+      - name: Extract install tree
+        run: mkdir stage-root && tar -xzf stage/windblog-admin-root.tar.gz -C stage-root
+      - name: Install RPM builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+      - name: Build RPM package
+        env:
+          APP_VERSION: ${{ needs.build-linux-bundle.outputs.version }}
+        shell: bash
+        run: |
+          topdir="$PWD/rpmbuild"
+          mkdir -p "$topdir"/{BUILD,BUILDROOT,RPMS,SOURCES/root,SPECS,SRPMS} dist
+          cp -a stage-root/. "$topdir/SOURCES/root/"
+          cat > "$topdir/SPECS/windblog-admin.spec" <<EOF
+          Name: windblog-admin
+          Version: ${APP_VERSION}
+          Release: 1%{?dist}
+          Summary: Flutter desktop administration client for WindBlog
+          License: BSD-3-Clause
+          BuildArch: x86_64
+          Requires: gtk3
+          Requires: libsecret
+
+          %description
+          Flutter desktop administration client for WindBlog.
+
+          %install
+          mkdir -p %{buildroot}
+          cp -a %{_sourcedir}/root/. %{buildroot}/
+
+          %files
+          /opt/windblog-admin
+          /usr/bin/windblog-admin
+          /usr/share/applications/windblog-admin.desktop
+          /usr/share/licenses/windblog-admin/LICENSE
+          /usr/share/pixmaps/windblog-admin.png
+          EOF
+          rpmbuild -bb --define "_topdir $topdir" "$topdir/SPECS/windblog-admin.spec"
+          find "$topdir/RPMS" -type f -name '*.rpm' -exec cp {} dist/ \;
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windblog-admin-rpm-${{ needs.build-linux-bundle.outputs.version }}
+          path: dist/*.rpm
+          if-no-files-found: error
+
+  build-arch:
+    runs-on: ubuntu-22.04
+    needs: build-linux-bundle
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windblog-admin-root
+          path: stage
+      - name: Extract install tree
+        run: mkdir stage-root && tar -xzf stage/windblog-admin-root.tar.gz -C stage-root
+      - name: Build Arch package in Arch Linux container
+        env:
+          APP_VERSION: ${{ needs.build-linux-bundle.outputs.version }}
+        shell: bash
+        run: |
+          mkdir -p arch-build/root
+          cp -a stage-root/. arch-build/root/
+          tar -czf arch-build/windblog-admin-root.tar.gz -C arch-build root
+          checksum="$(sha256sum arch-build/windblog-admin-root.tar.gz | cut -d' ' -f1)"
+          cat > arch-build/PKGBUILD <<EOF
+          pkgname=windblog-admin
+          pkgver=${APP_VERSION}
+          pkgrel=1
+          pkgdesc='Flutter desktop administration client for WindBlog'
+          arch=('x86_64')
+          url='https://github.com/skyhhjmk/windblog_admin_flutter'
+          license=('BSD-3-Clause')
+          depends=('gtk3' 'libsecret')
+          source=('windblog-admin-root.tar.gz')
+          sha256sums=('${checksum}')
+
+          package() {
+            cp -a "\$srcdir/root/." "\$pkgdir/"
+          }
+          EOF
+          docker run --rm -v "$PWD/arch-build:/work" archlinux:latest bash -euc '
+            pacman -Syu --noconfirm --needed base-devel
+            useradd --create-home builder
+            chown -R builder:builder /work
+            su builder -s /bin/bash -c "cd /work && makepkg --clean --noconfirm"
+          '
+          mkdir -p dist
+          cp arch-build/*.pkg.tar.zst dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windblog-admin-arch-${{ needs.build-linux-bundle.outputs.version }}
+          path: dist/*.pkg.tar.zst
+          if-no-files-found: error
+
+  build-appimage:
+    runs-on: ubuntu-22.04
+    needs: build-linux-bundle
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windblog-admin-root
+          path: stage
+      - name: Install AppImage build tools
+        run: sudo apt-get update && sudo apt-get install -y squashfs-tools
+      - name: Build AppImage
+        env:
+          APP_VERSION: ${{ needs.build-linux-bundle.outputs.version }}
+        shell: bash
+        run: |
+          mkdir stage-root appdir dist
+          tar -xzf stage/windblog-admin-root.tar.gz -C stage-root
+          cp -a stage-root/. appdir/
+          cat > appdir/AppRun <<'EOF'
+          #!/bin/sh
+          HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+          exec "$HERE/opt/windblog-admin/windblog_admin_flutter" "$@"
+          EOF
+          chmod 755 appdir/AppRun
+          sed 's/^Exec=.*/Exec=AppRun/' \
+            appdir/usr/share/applications/windblog-admin.desktop \
+            > appdir/windblog-admin.desktop
+          ln -s usr/share/pixmaps/windblog-admin.png appdir/windblog-admin.png
+          ln -s windblog-admin.png appdir/.DirIcon
+          curl --fail --location --retry 3 \
+            --output appimagetool-x86_64.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          chmod 755 appimagetool-x86_64.AppImage
+          mkdir -p dist
+          ARCH=x86_64 VERSION="$APP_VERSION" APPIMAGE_EXTRACT_AND_RUN=1 \
+            ./appimagetool-x86_64.AppImage --no-appstream appdir \
+            "dist/windblog-admin-${APP_VERSION}-x86_64.AppImage"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windblog-admin-appimage-${{ needs.build-linux-bundle.outputs.version }}
+          path: dist/*.AppImage
+          if-no-files-found: error
+
+  attach-release-packages:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-22.04
+    needs: [build-linux-bundle, build-deb, build-rpm, build-arch, build-appimage]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windblog-admin-deb-${{ needs.build-linux-bundle.outputs.version }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: windblog-admin-rpm-${{ needs.build-linux-bundle.outputs.version }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: windblog-admin-arch-${{ needs.build-linux-bundle.outputs.version }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: windblog-admin-appimage-${{ needs.build-linux-bundle.outputs.version }}
+          path: dist
+      - name: Attach packages to GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/* --clobber

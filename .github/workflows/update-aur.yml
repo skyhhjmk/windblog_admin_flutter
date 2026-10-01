@@ -1,0 +1,72 @@
+name: Update AUR package
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/update-aur.yml'
+      - 'assets/**'
+      - 'lib/**'
+      - 'linux/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'packaging/aur/**'
+      - 'web/icons/Icon-512.png'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update-aur:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update package version and source pin
+        id: metadata
+        shell: bash
+        run: |
+          upstream_version="$(sed -n 's/^version: *\([0-9][0-9.]*\)\(+.*\)\{0,1\}$/\1/p' pubspec.yaml | head -n1)"
+          if [[ -z "$upstream_version" ]]; then
+            echo 'Could not read version from pubspec.yaml' >&2
+            exit 1
+          fi
+          pkgver="${upstream_version}.r$(date -u +%Y%m%d).g${GITHUB_SHA::7}"
+          python packaging/aur/update_metadata.py "$pkgver" "$GITHUB_SHA"
+          echo "pkgver=$pkgver" >> "$GITHUB_OUTPUT"
+      - name: Check package metadata
+        run: |
+          bash -n packaging/aur/windblog-admin/PKGBUILD
+          git diff --check
+          grep -F "pkgver = ${{ steps.metadata.outputs.pkgver }}" packaging/aur/windblog-admin/.SRCINFO
+      - name: Push updated package to AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          AUR_KNOWN_HOSTS: ${{ secrets.AUR_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          test -n "$AUR_SSH_PRIVATE_KEY" || { echo 'Missing AUR_SSH_PRIVATE_KEY secret' >&2; exit 1; }
+          test -n "$AUR_KNOWN_HOSTS" || { echo 'Missing AUR_KNOWN_HOSTS secret' >&2; exit 1; }
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$HOME/.ssh/aur"
+          chmod 600 "$HOME/.ssh/aur"
+          printf '%s\n' "$AUR_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          cat >> "$HOME/.ssh/config" <<'EOF'
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+          git clone ssh://aur@aur.archlinux.org/windblog-admin.git "$RUNNER_TEMP/aur"
+          cp -a packaging/aur/windblog-admin/. "$RUNNER_TEMP/aur/"
+          cd "$RUNNER_TEMP/aur"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PKGBUILD .SRCINFO windblog-admin windblog-admin.desktop
+          if git diff --cached --quiet; then
+            echo 'AUR package is already up to date.'
+            exit 0
+          fi
+          git commit -m "Update to ${{ steps.metadata.outputs.pkgver }}"
+          git push origin HEAD:master
