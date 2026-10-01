@@ -186,7 +186,7 @@ jobs:
           }
           EOF
           docker run --rm -v "$PWD/arch-build:/work" archlinux:latest bash -euc '
-            pacman -Syu --noconfirm --needed base-devel
+            pacman -Syu --noconfirm --needed base-devel gtk3 libsecret
             useradd --create-home builder
             chown -R builder:builder /work
             su builder -s /bin/bash -c "cd /work && makepkg --clean --noconfirm"
