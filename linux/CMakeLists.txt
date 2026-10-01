@@ -46,6 +46,8 @@ function(APPLY_STANDARD_SETTINGS TARGET)
   # that emits this deprecation with newer Clang. Keep -Werror for all other
   # diagnostics, but do not fail the Linux build on this third-party warning.
   target_compile_options(${TARGET} PRIVATE -Wno-error=deprecated-literal-operator)
+  # Some plugins pass warning suppression flags unknown to older Clang releases.
+  target_compile_options(${TARGET} PRIVATE -Wno-error=unknown-warning-option)
   target_compile_options(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:-O3>")
   target_compile_definitions(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:NDEBUG>")
 endfunction()
