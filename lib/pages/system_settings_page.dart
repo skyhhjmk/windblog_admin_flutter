@@ -257,15 +257,26 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
               padding: EdgeInsets.all(
                 AdminBreakpoints.isPhone(context) ? 16 : 24,
               ),
-              child: ConfigDynamicForm(
-                key: ValueKey(setting.configKey),
-                schema: setting.uiSchema,
-                initialValues: Map<String, dynamic>.from(
-                  setting.configValue is Map ? setting.configValue : {},
-                ),
-                isFrozen: setting.isFrozen,
-                onSave: (values) => _saveSetting(setting.configKey, values),
-              ),
+              child: setting.configKey == 'analytics_tracking'
+                  ? AnalyticsRegionTrackingEditor(
+                      schema: setting.uiSchema,
+                      initialValues: Map<String, dynamic>.from(
+                        setting.configValue is Map ? setting.configValue : {},
+                      ),
+                      isFrozen: setting.isFrozen,
+                      onSave: (values) =>
+                          _saveSetting(setting.configKey, values),
+                    )
+                  : ConfigDynamicForm(
+                      key: ValueKey(setting.configKey),
+                      schema: setting.uiSchema,
+                      initialValues: Map<String, dynamic>.from(
+                        setting.configValue is Map ? setting.configValue : {},
+                      ),
+                      isFrozen: setting.isFrozen,
+                      onSave: (values) =>
+                          _saveSetting(setting.configKey, values),
+                    ),
             ),
           ),
           const SizedBox(height: 8),
@@ -597,5 +608,181 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
 
   String _getGroupLabel(String g) {
     return g;
+  }
+}
+
+class AnalyticsRegionTrackingEditor extends StatefulWidget {
+  const AnalyticsRegionTrackingEditor({
+    super.key,
+    required this.schema,
+    required this.initialValues,
+    required this.onSave,
+    required this.isFrozen,
+  });
+
+  final UISchema schema;
+  final Map<String, dynamic> initialValues;
+  final ValueChanged<Map<String, dynamic>> onSave;
+  final bool isFrozen;
+
+  @override
+  State<AnalyticsRegionTrackingEditor> createState() =>
+      _AnalyticsRegionTrackingEditorState();
+}
+
+class _AnalyticsRegionTrackingEditorState
+    extends State<AnalyticsRegionTrackingEditor> {
+  static const _regionLabels = <BlogRegion, String>{
+    BlogRegion.global: '全局默认',
+    BlogRegion.cn: '中国',
+    BlogRegion.us: '美国',
+    BlogRegion.eu: '欧洲',
+    BlogRegion.jp: '日本',
+    BlogRegion.hk: '中国香港',
+    BlogRegion.tw: '中国台湾',
+  };
+
+  String _region = 'global';
+  bool _creatingOverride = false;
+
+  Map<String, dynamic> get _values =>
+      Map<String, dynamic>.from(widget.initialValues);
+
+  Map<String, dynamic> get _regionalValues {
+    final rawRegions = _values['regions'];
+    if (rawRegions is! Map) return {};
+    final rawValue = rawRegions[_region];
+    if (rawValue is! Map) return {};
+    return Map<String, dynamic>.from(rawValue);
+  }
+
+  bool get _hasOverride {
+    final rawRegions = _values['regions'];
+    return rawRegions is Map && rawRegions.containsKey(_region);
+  }
+
+  Map<String, dynamic> _globalValues() {
+    final values = _values;
+    values.remove('regions');
+    return values;
+  }
+
+  @override
+  void didUpdateWidget(covariant AnalyticsRegionTrackingEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValues != widget.initialValues) {
+      _creatingOverride = false;
+    }
+  }
+
+  void _saveGlobal(Map<String, dynamic> globalValues) {
+    final values = _values;
+    values
+      ..remove('regions')
+      ..addAll(globalValues);
+    widget.onSave(values);
+  }
+
+  void _saveRegion(Map<String, dynamic> regionalValues) {
+    final values = _values;
+    final rawRegions = values['regions'];
+    final regions = rawRegions is Map
+        ? Map<String, dynamic>.from(rawRegions)
+        : <String, dynamic>{};
+    regions[_region] = regionalValues;
+    values['regions'] = regions;
+    widget.onSave(values);
+  }
+
+  Future<void> _restoreGlobal() async {
+    final values = _values;
+    final rawRegions = values['regions'];
+    if (rawRegions is Map) {
+      final regions = Map<String, dynamic>.from(rawRegions)..remove(_region);
+      if (regions.isEmpty) {
+        values.remove('regions');
+      } else {
+        values['regions'] = regions;
+      }
+    }
+    setState(() => _creatingOverride = false);
+    widget.onSave(values);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isGlobal = _region == 'global';
+    final hasOverride = _hasOverride || _creatingOverride;
+    final initialValues = isGlobal
+        ? _globalValues()
+        : (_hasOverride ? _regionalValues : _globalValues());
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue: _region,
+          decoration: const InputDecoration(
+            labelText: '配置区域',
+            border: OutlineInputBorder(),
+          ),
+          items: BlogRegion.values
+              .map(
+                (region) => DropdownMenuItem<String>(
+                  value: region.code,
+                  child: Text(_regionLabels[region] ?? region.displayName),
+                ),
+              )
+              .toList(),
+          onChanged: widget.isFrozen
+              ? null
+              : (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _region = value;
+                    _creatingOverride = false;
+                  });
+                },
+        ),
+        const SizedBox(height: 16),
+        if (!isGlobal && !hasOverride) ...[
+          const AlertBanner(message: '此区域当前沿用全局默认追踪配置。', type: AlertType.info),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: widget.isFrozen
+                ? null
+                : () => setState(() => _creatingOverride = true),
+            icon: const Icon(Icons.add),
+            label: const Text('复制全局配置并独立编辑'),
+          ),
+        ] else ...[
+          if (!isGlobal)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  const Text('此区域使用独立追踪配置。'),
+                  OutlinedButton.icon(
+                    onPressed: widget.isFrozen ? null : _restoreGlobal,
+                    icon: const Icon(Icons.undo, size: 18),
+                    label: const Text('恢复继承全局配置'),
+                  ),
+                ],
+              ),
+            ),
+          ConfigDynamicForm(
+            key: ValueKey('analytics-$_region-$hasOverride'),
+            schema: widget.schema,
+            initialValues: initialValues,
+            isFrozen: widget.isFrozen,
+            onSave: isGlobal ? _saveGlobal : _saveRegion,
+          ),
+        ],
+      ],
+    );
   }
 }
