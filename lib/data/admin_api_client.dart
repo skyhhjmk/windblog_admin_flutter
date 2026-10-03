@@ -1478,6 +1478,70 @@ class AdminApiClient {
     return PaginatedAuditLogResult.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<Map<String, dynamic>> getHoneypotStats({
+    String? from,
+    String? to,
+  }) async {
+    final query = <String, String>{};
+    if (from != null) query['from'] = from;
+    if (to != null) query['to'] = to;
+    final response = await _get(
+      '/api/admin/security/honeypot/stats',
+      query: query,
+    );
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<PageResult<Map<String, dynamic>>> listHoneypotEvents({
+    int page = 1,
+    int pageSize = 20,
+    String? ruleKey,
+    String? action,
+    String? clientIp,
+    String? from,
+    String? to,
+  }) async {
+    final query = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+    if (ruleKey != null && ruleKey.isNotEmpty) query['ruleKey'] = ruleKey;
+    if (action != null && action.isNotEmpty) query['action'] = action;
+    if (clientIp != null && clientIp.isNotEmpty) query['clientIp'] = clientIp;
+    if (from != null) query['from'] = from;
+    if (to != null) query['to'] = to;
+    final response = await _get(
+      '/api/admin/security/honeypot/events',
+      query: query,
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(response.body)),
+      (item) => item,
+    );
+  }
+
+  Future<Map<String, dynamic>> getHoneypotEventDetail(int id) async {
+    final response = await _get('/api/admin/security/honeypot/events/$id');
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<List<Map<String, dynamic>>> listHoneypotRules() async {
+    final response = await _get('/api/admin/security/honeypot/rules');
+    final map = _map(jsonDecode(response.body));
+    return (map['items'] as List<dynamic>? ?? [])
+        .map((item) => _map(item))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> updateHoneypotRule({
+    required String ruleKey,
+    required bool enabled,
+    required String action,
+  }) async {
+    final response = await _put(
+      '/api/admin/security/honeypot/rules/${Uri.encodeComponent(ruleKey)}',
+      body: {'enabled': enabled, 'action': action},
+    );
+    return _map(jsonDecode(response.body));
+  }
+
   // ==================== 系统设置 API ====================
 
   Future<List<SystemSetting>> listSystemSettings({String? group}) async {

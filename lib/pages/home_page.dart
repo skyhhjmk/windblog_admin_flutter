@@ -69,7 +69,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<_AdminNavigationItem> get _navigationItems {
-    return const [
+    final items = <_AdminNavigationItem>[
       _AdminNavigationItem(
         labelKey: 'overview',
         fallbackLabel: '概览',
@@ -293,6 +293,18 @@ class _HomePageState extends State<HomePage> {
         submenuParent: '系统设置',
       ),
     ];
+    if (widget.user?.roleName == 'SUPER_ADMIN') {
+      items.add(
+        const _AdminNavigationItem(
+          labelKey: null,
+          fallbackLabel: '蜜罐监控',
+          icon: Icons.shield_outlined,
+          selectedIcon: Icons.shield,
+          submenuParent: '系统运维',
+        ),
+      );
+    }
+    return items;
   }
 
   static const Color brandColor = AdminTheme.brandColor;
@@ -1241,6 +1253,8 @@ class _HomePageState extends State<HomePage> {
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
+      case 31:
+        return HoneypotPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);
     }
