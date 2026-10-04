@@ -1302,6 +1302,11 @@ class AdminApiClient {
     return _map(jsonDecode(res.body));
   }
 
+  Future<Map<String, dynamic>> getImportJob(String jobId) async {
+    final res = await _get('/api/admin/import/jobs/$jobId');
+    return _map(jsonDecode(res.body));
+  }
+
   Future<Map<String, dynamic>> doImport(
     Map<String, dynamic> body, {
     required String stepUpToken,

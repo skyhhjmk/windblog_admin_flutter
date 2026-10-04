@@ -49,6 +49,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
   int _failedDownloads = 0;
   String _overallPhase = '等待开始';
   Map<String, dynamic>? _currentDownload;
+  String? _lastPersistedProgress;
   int _embeddedPage = 1;
   String _embeddedFilter = 'ALL';
 
@@ -62,6 +63,88 @@ class _ImportDataPageState extends State<ImportDataPage> {
   void initState() {
     super.initState();
     _loadStorageClasses();
+    _resumeSavedImportJob();
+  }
+
+  Future<void> _resumeSavedImportJob() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedBaseUrl = prefs.getString('windblog_import_job_base_url');
+    final jobId = prefs.getString('windblog_import_job_id');
+    if (!mounted || jobId == null || savedBaseUrl != widget.api.baseUrl) return;
+    setState(() {
+      _isImporting = true;
+      _logs.add('↻ 正在恢复导入任务 $jobId 的进度...');
+    });
+    _listenImportProgress();
+    final result = await _waitForImportJob(jobId);
+    if (mounted) {
+      setState(() {
+        _isImporting = false;
+        _result = result == null
+            ? '导入状态暂时无法获取，可重新打开页面继续查看'
+            : _formatImportResult(result);
+      });
+    }
+  }
+
+  Future<void> _saveImportJob(String jobId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('windblog_import_job_id', jobId);
+    await prefs.setString('windblog_import_job_base_url', widget.api.baseUrl);
+  }
+
+  Future<void> _clearSavedImportJob() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('windblog_import_job_id');
+    await prefs.remove('windblog_import_job_base_url');
+  }
+
+  String _formatImportResult(Map<String, dynamic> result) {
+    if (result['success'] == true) {
+      return '导入成功！分类 ${result['importedCategories']}，标签 ${result['importedTags']}，文章 ${result['importedPosts']}，链接 ${result['importedLinks']}';
+    }
+    return result['message']?.toString() ?? '导入失败';
+  }
+
+  Future<Map<String, dynamic>?> _waitForImportJob(String jobId) async {
+    while (mounted) {
+      try {
+        final job = await widget.api.getImportJob(jobId);
+        final progress = job['progress'];
+        if (progress is Map) {
+          final key = jsonEncode(progress);
+          if (key != _lastPersistedProgress) {
+            _lastPersistedProgress = key;
+            _handleImportEvent(Map<String, dynamic>.from(progress));
+          }
+        }
+        final status = job['status']?.toString();
+        if (status == 'SUCCEEDED') {
+          final result = job['result'];
+          await _clearSavedImportJob();
+          return result is Map ? Map<String, dynamic>.from(result) : null;
+        }
+        if (status == 'FAILED') {
+          await _clearSavedImportJob();
+          return <String, dynamic>{
+            'success': false,
+            'message': job['error'] ?? '导入失败',
+          };
+        }
+        if (mounted && (status == 'RETRY' || status == 'RUNNING')) {
+          final attempt = job['attempt'] ?? 0;
+          if (_logs.isEmpty || !_logs.last.contains('第 $attempt 次尝试')) {
+            setState(() => _logs.add('导入任务状态：$status（第 $attempt 次尝试）'));
+          }
+        }
+      } catch (_) {
+        if (mounted && _logs.isNotEmpty && !_logs.last.contains('状态查询暂时断开')) {
+          setState(() => _logs.add('导入状态查询暂时断开，正在重试...'));
+        }
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    return null;
   }
 
   Future<void> _loadStorageClasses() async {
@@ -232,7 +315,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
 
     _listenImportProgress();
 
-    final result = await AdminRequestRunner.run<Map<String, dynamic>>(
+    final started = await AdminRequestRunner.run<Map<String, dynamic>>(
       context: context,
       mounted: mounted,
       onAuthError: widget.onAuthError,
@@ -249,14 +332,18 @@ class _ImportDataPageState extends State<ImportDataPage> {
       }, stepUpToken: stepUpToken),
       errorMessageBuilder: (error) => '导入失败：$error',
     );
+    final jobId = started?['jobId']?.toString();
+    Map<String, dynamic>? result;
+    if (jobId != null && jobId.isNotEmpty) {
+      await _saveImportJob(jobId);
+      result = await _waitForImportJob(jobId);
+    }
     if (mounted) {
       setState(() {
         _isImporting = false;
         _result = result == null
-            ? null
-            : result['success'] == true
-            ? '导入成功！分类 ${result['importedCategories']}，标签 ${result['importedTags']}，文章 ${result['importedPosts']}，链接 ${result['importedLinks']}'
-            : result['message']?.toString() ?? '导入失败';
+            ? (started == null ? null : '导入任务状态暂时无法获取，可重新打开页面继续查看')
+            : _formatImportResult(result);
       });
     }
     _importReconnectTimer?.cancel();
