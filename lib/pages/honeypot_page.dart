@@ -10,8 +10,14 @@ class HoneypotPage extends StatefulWidget {
   State<HoneypotPage> createState() => _HoneypotPageState();
 }
 
-class _HoneypotPageState extends State<HoneypotPage> {
+class _HoneypotPageState extends State<HoneypotPage>
+    with SingleTickerProviderStateMixin {
   static const int _pageSize = 20;
+  static const int _eventsTabIndex = 3;
+  late final TabController _tabController = TabController(
+    length: 4,
+    vsync: this,
+  )..addListener(_handleTabChanged);
   final TextEditingController _ipController = TextEditingController();
   DateTime _from = DateTime.now().subtract(const Duration(days: 7));
   DateTime _to = DateTime.now();
@@ -23,6 +29,7 @@ class _HoneypotPageState extends State<HoneypotPage> {
   List<Map<String, dynamic>> _events = [];
   int _total = 0;
   bool _loading = true;
+  late int _activeTabIndex = 0;
   String? _error;
 
   String get _fromIso => _from.toUtc().toIso8601String();
@@ -34,8 +41,16 @@ class _HoneypotPageState extends State<HoneypotPage> {
     _load();
   }
 
+  void _handleTabChanged() {
+    if (_activeTabIndex == _tabController.index) return;
+    setState(() => _activeTabIndex = _tabController.index);
+  }
+
   @override
   void dispose() {
+    _tabController
+      ..removeListener(_handleTabChanged)
+      ..dispose();
     _ipController.dispose();
     super.dispose();
   }
@@ -231,6 +246,173 @@ class _HoneypotPageState extends State<HoneypotPage> {
             icon: const Icon(Icons.date_range),
             label: Text('${_date(_from)} — ${_date(_to)}'),
           ),
+          OutlinedButton.icon(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+            label: const Text('刷新'),
+          ),
+        ],
+      ),
+      body: _loading && _events.isEmpty
+          ? const AdminStatusView.loading(title: '正在加载蜜罐统计')
+          : _error != null && _events.isEmpty
+          ? AdminStatusView.error(
+              title: '加载蜜罐数据失败',
+              message: _error!,
+              action: FilledButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('重试'),
+              ),
+            )
+          : _buildContent(),
+      footer: _activeTabIndex == _eventsTabIndex
+          ? PaginationBar(
+              currentPage: _page,
+              totalPages: (_total / _pageSize).ceil().clamp(1, 999999),
+              totalItems: _total,
+              onPageChanged: (page) {
+                setState(() => _page = page);
+                _load();
+              },
+            )
+          : null,
+    );
+  }
+
+  Widget _buildContent() {
+    final byRule = (_stats['byRule'] as List?) ?? [];
+    final trend = (_stats['trend'] as List?) ?? [];
+    return Column(
+      children: [
+        Card(
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabs: const [
+              Tab(icon: Icon(Icons.shield_outlined), text: '攻击类型统计'),
+              Tab(icon: Icon(Icons.show_chart), text: '每日趋势'),
+              Tab(icon: Icon(Icons.tune), text: '规则配置'),
+              Tab(icon: Icon(Icons.list_alt), text: '攻击事件'),
+            ],
+          ),
+        ),
+        if (_loading) const LinearProgressIndicator(minHeight: 2),
+        const SizedBox(height: 8),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildAttackTypeTab(byRule),
+              _buildDailyTrendTab(trend),
+              _buildRulesTab(),
+              _buildEventsTab(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAttackTypeTab(List<dynamic> byRule) {
+    final maxCount = byRule
+        .map((item) => toInt((item as Map)['count']) ?? 0)
+        .fold<int>(1, (a, b) => a > b ? a : b);
+    return ListView(
+      padding: const EdgeInsets.all(8),
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _metric('命中总数', _stats['total'] ?? 0, Icons.warning_amber),
+            _metric('观察中', _stats['observed'] ?? 0, Icons.visibility_outlined),
+            _metric('已拦截', _stats['blocked'] ?? 0, Icons.block_outlined),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: byRule.isEmpty
+                ? const AdminStatusView.empty(title: '所选时间范围内暂无命中')
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _sectionTitle('按攻击规则统计'),
+                      ...byRule.map((row) {
+                        final map = (row as Map).cast<String, dynamic>();
+                        final key = map['ruleKey']?.toString() ?? '';
+                        final count = toInt(map['count']) ?? 0;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 140,
+                                child: Text(_ruleLabel(key)),
+                              ),
+                              Expanded(
+                                child: LinearProgressIndicator(
+                                  value: count / maxCount,
+                                  minHeight: 9,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              SizedBox(width: 48, child: Text('$count')),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDailyTrendTab(List<dynamic> trend) => ListView(
+    padding: const EdgeInsets.all(8),
+    children: [
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: trend.isEmpty
+              ? const AdminStatusView.empty(title: '所选时间范围内暂无命中')
+              : Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  children: trend.map((row) {
+                    final map = (row as Map).cast<String, dynamic>();
+                    return Chip(
+                      avatar: const Icon(Icons.show_chart, size: 16),
+                      label: Text(
+                        '${(map['day']?.toString() ?? '').split('T').first}: ${map['count']}',
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildRulesTab() => ListView(
+    padding: const EdgeInsets.all(8),
+    children: [
+      Card(
+        child: _rules.isEmpty
+            ? const AdminStatusView.empty(title: '暂无蜜罐规则')
+            : Column(children: _rules.map(_ruleTile).toList()),
+      ),
+    ],
+  );
+
+  Widget _buildEventsTab() => Column(
+    children: [
+      AdminToolbar(
+        children: [
           SizedBox(
             width: 180,
             child: DropdownButtonFormField<String>(
@@ -297,170 +479,61 @@ class _HoneypotPageState extends State<HoneypotPage> {
             icon: const Icon(Icons.search),
             label: const Text('筛选'),
           ),
-          OutlinedButton.icon(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-            label: const Text('刷新'),
-          ),
         ],
       ),
-      body: _loading && _events.isEmpty
-          ? const AdminStatusView.loading(title: '正在加载蜜罐统计')
-          : _error != null && _events.isEmpty
-          ? AdminStatusView.error(
-              title: '加载蜜罐数据失败',
-              message: _error!,
-              action: FilledButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh),
-                label: const Text('重试'),
+      const SizedBox(height: 8),
+      Expanded(
+        child: _events.isEmpty
+            ? const AdminStatusView.empty(title: '当前筛选条件下没有攻击事件')
+            : Card(
+                child: ListView.separated(
+                  itemCount: _events.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final event = _events[index];
+                    final rules = ((event['matchedRules'] as List?) ?? [])
+                        .map((key) => _ruleLabel(key.toString()))
+                        .join('、');
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: event['action'] == 'BLOCK'
+                            ? Colors.red.withValues(alpha: .12)
+                            : Colors.orange.withValues(alpha: .12),
+                        child: Icon(
+                          event['action'] == 'BLOCK'
+                              ? Icons.block
+                              : Icons.visibility,
+                          color: event['action'] == 'BLOCK'
+                              ? Colors.red
+                              : Colors.orange,
+                        ),
+                      ),
+                      title: Text(
+                        '${event['method']} ${event['requestUri']}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${event['clientIp']} · $rules · ${event['createdAt']}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _showEvent(event),
+                    );
+                  },
+                ),
               ),
-            )
-          : _buildContent(),
-      footer: PaginationBar(
-        currentPage: _page,
-        totalPages: (_total / _pageSize).ceil().clamp(1, 999999),
-        totalItems: _total,
-        onPageChanged: (page) {
-          setState(() => _page = page);
-          _load();
-        },
       ),
-    );
-  }
-
-  Widget _buildContent() {
-    final byRule = (_stats['byRule'] as List?) ?? [];
-    final trend = (_stats['trend'] as List?) ?? [];
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _metric('命中总数', _stats['total'] ?? 0, Icons.warning_amber),
-            _metric('观察中', _stats['observed'] ?? 0, Icons.visibility_outlined),
-            _metric('已拦截', _stats['blocked'] ?? 0, Icons.block_outlined),
-          ],
+      const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          '请求样本保留 30 天，Cookie 等字段按原样保存；查看样本仅限超级管理员。',
+          style: TextStyle(fontSize: 12, color: Colors.orange),
         ),
-        const SizedBox(height: 18),
-        _sectionTitle('攻击类型统计'),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: byRule.isEmpty
-                ? const Text('所选时间范围内暂无命中')
-                : Column(
-                    children: byRule.map((row) {
-                      final map = (row as Map).cast<String, dynamic>();
-                      final key = map['ruleKey']?.toString() ?? '';
-                      final label = _ruleLabel(key);
-                      final count = toInt(map['count']) ?? 0;
-                      final maxCount = byRule
-                          .map((item) => toInt((item as Map)['count']) ?? 0)
-                          .fold<int>(1, (a, b) => a > b ? a : b);
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
-                        child: Row(
-                          children: [
-                            SizedBox(width: 140, child: Text(label)),
-                            Expanded(
-                              child: LinearProgressIndicator(
-                                value: count / maxCount,
-                                minHeight: 9,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            SizedBox(width: 48, child: Text('$count')),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        _sectionTitle('每日趋势'),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: trend.isEmpty
-                ? const Text('所选时间范围内暂无命中')
-                : Wrap(
-                    spacing: 12,
-                    runSpacing: 10,
-                    children: trend.map((row) {
-                      final map = (row as Map).cast<String, dynamic>();
-                      return Chip(
-                        avatar: const Icon(Icons.show_chart, size: 16),
-                        label: Text(
-                          '${(map['day']?.toString() ?? '').split('T').first}: ${map['count']}',
-                        ),
-                      );
-                    }).toList(),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        _sectionTitle('规则配置'),
-        Card(child: Column(children: _rules.map(_ruleTile).toList())),
-        const SizedBox(height: 14),
-        _sectionTitle('攻击事件'),
-        if (_events.isEmpty)
-          const AdminStatusView.empty(title: '当前筛选条件下没有攻击事件')
-        else
-          Card(
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _events.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final event = _events[index];
-                final rules = ((event['matchedRules'] as List?) ?? [])
-                    .map((key) => _ruleLabel(key.toString()))
-                    .join('、');
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: event['action'] == 'BLOCK'
-                        ? Colors.red.withValues(alpha: .12)
-                        : Colors.orange.withValues(alpha: .12),
-                    child: Icon(
-                      event['action'] == 'BLOCK'
-                          ? Icons.block
-                          : Icons.visibility,
-                      color: event['action'] == 'BLOCK'
-                          ? Colors.red
-                          : Colors.orange,
-                    ),
-                  ),
-                  title: Text(
-                    '${event['method']} ${event['requestUri']}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    '${event['clientIp']} · $rules · ${event['createdAt']}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showEvent(event),
-                );
-              },
-            ),
-          ),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: Text(
-            '请求样本保留 30 天，Cookie 等字段按原样保存；查看样本仅限超级管理员。',
-            style: TextStyle(fontSize: 12, color: Colors.orange),
-          ),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 
   Widget _metric(String title, dynamic value, IconData icon) => SizedBox(
     width: 220,
