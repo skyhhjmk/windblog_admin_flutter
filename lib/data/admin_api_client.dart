@@ -1294,7 +1294,7 @@ class AdminApiClient {
     required String stepUpToken,
   }) async {
     final res = await _post(
-      '/api/admin/import/execute',
+      '/api/admin/import/execute-async',
       body: body,
       stepUpToken: stepUpToken,
       idempotencyKey: _newIdempotencyKey(),
