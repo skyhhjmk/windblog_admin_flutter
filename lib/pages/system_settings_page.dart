@@ -341,7 +341,12 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         ? Map<String, dynamic>.from(setting.configValue as Map)
         : <String, dynamic>{};
     await Clipboard.setData(
-      ClipboardData(text: const JsonEncoder.withIndent('  ').convert(value)),
+      ClipboardData(
+        text: const JsonEncoder.withIndent('  ').convert({
+          'configKey': setting.configKey,
+          'configValue': value,
+        }),
+      ),
     );
     if (mounted) {
       AdminFeedback.showSnackBar(
@@ -369,11 +374,14 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       final decoded = jsonDecode(text);
       if (decoded is! Map) throw const FormatException('JSON 顶层必须是对象');
       final object = Map<String, dynamic>.from(decoded);
-      if (object['configKey'] != null &&
-          object['configKey'].toString() != setting.configKey) {
+      final isEnvelope = object['configKey'] != null &&
+          object.containsKey('configValue');
+      if (isEnvelope && object['configKey'].toString() != setting.configKey) {
         throw const FormatException('剪贴板中的配置项与当前配置项不匹配');
       }
-      final payload = object.containsKey('configValue')
+      final legacyEnvelope = object.length == 1 &&
+          object['configValue'] is Map;
+      final payload = isEnvelope || legacyEnvelope
           ? object['configValue']
           : object;
       if (payload is! Map) throw const FormatException('配置内容必须是 JSON 对象');

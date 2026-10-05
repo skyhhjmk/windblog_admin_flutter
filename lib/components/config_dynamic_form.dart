@@ -47,6 +47,35 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
     }
   }
 
+  dynamic _fieldValue(String key) {
+    dynamic value = _values;
+    for (final part in key.split('.')) {
+      if (value is! Map) return null;
+      value = value[part];
+    }
+    return value;
+  }
+
+  void _setFieldValue(String key, dynamic value) {
+    final parts = key.split('.');
+    Map<String, dynamic> target = _values;
+    for (final part in parts.take(parts.length - 1)) {
+      final child = target[part];
+      if (child is Map<String, dynamic>) {
+        target = child;
+      } else if (child is Map) {
+        final copied = Map<String, dynamic>.from(child);
+        target[part] = copied;
+        target = copied;
+      } else {
+        final created = <String, dynamic>{};
+        target[part] = created;
+        target = created;
+      }
+    }
+    target[parts.last] = value;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -139,7 +168,8 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
           readOnly: widget.isFrozen,
           onSaved: (value) => _values[field.key] = value ?? '',
           validator: field.required
-              ? (value) => (value == null || value.trim().isEmpty) ? '该项必填' : null
+              ? (value) =>
+                    (value == null || value.trim().isEmpty) ? '该项必填' : null
               : null,
         );
       case 'number':
@@ -211,14 +241,14 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
       case 'input':
       default:
         return TextFormField(
-          initialValue: _values[field.key]?.toString(),
+          initialValue: _fieldValue(field.key)?.toString(),
           decoration: InputDecoration(
             labelText: field.label,
             helperText: field.hint,
             border: const OutlineInputBorder(),
           ),
           readOnly: widget.isFrozen,
-          onSaved: (val) => _values[field.key] = val,
+          onSaved: (val) => _setFieldValue(field.key, val),
           validator: field.required
               ? (val) => (val == null || val.isEmpty) ? '该项必填' : null
               : null,
@@ -322,11 +352,8 @@ class _SynonymRuleEditorState extends State<SynonymRuleEditor> {
                       children: [
                         Text(
                           '同义词规则',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -376,8 +403,8 @@ class _SynonymRuleEditorState extends State<SynonymRuleEditor> {
               double availableWidth = constraints.maxWidth;
               double cardWidth = availableWidth;
               if (columnCount > 1) {
-                cardWidth = (availableWidth - gap * (columnCount - 1)) /
-                    columnCount;
+                cardWidth =
+                    (availableWidth - gap * (columnCount - 1)) / columnCount;
               }
 
               double maxCardWidth = 560;
@@ -556,9 +583,7 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
                 const SizedBox(width: 12),
                 Chip(
                   avatar: Icon(
-                    mode == 'mapping'
-                        ? Icons.arrow_right_alt
-                        : Icons.sync_alt,
+                    mode == 'mapping' ? Icons.arrow_right_alt : Icons.sync_alt,
                     size: 18,
                     color: accentColor,
                   ),
@@ -618,9 +643,7 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
                             color: accentColor,
                           ),
                         ),
-                        Expanded(
-                          child: _buildTargetPreview(accentColor),
-                        ),
+                        Expanded(child: _buildTargetPreview(accentColor)),
                       ],
                     );
                   }
@@ -745,22 +768,17 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
     required bool alignCenter,
   }) {
     return Column(
-      crossAxisAlignment:
-          alignCenter ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      crossAxisAlignment: alignCenter
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: TextStyle(
-            color: accentColor,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: accentColor, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         if (terms.isEmpty)
-          Text(
-            '暂无词条',
-            style: TextStyle(color: Colors.grey.shade600),
-          )
+          Text('暂无词条', style: TextStyle(color: Colors.grey.shade600))
         else
           Wrap(
             alignment: alignCenter ? WrapAlignment.center : WrapAlignment.start,
@@ -792,10 +810,7 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: accentColor.withValues(alpha: 0.16)),
         ),
-        child: Text(
-          '目标词待填写',
-          style: TextStyle(color: Colors.grey.shade600),
-        ),
+        child: Text('目标词待填写', style: TextStyle(color: Colors.grey.shade600)),
       );
     }
 
@@ -811,10 +826,7 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
         children: [
           Text(
             '目标词',
-            style: TextStyle(
-              color: accentColor,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: accentColor, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Container(

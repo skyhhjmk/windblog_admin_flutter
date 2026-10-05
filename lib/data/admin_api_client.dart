@@ -1051,6 +1051,7 @@ class AdminApiClient {
   }) async {
     final res = await _get(
       '/api/admin/users',
+      noCache: true,
       query: {
         'page': '$page',
         'pageSize': '$pageSize',
@@ -1063,22 +1064,31 @@ class AdminApiClient {
 
   Future<UserListItem> updateUser(
     int id, {
+    String? username,
     String? email,
     String? avatar,
     String? nickname,
     String? phone,
     int? status,
     String? roleName,
+    String? password,
   }) async {
     final payload = <String, dynamic>{};
+    if (username != null) payload['username'] = username;
     if (email != null) payload['email'] = email;
     if (avatar != null) payload['avatar'] = avatar;
     if (nickname != null) payload['nickname'] = nickname;
     if (phone != null) payload['phone'] = phone;
     if (status != null) payload['status'] = status;
     if (roleName != null) payload['roleName'] = roleName;
+    if (password != null && password.isNotEmpty) payload['password'] = password;
     final res = await _put('/api/admin/users/$id', body: payload);
-    return UserListItem.fromMap(_map(jsonDecode(res.body)));
+    final updated = UserListItem.fromMap(_map(jsonDecode(res.body)));
+    final expectedUsername = username?.trim();
+    if (expectedUsername != null && updated.username != expectedUsername) {
+      throw Exception('服务器未保存新用户名，请确认管理后台服务已更新');
+    }
+    return updated;
   }
 
   // ==================== 钱包管理 API ====================
@@ -1530,7 +1540,7 @@ class AdminApiClient {
   Future<List<Map<String, dynamic>>> listHoneypotRules() async {
     final response = await _get('/api/admin/security/honeypot/rules');
     final map = _map(jsonDecode(response.body));
-    return (map['items'] as List<dynamic>? ?? [])
+    return (asDynamicList(map['items']) ?? [])
         .map((item) => _map(item))
         .toList();
   }
@@ -1551,7 +1561,11 @@ class AdminApiClient {
 
   Future<List<SystemSetting>> listSystemSettings({String? group}) async {
     final query = {if (group != null && group.isNotEmpty) 'group': group};
-    final res = await _get('/api/admin/settings', query: query);
+    final res = await _get(
+      '/api/admin/settings',
+      query: query,
+      authFailureAsSessionExpired: false,
+    );
     final map = _map(jsonDecode(res.body));
     final list = (map['data'] as List<dynamic>? ?? []);
     return list.map((e) => SystemSetting.fromMap(_map(e))).toList();
@@ -1568,6 +1582,7 @@ class AdminApiClient {
       body: {'configValue': value, 'reason': reason},
       stepUpToken: stepUpToken,
       idempotencyKey: _newIdempotencyKey(),
+      authFailureAsSessionExpired: false,
     );
     final map = _map(jsonDecode(res.body));
     return SystemSetting.fromMap(_map(map['data']));
@@ -1594,14 +1609,20 @@ class AdminApiClient {
   Future<List<SystemSettingHistory>> listSystemSettingHistory(
     String key,
   ) async {
-    final res = await _get('/api/admin/settings/$key/history');
+    final res = await _get(
+      '/api/admin/settings/$key/history',
+      authFailureAsSessionExpired: false,
+    );
     final map = _map(jsonDecode(res.body));
     final list = (map['data'] as List<dynamic>? ?? []);
     return list.map((e) => SystemSettingHistory.fromMap(_map(e))).toList();
   }
 
   Future<SystemSetting> getSystemSetting(String key) async {
-    final res = await _get('/api/admin/settings/$key');
+    final res = await _get(
+      '/api/admin/settings/$key',
+      authFailureAsSessionExpired: false,
+    );
     final map = _map(jsonDecode(res.body));
     return SystemSetting.fromMap(_map(map['data']));
   }
@@ -2290,15 +2311,27 @@ class AdminApiClient {
 
   // ==================== Internal Helpers ====================
 
-  Future<http.Response> _get(String path, {Map<String, String>? query}) async {
+  Future<http.Response> _get(
+    String path, {
+    Map<String, String>? query,
+    bool noCache = false,
+    bool authFailureAsSessionExpired = true,
+  }) async {
     final requestBaseUrl = baseUrl;
     final uri = Uri.parse(
       '$requestBaseUrl$path',
     ).replace(queryParameters: query);
     return _sendWithSessionRecovery(
       requestBaseUrl: requestBaseUrl,
-      send: () => http.get(uri, headers: _headers(true)),
-      authFailureAsSessionExpired: true,
+      send: () => http.get(
+        uri,
+        headers: {
+          ..._headers(true),
+          if (noCache) 'Cache-Control': 'no-cache, no-store, max-age=0',
+          if (noCache) 'Pragma': 'no-cache',
+        },
+      ),
+      authFailureAsSessionExpired: authFailureAsSessionExpired,
     );
   }
 
@@ -2337,6 +2370,7 @@ class AdminApiClient {
     Map<String, String>? query,
     String? stepUpToken,
     String? idempotencyKey,
+    bool authFailureAsSessionExpired = true,
   }) async {
     final requestBaseUrl = baseUrl;
     final uri = Uri.parse(
@@ -2353,7 +2387,7 @@ class AdminApiClient {
         ),
         body: jsonEncode(body),
       ),
-      authFailureAsSessionExpired: true,
+      authFailureAsSessionExpired: authFailureAsSessionExpired,
     );
   }
 

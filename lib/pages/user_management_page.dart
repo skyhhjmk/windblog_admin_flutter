@@ -86,12 +86,14 @@ class _UserManagementPageState extends State<UserManagementPage> {
     try {
       await widget.api.updateUser(
         user.id,
+        username: result.username,
         email: result.email,
         avatar: result.avatar,
         nickname: result.nickname,
         phone: result.phone,
         status: result.status,
         roleName: result.role,
+        password: result.password,
       );
       await _loadUsers();
       if (mounted) {
@@ -264,6 +266,8 @@ class _UserManagementDialog extends StatefulWidget {
 
 class _UserManagementDialogState extends State<_UserManagementDialog> {
   late final TextEditingController emailCtrl;
+  late final TextEditingController usernameCtrl;
+  late final TextEditingController passwordCtrl;
   late final TextEditingController avatarCtrl;
   late final TextEditingController nicknameCtrl;
   late final TextEditingController phoneCtrl;
@@ -293,6 +297,8 @@ class _UserManagementDialogState extends State<_UserManagementDialog> {
   void initState() {
     super.initState();
     emailCtrl = TextEditingController(text: widget.user.email);
+    usernameCtrl = TextEditingController(text: widget.user.username);
+    passwordCtrl = TextEditingController();
     avatarCtrl = TextEditingController(text: widget.user.avatar);
     nicknameCtrl = TextEditingController(text: widget.user.nickname ?? '');
     phoneCtrl = TextEditingController(text: widget.user.phone ?? '');
@@ -304,6 +310,8 @@ class _UserManagementDialogState extends State<_UserManagementDialog> {
   @override
   void dispose() {
     emailCtrl.dispose();
+    usernameCtrl.dispose();
+    passwordCtrl.dispose();
     avatarCtrl.dispose();
     nicknameCtrl.dispose();
     phoneCtrl.dispose();
@@ -315,12 +323,14 @@ class _UserManagementDialogState extends State<_UserManagementDialog> {
       context,
       _UserManagementDialogResult(
         profile: _UserEditResult(
+          usernameCtrl.text.trim(),
           emailCtrl.text.trim(),
           avatarCtrl.text.trim(),
           nicknameCtrl.text.trim(),
           phoneCtrl.text.trim(),
           status,
           roleName,
+          passwordCtrl.text,
         ),
       ),
     );
@@ -359,6 +369,22 @@ class _UserManagementDialogState extends State<_UserManagementDialog> {
               children: [
                 Text('编辑账号资料', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 16),
+                TextField(
+                  controller: usernameCtrl,
+                  decoration: const InputDecoration(labelText: '用户名'),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: passwordCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: '强制设置新密码（留空不修改）',
+                    helperText: '设置后将立即替换该用户当前密码，长度 6-32 位',
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 14),
                 TextField(
                   controller: emailCtrl,
                   decoration: InputDecoration(labelText: t(context, 'email')),
@@ -1125,18 +1151,22 @@ class _UserManagementDialogResult {
 
 class _UserEditResult {
   _UserEditResult(
+    this.username,
     this.email,
     this.avatar,
     this.nickname,
     this.phone,
     this.status,
     this.role,
+    this.password,
   );
 
+  final String username;
   final String email;
   final String avatar;
   final String nickname;
   final String phone;
   final int status;
   final String role;
+  final String password;
 }

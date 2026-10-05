@@ -29,8 +29,13 @@ class _HoneypotPageState extends State<HoneypotPage>
   List<Map<String, dynamic>> _events = [];
   int _total = 0;
   bool _loading = true;
+  bool _statsLoading = true;
+  bool _rulesLoading = true;
+  bool _eventsLoading = true;
   late int _activeTabIndex = 0;
-  String? _error;
+  String? _statsError;
+  String? _rulesError;
+  String? _eventsError;
 
   String get _fromIso => _from.toUtc().toIso8601String();
   String get _toIso => _to.toUtc().toIso8601String();
@@ -58,36 +63,86 @@ class _HoneypotPageState extends State<HoneypotPage>
   Future<void> _load() async {
     setState(() {
       _loading = true;
-      _error = null;
     });
     try {
-      final results = await Future.wait<dynamic>([
-        widget.api.getHoneypotStats(from: _fromIso, to: _toIso),
-        widget.api.listHoneypotRules(),
-        widget.api.listHoneypotEvents(
-          page: _page,
-          pageSize: _pageSize,
-          ruleKey: _ruleFilter,
-          action: _actionFilter,
-          clientIp: _ipController.text.trim(),
-          from: _fromIso,
-          to: _toIso,
-        ),
-      ]);
-      if (!mounted) return;
-      final events = results[2] as PageResult<Map<String, dynamic>>;
-      setState(() {
-        _stats = results[0] as Map<String, dynamic>;
-        _rules = results[1] as List<Map<String, dynamic>>;
-        _events = events.items;
-        _total = events.total;
-      });
+      await Future.wait([_loadStats(), _loadRules(), _loadEvents()]);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadStats() async {
+    setState(() {
+      _statsLoading = true;
+      _statsError = null;
+    });
+    try {
+      final stats = await widget.api.getHoneypotStats(
+        from: _fromIso,
+        to: _toIso,
+      );
+      if (mounted) {
+        setState(() {
+          _stats = {
+            ...stats,
+            'byRule': _asList(stats['byRule']),
+            'trend': _asList(stats['trend']),
+          };
+        });
+      }
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _statsError = error.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _statsLoading = false);
+    }
+  }
+
+  Future<void> _loadRules() async {
+    setState(() {
+      _rulesLoading = true;
+      _rulesError = null;
+    });
+    try {
+      final rules = await widget.api.listHoneypotRules();
+      if (mounted) setState(() => _rules = rules);
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) setState(() => _rulesError = error.toString());
+    } finally {
+      if (mounted) setState(() => _rulesLoading = false);
+    }
+  }
+
+  Future<void> _loadEvents() async {
+    setState(() {
+      _eventsLoading = true;
+      _eventsError = null;
+    });
+    try {
+      final result = await widget.api.listHoneypotEvents(
+        page: _page,
+        pageSize: _pageSize,
+        ruleKey: _ruleFilter,
+        action: _actionFilter,
+        clientIp: _ipController.text.trim(),
+        from: _fromIso,
+        to: _toIso,
+      );
+      if (mounted) {
+        setState(() {
+          _events = result.items;
+          _total = result.total;
+        });
+      }
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) setState(() => _eventsError = error.toString());
+    } finally {
+      if (mounted) setState(() => _eventsLoading = false);
     }
   }
 
@@ -126,7 +181,7 @@ class _HoneypotPageState extends State<HoneypotPage>
         enabled: enabled ?? rule['enabled'] == true,
         action: action ?? rule['action']?.toString() ?? 'OBSERVE',
       );
-      await _load();
+      await _loadRules();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
@@ -169,10 +224,7 @@ class _HoneypotPageState extends State<HoneypotPage>
                     '请求',
                     '${detail['method']} ${detail['requestUri']}',
                   ),
-                  _detailLine(
-                    '规则',
-                    ((detail['matchedRules'] as List?) ?? []).join(', '),
-                  ),
+                  _detailLine('规则', _asList(detail['matchedRules']).join(', ')),
                   _detailLine('动作', _actionLabel(detail['action']?.toString())),
                   const SizedBox(height: 14),
                   const Text(
@@ -253,19 +305,7 @@ class _HoneypotPageState extends State<HoneypotPage>
           ),
         ],
       ),
-      body: _loading && _events.isEmpty
-          ? const AdminStatusView.loading(title: '正在加载蜜罐统计')
-          : _error != null && _events.isEmpty
-          ? AdminStatusView.error(
-              title: '加载蜜罐数据失败',
-              message: _error!,
-              action: FilledButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh),
-                label: const Text('重试'),
-              ),
-            )
-          : _buildContent(),
+      body: _buildContent(),
       footer: _activeTabIndex == _eventsTabIndex
           ? PaginationBar(
               currentPage: _page,
@@ -273,7 +313,7 @@ class _HoneypotPageState extends State<HoneypotPage>
               totalItems: _total,
               onPageChanged: (page) {
                 setState(() => _page = page);
-                _load();
+                _loadEvents();
               },
             )
           : null,
@@ -281,8 +321,8 @@ class _HoneypotPageState extends State<HoneypotPage>
   }
 
   Widget _buildContent() {
-    final byRule = (_stats['byRule'] as List?) ?? [];
-    final trend = (_stats['trend'] as List?) ?? [];
+    final byRule = _asList(_stats['byRule']);
+    final trend = _asList(_stats['trend']);
     return Column(
       children: [
         Card(
@@ -318,6 +358,12 @@ class _HoneypotPageState extends State<HoneypotPage>
     final maxCount = byRule
         .map((item) => toInt((item as Map)['count']) ?? 0)
         .fold<int>(1, (a, b) => a > b ? a : b);
+    if (_statsLoading && _stats.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_statsError != null && _stats.isEmpty) {
+      return _tabError(_statsError!, _loadStats);
+    }
     return ListView(
       padding: const EdgeInsets.all(8),
       children: [
@@ -372,42 +418,92 @@ class _HoneypotPageState extends State<HoneypotPage>
     );
   }
 
-  Widget _buildDailyTrendTab(List<dynamic> trend) => ListView(
-    padding: const EdgeInsets.all(8),
-    children: [
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: trend.isEmpty
-              ? const AdminStatusView.empty(title: '所选时间范围内暂无命中')
-              : Wrap(
-                  spacing: 12,
-                  runSpacing: 10,
-                  children: trend.map((row) {
-                    final map = (row as Map).cast<String, dynamic>();
-                    return Chip(
-                      avatar: const Icon(Icons.show_chart, size: 16),
-                      label: Text(
-                        '${(map['day']?.toString() ?? '').split('T').first}: ${map['count']}',
-                      ),
-                    );
-                  }).toList(),
+  Widget _buildDailyTrendTab(List<dynamic> trend) {
+    if (_statsLoading && _stats.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_statsError != null && _stats.isEmpty) {
+      return _tabError(_statsError!, _loadStats);
+    }
+    final counts = <String, int>{};
+    for (final item in trend) {
+      if (item is! Map) continue;
+      final row = item.cast<String, dynamic>();
+      final day = _normalizeDay(row['day']?.toString() ?? '');
+      if (day.isNotEmpty) counts[day] = toInt(row['count']) ?? 0;
+    }
+    final start = DateTime(_from.year, _from.month, _from.day);
+    final end = DateTime(_to.year, _to.month, _to.day);
+    final points = <_TrendPoint>[];
+    for (
+      var day = start;
+      !day.isAfter(end);
+      day = day.add(const Duration(days: 1))
+    ) {
+      final label = _date(day);
+      points.add(_TrendPoint(label, counts[label] ?? 0));
+    }
+    final hasHits = points.any((point) => point.count > 0);
+    return ListView(
+      padding: const EdgeInsets.all(8),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionTitle('每日攻击命中'),
+                SizedBox(
+                  height: 280,
+                  width: double.infinity,
+                  child: CustomPaint(
+                    painter: _DailyTrendPainter(
+                      points: points,
+                      color: Theme.of(context).colorScheme.primary,
+                      labelColor: Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant,
+                      gridColor: Theme.of(context).dividerColor,
+                    ),
+                  ),
                 ),
+                if (!hasHits)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Center(child: Text('所选时间范围内暂无命中')),
+                  ),
+                if (_statsError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('刷新失败：${_statsError!}'),
+                  ),
+              ],
+            ),
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 
-  Widget _buildRulesTab() => ListView(
-    padding: const EdgeInsets.all(8),
-    children: [
-      Card(
-        child: _rules.isEmpty
-            ? const AdminStatusView.empty(title: '暂无蜜罐规则')
-            : Column(children: _rules.map(_ruleTile).toList()),
-      ),
-    ],
-  );
+  Widget _buildRulesTab() {
+    if (_rulesLoading && _rules.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_rulesError != null && _rules.isEmpty) {
+      return _tabError(_rulesError!, _loadRules);
+    }
+    return ListView(
+      padding: const EdgeInsets.all(8),
+      children: [
+        Card(
+          child: _rules.isEmpty
+              ? const AdminStatusView.empty(title: '暂无蜜罐规则')
+              : Column(children: _rules.map(_ruleTile).toList()),
+        ),
+      ],
+    );
+  }
 
   Widget _buildEventsTab() => Column(
     children: [
@@ -434,7 +530,7 @@ class _HoneypotPageState extends State<HoneypotPage>
                   _ruleFilter = value ?? '';
                   _page = 1;
                 });
-                _load();
+                _loadEvents();
               },
             ),
           ),
@@ -453,7 +549,7 @@ class _HoneypotPageState extends State<HoneypotPage>
                   _actionFilter = value ?? '';
                   _page = 1;
                 });
-                _load();
+                _loadEvents();
               },
             ),
           ),
@@ -467,14 +563,14 @@ class _HoneypotPageState extends State<HoneypotPage>
               ),
               onSubmitted: (_) {
                 setState(() => _page = 1);
-                _load();
+                _loadEvents();
               },
             ),
           ),
           FilledButton.icon(
             onPressed: () {
               setState(() => _page = 1);
-              _load();
+              _loadEvents();
             },
             icon: const Icon(Icons.search),
             label: const Text('筛选'),
@@ -483,7 +579,11 @@ class _HoneypotPageState extends State<HoneypotPage>
       ),
       const SizedBox(height: 8),
       Expanded(
-        child: _events.isEmpty
+        child: _eventsLoading && _events.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : _eventsError != null && _events.isEmpty
+            ? _tabError(_eventsError!, _loadEvents)
+            : _events.isEmpty
             ? const AdminStatusView.empty(title: '当前筛选条件下没有攻击事件')
             : Card(
                 child: ListView.separated(
@@ -491,9 +591,9 @@ class _HoneypotPageState extends State<HoneypotPage>
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final event = _events[index];
-                    final rules = ((event['matchedRules'] as List?) ?? [])
-                        .map((key) => _ruleLabel(key.toString()))
-                        .join('、');
+                    final rules = _asList(
+                      event['matchedRules'],
+                    ).map((key) => _ruleLabel(key.toString())).join('、');
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: event['action'] == 'BLOCK'
@@ -596,6 +696,163 @@ class _HoneypotPageState extends State<HoneypotPage>
 
   String _actionLabel(String? action) => action == 'BLOCK' ? '拦截' : '观察';
 
+  Widget _tabError(String message, Future<void> Function() retry) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, size: 36),
+          const SizedBox(height: 8),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: retry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('重试'),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  List<dynamic> _asList(dynamic value) {
+    if (value is List) return value;
+    if (value is String) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) return decoded;
+      } on FormatException {
+        return const [];
+      }
+    }
+    return const [];
+  }
+
+  String _normalizeDay(String value) {
+    final datePart = value.trim().split(RegExp(r'[T ]')).first;
+    final parsed = DateTime.tryParse(datePart);
+    return parsed == null ? '' : _date(parsed);
+  }
+
   String _date(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}
+
+class _TrendPoint {
+  const _TrendPoint(this.day, this.count);
+
+  final String day;
+  final int count;
+}
+
+class _DailyTrendPainter extends CustomPainter {
+  const _DailyTrendPainter({
+    required this.points,
+    required this.color,
+    required this.labelColor,
+    required this.gridColor,
+  });
+
+  final List<_TrendPoint> points;
+  final Color color;
+  final Color labelColor;
+  final Color gridColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    const left = 42.0;
+    const right = 12.0;
+    const top = 12.0;
+    const bottom = 38.0;
+    final plot = Rect.fromLTRB(
+      left,
+      top,
+      size.width - right,
+      size.height - bottom,
+    );
+    if (plot.width <= 0 || plot.height <= 0) return;
+    final maxCount = points.fold<int>(
+      0,
+      (maximum, point) => point.count > maximum ? point.count : maximum,
+    );
+    final scaleMax = maxCount == 0 ? 1 : maxCount;
+    final textStyle = TextStyle(fontSize: 11, color: labelColor);
+    final gridPaint = Paint()..color = gridColor;
+    for (var i = 0; i <= 4; i++) {
+      final y = plot.top + plot.height * i / 4;
+      canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), gridPaint);
+      final value = (scaleMax * (4 - i) / 4).round();
+      _drawLabel(canvas, '$value', Offset(0, y - 7), textStyle, left - 8);
+    }
+    final path = Path();
+    for (var i = 0; i < points.length; i++) {
+      final x = points.length <= 1
+          ? plot.left + plot.width / 2
+          : plot.left + plot.width * i / (points.length - 1);
+      final y = plot.bottom - plot.height * points[i].count / scaleMax;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    if (points.isEmpty) return;
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    final step = max(1, (points.length / 7).ceil());
+    for (var i = 0; i < points.length; i += step) {
+      final x = points.length <= 1
+          ? plot.left + plot.width / 2
+          : plot.left + plot.width * i / (points.length - 1);
+      final y = plot.bottom - plot.height * points[i].count / scaleMax;
+      canvas.drawCircle(Offset(x, y), 3.5, Paint()..color = color);
+      _drawLabel(
+        canvas,
+        points[i].day.substring(5),
+        Offset(x - 20, plot.bottom + 10),
+        textStyle,
+        42,
+      );
+    }
+    if ((points.length - 1) % step != 0 && points.length > 1) {
+      _drawLabel(
+        canvas,
+        points.last.day.substring(5),
+        Offset(plot.right - 42, plot.bottom + 10),
+        textStyle,
+        42,
+      );
+    }
+  }
+
+  void _drawLabel(
+    Canvas canvas,
+    String value,
+    Offset offset,
+    TextStyle style,
+    double width,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: value, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: width);
+    painter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DailyTrendPainter oldDelegate) =>
+      oldDelegate.points != points ||
+      oldDelegate.color != color ||
+      oldDelegate.labelColor != labelColor ||
+      oldDelegate.gridColor != gridColor;
 }

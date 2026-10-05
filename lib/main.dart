@@ -374,32 +374,51 @@ class _AdminRootPageState extends State<AdminRootPage> {
         _instanceLoginError = null;
       });
     }
+    final candidates = <AdminInstance>[
+      instance,
+      ...InstanceVault.instances.where((saved) => saved.id != instance.id),
+    ];
+    final failures = <String>[];
     try {
-      api.baseUrl = api.normalizeBaseUrl(instance.baseUrl);
-      api.token = null;
-      final token = await api.login(
-        account: instance.account,
-        password: instance.password,
-      );
-      if (generation != _authContextGeneration) return;
-      final prefs = await SharedPreferences.getInstance();
-      if (generation != _authContextGeneration) return;
-      await prefs.setString('admin_active_instance_id', instance.id);
-      await onLogin(
-        api.baseUrl,
-        token,
-        fromSavedInstance: true,
-        authGeneration: generation,
-      );
-      _activeInstanceId = instance.id;
-      _instanceLoginError = null;
-    } catch (error) {
+      for (final candidate in candidates) {
+        if (generation != _authContextGeneration) return;
+        try {
+          api.baseUrl = api.normalizeBaseUrl(candidate.baseUrl);
+          api.token = null;
+          final token = await api.login(
+            account: candidate.account,
+            password: candidate.password,
+          );
+          if (generation != _authContextGeneration) return;
+          final prefs = await SharedPreferences.getInstance();
+          if (generation != _authContextGeneration) return;
+          await prefs.setString('admin_active_instance_id', candidate.id);
+          await onLogin(
+            api.baseUrl,
+            token,
+            fromSavedInstance: true,
+            authGeneration: generation,
+          );
+          if (generation != _authContextGeneration) return;
+          _activeInstanceId = candidate.id;
+          _allowInstanceAutoLogin = true;
+          _instanceLoginError = null;
+          return;
+        } catch (error) {
+          if (generation != _authContextGeneration) return;
+          api.token = null;
+          failures.add('${candidate.name}: $error');
+        }
+      }
+
       if (generation == _authContextGeneration) {
         _allowInstanceAutoLogin = false;
         api.token = null;
         if (mounted) {
           setState(() {
-            _instanceLoginError = '$error';
+            _instanceLoginError = failures.length == 1
+                ? failures.single
+                : '所有已配置实例均登录失败：\n${failures.join('\n')}';
           });
         }
       }
