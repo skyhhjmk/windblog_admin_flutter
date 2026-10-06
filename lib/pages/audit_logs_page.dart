@@ -356,74 +356,76 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
       title: Text(t(context, 'audit_log_details')),
       content: SizedBox(
         width: dialogWidth,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailRow(t(context, 'log_id'), '${item.id}'),
-              _buildDetailRow(t(context, 'entity_type'), item.entityType),
-              _buildDetailRow(t(context, 'entity_id'), item.entityId),
-              _buildDetailRow(t(context, 'action'), item.action),
-              _buildDetailRow(
-                t(context, 'operator'),
-                item.performedByUsername ?? t(context, 'system_unknown'),
-              ),
-              _buildDetailRow(
-                t(context, 'time'),
-                item.createdAtFormatted ?? item.createdAt?.toString() ?? '',
-              ),
-              if (_hasRequestContext(item)) ...[
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDetailRow(t(context, 'log_id'), '${item.id}'),
+                _buildDetailRow(t(context, 'entity_type'), item.entityType),
+                _buildDetailRow(t(context, 'entity_id'), item.entityId),
+                _buildDetailRow(t(context, 'action'), item.action),
+                _buildDetailRow(
+                  t(context, 'operator'),
+                  item.performedByUsername ?? t(context, 'system_unknown'),
+                ),
+                _buildDetailRow(
+                  t(context, 'time'),
+                  item.createdAtFormatted ?? item.createdAt?.toString() ?? '',
+                ),
+                if (_hasRequestContext(item)) ...[
+                  const Divider(height: 32),
+                  Text(
+                    '请求上下文',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow('请求 ID', item.requestId ?? ''),
+                  _buildDetailRow('请求方法', item.requestMethod ?? ''),
+                  _buildDetailRow('请求路径', item.requestPath ?? ''),
+                  _buildDetailRow('客户端 IP', item.clientIp ?? ''),
+                  _buildDetailRow('User-Agent', item.userAgent ?? ''),
+                ],
                 const Divider(height: 32),
+
+                if (isSetting) ...[
+                  _buildCurrentValueSection(),
+                  const SizedBox(height: 24),
+                ],
+
                 Text(
-                  '请求上下文',
+                  '${t(context, 'diff_view')}:',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                _buildDetailRow('请求 ID', item.requestId ?? ''),
-                _buildDetailRow('请求方法', item.requestMethod ?? ''),
-                _buildDetailRow('请求路径', item.requestPath ?? ''),
-                _buildDetailRow('客户端 IP', item.clientIp ?? ''),
-                _buildDetailRow('User-Agent', item.userAgent ?? ''),
-              ],
-              const Divider(height: 32),
-
-              if (isSetting) ...[
-                _buildCurrentValueSection(),
-                const SizedBox(height: 24),
-              ],
-
-              Text(
-                '${t(context, 'diff_view')}:',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              DiffViewer(
-                oldText: const JsonEncoder.withIndent(
-                  '  ',
-                ).convert(item.oldValue),
-                newText: const JsonEncoder.withIndent(
-                  '  ',
-                ).convert(item.newValue),
-              ),
-
-              if (item.extInfo != null && item.extInfo!.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                Text(
-                  'Ext Info (AI Output/Performance):',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                DiffViewer(
+                  oldText: const JsonEncoder.withIndent(
+                    '  ',
+                  ).convert(item.oldValue),
+                  newText: const JsonEncoder.withIndent(
+                    '  ',
+                  ).convert(item.newValue),
                 ),
-                const SizedBox(height: 8),
-                _buildJsonBox(item.extInfo),
-              ],
 
-              const SizedBox(height: 24),
-              _buildValueComparison(
-                item: item,
-                isSetting: isSetting,
-                isNarrow: dialogWidth < 620,
-              ),
-            ],
+                if (item.extInfo != null && item.extInfo!.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Ext Info (AI Output/Performance):',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildJsonBox(item.extInfo),
+                ],
+
+                const SizedBox(height: 24),
+                _buildValueComparison(
+                  item: item,
+                  isSetting: isSetting,
+                  isNarrow: dialogWidth < 620,
+                ),
+              ],
+            ),
           ),
         ),
       ),
