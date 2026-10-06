@@ -1353,8 +1353,9 @@ class AdminApiClient {
     await _delete('/api/admin/comments/$id');
   }
 
-  Future<void> auditComment(int id) async {
-    await _post('/api/admin/comments/$id/audit', body: {});
+  Future<CommentItem> auditComment(int id) async {
+    final res = await _post('/api/admin/comments/$id/audit', body: {});
+    return CommentItem.fromMap(_map(jsonDecode(res.body)));
   }
 
   // ==================== Outbox API ====================

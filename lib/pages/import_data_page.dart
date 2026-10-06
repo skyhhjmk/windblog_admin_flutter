@@ -56,6 +56,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
   bool _importCategories = true;
   bool _importTags = true;
   bool _importPosts = true;
+  bool _importComments = true;
   bool _importLinks = true;
   bool _importMedia = true;
 
@@ -271,6 +272,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
     if (_importCategories) 'categories',
     if (_importTags) 'tags',
     if (_importPosts) 'posts',
+    if (_importComments) 'comments',
     if (_importLinks) 'links',
     if (_importMedia) 'media',
   ];
@@ -684,6 +686,11 @@ class _ImportDataPageState extends State<ImportDataPage> {
               t(context, 'posts'),
               _importPosts,
               (value) => setState(() => _importPosts = value ?? false),
+            ),
+            option(
+              t(context, 'comments'),
+              _importComments,
+              (value) => setState(() => _importComments = value ?? false),
             ),
             option(
               t(context, 'links'),
