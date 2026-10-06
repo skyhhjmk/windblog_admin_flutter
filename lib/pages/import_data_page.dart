@@ -34,6 +34,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
   bool _isTesting = false;
   bool _isAnalyzing = false;
   bool _isImporting = false;
+  bool _isRetryingFailedMedia = false;
   String? _result;
   final List<String> _logs = [];
   final List<Map<String, dynamic>> _recentDownloads = [];
@@ -283,7 +284,7 @@ class _ImportDataPageState extends State<ImportDataPage> {
   }
 
   Future<void> _startImport() async {
-    if (!_validateDatabaseCredentials()) return;
+    if (_isRetryingFailedMedia || !_validateDatabaseCredentials()) return;
     if (_analysisId == null) {
       AdminFeedback.error(context, '请先完成预分析');
       return;
@@ -351,6 +352,43 @@ class _ImportDataPageState extends State<ImportDataPage> {
     _importReconnectTimer?.cancel();
     _importReconnectTimer = null;
     await _importSub?.cancel();
+  }
+
+  Future<void> _batchRetryFailedMedia() async {
+    if (_isRetryingFailedMedia || _isImporting || _isAnalyzing) return;
+    setState(() => _isRetryingFailedMedia = true);
+    final failedMessage = t(context, 'batch_retry_failed');
+    try {
+      await AdminRequestRunner.runVoid(
+        context: context,
+        mounted: mounted,
+        onAuthError: widget.onAuthError,
+        task: () async {
+          final int retriedCount = await widget.api.batchRetryMedia();
+          if (!mounted) return;
+          await showDialog<void>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: Text(t(dialogContext, 'batch_retry_result')),
+              content: Text(
+                '${t(dialogContext, 'retried_count')}: $retriedCount',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(t(dialogContext, 'close')),
+                ),
+              ],
+            ),
+          );
+        },
+        errorMessageBuilder: (error) => '$failedMessage: $error',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRetryingFailedMedia = false);
+      }
+    }
   }
 
   void _listenImportProgress() {
@@ -701,6 +739,49 @@ class _ImportDataPageState extends State<ImportDataPage> {
               t(context, 'media_library_import'),
               _importMedia,
               (value) => setState(() => _importMedia = value ?? false),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFailedMediaRetryCard(BuildContext context) {
+    final bool disabled =
+        _isImporting || _isAnalyzing || _isRetryingFailedMedia;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              t(context, 'retry_failed_import_media'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              t(context, 'retry_failed_import_media_hint'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: disabled ? null : _batchRetryFailedMedia,
+                icon: _isRetryingFailedMedia
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                label: Text(
+                  _isRetryingFailedMedia
+                      ? t(context, 'retrying_failed_media')
+                      : t(context, 'retry_failed_import_media'),
+                ),
+              ),
             ),
           ],
         ),
@@ -1246,6 +1327,8 @@ class _ImportDataPageState extends State<ImportDataPage> {
               const SizedBox(height: 12),
               _buildSelectionCard(context),
               const SizedBox(height: 12),
+              _buildFailedMediaRetryCard(context),
+              const SizedBox(height: 12),
               if (_isImporting || _overallProgress != null)
                 _buildImportProgressCard(context),
               if (_isImporting || _overallProgress != null)
@@ -1293,7 +1376,10 @@ class _ImportDataPageState extends State<ImportDataPage> {
               ],
               const SizedBox(height: 12),
               FilledButton.icon(
-                onPressed: _isImporting || _isAnalyzing ? null : _startImport,
+                onPressed:
+                    _isImporting || _isAnalyzing || _isRetryingFailedMedia
+                    ? null
+                    : _startImport,
                 icon: _isImporting
                     ? const SizedBox(
                         width: 16,

@@ -869,7 +869,7 @@ class AdminApiClient {
   Future<int> batchRetryMedia() async {
     final res = await _post('/api/admin/media/batch-retry', body: {});
     final map = _map(jsonDecode(res.body));
-    return (map['retriedCount'] as num?)?.toInt() ?? 0;
+    return ((map['successCount'] ?? map['retriedCount']) as num?)?.toInt() ?? 0;
   }
 
   Future<MediaItem> getMediaItem(int id) async {
