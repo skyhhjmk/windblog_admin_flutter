@@ -109,7 +109,9 @@ class PostItem {
       version: toInt(map['version']) ?? 0,
       categoryId: toInt(map['categoryId']),
       categoryIds: (asDynamicList(map['categoryIds']) ?? [])
-          .map((e) => toInt(e) ?? 0).where((id) => id > 0).toList(),
+          .map((e) => toInt(e) ?? 0)
+          .where((id) => id > 0)
+          .toList(),
       userName: map['userName']?.toString(),
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
@@ -223,7 +225,9 @@ class PostDetail {
       version: toInt(map['version']) ?? 0,
       categoryId: toInt(map['categoryId']),
       categoryIds: (asDynamicList(map['categoryIds']) ?? [])
-          .map((e) => toInt(e) ?? 0).where((id) => id > 0).toList(),
+          .map((e) => toInt(e) ?? 0)
+          .where((id) => id > 0)
+          .toList(),
       userName: map['userName']?.toString(),
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
@@ -2750,6 +2754,12 @@ class LinkCreateRequest {
     this.seoKeywords,
     this.seoDescription,
     this.type,
+    this.monitoringEnabled,
+    this.monitoringIntervalMinutes,
+    this.hideWhenBacklinkMissing,
+    this.hideWhenOffline,
+    this.monitoringKeywords,
+    this.hideWhenKeywordFraudDetected,
   });
 
   final String name;
@@ -2768,6 +2778,12 @@ class LinkCreateRequest {
   final String? seoKeywords;
   final String? seoDescription;
   final int? type;
+  final bool? monitoringEnabled;
+  final int? monitoringIntervalMinutes;
+  final bool? hideWhenBacklinkMissing;
+  final bool? hideWhenOffline;
+  final String? monitoringKeywords;
+  final bool? hideWhenKeywordFraudDetected;
 
   Map<String, dynamic> toJson() {
     final payload = <String, dynamic>{'name': name, 'url': url};
@@ -2785,6 +2801,22 @@ class LinkCreateRequest {
     if (seoKeywords != null) payload['seoKeywords'] = seoKeywords;
     if (seoDescription != null) payload['seoDescription'] = seoDescription;
     if (type != null) payload['type'] = type;
+    if (monitoringEnabled != null) {
+      payload['monitoringEnabled'] = monitoringEnabled;
+    }
+    if (monitoringIntervalMinutes != null) {
+      payload['monitoringIntervalMinutes'] = monitoringIntervalMinutes;
+    }
+    if (hideWhenBacklinkMissing != null) {
+      payload['hideWhenBacklinkMissing'] = hideWhenBacklinkMissing;
+    }
+    if (hideWhenOffline != null) payload['hideWhenOffline'] = hideWhenOffline;
+    if (monitoringKeywords != null) {
+      payload['monitoringKeywords'] = monitoringKeywords;
+    }
+    if (hideWhenKeywordFraudDetected != null) {
+      payload['hideWhenKeywordFraudDetected'] = hideWhenKeywordFraudDetected;
+    }
 
     return payload;
   }
@@ -2819,6 +2851,13 @@ class AdminLinkItem {
     this.placementDescription,
     this.referencedPostCount = 0,
     this.referenceCount = 0,
+    this.monitoringEnabled = true,
+    this.monitoringIntervalMinutes = 60,
+    this.hideWhenBacklinkMissing = false,
+    this.hideWhenOffline = false,
+    this.monitoringKeywords = '',
+    this.hideWhenKeywordFraudDetected = false,
+    this.keywordFraudStatus = 'UNKNOWN',
     this.createdAt,
   });
 
@@ -2849,6 +2888,13 @@ class AdminLinkItem {
   final String? placementDescription;
   final int referencedPostCount;
   final int referenceCount;
+  final bool monitoringEnabled;
+  final int monitoringIntervalMinutes;
+  final bool hideWhenBacklinkMissing;
+  final bool hideWhenOffline;
+  final String monitoringKeywords;
+  final bool hideWhenKeywordFraudDetected;
+  final String keywordFraudStatus;
   final DateTime? createdAt;
 
   factory AdminLinkItem.fromMap(Map<String, dynamic> map) {
@@ -2880,6 +2926,14 @@ class AdminLinkItem {
       placementDescription: map["placementDescription"]?.toString(),
       referencedPostCount: toInt(map["referencedPostCount"]) ?? 0,
       referenceCount: toInt(map["referenceCount"]) ?? 0,
+      monitoringEnabled: toBool(map["monitoringEnabled"]) ?? true,
+      monitoringIntervalMinutes: toInt(map["monitoringIntervalMinutes"]) ?? 60,
+      hideWhenBacklinkMissing: toBool(map["hideWhenBacklinkMissing"]) ?? false,
+      hideWhenOffline: toBool(map["hideWhenOffline"]) ?? false,
+      monitoringKeywords: map["monitoringKeywords"]?.toString() ?? '',
+      hideWhenKeywordFraudDetected:
+          toBool(map["hideWhenKeywordFraudDetected"]) ?? false,
+      keywordFraudStatus: map["keywordFraudStatus"]?.toString() ?? 'UNKNOWN',
       createdAt: parseDate(map["createdAt"]),
     );
   }
@@ -2926,6 +2980,7 @@ class LinkMonitorLogItem {
     required this.linkId,
     required this.linkName,
     required this.checkTime,
+    required this.checkSource,
     required this.ok,
     required this.loadTimeMs,
     required this.backlinkFound,
@@ -2934,12 +2989,15 @@ class LinkMonitorLogItem {
     required this.nodeId,
     required this.nodeName,
     this.errorMessage,
+    this.keywordFraudDetected = false,
+    this.detectionDetails = const {},
   });
 
   final int id;
   final int linkId;
   final String linkName;
   final DateTime? checkTime;
+  final String checkSource;
   final bool ok;
   final int loadTimeMs;
   final bool backlinkFound;
@@ -2948,6 +3006,8 @@ class LinkMonitorLogItem {
   final String nodeId;
   final String nodeName;
   final String? errorMessage;
+  final bool keywordFraudDetected;
+  final Map<String, dynamic> detectionDetails;
 
   factory LinkMonitorLogItem.fromMap(Map<String, dynamic> map) {
     return LinkMonitorLogItem(
@@ -2955,6 +3015,7 @@ class LinkMonitorLogItem {
       linkId: toInt(map['linkId']) ?? 0,
       linkName: map['linkName']?.toString() ?? '',
       checkTime: parseDate(map['checkTime']),
+      checkSource: map['checkSource']?.toString() ?? 'UNKNOWN',
       ok: toBool(map['ok']) ?? false,
       loadTimeMs: toInt(map['loadTimeMs']) ?? 0,
       backlinkFound: toBool(map['backlinkFound']) ?? false,
@@ -2962,6 +3023,39 @@ class LinkMonitorLogItem {
       checkBatchId: map['checkBatchId']?.toString() ?? '',
       nodeId: map['nodeId']?.toString() ?? '',
       nodeName: map['nodeName']?.toString() ?? '',
+      errorMessage: map['errorMessage']?.toString(),
+      keywordFraudDetected: toBool(map['keywordFraudDetected']) ?? false,
+      detectionDetails: map['detectionDetails'] is Map
+          ? Map<String, dynamic>.from(map['detectionDetails'] as Map)
+          : const {},
+    );
+  }
+}
+
+class LinkCheckJobItem {
+  LinkCheckJobItem({
+    required this.jobId,
+    required this.linkId,
+    required this.status,
+    this.startedAt,
+    this.completedAt,
+    this.errorMessage,
+  });
+
+  final String jobId;
+  final int linkId;
+  final String status;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+  final String? errorMessage;
+
+  factory LinkCheckJobItem.fromMap(Map<String, dynamic> map) {
+    return LinkCheckJobItem(
+      jobId: map['jobId']?.toString() ?? '',
+      linkId: toInt(map['linkId']) ?? 0,
+      status: map['status']?.toString() ?? 'UNKNOWN',
+      startedAt: parseDate(map['startedAt']),
+      completedAt: parseDate(map['completedAt']),
       errorMessage: map['errorMessage']?.toString(),
     );
   }

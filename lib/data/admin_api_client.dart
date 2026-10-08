@@ -560,10 +560,12 @@ class AdminApiClient {
     required int page,
     required int pageSize,
     String? keyword,
+    String sortBy = 'id',
   }) async {
     final query = {
       'page': '$page',
       'pageSize': '$pageSize',
+      'sortBy': sortBy,
       if ((keyword?.isNotEmpty ?? false)) 'keyword': keyword!,
     };
     final res = await _get('/api/admin/posts', query: query);
@@ -1722,11 +1724,13 @@ class AdminApiClient {
     int page = 1,
     int pageSize = 10,
     String? keyword,
+    String sortBy = 'id',
   }) async {
     final query = {
       'page': '$page',
       'pageSize': '$pageSize',
       'categoryId': '$categoryId',
+      'sortBy': sortBy,
       if ((keyword?.isNotEmpty ?? false)) 'keyword': keyword!,
     };
     final res = await _get('/api/admin/posts', query: query);
@@ -1797,10 +1801,23 @@ class AdminApiClient {
     return LinkMetaResponse.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<List<AdminLinkItem>> listLinks() async {
-    final res = await _get('/api/admin/links');
-    final list = jsonDecode(res.body) as List;
-    return list.map((e) => AdminLinkItem.fromMap(_map(e))).toList();
+  Future<PageResult<AdminLinkItem>> listLinks({
+    int page = 1,
+    int pageSize = 20,
+    int? type,
+    int? excludeType,
+  }) async {
+    final query = <String, String>{
+      'page': page.toString(),
+      'pageSize': pageSize.toString(),
+      if (type != null) 'type': type.toString(),
+      if (excludeType != null) 'excludeType': excludeType.toString(),
+    };
+    final res = await _get('/api/admin/links', query: query);
+    return PageResult<AdminLinkItem>.fromMap(
+      _map(jsonDecode(res.body)),
+      AdminLinkItem.fromMap,
+    );
   }
 
   Future<AdminLinkItem?> findArticleLink(String url) async {
@@ -1824,8 +1841,14 @@ class AdminApiClient {
     return list.map((e) => LinkReferenceItem.fromMap(_map(e))).toList();
   }
 
-  Future<void> checkLink(int id) async {
-    await _post('/api/admin/links/$id/check', body: {});
+  Future<LinkCheckJobItem> checkLink(int id) async {
+    final res = await _post('/api/admin/links/$id/check', body: {});
+    return LinkCheckJobItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<LinkCheckJobItem> getLinkCheckJob(int id, String jobId) async {
+    final res = await _get('/api/admin/links/$id/check-jobs/$jobId');
+    return LinkCheckJobItem.fromMap(_map(jsonDecode(res.body)));
   }
 
   Future<void> reviewLinkApplication(

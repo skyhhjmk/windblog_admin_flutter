@@ -39,6 +39,7 @@ class _PostsPageState extends State<PostsPage> {
   List<PostItem> items = [];
   int page = 1;
   int total = 0;
+  String _sortBy = 'id';
 
   bool _isTreeView = false;
   final Map<int, CategoryTreeNode> _categoryTreeCache = {};
@@ -198,6 +199,7 @@ class _PostsPageState extends State<PostsPage> {
       final res = await widget.api.listPosts(
         page: page,
         pageSize: 10,
+        sortBy: _sortBy,
         keyword: keywordCtrl.text.trim().isEmpty
             ? null
             : keywordCtrl.text.trim(),
@@ -767,6 +769,43 @@ class _PostsPageState extends State<PostsPage> {
       filters: AdminToolbar(
         children: [
           searchField,
+          if (!_isTreeView)
+            SizedBox(
+              width: 190,
+              child: DropdownButtonFormField<String>(
+                initialValue: _sortBy,
+                decoration: InputDecoration(
+                  labelText: t(context, 'sort_method'),
+                  isDense: true,
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'id',
+                    child: Text(t(context, 'sort_id_desc')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'updatedAt',
+                    child: Text(t(context, 'sort_updated_desc')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'createdAt',
+                    child: Text(t(context, 'sort_created_desc')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'publishedAt',
+                    child: Text(t(context, 'sort_published_desc')),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null || value == _sortBy) return;
+                  setState(() {
+                    _sortBy = value;
+                    page = 1;
+                  });
+                  load();
+                },
+              ),
+            ),
           FilledButton.icon(
             onPressed: () {
               page = 1;

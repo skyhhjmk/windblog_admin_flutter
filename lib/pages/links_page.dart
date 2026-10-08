@@ -10,57 +10,116 @@ class LinksPage extends StatefulWidget {
   State<LinksPage> createState() => _LinksPageState();
 }
 
-class _LinksPageState extends State<LinksPage> {
+class _LinksPageState extends State<LinksPage>
+    with SingleTickerProviderStateMixin {
+  static const int _linkPageSize = 20;
+
   List<AdminLinkItem> links = [];
   bool loading = false;
+  int _activeTab = 0;
+  int _currentPage = 1;
+  int _totalLinks = 0;
+  int _loadGeneration = 0;
+  final Set<int> _checkingLinkIds = {};
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this)
+      ..addListener(_handleTabChanged);
     _loadLinks();
   }
 
-  Future<void> _loadLinks() async {
-    setState(() => loading = true);
+  @override
+  void dispose() {
+    _tabController.removeListener(_handleTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _handleTabChanged() {
+    final nextTab = _tabController.index;
+    if (_tabController.indexIsChanging || nextTab == _activeTab) {
+      return;
+    }
+    setState(() => _activeTab = nextTab);
+    _loadLinks(page: 1);
+  }
+
+  Future<void> _loadLinks({int? page}) async {
+    final generation = ++_loadGeneration;
+    final requestedPage = page ?? _currentPage;
+    if (mounted) {
+      setState(() => loading = true);
+    }
     try {
-      links = await widget.api.listLinks();
+      var result = await widget.api.listLinks(
+        page: requestedPage,
+        pageSize: _linkPageSize,
+        type: _activeTab == 1 ? 3 : null,
+        excludeType: _activeTab == 0 ? 3 : null,
+      );
+      var effectivePage = requestedPage;
+      final totalPages = result.total == 0
+          ? 1
+          : (result.total + _linkPageSize - 1) ~/ _linkPageSize;
+      if (effectivePage > totalPages) {
+        effectivePage = totalPages;
+        result = await widget.api.listLinks(
+          page: effectivePage,
+          pageSize: _linkPageSize,
+          type: _activeTab == 1 ? 3 : null,
+          excludeType: _activeTab == 0 ? 3 : null,
+        );
+      }
+      if (!mounted || generation != _loadGeneration) {
+        return;
+      }
+      setState(() {
+        links = result.items;
+        _totalLinks = result.total;
+        _currentPage = effectivePage;
+      });
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
-      if (mounted) {
-        AdminFeedback.showSnackBar(context,
+      if (mounted && generation == _loadGeneration) {
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'load_failed')}$e')),
         );
       }
     } finally {
-      if (mounted) setState(() => loading = false);
+      if (mounted && generation == _loadGeneration) {
+        setState(() => loading = false);
+      }
     }
   }
 
   Future<void> _deleteLink(AdminLinkItem link) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: Text(t(context, 'confirm_delete')),
-            content: Text(
-              t(context, 'confirm_delete_link').replaceAll('%s', link.name),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(t(context, 'cancel')),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(t(context, 'delete')),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text(t(context, 'confirm_delete')),
+        content: Text(
+          t(context, 'confirm_delete_link').replaceAll('%s', link.name),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t(context, 'cancel')),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(t(context, 'delete')),
+          ),
+        ],
+      ),
     );
 
     if (confirmed != true) return;
@@ -72,7 +131,8 @@ class _LinksPageState extends State<LinksPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('${t(context, 'delete_failed')}$e')),
         );
       }
@@ -80,17 +140,49 @@ class _LinksPageState extends State<LinksPage> {
   }
 
   Future<void> _checkLink(AdminLinkItem link) async {
+    if (_checkingLinkIds.contains(link.id)) {
+      return;
+    }
+    setState(() => _checkingLinkIds.add(link.id));
     try {
-      await widget.api.checkLink(link.id);
-      await _loadLinks();
+      var job = await widget.api.checkLink(link.id);
       if (mounted) {
-        AdminFeedback.showSnackBar(context, const SnackBar(content: Text('多节点检测已完成')));
+        AdminFeedback.showSnackBar(
+          context,
+          const SnackBar(content: Text('检测任务已提交，正在后台执行')),
+        );
+      }
+      while (mounted && job.status == 'RUNNING') {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (!mounted) {
+          return;
+        }
+        job = await widget.api.getLinkCheckJob(link.id, job.jobId);
+      }
+      if (!mounted) {
+        return;
+      }
+      await _loadLinks(page: _currentPage);
+      if (mounted) {
+        final message = switch (job.status) {
+          'COMPLETED' => '多节点检测已完成',
+          'FAILED' => job.errorMessage ?? '检测失败',
+          _ => '检测状态已刷新',
+        };
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text(message)));
       }
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context, SnackBar(content: Text('检测失败：$error')));
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('检测失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _checkingLinkIds.remove(link.id));
       }
     }
   }
@@ -102,7 +194,7 @@ class _LinksPageState extends State<LinksPage> {
       if (mounted) {
         String message = '申请已拒绝';
         if (approved) {
-          message = '申请已通过，并完成首次检测';
+          message = '申请已通过，首次检测已提交后台执行';
         }
         AdminFeedback.showSnackBar(context, SnackBar(content: Text(message)));
       }
@@ -110,7 +202,10 @@ class _LinksPageState extends State<LinksPage> {
       widget.onAuthError();
     } catch (error) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context, SnackBar(content: Text('审核失败：$error')));
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('审核失败：$error')),
+        );
       }
     }
   }
@@ -129,7 +224,31 @@ class _LinksPageState extends State<LinksPage> {
             content: SizedBox(
               width: 760,
               height: 480,
-              child: _buildMonitorLogList(logs),
+              child: Column(
+                children: [
+                  Card(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    child: const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '检测记录仅保留最近 90 天，超期记录会自动清理。关键词欺诈依据注释、隐藏元素和异常 DOM 等线索判定，可点击记录查看详情。',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(child: _buildMonitorLogList(logs)),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -144,7 +263,10 @@ class _LinksPageState extends State<LinksPage> {
       widget.onAuthError();
     } catch (error) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context, SnackBar(content: Text('加载检测记录失败：$error')));
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('加载检测记录失败：$error')),
+        );
       }
     }
   }
@@ -170,13 +292,112 @@ class _LinksPageState extends State<LinksPage> {
   }
 
   String _buildMonitorLogDescription(LinkMonitorLogItem log) {
+    final sourceLabel = switch (log.checkSource) {
+      'MANUAL' => '手动检测',
+      'AUTOMATIC' => '自动检测',
+      _ => '来源未记录',
+    };
+    final checkTime =
+        log.checkTime?.toLocal().toString().split('.').first ?? '-';
     String description =
-        '节点：${log.nodeId}  状态码：${log.statusCode}  耗时：${log
-        .loadTimeMs}ms';
+        '检测来源：$sourceLabel · 检查时间：$checkTime\n节点：${log.nodeId}  状态码：${log.statusCode}  耗时：${log.loadTimeMs}ms';
     if (log.errorMessage != null && log.errorMessage!.isNotEmpty) {
       description = '$description\n失败原因：${log.errorMessage}';
     }
     return description;
+  }
+
+  Future<void> _showMonitorLogDetails(LinkMonitorLogItem log) async {
+    final details = log.detectionDetails;
+    String value(String key, [String fallback = '未记录']) {
+      final raw = details[key];
+      if (raw == null || raw.toString().isEmpty) return fallback;
+      return raw.toString();
+    }
+
+    String listValue(String key) {
+      final raw = details[key];
+      if (raw is List) {
+        return raw
+            .map((item) => item.toString())
+            .where((item) => item.isNotEmpty)
+            .join('、');
+      }
+      return raw?.toString() ?? '';
+    }
+
+    Widget detailRow(String label, String text, {bool selectable = false}) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 3),
+            selectable ? SelectableText(text) : Text(text),
+          ],
+        ),
+      );
+    }
+
+    final evidenceAvailable = details['evidenceAvailable'] == true;
+    final expectedKeywords = listValue('expectedKeywords');
+    final matchedKeywords = listValue('matchedKeywords');
+    final matchedUrls = listValue('matchedBacklinkUrls');
+    final anchorTexts = listValue('matchedAnchorTexts');
+    final fraudReasons = listValue('fraudReasons');
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('检测详情 · ${log.nodeName}'),
+        content: SizedBox(
+          width: 660,
+          height: 460,
+          child: ListView(
+            children: [
+              detailRow('检测目标', value('targetName', log.linkName)),
+              detailRow('实际检测 URL', value('checkedUrl'), selectable: true),
+              detailRow('本站站点名', value('siteName'), selectable: true),
+              detailRow('本站 URL', value('siteUrl'), selectable: true),
+              detailRow(
+                '检测关键词',
+                expectedKeywords.isEmpty ? '未记录' : expectedKeywords,
+              ),
+              detailRow(
+                '命中的关键词',
+                matchedKeywords.isEmpty ? '无' : matchedKeywords,
+              ),
+              detailRow(
+                '命中的本站反链 URL',
+                matchedUrls.isEmpty ? '无' : matchedUrls,
+                selectable: true,
+              ),
+              detailRow('反链锚文本', anchorTexts.isEmpty ? '无' : anchorTexts),
+              detailRow(
+                '关键词欺诈',
+                !evidenceAvailable
+                    ? '此节点未提供新版关键词欺诈判定'
+                    : log.keywordFraudDetected
+                    ? '检测到：${fraudReasons.isEmpty ? '原因未记录' : fraudReasons}'
+                    : '未检测到',
+              ),
+              detailRow('DOM 解析错误数', value('domParseErrorCount', '0')),
+              if (!evidenceAvailable)
+                const Text(
+                  '该节点未返回新版 DOM 检测证据；检测目标和关键词仍来自本次任务。',
+                  style: TextStyle(color: Colors.orange),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMonitorLogList(List<LinkMonitorLogItem> logs) {
@@ -196,15 +417,35 @@ class _LinksPageState extends State<LinksPage> {
           statusIcon = Icons.check_circle;
           statusColor = Colors.green;
         }
-        String backlinkLabel = '无反链';
-        if (log.backlinkFound) {
-          backlinkLabel = '有反链';
-        }
+        final evidenceAvailable =
+            log.detectionDetails['evidenceAvailable'] == true;
+        final backlinkLabel = !evidenceAvailable
+            ? '反链未验证'
+            : log.backlinkFound
+            ? '有反链'
+            : '无反链';
         return ListTile(
           leading: Icon(statusIcon, color: statusColor),
           title: Text(log.nodeName),
           subtitle: Text(_buildMonitorLogDescription(log)),
-          trailing: Chip(label: Text(backlinkLabel)),
+          onTap: () => _showMonitorLogDetails(log),
+          trailing: Wrap(
+            spacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Chip(label: Text(backlinkLabel)),
+              if (log.keywordFraudDetected)
+                Chip(
+                  label: const Text('检测到关键词欺诈'),
+                  backgroundColor: Colors.red.shade50,
+                  side: BorderSide(color: Colors.red.shade200),
+                ),
+              const Tooltip(
+                message: '点击查看详情',
+                child: Icon(Icons.info_outline, size: 18),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -212,69 +453,72 @@ class _LinksPageState extends State<LinksPage> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: TabBar(
-                    tabs: [
-                      Tab(text: '友情链接'),
-                      Tab(text: '文章外链'),
-                    ],
-                    isScrollable: true,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TabBar(
+                  controller: _tabController,
+                  tabs: [
+                    Tab(text: '友情链接'),
+                    Tab(text: '文章外链'),
+                  ],
+                  isScrollable: true,
                 ),
-                const SizedBox(width: 16),
-                LinksAddButton(
-                  label: t(context, 'add_link'),
-                  onOpen: (defaultLinkType) {
-                    _openLinkEditor(defaultLinkType: defaultLinkType);
-                  },
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: _loadLinks,
-                  icon: const Icon(Icons.refresh),
-                  label: Text(t(context, 'refresh')),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : TabBarView(
-                children: [
-                  _buildLinkList(
-                    links.where((l) => l.type != 3).toList(),
-                  ),
-                  _buildLinkList(
-                    links.where((l) => l.type == 3).toList(),
-                  ),
-                ],
               ),
+              const SizedBox(width: 16),
+              LinksAddButton(
+                label: t(context, 'add_link'),
+                tabIndex: _activeTab,
+                onOpen: (defaultLinkType) {
+                  _openLinkEditor(defaultLinkType: defaultLinkType);
+                },
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _loadLinks,
+                icon: const Icon(Icons.refresh),
+                label: Text(t(context, 'refresh')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: loading
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [_buildLinkList(links), _buildLinkList(links)],
+                  ),
+          ),
+          if (!loading)
+            PaginationBar(
+              currentPage: _currentPage,
+              totalPages: _totalLinks == 0
+                  ? 1
+                  : (_totalLinks + _linkPageSize - 1) ~/ _linkPageSize,
+              totalItems: _totalLinks,
+              pageSize: _linkPageSize,
+              onPageChanged: (page) => _loadLinks(page: page),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildLinkList(List<AdminLinkItem> filteredLinks) {
-    if (filteredLinks.isEmpty) {
+  Widget _buildLinkList(List<AdminLinkItem> pageLinks) {
+    if (pageLinks.isEmpty) {
       return Center(child: Text(t(context, 'no_links')));
     }
     return Card(
       child: ListView.separated(
-        itemCount: filteredLinks.length,
+        itemCount: pageLinks.length,
         separatorBuilder: (context, index) => const Divider(height: 1),
         itemBuilder: (context, index) {
-          final link = filteredLinks[index];
+          final link = pageLinks[index];
           return ListTile(
             leading: CircleAvatar(
               backgroundImage: link.icon != null
@@ -282,7 +526,7 @@ class _LinksPageState extends State<LinksPage> {
                   : null,
               child: link.icon == null ? const Icon(Icons.link) : null,
             ),
-            title: Text(link.name),
+            title: Text('#${link.id} · ${link.name}'),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -303,6 +547,7 @@ class _LinksPageState extends State<LinksPage> {
                       _buildApplicationStatusChip(link),
                       _buildAvailabilityChip(link),
                       _buildBacklinkChip(link),
+                      _buildKeywordFraudChip(link),
                     ],
                   ),
                 ),
@@ -380,8 +625,16 @@ class _LinksPageState extends State<LinksPage> {
                 if (link.type != 3 && link.applicationStatus == 1)
                   IconButton(
                     tooltip: '立即执行多节点检测',
-                    icon: const Icon(Icons.monitor_heart_outlined),
-                    onPressed: () => _checkLink(link),
+                    icon: _checkingLinkIds.contains(link.id)
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.monitor_heart_outlined),
+                    onPressed: _checkingLinkIds.contains(link.id)
+                        ? null
+                        : () => _checkLink(link),
                   ),
                 if (link.type != 3)
                   IconButton(
@@ -473,6 +726,32 @@ class _LinksPageState extends State<LinksPage> {
     );
   }
 
+  Widget _buildKeywordFraudChip(AdminLinkItem link) {
+    final detected = link.keywordFraudStatus == 'DETECTED';
+    final known = link.keywordFraudStatus == 'CLEAN' || detected;
+    final label = detected
+        ? '检测到关键词欺诈'
+        : known
+        ? '未发现关键词欺诈'
+        : '关键词欺诈未检测';
+    final color = detected
+        ? Colors.red
+        : known
+        ? Colors.green
+        : Colors.grey;
+    return Chip(
+      avatar: Icon(
+        detected ? Icons.warning_amber : Icons.fact_check_outlined,
+        size: 16,
+        color: color,
+      ),
+      label: Text(label, style: const TextStyle(fontSize: 10)),
+      backgroundColor: color.withValues(alpha: 0.08),
+      side: BorderSide(color: color.withValues(alpha: 0.3)),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
   String _buildPlacementDescription(AdminLinkItem link) {
     String placementLabel = '其他页面';
     if (link.placementType == 'HOME_PAGE') {
@@ -498,9 +777,15 @@ class _LinksPageState extends State<LinksPage> {
 }
 
 class LinksAddButton extends StatelessWidget {
-  const LinksAddButton({super.key, required this.label, required this.onOpen});
+  const LinksAddButton({
+    super.key,
+    required this.label,
+    this.tabIndex = 0,
+    required this.onOpen,
+  });
 
   final String label;
+  final int tabIndex;
   final ValueChanged<int> onOpen;
 
   @override
@@ -509,9 +794,6 @@ class LinksAddButton extends StatelessWidget {
       key: const Key('linksAddButton'),
       onPressed: () {
         int defaultLinkType = 0;
-        int tabIndex = DefaultTabController
-            .of(context)
-            .index;
         if (tabIndex == 1) {
           defaultLinkType = 3;
         }

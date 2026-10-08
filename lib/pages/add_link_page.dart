@@ -28,6 +28,10 @@ class _AddLinkPageState extends State<AddLinkPage> {
   final _iconController = TextEditingController();
   final _imageController = TextEditingController();
   final _sortOrderController = TextEditingController(text: '0');
+  final _monitoringIntervalMinutesController = TextEditingController(
+    text: '60',
+  );
+  final _monitoringKeywordsController = TextEditingController();
 
   final _noteController = TextEditingController();
   final _seoTitleController = TextEditingController();
@@ -39,6 +43,10 @@ class _AddLinkPageState extends State<AddLinkPage> {
   int _linkType = 0;
   bool _showUrl = true;
   bool _status = true;
+  bool _monitoringEnabled = true;
+  bool _hideWhenBacklinkMissing = false;
+  bool _hideWhenOffline = false;
+  bool _hideWhenKeywordFraudDetected = false;
 
   bool _isFetching = false;
   bool _isSaving = false;
@@ -61,6 +69,9 @@ class _AddLinkPageState extends State<AddLinkPage> {
       _iconController.text = link.icon ?? '';
       _imageController.text = link.image ?? '';
       _sortOrderController.text = link.sortOrder.toString();
+      _monitoringIntervalMinutesController.text = link.monitoringIntervalMinutes
+          .toString();
+      _monitoringKeywordsController.text = link.monitoringKeywords;
       _noteController.text = link.note ?? '';
       _seoTitleController.text = link.seoTitle ?? '';
       _seoKeywordsController.text = link.seoKeywords ?? '';
@@ -71,6 +82,10 @@ class _AddLinkPageState extends State<AddLinkPage> {
       _linkType = link.type ?? 0;
       _showUrl = link.showUrl;
       _status = link.status == 1;
+      _monitoringEnabled = link.monitoringEnabled;
+      _hideWhenBacklinkMissing = link.hideWhenBacklinkMissing;
+      _hideWhenOffline = link.hideWhenOffline;
+      _hideWhenKeywordFraudDetected = link.hideWhenKeywordFraudDetected;
     }
   }
 
@@ -83,6 +98,8 @@ class _AddLinkPageState extends State<AddLinkPage> {
     _iconController.dispose();
     _imageController.dispose();
     _sortOrderController.dispose();
+    _monitoringIntervalMinutesController.dispose();
+    _monitoringKeywordsController.dispose();
     _noteController.dispose();
     _seoTitleController.dispose();
     _seoKeywordsController.dispose();
@@ -216,6 +233,14 @@ class _AddLinkPageState extends State<AddLinkPage> {
             ? null
             : _seoDescriptionController.text.trim(),
         type: _linkType,
+        monitoringEnabled: _monitoringEnabled,
+        monitoringIntervalMinutes:
+            int.tryParse(_monitoringIntervalMinutesController.text.trim()) ??
+            60,
+        hideWhenBacklinkMissing: _hideWhenBacklinkMissing,
+        hideWhenOffline: _hideWhenOffline,
+        monitoringKeywords: _monitoringKeywordsController.text.trim(),
+        hideWhenKeywordFraudDetected: _hideWhenKeywordFraudDetected,
       );
 
       if (widget.initialLink != null) {
@@ -591,6 +616,121 @@ class _AddLinkPageState extends State<AddLinkPage> {
                           ),
                         ),
                       ),
+                      if (_linkType == 0) ...[
+                        const SizedBox(height: 24),
+                        _buildSectionTitle(
+                          t(context, 'link_monitoring_settings'),
+                        ),
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            side: BorderSide(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                TextFormField(
+                                  controller:
+                                      _monitoringIntervalMinutesController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: t(
+                                      context,
+                                      'link_monitoring_interval',
+                                    ),
+                                    helperText: t(
+                                      context,
+                                      'link_monitoring_interval_hint',
+                                    ),
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                  validator: (value) {
+                                    final minutes = int.tryParse(
+                                      value?.trim() ?? '',
+                                    );
+                                    if (minutes == null ||
+                                        minutes < 1 ||
+                                        minutes > 10080) {
+                                      return t(
+                                        context,
+                                        'link_monitoring_interval_invalid',
+                                      );
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                SwitchListTile(
+                                  title: Text(
+                                    t(context, 'link_monitoring_enabled'),
+                                  ),
+                                  subtitle: Text(
+                                    t(context, 'link_monitoring_enabled_hint'),
+                                  ),
+                                  value: _monitoringEnabled,
+                                  onChanged: (value) => setState(
+                                    () => _monitoringEnabled = value,
+                                  ),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                SwitchListTile(
+                                  title: Text(
+                                    t(
+                                      context,
+                                      'link_hide_when_backlink_missing',
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    t(
+                                      context,
+                                      'link_hide_when_backlink_missing_hint',
+                                    ),
+                                  ),
+                                  value: _hideWhenBacklinkMissing,
+                                  onChanged: (value) => setState(
+                                    () => _hideWhenBacklinkMissing = value,
+                                  ),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                SwitchListTile(
+                                  title: Text(
+                                    t(context, 'link_hide_when_offline'),
+                                  ),
+                                  subtitle: Text(
+                                    t(context, 'link_hide_when_offline_hint'),
+                                  ),
+                                  value: _hideWhenOffline,
+                                  onChanged: (value) =>
+                                      setState(() => _hideWhenOffline = value),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                SwitchListTile(
+                                  title: Text(
+                                    t(context, 'link_hide_when_keyword_fraud'),
+                                  ),
+                                  subtitle: Text(
+                                    t(
+                                      context,
+                                      'link_hide_when_keyword_fraud_hint',
+                                    ),
+                                  ),
+                                  value: _hideWhenKeywordFraudDetected,
+                                  onChanged: (value) => setState(
+                                    () => _hideWhenKeywordFraudDetected = value,
+                                  ),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       Card(
                         elevation: 0,
@@ -608,6 +748,24 @@ class _AddLinkPageState extends State<AddLinkPage> {
                           ),
                           childrenPadding: const EdgeInsets.all(16.0),
                           children: [
+                            if (_linkType == 0) ...[
+                              TextFormField(
+                                controller: _monitoringKeywordsController,
+                                maxLines: 2,
+                                decoration: InputDecoration(
+                                  labelText: t(
+                                    context,
+                                    'link_monitoring_keywords',
+                                  ),
+                                  helperText: t(
+                                    context,
+                                    'link_monitoring_keywords_hint',
+                                  ),
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
                             TextFormField(
                               controller: _noteController,
                               maxLines: 3,
