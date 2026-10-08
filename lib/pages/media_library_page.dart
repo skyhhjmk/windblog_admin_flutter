@@ -108,19 +108,41 @@ class MediaLibraryPage extends StatefulWidget {
 
 class _MediaLibraryPageState extends State<MediaLibraryPage> {
   MediaFilter _filter = MediaFilter.all;
-  MediaListResult? mediaResult;
+  final List<List<MediaItem>> _mediaPages = <List<MediaItem>>[];
+  final ScrollController _scrollController = ScrollController();
   MediaScanResult? scanResult;
   bool loading = true;
+  bool loadingMore = false;
+  bool loadMoreFailed = false;
   bool scanning = false;
   bool batchRetrying = false;
   final Set<int> virusScanningIds = <int>{};
   int page = 1;
   static const int pageSize = 24;
+  static const double _loadMoreThreshold = 400;
+  static const double _crossAxisSpacing = 12;
+  static const double _mainAxisSpacing = 12;
+  static const double _childAspectRatio = 0.78;
+  int _loadedPage = 0;
+  int _totalItems = 0;
+  int _gridColumnCount = 4;
+  double _gridRowExtent = 0;
+  int _requestGeneration = 0;
+  Future<void>? _loadMoreFuture;
   bool hasLoadedInitialMedia = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onGridScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onGridScroll)
+      ..dispose();
+    super.dispose();
   }
 
   @override
@@ -150,66 +172,235 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
   Future<void> _onFilterChanged(MediaFilter newFilter) async {
     setState(() {
       _filter = newFilter;
-      page = 1;
-      mediaResult = null;
     });
     await _loadMedia();
   }
 
   Future<void> _loadMedia() async {
-    setState(() => loading = true);
+    final generation = ++_requestGeneration;
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+    setState(() {
+      loading = true;
+      loadingMore = false;
+      loadMoreFailed = false;
+      page = 1;
+      _loadedPage = 0;
+      _totalItems = 0;
+      _mediaPages.clear();
+    });
+    _loadMoreFuture = null;
+
+    var succeeded = await _requestAndAppendPage(1, generation);
+    // The referenced filter is applied on the client. Continue across empty
+    // server pages so that the grid can still make progress without scrolling.
+    while (succeeded && _visibleItemCount == 0 && _hasMorePages) {
+      succeeded = await _requestAndAppendPage(_loadedPage + 1, generation);
+    }
+
+    if (mounted && generation == _requestGeneration) {
+      setState(() {
+        loading = false;
+        loadMoreFailed = !succeeded;
+      });
+      _syncPageFromScroll();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _onGridScroll();
+        }
+      });
+    }
+  }
+
+  Future<bool> _requestAndAppendPage(int requestedPage, int generation) async {
     final String loadFailedMessage = _loadMediaFailedMessage(context);
-    await AdminRequestRunner.runVoid(
+    final result = await AdminRequestRunner.run<MediaListResult>(
       context: context,
       mounted: mounted,
       onAuthError: widget.onAuthError,
-      task: () async {
-        bool failedOnly = false;
-        bool unreferenced = false;
-
-        switch (_filter) {
-          case MediaFilter.failed:
-            failedOnly = true;
-            break;
-          case MediaFilter.unreferenced:
-            unreferenced = true;
-            break;
-          case MediaFilter.all:
-            break;
-          case MediaFilter.referenced:
-            break;
-        }
-
-        mediaResult = await widget.api.listMedia(
-          page: page,
-          pageSize: pageSize,
-          failedOnly: failedOnly,
-          unreferenced: unreferenced,
-        );
-
-        if (_filter == MediaFilter.referenced && mediaResult != null) {
-          List<MediaItem> filteredItems = [];
-          for (int i = 0; i < mediaResult!.items.length; i++) {
-            MediaItem item = mediaResult!.items[i];
-            if (item.references.isNotEmpty) {
-              filteredItems.add(item);
-            }
-          }
-          mediaResult = MediaListResult(
-            items: filteredItems,
-            total: filteredItems.length,
-            page: page,
-            pageSize: pageSize,
-          );
-        }
-      },
+      task: () => widget.api.listMedia(
+        page: requestedPage,
+        pageSize: pageSize,
+        failedOnly: _filter == MediaFilter.failed,
+        unreferenced: _filter == MediaFilter.unreferenced,
+      ),
       errorMessageBuilder: (error) {
         return '$loadFailedMessage$error';
       },
     );
-    if (mounted) {
-      setState(() => loading = false);
+
+    if (!mounted || generation != _requestGeneration || result == null) {
+      return false;
     }
+
+    final items = _filter == MediaFilter.referenced
+        ? result.items.where((item) => item.references.isNotEmpty).toList()
+        : result.items;
+    setState(() {
+      _mediaPages.add(items);
+      _loadedPage = requestedPage;
+      _totalItems = result.total;
+      loadMoreFailed = false;
+    });
+    return true;
+  }
+
+  int get _totalPages {
+    final pages = (_totalItems / pageSize).ceil();
+    return pages < 1 ? 1 : pages;
+  }
+
+  int get _visibleItemCount =>
+      _mediaPages.fold<int>(0, (count, items) => count + items.length);
+
+  bool get _hasMorePages => _loadedPage < _totalPages;
+
+  void _onGridScroll() {
+    _syncPageFromScroll();
+    if (!_scrollController.hasClients ||
+        loading ||
+        loadingMore ||
+        loadMoreFailed) {
+      return;
+    }
+    if (_scrollController.position.extentAfter <= _loadMoreThreshold) {
+      unawaited(_loadNextPage());
+    }
+  }
+
+  void _syncPageFromScroll() {
+    if (!_scrollController.hasClients || _gridRowExtent <= 0) {
+      return;
+    }
+    final pixels = _scrollController.position.pixels;
+    var pageStart = 0.0;
+    var visiblePage = 1;
+    var hasPreviousGrid = false;
+    for (var index = 0; index < _mediaPages.length; index++) {
+      final items = _mediaPages[index];
+      if (items.isEmpty) {
+        continue;
+      }
+      if (hasPreviousGrid) {
+        pageStart += _mainAxisSpacing;
+      }
+      if (pixels + 0.5 >= pageStart) {
+        visiblePage = index + 1;
+      } else {
+        break;
+      }
+      pageStart += _pageScrollExtent(items);
+      hasPreviousGrid = true;
+    }
+    final boundedPage = visiblePage.clamp(1, _totalPages).toInt();
+    if (page != boundedPage && mounted) {
+      setState(() => page = boundedPage);
+    }
+  }
+
+  Future<void> _loadNextPage() {
+    if (loading || !_hasMorePages) {
+      return Future<void>.value();
+    }
+    final ongoingLoad = _loadMoreFuture;
+    if (ongoingLoad != null) {
+      return ongoingLoad;
+    }
+
+    final generation = _requestGeneration;
+    final future = _performLoadNextPage(generation);
+    _loadMoreFuture = future;
+    return future.whenComplete(() {
+      if (identical(_loadMoreFuture, future)) {
+        _loadMoreFuture = null;
+      }
+    });
+  }
+
+  Future<void> _performLoadNextPage(int generation) async {
+    setState(() {
+      loadingMore = true;
+      loadMoreFailed = false;
+    });
+
+    var succeeded = true;
+    do {
+      succeeded = await _requestAndAppendPage(_loadedPage + 1, generation);
+    } while (succeeded &&
+        generation == _requestGeneration &&
+        _visibleItemCount == 0 &&
+        _hasMorePages);
+
+    if (mounted && generation == _requestGeneration) {
+      setState(() {
+        loadingMore = false;
+        loadMoreFailed = !succeeded;
+      });
+      _syncPageFromScroll();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _onGridScroll();
+        }
+      });
+    }
+  }
+
+  Future<void> _handlePageChanged(int requestedPage) async {
+    if (loading) {
+      return;
+    }
+    final targetPage = requestedPage.clamp(1, _totalPages).toInt();
+    while (_loadedPage < targetPage && mounted) {
+      await _loadNextPage();
+      if (loadMoreFailed) {
+        return;
+      }
+    }
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+    final targetOffset = _pageStartOffset(targetPage);
+    final position = _scrollController.position;
+    await _scrollController.animateTo(
+      targetOffset.clamp(0.0, position.maxScrollExtent).toDouble(),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  double _pageStartOffset(int targetPage) {
+    if (_gridRowExtent <= 0) {
+      return 0;
+    }
+    var offset = 0.0;
+    var hasPreviousGrid = false;
+    final pageLimit = targetPage.clamp(0, _mediaPages.length).toInt();
+    for (var index = 0; index < pageLimit; index++) {
+      final items = _mediaPages[index];
+      if (items.isEmpty) {
+        continue;
+      }
+      if (hasPreviousGrid) {
+        offset += _mainAxisSpacing;
+      }
+      if (index == targetPage - 1) {
+        return offset;
+      }
+      offset += _pageScrollExtent(items);
+      hasPreviousGrid = true;
+    }
+    return offset;
+  }
+
+  double _pageScrollExtent(List<MediaItem> items) {
+    final rowCount = (items.length / _gridColumnCount).ceil();
+    return rowCount * _gridRowExtent - _mainAxisSpacing;
   }
 
   Future<void> _retryImport(MediaItem item) async {
@@ -420,7 +611,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
     return AdminPageScaffold(
       title: t(context, 'media_library'),
       filters: _buildToolbar(),
-      body: loading
+      body: loading && _mediaPages.isEmpty
           ? const AdminStatusView.loading(title: '正在加载媒体')
           : _buildGridView(),
       footer: _buildPagination(),
@@ -428,7 +619,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
   }
 
   Widget _buildToolbar() {
-    int total = mediaResult?.total ?? 0;
+    final total = _totalItems;
 
     return AdminToolbar(
       children: [
@@ -487,13 +678,9 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
   }
 
   Widget _buildGridView() {
-    List<MediaItem> items = mediaResult?.items ?? [];
-    if (items.isEmpty) {
-      return AdminStatusView.empty(title: t(context, 'no_media_found'));
-    }
     return LayoutBuilder(
       builder: (context, constraints) {
-        int columnCount = 4;
+        var columnCount = 4;
         if (constraints.maxWidth < 520) {
           columnCount = 2;
         } else if (constraints.maxWidth < 850) {
@@ -502,94 +689,163 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
           columnCount = 5;
         }
 
-        return GridView.builder(
-          physics: const BouncingScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columnCount,
-            childAspectRatio: 0.78,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            MediaItem item = items[index];
-            return Card(
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => _openMediaDetail(item),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        color: Colors.grey.shade100,
-                        child: item.isImage
-                            ? _ProgressiveImage(
-                                previewUrl: item.previewUrl,
-                                thumbnailUrl: item.thumbnailUrl,
-                                fallbackUrl: item.url,
-                                width: double.infinity,
-                                height: double.infinity,
-                                fit: BoxFit.cover,
-                                api: widget.api,
-                              )
-                            : item.isVideo
-                            ? const Icon(
-                                Icons.video_library,
-                                size: 48,
-                                color: Colors.blue,
-                              )
-                            : item.isAudio
-                            ? const Icon(
-                                Icons.audiotrack,
-                                size: 48,
-                                color: Colors.orange,
-                              )
-                            : const Icon(
-                                Icons.insert_drive_file,
-                                size: 48,
-                                color: Colors.grey,
-                              ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        children: [
-                          Text(
-                            item.fileName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _formatBytes(item.size),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          MediaVirusScanBadge(
-                            status: item.virusScanStatus,
-                            compact: true,
-                          ),
-                          if (item.metadata['importStatus'] == 'failed')
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: TextButton(
-                                onPressed: () => _retryImport(item),
-                                child: Text(t(context, 'retry')),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+        final tileWidth =
+            (constraints.maxWidth - (columnCount - 1) * _crossAxisSpacing) /
+            columnCount;
+        final rowExtent = tileWidth / _childAspectRatio + _mainAxisSpacing;
+        if (_gridColumnCount != columnCount || _gridRowExtent != rowExtent) {
+          _gridColumnCount = columnCount;
+          _gridRowExtent = rowExtent;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _syncPageFromScroll();
+            }
+          });
+        }
+
+        final mediaSlivers = <Widget>[];
+        for (final items in _mediaPages) {
+          if (items.isEmpty) {
+            continue;
+          }
+          if (mediaSlivers.isNotEmpty) {
+            mediaSlivers.add(
+              const SliverToBoxAdapter(
+                child: SizedBox(height: _mainAxisSpacing),
               ),
             );
-          },
+          }
+          mediaSlivers.add(
+            SliverGrid(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildMediaCard(items[index]),
+                childCount: items.length,
+              ),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columnCount,
+                childAspectRatio: _childAspectRatio,
+                crossAxisSpacing: _crossAxisSpacing,
+                mainAxisSpacing: _mainAxisSpacing,
+              ),
+            ),
+          );
+        }
+
+        return CustomScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            if (_visibleItemCount == 0)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: AdminStatusView.empty(
+                    title: t(context, 'no_media_found'),
+                  ),
+                ),
+              )
+            else
+              ...mediaSlivers,
+            if (loadingMore)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+            if (loadMoreFailed)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    child: OutlinedButton.icon(
+                      onPressed: _loadNextPage,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(t(context, 'retry')),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildMediaCard(MediaItem item) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _openMediaDetail(item),
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                color: Colors.grey.shade100,
+                child: item.isImage
+                    ? _ProgressiveImage(
+                        previewUrl: item.previewUrl,
+                        thumbnailUrl: item.thumbnailUrl,
+                        fallbackUrl: item.url,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        api: widget.api,
+                      )
+                    : item.isVideo
+                    ? const Icon(
+                        Icons.video_library,
+                        size: 48,
+                        color: Colors.blue,
+                      )
+                    : item.isAudio
+                    ? const Icon(
+                        Icons.audiotrack,
+                        size: 48,
+                        color: Colors.orange,
+                      )
+                    : const Icon(
+                        Icons.insert_drive_file,
+                        size: 48,
+                        color: Colors.grey,
+                      ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: [
+                  Text(
+                    item.fileName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatBytes(item.size),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  MediaVirusScanBadge(
+                    status: item.virusScanStatus,
+                    compact: true,
+                  ),
+                  if (item.metadata['importStatus'] == 'failed')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: TextButton(
+                        onPressed: () => _retryImport(item),
+                        child: Text(t(context, 'retry')),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -607,15 +863,11 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
   }
 
   Widget _buildPagination() {
-    int total = mediaResult?.total ?? 0;
     return PaginationBar(
       currentPage: page,
-      totalPages: (total / pageSize).ceil().clamp(1, 999999),
-      totalItems: total,
-      onPageChanged: (newPage) {
-        setState(() => page = newPage);
-        _loadMedia();
-      },
+      totalPages: _totalPages,
+      totalItems: _totalItems,
+      onPageChanged: _handlePageChanged,
     );
   }
 
