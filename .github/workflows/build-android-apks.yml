@@ -1,0 +1,77 @@
+name: Build Android APKs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/build-android-apks.yml'
+      - 'android/**'
+      - 'assets/**'
+      - 'lib/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-apks:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Read application version
+        id: version
+        shell: bash
+        run: |
+          value="$(sed -n 's/^version: *\([0-9][0-9.]*\)\(+.*\)\{0,1\}$/\1/p' pubspec.yaml | head -n1)"
+          test -n "$value"
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+      - name: Build release and debug APKs
+        run: |
+          # This override points at the maintainer's local checkout and is not usable in CI.
+          rm -f pubspec_overrides.yaml
+          flutter config --no-analytics
+          flutter pub get
+          flutter build apk --release
+          flutter build apk --debug
+      - name: Stage APKs
+        env:
+          APP_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/windblog-admin-${APP_VERSION}-release.apk"
+          cp build/app/outputs/flutter-apk/app-debug.apk "dist/windblog-admin-${APP_VERSION}-debug.apk"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windblog-admin-android-apks-${{ steps.version.outputs.value }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+  attach-release-apks:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-22.04
+    needs: build-android-apks
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: windblog-admin-android-apks-${{ needs.build-android-apks.outputs.version }}
+          path: dist
+      - name: Attach APKs to GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.apk --clobber
