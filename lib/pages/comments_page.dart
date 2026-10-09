@@ -46,7 +46,7 @@ class _CommentsPageState extends State<CommentsPage> {
       if (mounted) {
         AdminFeedback.showSnackBar(
           context,
-          SnackBar(content: Text('${t(context, 'load_failed')}$e')),
+          SnackBar(content: Text('${t(context, 'load_failed')}: $e')),
         );
       }
     } finally {

@@ -50,7 +50,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
       if (mounted) {
         AdminFeedback.showSnackBar(
           context,
-          SnackBar(content: Text('${t(context, 'load_failed')}$error')),
+          SnackBar(content: Text('${t(context, 'load_failed')}: $error')),
         );
       }
     } finally {
@@ -108,7 +108,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
       if (!mounted) return;
       AdminFeedback.showSnackBar(
         context,
-        SnackBar(content: Text('${t(context, 'update_failed')}$error')),
+        SnackBar(content: Text('${t(context, 'update_failed')}: $error')),
       );
     }
   }

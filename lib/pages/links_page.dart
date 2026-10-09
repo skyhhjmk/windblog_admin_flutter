@@ -113,7 +113,7 @@ class _LinksPageState extends State<LinksPage>
       if (mounted && generation == _loadGeneration) {
         AdminFeedback.showSnackBar(
           context,
-          SnackBar(content: Text('${t(context, 'load_failed')}$e')),
+          SnackBar(content: Text('${t(context, 'load_failed')}: $e')),
         );
       }
     } finally {

@@ -172,7 +172,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
         }
       },
       errorMessageBuilder: (error) {
-        return '$errorMessage$error';
+        return '$errorMessage: $error';
       },
     );
     if (mounted) {

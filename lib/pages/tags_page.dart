@@ -44,7 +44,7 @@ class _TagsPageState extends State<TagsPage> {
     } catch (e) {
       if (mounted) {
         AdminFeedback.showSnackBar(context,
-          SnackBar(content: Text('${t(context, 'load_failed')}$e')),
+          SnackBar(content: Text('${t(context, 'load_failed')}: $e')),
         );
       }
     } finally {
