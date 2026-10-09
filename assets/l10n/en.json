@@ -364,6 +364,8 @@
   "unreferenced_files": "Unreferenced Files",
   "failed_imports": "Failed Imports",
   "load_media_failed": "Load media failed: ",
+  "media_image_invalid_url": "This image address is invalid and cannot be previewed.",
+  "media_image_load_failed": "Could not load the image. Check your connection and try again.",
   "load_unreferenced_failed": "Load unreferenced files failed: ",
   "rescan_failed": "Rescan failed: ",
   "upload_success": "Upload success",

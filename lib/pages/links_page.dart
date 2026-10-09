@@ -1,5 +1,31 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
+class _LinkIconAvatar extends StatelessWidget {
+  const _LinkIconAvatar({required this.url, required this.api});
+
+  final String? url;
+  final AdminApiClient api;
+
+  @override
+  Widget build(BuildContext context) {
+    final validUrl = _validatedMediaImageUrl(api, url);
+    if (validUrl == null) {
+      return const CircleAvatar(child: Icon(Icons.link));
+    }
+
+    return ClipOval(
+      child: Image.network(
+        validUrl,
+        width: 40,
+        height: 40,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            const CircleAvatar(child: Icon(Icons.link)),
+      ),
+    );
+  }
+}
+
 class LinksPage extends StatefulWidget {
   const LinksPage({super.key, required this.api, required this.onAuthError});
 
@@ -520,12 +546,7 @@ class _LinksPageState extends State<LinksPage>
         itemBuilder: (context, index) {
           final link = pageLinks[index];
           return ListTile(
-            leading: CircleAvatar(
-              backgroundImage: link.icon != null
-                  ? NetworkImage(link.icon!)
-                  : null,
-              child: link.icon == null ? const Icon(Icons.link) : null,
-            ),
+            leading: _LinkIconAvatar(url: link.icon, api: widget.api),
             title: Text('#${link.id} · ${link.name}'),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

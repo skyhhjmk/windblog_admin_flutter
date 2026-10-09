@@ -364,6 +364,8 @@
   "unreferenced_files": "未引用文件",
   "failed_imports": "导入失败",
   "load_media_failed": "加载媒体失败: ",
+  "media_image_invalid_url": "图片地址无效，暂时无法预览",
+  "media_image_load_failed": "图片加载失败，请检查网络后重试",
   "load_unreferenced_failed": "加载未引用文件失败: ",
   "rescan_failed": "重建索引失败: ",
   "upload_success": "上传成功",

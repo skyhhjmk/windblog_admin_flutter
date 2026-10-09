@@ -291,26 +291,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   Widget _buildMediaWidget() {
     if (_item.isImage) {
       if (_loadOriginal) {
-        return Image.network(
-          widget.api.normalizeUrl(_item.url),
-          headers: const {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          },
+        return _FriendlyNetworkImage(
+          url: _item.url,
+          api: widget.api,
           fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.broken_image, size: 64),
-                const SizedBox(height: 8),
-                Text(
-                  '加载失败: $error',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
         );
       }
       return _ProgressiveImage(
@@ -962,8 +946,9 @@ class _MediaFullScreenPreview extends StatelessWidget {
             child: InteractiveViewer(
               minScale: 0.1,
               maxScale: 5.0,
-              child: Image.network(
-                api.normalizeUrl(url),
+              child: _FriendlyNetworkImage(
+                url: url,
+                api: api,
                 fit: BoxFit.contain,
                 width: double.infinity,
                 height: double.infinity,

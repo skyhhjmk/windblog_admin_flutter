@@ -2155,36 +2155,10 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                       ],
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Image.network(
-                      widget.api.normalizeUrl(url),
-                      headers: const {
-                        'User-Agent':
-                            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                      },
+                    child: _FriendlyNetworkImage(
+                      url: url,
+                      api: widget.api,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        padding: const EdgeInsets.all(16),
-                        color: Colors.grey.shade100,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.broken_image,
-                              size: 48,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '图片加载失败\n错误: $error\nURL: $url',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return Container(

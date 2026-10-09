@@ -1,5 +1,92 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
+String? _validatedMediaImageUrl(AdminApiClient api, String? rawUrl) {
+  try {
+    final normalized = api.normalizeUrl(rawUrl);
+    final uri = Uri.tryParse(normalized);
+    final scheme = uri?.scheme.toLowerCase();
+    if (uri == null ||
+        !uri.hasAuthority ||
+        uri.host.isEmpty ||
+        (scheme != 'http' && scheme != 'https')) {
+      return null;
+    }
+    return normalized;
+  } catch (_) {
+    return null;
+  }
+}
+
+Widget _mediaImageError(BuildContext context, {required bool invalidUrl}) {
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.broken_image_outlined,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            t(
+              context,
+              invalidUrl
+                  ? 'media_image_invalid_url'
+                  : 'media_image_load_failed',
+            ),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _FriendlyNetworkImage extends StatelessWidget {
+  const _FriendlyNetworkImage({
+    required this.url,
+    required this.api,
+    this.width,
+    this.height,
+    this.fit,
+    this.loadingBuilder,
+  });
+
+  final String url;
+  final AdminApiClient api;
+  final double? width;
+  final double? height;
+  final BoxFit? fit;
+  final ImageLoadingBuilder? loadingBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final validUrl = _validatedMediaImageUrl(api, url);
+    if (validUrl == null) {
+      return _mediaImageError(context, invalidUrl: true);
+    }
+
+    return Image.network(
+      validUrl,
+      headers: const {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+      width: width,
+      height: height,
+      fit: fit,
+      loadingBuilder: loadingBuilder,
+      errorBuilder: (context, error, stackTrace) =>
+          _mediaImageError(context, invalidUrl: false),
+    );
+  }
+}
+
 class _ProgressiveImage extends StatefulWidget {
   const _ProgressiveImage({
     required this.previewUrl,
@@ -46,20 +133,18 @@ class _ProgressiveImageState extends State<_ProgressiveImage> {
   }
 
   String _pickInitialUrl() {
-    final preview = widget.api.normalizeUrl(widget.previewUrl?.trim());
-    if (preview.isNotEmpty) {
-      return preview;
-    }
-    final thumb = widget.api.normalizeUrl(widget.thumbnailUrl?.trim());
-    if (thumb.isNotEmpty) {
-      return thumb;
-    }
-    return widget.api.normalizeUrl(widget.fallbackUrl);
+    return _validatedMediaImageUrl(widget.api, widget.previewUrl?.trim()) ??
+        _validatedMediaImageUrl(widget.api, widget.thumbnailUrl?.trim()) ??
+        _validatedMediaImageUrl(widget.api, widget.fallbackUrl) ??
+        '';
   }
 
   Future<void> _upgradeToThumbnail() async {
-    final thumb = widget.api.normalizeUrl(widget.thumbnailUrl?.trim());
-    if (thumb.isEmpty || thumb == _currentUrl) {
+    final thumb = _validatedMediaImageUrl(
+      widget.api,
+      widget.thumbnailUrl?.trim(),
+    );
+    if (thumb == null || thumb == _currentUrl) {
       return;
     }
     final provider = NetworkImage(thumb);
@@ -72,25 +157,16 @@ class _ProgressiveImageState extends State<_ProgressiveImage> {
 
   @override
   Widget build(BuildContext context) {
-    return Image.network(
-      _currentUrl,
-      headers: const {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
+    if (_currentUrl.isEmpty) {
+      return _mediaImageError(context, invalidUrl: true);
+    }
+
+    return _FriendlyNetworkImage(
+      url: _currentUrl,
+      api: widget.api,
       width: widget.width,
       height: widget.height,
       fit: widget.fit,
-      errorBuilder: (context, error, stackTrace) =>
-          Center(child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.broken_image),
-              const SizedBox(height: 4),
-              Text('加载失败: $error',
-                  style: const TextStyle(fontSize: 8, color: Colors.grey),
-                  textAlign: TextAlign.center),
-            ],
-          )),
     );
   }
 }
