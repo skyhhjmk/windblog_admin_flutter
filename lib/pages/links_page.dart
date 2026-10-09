@@ -545,12 +545,25 @@ class _LinksPageState extends State<LinksPage>
                     runSpacing: 6,
                     children: [
                       _buildApplicationStatusChip(link),
+                      _buildRegionChip(link),
                       _buildAvailabilityChip(link),
                       _buildBacklinkChip(link),
                       _buildKeywordFraudChip(link),
                     ],
                   ),
                 ),
+                if (link.autoHideMessage.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      link.autoHideMessage,
+                      style: const TextStyle(
+                        color: Colors.deepOrange,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 if (link.applicationStatus == 2 && link.placementType != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -686,6 +699,16 @@ class _LinksPageState extends State<LinksPage>
       label: Text(label, style: const TextStyle(fontSize: 10)),
       backgroundColor: color.withValues(alpha: 0.1),
       side: BorderSide(color: color.withValues(alpha: 0.35)),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _buildRegionChip(AdminLinkItem link) {
+    final region = BlogRegion.fromCode(link.displayRegion);
+    final label = region == BlogRegion.global ? '全球' : region.displayName;
+    return Chip(
+      avatar: const Icon(Icons.public_outlined, size: 15),
+      label: Text('展示：$label', style: const TextStyle(fontSize: 10)),
       visualDensity: VisualDensity.compact,
     );
   }

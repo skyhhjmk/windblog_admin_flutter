@@ -32,6 +32,9 @@ class _AddLinkPageState extends State<AddLinkPage> {
     text: '60',
   );
   final _monitoringKeywordsController = TextEditingController();
+  final _backlinkGraceDaysController = TextEditingController(text: '7');
+  final _offlineGraceDaysController = TextEditingController(text: '7');
+  final _fraudGraceDaysController = TextEditingController(text: '7');
 
   final _noteController = TextEditingController();
   final _seoTitleController = TextEditingController();
@@ -47,6 +50,11 @@ class _AddLinkPageState extends State<AddLinkPage> {
   bool _hideWhenBacklinkMissing = false;
   bool _hideWhenOffline = false;
   bool _hideWhenKeywordFraudDetected = false;
+  String _displayRegion = 'global';
+  List<String> _backlinkCheckUrls = [];
+  bool _notifyOnBacklinkMissing = false;
+  bool _notifyOnOffline = false;
+  bool _notifyOnKeywordFraud = false;
 
   bool _isFetching = false;
   bool _isSaving = false;
@@ -86,6 +94,15 @@ class _AddLinkPageState extends State<AddLinkPage> {
       _hideWhenBacklinkMissing = link.hideWhenBacklinkMissing;
       _hideWhenOffline = link.hideWhenOffline;
       _hideWhenKeywordFraudDetected = link.hideWhenKeywordFraudDetected;
+      _displayRegion = link.displayRegion;
+      _backlinkCheckUrls = List<String>.from(link.backlinkCheckUrls);
+      _notifyOnBacklinkMissing = link.notifyOnBacklinkMissing;
+      _backlinkGraceDaysController.text = link.backlinkMissingGraceDays
+          .toString();
+      _notifyOnOffline = link.notifyOnOffline;
+      _offlineGraceDaysController.text = link.offlineGraceDays.toString();
+      _notifyOnKeywordFraud = link.notifyOnKeywordFraud;
+      _fraudGraceDaysController.text = link.keywordFraudGraceDays.toString();
     }
   }
 
@@ -100,6 +117,9 @@ class _AddLinkPageState extends State<AddLinkPage> {
     _sortOrderController.dispose();
     _monitoringIntervalMinutesController.dispose();
     _monitoringKeywordsController.dispose();
+    _backlinkGraceDaysController.dispose();
+    _offlineGraceDaysController.dispose();
+    _fraudGraceDaysController.dispose();
     _noteController.dispose();
     _seoTitleController.dispose();
     _seoKeywordsController.dispose();
@@ -241,6 +261,17 @@ class _AddLinkPageState extends State<AddLinkPage> {
         hideWhenOffline: _hideWhenOffline,
         monitoringKeywords: _monitoringKeywordsController.text.trim(),
         hideWhenKeywordFraudDetected: _hideWhenKeywordFraudDetected,
+        displayRegion: _displayRegion,
+        backlinkCheckUrls: _backlinkCheckUrls,
+        notifyOnBacklinkMissing: _notifyOnBacklinkMissing,
+        backlinkMissingGraceDays:
+            int.tryParse(_backlinkGraceDaysController.text.trim()) ?? 7,
+        notifyOnOffline: _notifyOnOffline,
+        offlineGraceDays:
+            int.tryParse(_offlineGraceDaysController.text.trim()) ?? 7,
+        notifyOnKeywordFraud: _notifyOnKeywordFraud,
+        keywordFraudGraceDays:
+            int.tryParse(_fraudGraceDaysController.text.trim()) ?? 7,
       );
 
       if (widget.initialLink != null) {
@@ -268,6 +299,129 @@ class _AddLinkPageState extends State<AddLinkPage> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _showAutoHideSettings({
+    required String title,
+    required bool notify,
+    required ValueChanged<bool> onNotifyChanged,
+    required TextEditingController graceDaysController,
+    bool configureBacklinkUrls = false,
+  }) async {
+    var dialogNotify = notify;
+    var urlText = _backlinkCheckUrls.join('\n');
+    String? errorText;
+    final urlsController = TextEditingController(text: urlText);
+    final daysController = TextEditingController(
+      text: graceDaysController.text,
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text('$title设置'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (configureBacklinkUrls) ...[
+                    TextField(
+                      controller: urlsController,
+                      minLines: 2,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: '检测的本站链接',
+                        helperText:
+                            '每行一个。留空时优先检查展示区域的 DOMAIN 规则；没有可用域名规则时使用本站 URL。',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        urlText = value;
+                        setDialogState(() => errorText = null);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('通知对方站长'),
+                    subtitle: Text(
+                      _emailController.text.trim().isEmpty
+                          ? '通知将发送到友链邮箱；请先填写邮箱。'
+                          : '通知将发送到 ${_emailController.text.trim()}。',
+                    ),
+                    value: dialogNotify,
+                    onChanged: (value) =>
+                        setDialogState(() => dialogNotify = value ?? false),
+                  ),
+                  TextField(
+                    controller: daysController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '缓冲期（天）',
+                      helperText: '连续 3 次检测异常后开始计时，默认 7 天，允许 0 至 365 天。',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      errorText!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final days = int.tryParse(daysController.text.trim());
+                if (days == null || days < 0 || days > 365) {
+                  setDialogState(() => errorText = '缓冲期必须填写 0 到 365 之间的整数。');
+                  return;
+                }
+                if (dialogNotify && _emailController.text.trim().isEmpty) {
+                  setDialogState(() => errorText = '请先填写友链邮箱，再开启站长通知。');
+                  return;
+                }
+                final parsedUrls = urlText
+                    .split(RegExp(r'[,，;；\r\n]+'))
+                    .map((value) => value.trim())
+                    .where((value) => value.isNotEmpty)
+                    .toSet()
+                    .toList();
+                if (configureBacklinkUrls && parsedUrls.length > 20) {
+                  setDialogState(() => errorText = '检测链接最多设置 20 个。');
+                  return;
+                }
+                setState(() {
+                  onNotifyChanged(dialogNotify);
+                  graceDaysController.text = daysController.text.trim();
+                  if (configureBacklinkUrls) {
+                    _backlinkCheckUrls = parsedUrls;
+                  }
+                });
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('保存设置'),
+            ),
+          ],
+        ),
+      ),
+    );
+    urlsController.dispose();
+    daysController.dispose();
   }
 
   @override
@@ -587,6 +741,26 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 16),
+                              DropdownButtonFormField<String>(
+                                initialValue: _displayRegion,
+                                decoration: const InputDecoration(
+                                  labelText: '友链展示区域',
+                                  helperText: '全球友链会在所有区域显示；选择具体区域后仅在该区域显示。',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: BlogRegion.values
+                                    .map(
+                                      (region) => DropdownMenuItem<String>(
+                                        value: region.code,
+                                        child: Text(region.displayName),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) => setState(
+                                  () => _displayRegion = value ?? 'global',
+                                ),
+                              ),
                               const SizedBox(height: 24),
                               Row(
                                 children: [
@@ -680,6 +854,19 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   contentPadding: EdgeInsets.zero,
                                 ),
                                 SwitchListTile(
+                                  secondary: IconButton(
+                                    tooltip: '返链检测与通知设置',
+                                    icon: const Icon(Icons.settings_outlined),
+                                    onPressed: () => _showAutoHideSettings(
+                                      title: '缺少返链时隐藏',
+                                      notify: _notifyOnBacklinkMissing,
+                                      onNotifyChanged: (value) =>
+                                          _notifyOnBacklinkMissing = value,
+                                      graceDaysController:
+                                          _backlinkGraceDaysController,
+                                      configureBacklinkUrls: true,
+                                    ),
+                                  ),
                                   title: Text(
                                     t(
                                       context,
@@ -699,6 +886,18 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   contentPadding: EdgeInsets.zero,
                                 ),
                                 SwitchListTile(
+                                  secondary: IconButton(
+                                    tooltip: '离线通知与缓冲期设置',
+                                    icon: const Icon(Icons.settings_outlined),
+                                    onPressed: () => _showAutoHideSettings(
+                                      title: '离线时隐藏',
+                                      notify: _notifyOnOffline,
+                                      onNotifyChanged: (value) =>
+                                          _notifyOnOffline = value,
+                                      graceDaysController:
+                                          _offlineGraceDaysController,
+                                    ),
+                                  ),
                                   title: Text(
                                     t(context, 'link_hide_when_offline'),
                                   ),
@@ -711,6 +910,18 @@ class _AddLinkPageState extends State<AddLinkPage> {
                                   contentPadding: EdgeInsets.zero,
                                 ),
                                 SwitchListTile(
+                                  secondary: IconButton(
+                                    tooltip: '欺诈通知与缓冲期设置',
+                                    icon: const Icon(Icons.settings_outlined),
+                                    onPressed: () => _showAutoHideSettings(
+                                      title: '检测到关键词欺诈时隐藏',
+                                      notify: _notifyOnKeywordFraud,
+                                      onNotifyChanged: (value) =>
+                                          _notifyOnKeywordFraud = value,
+                                      graceDaysController:
+                                          _fraudGraceDaysController,
+                                    ),
+                                  ),
                                   title: Text(
                                     t(context, 'link_hide_when_keyword_fraud'),
                                   ),

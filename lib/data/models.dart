@@ -2760,6 +2760,14 @@ class LinkCreateRequest {
     this.hideWhenOffline,
     this.monitoringKeywords,
     this.hideWhenKeywordFraudDetected,
+    this.displayRegion,
+    this.backlinkCheckUrls,
+    this.notifyOnBacklinkMissing,
+    this.backlinkMissingGraceDays,
+    this.notifyOnOffline,
+    this.offlineGraceDays,
+    this.notifyOnKeywordFraud,
+    this.keywordFraudGraceDays,
   });
 
   final String name;
@@ -2784,6 +2792,14 @@ class LinkCreateRequest {
   final bool? hideWhenOffline;
   final String? monitoringKeywords;
   final bool? hideWhenKeywordFraudDetected;
+  final String? displayRegion;
+  final List<String>? backlinkCheckUrls;
+  final bool? notifyOnBacklinkMissing;
+  final int? backlinkMissingGraceDays;
+  final bool? notifyOnOffline;
+  final int? offlineGraceDays;
+  final bool? notifyOnKeywordFraud;
+  final int? keywordFraudGraceDays;
 
   Map<String, dynamic> toJson() {
     final payload = <String, dynamic>{'name': name, 'url': url};
@@ -2816,6 +2832,26 @@ class LinkCreateRequest {
     }
     if (hideWhenKeywordFraudDetected != null) {
       payload['hideWhenKeywordFraudDetected'] = hideWhenKeywordFraudDetected;
+    }
+    if (displayRegion != null) payload['displayRegion'] = displayRegion;
+    if (backlinkCheckUrls != null) {
+      payload['backlinkCheckUrls'] = backlinkCheckUrls;
+    }
+    if (notifyOnBacklinkMissing != null) {
+      payload['notifyOnBacklinkMissing'] = notifyOnBacklinkMissing;
+    }
+    if (backlinkMissingGraceDays != null) {
+      payload['backlinkMissingGraceDays'] = backlinkMissingGraceDays;
+    }
+    if (notifyOnOffline != null) payload['notifyOnOffline'] = notifyOnOffline;
+    if (offlineGraceDays != null) {
+      payload['offlineGraceDays'] = offlineGraceDays;
+    }
+    if (notifyOnKeywordFraud != null) {
+      payload['notifyOnKeywordFraud'] = notifyOnKeywordFraud;
+    }
+    if (keywordFraudGraceDays != null) {
+      payload['keywordFraudGraceDays'] = keywordFraudGraceDays;
     }
 
     return payload;
@@ -2858,6 +2894,15 @@ class AdminLinkItem {
     this.monitoringKeywords = '',
     this.hideWhenKeywordFraudDetected = false,
     this.keywordFraudStatus = 'UNKNOWN',
+    this.displayRegion = 'global',
+    this.backlinkCheckUrls = const [],
+    this.notifyOnBacklinkMissing = false,
+    this.backlinkMissingGraceDays = 7,
+    this.notifyOnOffline = false,
+    this.offlineGraceDays = 7,
+    this.notifyOnKeywordFraud = false,
+    this.keywordFraudGraceDays = 7,
+    this.autoHideMessage = '',
     this.createdAt,
   });
 
@@ -2895,6 +2940,15 @@ class AdminLinkItem {
   final String monitoringKeywords;
   final bool hideWhenKeywordFraudDetected;
   final String keywordFraudStatus;
+  final String displayRegion;
+  final List<String> backlinkCheckUrls;
+  final bool notifyOnBacklinkMissing;
+  final int backlinkMissingGraceDays;
+  final bool notifyOnOffline;
+  final int offlineGraceDays;
+  final bool notifyOnKeywordFraud;
+  final int keywordFraudGraceDays;
+  final String autoHideMessage;
   final DateTime? createdAt;
 
   factory AdminLinkItem.fromMap(Map<String, dynamic> map) {
@@ -2934,6 +2988,15 @@ class AdminLinkItem {
       hideWhenKeywordFraudDetected:
           toBool(map["hideWhenKeywordFraudDetected"]) ?? false,
       keywordFraudStatus: map["keywordFraudStatus"]?.toString() ?? 'UNKNOWN',
+      displayRegion: map["displayRegion"]?.toString() ?? 'global',
+      backlinkCheckUrls: toStringList(map["backlinkCheckUrls"]) ?? const [],
+      notifyOnBacklinkMissing: toBool(map["notifyOnBacklinkMissing"]) ?? false,
+      backlinkMissingGraceDays: toInt(map["backlinkMissingGraceDays"]) ?? 7,
+      notifyOnOffline: toBool(map["notifyOnOffline"]) ?? false,
+      offlineGraceDays: toInt(map["offlineGraceDays"]) ?? 7,
+      notifyOnKeywordFraud: toBool(map["notifyOnKeywordFraud"]) ?? false,
+      keywordFraudGraceDays: toInt(map["keywordFraudGraceDays"]) ?? 7,
+      autoHideMessage: map["autoHideMessage"]?.toString() ?? '',
       createdAt: parseDate(map["createdAt"]),
     );
   }
