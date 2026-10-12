@@ -130,102 +130,214 @@ class _EmailCenterPageState extends State<EmailCenterPage>
     _loadDeliveries();
   }
 
-  Future<void> _createChannel() async {
-    final name = TextEditingController();
-    final host = TextEditingController();
-    final username = TextEditingController();
+  Future<void> _createChannel([Map<String, dynamic>? channel]) async {
+    final name = TextEditingController(
+      text: channel?['name']?.toString() ?? '',
+    );
+    final host = TextEditingController(
+      text: channel?['host']?.toString() ?? '',
+    );
+    final username = TextEditingController(
+      text: channel?['username']?.toString() ?? '',
+    );
     final password = TextEditingController();
-    final fromAddress = TextEditingController();
-    final fromName = TextEditingController(text: 'WindBlog');
-    String securityMode = 'STARTTLS';
-    int port = 587;
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('新增 SMTP 通道'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: name,
-                  decoration: const InputDecoration(labelText: '名称'),
-                ),
-                TextField(
-                  controller: host,
-                  decoration: const InputDecoration(labelText: 'SMTP 主机'),
-                ),
-                TextField(
-                  controller: username,
-                  decoration: const InputDecoration(labelText: '用户名'),
-                ),
-                TextField(
-                  controller: password,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: '密码或 API Key'),
-                ),
-                TextField(
-                  controller: fromName,
-                  decoration: const InputDecoration(labelText: '发件人名称'),
-                ),
-                TextField(
-                  controller: fromAddress,
-                  decoration: const InputDecoration(labelText: '发件人邮箱'),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: securityMode,
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'STARTTLS',
-                      child: Text('STARTTLS'),
+    final fromAddress = TextEditingController(
+      text: channel?['fromAddress']?.toString() ?? '',
+    );
+    final fromName = TextEditingController(
+      text: channel?['fromName']?.toString() ?? 'WindBlog',
+    );
+    final replyTo = TextEditingController(
+      text: channel?['replyToAddress']?.toString() ?? '',
+    );
+    final port = TextEditingController(
+      text: channel?['port']?.toString() ?? '587',
+    );
+    String securityMode = channel?['securityMode']?.toString() ?? 'STARTTLS';
+    bool enabled = channel?['enabled'] != false;
+    bool saving = false;
+    String? saveError;
+    try {
+      final route = DialogRoute<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => PopScope(
+            canPop: !saving,
+            child: AlertDialog(
+              title: Text(channel == null ? '新增 SMTP 通道' : '编辑 SMTP 通道'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final field in [
+                      (name, '名称'),
+                      (host, 'SMTP 主机'),
+                      (username, '用户名（可选）'),
+                      (fromName, '发件人名称'),
+                      (fromAddress, '发件人邮箱'),
+                      (replyTo, '回复邮箱（可选）'),
+                    ])
+                      TextField(
+                        controller: field.$1,
+                        enabled: !saving,
+                        decoration: InputDecoration(labelText: field.$2),
+                      ),
+                    TextField(
+                      controller: password,
+                      enabled: !saving,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: channel == null
+                            ? '密码或授权码'
+                            : '密码或授权码（留空保留原密码）',
+                      ),
                     ),
-                    DropdownMenuItem(value: 'SSL_TLS', child: Text('SSL/TLS')),
-                    DropdownMenuItem(value: 'NONE', child: Text('不加密')),
+                    TextField(
+                      controller: port,
+                      enabled: !saving,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'SMTP 端口'),
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: securityMode,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'STARTTLS',
+                          child: Text('STARTTLS'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'SSL_TLS',
+                          child: Text('SSL/TLS'),
+                        ),
+                        DropdownMenuItem(value: 'NONE', child: Text('不加密')),
+                      ],
+                      onChanged: saving
+                          ? null
+                          : (value) => setDialogState(() {
+                              securityMode = value!;
+                              port.text = securityMode == 'SSL_TLS'
+                                  ? '465'
+                                  : securityMode == 'NONE'
+                                  ? '25'
+                                  : '587';
+                            }),
+                      decoration: const InputDecoration(labelText: '加密方式'),
+                    ),
+                    SwitchListTile(
+                      title: const Text('启用通道'),
+                      value: enabled,
+                      onChanged: saving
+                          ? null
+                          : (value) => setDialogState(() => enabled = value),
+                    ),
+                    if (saveError != null)
+                      Text(
+                        saveError!,
+                        style: TextStyle(
+                          color: Theme.of(dialogContext).colorScheme.error,
+                        ),
+                      ),
                   ],
-                  onChanged: (value) => setDialogState(() {
-                    securityMode = value!;
-                    port = securityMode == 'SSL_TLS' ? 465 : 587;
-                  }),
-                  decoration: const InputDecoration(labelText: '加密方式'),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: saving
+                      ? null
+                      : () => Navigator.pop(dialogContext, false),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final portNumber = int.tryParse(port.text.trim());
+                          if (name.text.trim().isEmpty ||
+                              host.text.trim().isEmpty ||
+                              fromAddress.text.trim().isEmpty ||
+                              portNumber == null ||
+                              portNumber < 1 ||
+                              portNumber > 65535) {
+                            setDialogState(
+                              () => saveError = '请填写名称、主机、发件人邮箱和有效端口（1–65535）',
+                            );
+                            return;
+                          }
+                          setDialogState(() {
+                            saving = true;
+                            saveError = null;
+                          });
+                          try {
+                            final values = <String, dynamic>{
+                              'name': name.text.trim(),
+                              'provider': channel?['provider'] ?? 'CUSTOM_SMTP',
+                              'host': host.text.trim(),
+                              'port': portNumber,
+                              'securityMode': securityMode,
+                              'username': username.text.trim(),
+                              'password': password.text,
+                              'fromName': fromName.text.trim(),
+                              'fromAddress': fromAddress.text.trim(),
+                              'replyToAddress': replyTo.text.trim(),
+                              'enabled': enabled,
+                            };
+                            if (channel == null) {
+                              await widget.api.createEmailChannel(values);
+                            } else {
+                              await widget.api.updateEmailChannel(
+                                (channel['id'] as num).toInt(),
+                                values,
+                              );
+                            }
+                            if (dialogContext.mounted) {
+                              setDialogState(() => saving = false);
+                              Navigator.pop(dialogContext, true);
+                            }
+                          } on UnauthorizedException {
+                            if (dialogContext.mounted) {
+                              setDialogState(() => saving = false);
+                              Navigator.pop(dialogContext, false);
+                            }
+                            widget.onAuthError();
+                          } catch (error) {
+                            if (dialogContext.mounted) {
+                              setDialogState(() {
+                                saving = false;
+                                saveError = '保存失败：$error';
+                              });
+                            }
+                          }
+                        },
+                  child: Text(saving ? '保存中…' : '保存'),
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('保存'),
-            ),
-          ],
         ),
-      ),
-    );
-    if (created == true) {
-      await widget.api.createEmailChannel({
-        'name': name.text.trim(),
-        'provider': 'CUSTOM_SMTP',
-        'host': host.text.trim(),
-        'port': port,
-        'securityMode': securityMode,
-        'username': username.text.trim(),
-        'password': password.text,
-        'fromName': fromName.text.trim(),
-        'fromAddress': fromAddress.text.trim(),
-        'enabled': true,
-      });
-      await _load();
+      );
+      final saved = await Navigator.of(
+        context,
+        rootNavigator: true,
+      ).push(route);
+      await route.completed;
+      if (saved == true && mounted) {
+        await _load();
+      }
+    } finally {
+      for (final controller in [
+        name,
+        host,
+        username,
+        password,
+        fromAddress,
+        fromName,
+        replyTo,
+        port,
+      ]) {
+        controller.dispose();
+      }
     }
-    name.dispose();
-    host.dispose();
-    username.dispose();
-    password.dispose();
-    fromAddress.dispose();
-    fromName.dispose();
   }
 
   Future<void> _retryDelivery(int deliveryId) async {
@@ -807,10 +919,20 @@ class _EmailCenterPageState extends State<EmailCenterPage>
                 '${channel['securityMode']} · ${channel['fromAddress']} · '
                 '${channel['enabled'] == true ? '已启用' : '已停用'}',
               ),
-              trailing: TextButton.icon(
-                onPressed: () => _testChannel(channel),
-                icon: const Icon(Icons.send_outlined),
-                label: const Text('手动测试'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: '编辑通道',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _createChannel(channel),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _testChannel(channel),
+                    icon: const Icon(Icons.send_outlined),
+                    label: const Text('手动测试'),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1024,7 +1146,7 @@ class _EmailCenterPageState extends State<EmailCenterPage>
           icon: const Icon(Icons.refresh),
         ),
         FilledButton.icon(
-          onPressed: _createChannel,
+          onPressed: () => _createChannel(),
           icon: const Icon(Icons.add),
           label: const Text('新增 SMTP 通道'),
         ),

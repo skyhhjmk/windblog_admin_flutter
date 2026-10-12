@@ -685,6 +685,10 @@ class AdminApiClient {
     await _post('/api/admin/email-channels', body: values);
   }
 
+  Future<void> updateEmailChannel(int id, Map<String, dynamic> values) async {
+    await _put('/api/admin/email-channels/$id', body: values);
+  }
+
   Future<List<Map<String, dynamic>>> listEmailGroups() async {
     final res = await _get('/api/admin/email-routing/groups');
     return (jsonDecode(res.body) as List<dynamic>)
