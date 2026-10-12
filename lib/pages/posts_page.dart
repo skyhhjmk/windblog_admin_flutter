@@ -22,7 +22,7 @@ Color _generateColorFromSlug(String slug) {
   return colors[hash.abs() % colors.length].withValues(alpha: 0.8);
 }
 
-enum _PostAction { edit, publish, delete }
+enum _PostAction { edit, comments, publish, delete }
 
 class PostsPage extends StatefulWidget {
   const PostsPage({super.key, required this.api, required this.onAuthError});
@@ -394,6 +394,22 @@ class _PostsPageState extends State<PostsPage> {
     );
   }
 
+  void _viewComments(PostItem item) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text(t(context, 'view_comments'))),
+          body: CommentsPage(
+            api: widget.api,
+            onAuthError: widget.onAuthError,
+            postId: item.id,
+            postTitle: item.zhTitle.isEmpty ? item.slug : item.zhTitle,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPostActions(PostItem item) {
     final compact =
         AdminBreakpoints.isPhone(context) || AdminBreakpoints.isTablet(context);
@@ -404,6 +420,8 @@ class _PostsPageState extends State<PostsPage> {
           switch (action) {
             case _PostAction.edit:
               createOrEdit(item: item);
+            case _PostAction.comments:
+              _viewComments(item);
             case _PostAction.publish:
               _publishLatestDraft(item);
             case _PostAction.delete:
@@ -418,6 +436,16 @@ class _PostsPageState extends State<PostsPage> {
                 const Icon(Icons.edit_outlined, size: 18),
                 const SizedBox(width: 10),
                 Text(t(context, 'edit')),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: _PostAction.comments,
+            child: Row(
+              children: [
+                const Icon(Icons.comment_outlined, size: 18),
+                const SizedBox(width: 10),
+                Text(t(context, 'view_comments')),
               ],
             ),
           ),
@@ -454,6 +482,13 @@ class _PostsPageState extends State<PostsPage> {
         TextButton(
           onPressed: () => createOrEdit(item: item),
           child: Text(t(context, 'edit'), style: const TextStyle(fontSize: 12)),
+        ),
+        TextButton(
+          onPressed: () => _viewComments(item),
+          child: Text(
+            t(context, 'view_comments'),
+            style: const TextStyle(fontSize: 12),
+          ),
         ),
         TextButton(
           onPressed: () => _publishLatestDraft(item),

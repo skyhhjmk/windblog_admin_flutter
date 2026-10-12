@@ -1,4 +1,5 @@
 {
+  "view_comments": "查看评论",
   "app_title": "WindBlog 后台",
   "login_title": "WindBlog 管理后台",
   "api_base_url": "API 基础地址",

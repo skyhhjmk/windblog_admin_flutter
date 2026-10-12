@@ -1,8 +1,16 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
 class CommentsPage extends StatefulWidget {
-  const CommentsPage({super.key, required this.api, required this.onAuthError});
+  const CommentsPage({
+    super.key,
+    required this.api,
+    required this.onAuthError,
+    this.postId,
+    this.postTitle,
+  });
 
+  final int? postId;
+  final String? postTitle;
   final AdminApiClient api;
   final VoidCallback onAuthError;
 
@@ -31,6 +39,7 @@ class _CommentsPageState extends State<CommentsPage> {
     setState(() => loading = true);
     try {
       final result = await widget.api.listComments(
+        postId: widget.postId,
         page: currentPage,
         pageSize: pageSize,
         status: statusFilter,
@@ -180,7 +189,9 @@ class _CommentsPageState extends State<CommentsPage> {
   @override
   Widget build(BuildContext context) {
     return AdminPageScaffold(
-      title: t(context, 'comments'),
+      title: widget.postId == null
+          ? t(context, 'comments')
+          : '${t(context, 'comments')} · ${widget.postTitle ?? '#${widget.postId}'}',
       filters: AdminToolbar(
         children: [
           SizedBox(

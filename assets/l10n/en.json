@@ -1,4 +1,5 @@
 {
+  "view_comments": "View comments",
   "app_title": "WindBlog Admin",
   "login_title": "WindBlog Admin Panel",
   "api_base_url": "API Base URL",

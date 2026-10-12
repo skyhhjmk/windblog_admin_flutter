@@ -1343,10 +1343,12 @@ class AdminApiClient {
     required int pageSize,
     String? status,
     String? keyword,
+    int? postId,
   }) async {
     final query = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
     if (status != null && status.isNotEmpty) query['status'] = status;
     if (keyword != null && keyword.isNotEmpty) query['keyword'] = keyword;
+    if (postId != null) query['postId'] = '$postId';
     final res = await _get('/api/admin/comments', query: query);
     return CommentListResult.fromMap(_map(jsonDecode(res.body)));
   }
