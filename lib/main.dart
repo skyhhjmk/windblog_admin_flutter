@@ -23,6 +23,7 @@ import 'components/web_stub.dart'
     as web_helper;
 import 'utils/storage_service.dart';
 import 'utils/instance_vault.dart';
+import 'utils/passkey_authentication.dart' show PasskeyException;
 import 'services/seeray_analytics_service.dart';
 
 part 'components/admin_ui.dart';
@@ -344,9 +345,16 @@ class _AdminRootPageState extends State<AdminRootPage> {
     }
   }
 
-  Future<void> _unlockVault(String masterPassword) async {
-    if (!await InstanceVault.unlock(masterPassword)) {
-      throw StateError('主密码错误，或实例凭据已损坏');
+  Future<void> _unlockVault(String? masterPassword) async {
+    final unlocked = masterPassword == null
+        ? (kIsWeb
+              ? await InstanceVault.unlockWithPasskey()
+              : await InstanceVault.unlockWithSystemAuthentication())
+        : await InstanceVault.unlock(masterPassword);
+    if (!unlocked) {
+      throw StateError(
+        masterPassword == null ? '系统认证未完成，请重试或使用主密码' : '主密码错误，或实例凭据已损坏',
+      );
     }
     if (mounted) setState(() => _vaultLocked = false);
     final prefs = await SharedPreferences.getInstance();

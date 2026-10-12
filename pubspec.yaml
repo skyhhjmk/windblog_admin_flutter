@@ -55,6 +55,7 @@ dependencies:
       url: https://github.com/skyhhjmk/seeray-lens.git
       path: sdk/flutter
       ref: 3cdc853
+  flutter_local_authentication: ^2.1.1
 
 dev_dependencies:
   flutter_test:

@@ -3,7 +3,7 @@ part of 'package:windblog_admin_flutter/main.dart';
 class VaultUnlockPage extends StatefulWidget {
   const VaultUnlockPage({required this.onUnlock, super.key});
 
-  final Future<void> Function(String password) onUnlock;
+  final Future<void> Function(String? password) onUnlock;
 
   @override
   State<VaultUnlockPage> createState() => _VaultUnlockPageState();
@@ -12,10 +12,59 @@ class VaultUnlockPage extends StatefulWidget {
 class _VaultUnlockPageState extends State<VaultUnlockPage> {
   final _password = TextEditingController();
   bool _busy = false;
+  bool _systemEnabled = false;
+  bool _systemAuthenticating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSystemUnlock();
+  }
+
+  Future<void> _loadSystemUnlock() async {
+    try {
+      final enabled = kIsWeb
+          ? await InstanceVault.passkeyEnabled && InstanceVault.passkeyAvailable
+          : await InstanceVault.systemUnlockEnabled &&
+                await InstanceVault.systemAuthenticationAvailable();
+      if (mounted) setState(() => _systemEnabled = enabled);
+    } catch (_) {
+      // Master-password unlock remains available when secure storage fails.
+    }
+  }
+
+  Future<void> _systemUnlock() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _systemAuthenticating = true;
+      _error = null;
+    });
+    try {
+      await widget.onUnlock(null);
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error is PasskeyException
+              ? error.message
+              : '认证未完成或解锁配置已损坏，请重试或使用主密码。',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _systemAuthenticating = false;
+        });
+      }
+    }
+  }
+
   String? _error;
 
   @override
   void dispose() {
+    if (_systemAuthenticating) InstanceVault.cancelSystemAuthentication();
     _password.dispose();
     super.dispose();
   }
@@ -56,7 +105,26 @@ class _VaultUnlockPageState extends State<VaultUnlockPage> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
-                const Text('主密码只在本次应用运行期间有效。', textAlign: TextAlign.center),
+                const Text('解锁后可使用保存的实例凭据。', textAlign: TextAlign.center),
+                if (_systemEnabled) ...[
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _systemUnlock,
+                    icon: const Icon(Icons.fingerprint),
+                    label: Text(kIsWeb ? '使用通行密钥解锁' : '使用系统认证解锁'),
+                  ),
+                ],
+                if (_systemAuthenticating) ...[
+                  Text(
+                    kIsWeb
+                        ? '请在浏览器或密码管理器中确认通行密钥。'
+                        : '请完成系统认证；Linux 请触摸指纹传感器（30 秒内）。',
+                  ),
+                  TextButton(
+                    onPressed: InstanceVault.cancelSystemAuthentication,
+                    child: const Text('取消认证'),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 TextField(
                   controller: _password,
@@ -104,6 +172,9 @@ class InstanceManagerDialog extends StatefulWidget {
 class _InstanceManagerDialogState extends State<InstanceManagerDialog> {
   String? _selectedId;
   bool _ready = false;
+  bool _systemAvailable = false;
+  bool _systemEnabled = false;
+  bool _systemBusy = false;
 
   @override
   void initState() {
@@ -111,13 +182,87 @@ class _InstanceManagerDialogState extends State<InstanceManagerDialog> {
     _loadSelection();
   }
 
+  @override
+  void dispose() {
+    if (_systemBusy) InstanceVault.cancelSystemAuthentication();
+    super.dispose();
+  }
+
   Future<void> _loadSelection() async {
     final prefs = await SharedPreferences.getInstance();
+    final available = kIsWeb
+        ? InstanceVault.passkeyAvailable
+        : await InstanceVault.systemAuthenticationAvailable();
+    final enabled = kIsWeb
+        ? await InstanceVault.passkeyEnabled
+        : await InstanceVault.systemUnlockEnabled;
     if (mounted) {
       setState(() {
         _selectedId = prefs.getString('admin_active_instance_id');
         _ready = true;
+        _systemAvailable = available;
+        _systemEnabled = enabled;
       });
+    }
+  }
+
+  Future<void> _toggleSystemUnlock() async {
+    setState(() => _systemBusy = true);
+    try {
+      if (_systemEnabled) {
+        if (kIsWeb) {
+          await InstanceVault.disablePasskeyUnlock();
+        } else {
+          await InstanceVault.disableSystemUnlock();
+        }
+      } else {
+        if (!await _ensureUnlocked()) return;
+        if (!mounted) return;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(kIsWeb ? '启用通行密钥解锁' : '启用系统解锁'),
+            content: Text(
+              kIsWeb
+                  ? '在 Bitwarden 等密码管理器中创建此站点的通行密钥。需要支持 PRF 才能解密实例库；会再验证一次，然后保存加密的解锁配置。主密码仍可使用。'
+                  : '启用后，此设备会在系统安全存储中保存解锁密钥。通过系统身份认证即可解锁实例库，主密码仍可使用。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('启用'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+        if (kIsWeb) {
+          await InstanceVault.enablePasskeyUnlock();
+        } else {
+          await InstanceVault.enableSystemUnlock();
+        }
+      }
+      final enabled = kIsWeb
+          ? await InstanceVault.passkeyEnabled
+          : await InstanceVault.systemUnlockEnabled;
+      if (mounted) setState(() => _systemEnabled = enabled);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 10),
+            content: Text(
+              error is PasskeyException ? error.message : '认证未完成或安全存储不可用，请重试。',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _systemBusy = false);
     }
   }
 
@@ -246,13 +391,32 @@ class _InstanceManagerDialogState extends State<InstanceManagerDialog> {
               ),
       ),
       actions: [
+        if (_systemBusy) ...[
+          Text(
+            kIsWeb ? '请在浏览器或密码管理器中确认通行密钥。' : '请完成系统认证；Linux 请触摸指纹传感器（30 秒内）。',
+          ),
+          TextButton(
+            onPressed: InstanceVault.cancelSystemAuthentication,
+            child: const Text('取消认证'),
+          ),
+        ],
+        if (_systemAvailable || _systemEnabled)
+          TextButton.icon(
+            onPressed: _systemBusy ? null : _toggleSystemUnlock,
+            icon: const Icon(Icons.fingerprint),
+            label: Text(
+              kIsWeb
+                  ? (_systemEnabled ? '关闭通行密钥解锁' : '启用通行密钥解锁')
+                  : (_systemEnabled ? '关闭系统解锁' : '启用系统解锁'),
+            ),
+          ),
         TextButton.icon(
           onPressed: _edit,
           icon: const Icon(Icons.add),
           label: const Text('添加实例'),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _systemBusy ? null : () => Navigator.pop(context),
           child: const Text('关闭'),
         ),
         if (instances.isNotEmpty)
