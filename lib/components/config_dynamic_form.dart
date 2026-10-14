@@ -7,12 +7,14 @@ class ConfigDynamicForm extends StatefulWidget {
     required this.initialValues,
     required this.onSave,
     this.isFrozen = false,
+    this.showSaveButton = true,
   });
 
   final UISchema schema;
   final Map<String, dynamic> initialValues;
   final Function(Map<String, dynamic> values) onSave;
   final bool isFrozen;
+  final bool showSaveButton;
 
   @override
   State<ConfigDynamicForm> createState() => _ConfigDynamicFormState();
@@ -85,13 +87,13 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
         children: [
           ...widget.schema.fields.map((field) => _buildField(field)),
           const SizedBox(height: 24),
-          if (!widget.isFrozen)
+          if (!widget.isFrozen && widget.showSaveButton)
             FilledButton.icon(
               onPressed: _submit,
               icon: const Icon(Icons.save),
               label: Text(t(context, 'save_config')),
             )
-          else
+          else if (widget.isFrozen)
             AlertBanner(
               message: t(context, 'config_frozen_msg'),
               type: AlertType.warning,

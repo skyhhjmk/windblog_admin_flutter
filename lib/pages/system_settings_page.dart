@@ -267,6 +267,17 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                       onSave: (values) =>
                           _saveSetting(setting.configKey, values),
                     )
+                  : setting.configKey == 'google_adsense'
+                  ? GoogleAdSenseSettingsEditor(
+                      key: ValueKey(setting.configKey),
+                      schema: setting.uiSchema,
+                      initialValues: Map<String, dynamic>.from(
+                        setting.configValue is Map ? setting.configValue : {},
+                      ),
+                      isFrozen: setting.isFrozen,
+                      onSave: (values) =>
+                          _saveSetting(setting.configKey, values),
+                    )
                   : ConfigDynamicForm(
                       key: ValueKey(setting.configKey),
                       schema: setting.uiSchema,
