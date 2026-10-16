@@ -1435,6 +1435,24 @@ class AdminApiClient {
     return SystemMonitorInfo.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<Map<String, dynamic>> seoGet(String path) async {
+    final response = await _get('/api/admin/seo/$path');
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<Map<String, dynamic>> seoPost(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _post('/api/admin/seo/$path', body: body);
+    return response.body.trim().isEmpty
+        ? <String, dynamic>{}
+        : _map(jsonDecode(response.body));
+  }
+
+  Future<void> seoDeleteRedirect(int id) async =>
+      _delete('/api/admin/seo/redirects/$id');
+
   Future<AmpInfo> getAmpInfo() async {
     final res = await _get('/api/admin/system/amp');
     final map = _map(jsonDecode(res.body));

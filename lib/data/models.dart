@@ -136,6 +136,9 @@ class PostDetail {
     required this.status,
     required this.visibility,
     this.password,
+    this.seoTitle,
+    this.seoDescription,
+    this.seoKeywords,
     required this.hasPassword,
     required this.renderType,
     required this.editorType,
@@ -169,6 +172,9 @@ class PostDetail {
   final int status;
   final int visibility;
   final String? password;
+  final String? seoTitle;
+  final String? seoDescription;
+  final String? seoKeywords;
   final bool hasPassword;
   final int renderType;
   final int editorType;
@@ -217,6 +223,9 @@ class PostDetail {
       status: toInt(map['status']) ?? 0,
       visibility: toInt(map['visibility']) ?? 0,
       password: map['password']?.toString(),
+      seoTitle: map['seoTitle']?.toString(),
+      seoDescription: map['seoDescription']?.toString(),
+      seoKeywords: map['seoKeywords']?.toString(),
       hasPassword: map['hasPassword'] == true,
       renderType: toInt(map['renderType']) ?? 0,
       editorType: toInt(map['editorType']) ?? 0,
@@ -382,6 +391,9 @@ class PostEditRequest {
     required this.status,
     required this.visibility,
     this.password,
+    this.seoTitle,
+    this.seoDescription,
+    this.seoKeywords,
     required this.renderType,
     required this.editorType,
     required this.aiSummaryStatus,
@@ -406,6 +418,9 @@ class PostEditRequest {
   final int status;
   final int visibility;
   final String? password;
+  final String? seoTitle;
+  final String? seoDescription;
+  final String? seoKeywords;
   final int renderType;
   final int editorType;
   final int aiSummaryStatus;
@@ -432,6 +447,9 @@ class PostEditRequest {
       'status': status,
       'visibility': visibility,
       if (password != null) 'password': password,
+      if (seoTitle != null) 'seoTitle': seoTitle,
+      if (seoDescription != null) 'seoDescription': seoDescription,
+      if (seoKeywords != null) 'seoKeywords': seoKeywords,
       'renderType': renderType,
       'editorType': editorType,
       'aiSummaryStatus': aiSummaryStatus,
@@ -459,6 +477,9 @@ class PostEditRequest {
       'status': status,
       'visibility': visibility,
       if (password != null) 'password': password,
+      if (seoTitle != null) 'seoTitle': seoTitle,
+      if (seoDescription != null) 'seoDescription': seoDescription,
+      if (seoKeywords != null) 'seoKeywords': seoKeywords,
       'renderType': renderType,
       'editorType': editorType,
       'aiSummaryStatus': aiSummaryStatus,

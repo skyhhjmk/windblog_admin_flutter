@@ -18,6 +18,12 @@ class _PostEditorPageState extends State<PostEditorPage>
   late final TextEditingController slugCtrl;
   late final TextEditingController titleCtrl;
   late final TextEditingController summaryCtrl;
+  late final TextEditingController seoTitleCtrl;
+  late final TextEditingController seoDescriptionCtrl;
+  late final TextEditingController seoKeywordsCtrl;
+  String _initialSeo = '';
+  String get _seoValues =>
+      '${seoTitleCtrl.text}\n${seoDescriptionCtrl.text}\n${seoKeywordsCtrl.text}';
   late TextEditingController contentCtrl;
   late final TextEditingController pointsPriceCtrl;
   late final TextEditingController freeLinesCtrl;
@@ -83,6 +89,19 @@ class _PostEditorPageState extends State<PostEditorPage>
     slugCtrl = TextEditingController(text: d?.slug ?? '');
     titleCtrl = TextEditingController(text: d?.zhTitle ?? '');
     summaryCtrl = TextEditingController(text: d?.zhSummary ?? '');
+    seoTitleCtrl = TextEditingController(text: d?.seoTitle ?? '');
+    seoDescriptionCtrl = TextEditingController(text: d?.seoDescription ?? '');
+    seoKeywordsCtrl = TextEditingController(text: d?.seoKeywords ?? '');
+    _initialSeo = _seoValues;
+    for (final controller in [
+      seoTitleCtrl,
+      seoDescriptionCtrl,
+      seoKeywordsCtrl,
+    ]) {
+      controller.addListener(() {
+        if (mounted) setState(() => _isDirty = _checkIfDirty());
+      });
+    }
     _titles = Map<String, String>.from(d?.title ?? {});
     _summaries = Map<String, String>.from(d?.summary ?? {});
     _contents = Map<String, String>.from(d?.contentMarkdown ?? {});
@@ -114,9 +133,11 @@ class _PostEditorPageState extends State<PostEditorPage>
     freeLinesCtrl = TextEditingController(text: d?.freeLines?.toString() ?? '');
     passwordCtrl = TextEditingController();
     categoryId = d?.categoryId;
-    categoryIds = List<int>.from(d?.categoryIds.isNotEmpty == true
-        ? d!.categoryIds
-        : (d?.categoryId == null ? const <int>[] : <int>[d!.categoryId!]));
+    categoryIds = List<int>.from(
+      d?.categoryIds.isNotEmpty == true
+          ? d!.categoryIds
+          : (d?.categoryId == null ? const <int>[] : <int>[d!.categoryId!]),
+    );
     tagIds = d?.tagIds ?? [];
     visibilityRegions = d?.visibilityRegions ?? [];
     contentDeclarations = List<String>.from(d?.contentDeclarations ?? []);
@@ -175,6 +196,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   void _captureBaseline() {
     _initialSlug = slugCtrl.text.trim();
     _initialTitle = titleCtrl.text.trim();
+    _initialSeo = _seoValues;
     _initialSummary = summaryCtrl.text.trim();
     _initialContent = contentCtrl.text.trim();
     _initialStatus = status;
@@ -210,7 +232,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     final currentContents = Map<String, String>.from(_contents)
       ..['zh-cn'] = currentContent;
 
-    return currentSlug != _initialSlug ||
+    return _seoValues != _initialSeo ||
+        currentSlug != _initialSlug ||
         currentTitle != _initialTitle ||
         currentSummary != _initialSummary ||
         currentContent != _initialContent ||
@@ -392,6 +415,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     slugCtrl.dispose();
     titleCtrl.dispose();
     summaryCtrl.dispose();
+    seoTitleCtrl.dispose();
+    seoDescriptionCtrl.dispose();
+    seoKeywordsCtrl.dispose();
     contentCtrl.dispose();
     passwordCtrl.dispose();
     pointsPriceCtrl.dispose();
@@ -485,6 +511,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     final publishNowText = t(context, 'publish_now');
     try {
       final request = PostEditRequest(
+        seoTitle: seoTitleCtrl.text.trim(),
+        seoDescription: seoDescriptionCtrl.text.trim(),
+        seoKeywords: seoKeywordsCtrl.text.trim(),
         slug: slugCtrl.text.trim(),
         title: Map<String, String>.from(_titles),
         summary: Map<String, String>.from(_summaries),
@@ -738,6 +767,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           slugCtrl.text = newDetail.slug;
           titleCtrl.text = newDetail.zhTitle;
           summaryCtrl.text = newDetail.zhSummary;
+          seoTitleCtrl.text = newDetail.seoTitle ?? '';
+          seoDescriptionCtrl.text = newDetail.seoDescription ?? '';
+          seoKeywordsCtrl.text = newDetail.seoKeywords ?? '';
           contentCtrl.text = newDetail.zhContent;
           pointsPriceCtrl.text = newDetail.pointsPrice?.toString() ?? '';
           freeLinesCtrl.text = newDetail.freeLines?.toString() ?? '';
@@ -1201,9 +1233,71 @@ class _PostEditorPageState extends State<PostEditorPage>
           _buildTagsCard(),
           const SizedBox(height: 16),
           _buildMetadataCard(),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('SEO', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: seoTitleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '搜索标题',
+                      helperText: '留空使用文章标题',
+                    ),
+                  ),
+                  TextField(
+                    controller: seoDescriptionCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: '搜索描述',
+                      helperText: '留空使用摘要或正文',
+                    ),
+                  ),
+                  TextField(
+                    controller: seoKeywordsCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '关键词',
+                      helperText: '以逗号分隔',
+                    ),
+                  ),
+                  if (_currentDetail != null)
+                    TextButton(
+                      onPressed: _openSeoTools,
+                      child: const Text('收录控制与 SEO 检查'),
+                    ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _openSeoTools() async {
+    if (_currentDetail == null) return;
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => SeoToolsPage(
+          api: widget.api,
+          onAuthError: () {
+            if (mounted) Navigator.of(context).pop();
+          },
+          postId: _currentDetail!.id,
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      seoTitleCtrl.text = result['title']?.toString() ?? '';
+      seoDescriptionCtrl.text = result['description']?.toString() ?? '';
+      seoKeywordsCtrl.text = result['keywords']?.toString() ?? '';
+      _isDirty = _checkIfDirty();
+    });
   }
 
   Widget _buildRevisionsContent() {
@@ -1915,7 +2009,9 @@ class _PostEditorPageState extends State<PostEditorPage>
                 if (value) {
                   categoryIds = [...categoryIds, cat.id];
                 } else {
-                  categoryIds = categoryIds.where((id) => id != cat.id).toList();
+                  categoryIds = categoryIds
+                      .where((id) => id != cat.id)
+                      .toList();
                 }
                 categoryId = categoryIds.isEmpty ? null : categoryIds.first;
                 _markDirty();

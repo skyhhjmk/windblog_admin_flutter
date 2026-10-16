@@ -89,6 +89,18 @@ class _AmpSettingsPageState extends State<AmpSettingsPage> {
       title: 'AMP / SEO',
       actions: [
         OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SeoToolsPage(
+                api: widget.api,
+                onAuthError: widget.onAuthError,
+              ),
+            ),
+          ),
+          icon: const Icon(Icons.search),
+          label: const Text('SEO 管理'),
+        ),
+        OutlinedButton.icon(
           onPressed: _loading ? null : _loadInfo,
           icon: const Icon(Icons.refresh, size: 18),
           label: const Text('刷新'),
@@ -144,16 +156,18 @@ class _AmpSettingsPageState extends State<AmpSettingsPage> {
           children: [
             Row(
               children: [
-                Icon(info.enabled ? Icons.bolt : Icons.pause_circle,
-                    color: color),
+                Icon(
+                  info.enabled ? Icons.bolt : Icons.pause_circle,
+                  color: color,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     info.enabled ? 'AMP 已启用' : 'AMP 已关闭',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: color.shade700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                      color: color.shade700,
+                    ),
                   ),
                 ),
               ],
@@ -170,9 +184,9 @@ class _AmpSettingsPageState extends State<AmpSettingsPage> {
             const SizedBox(height: 6),
             Text(
               info.configurationSource,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
             ),
           ],
         ),
@@ -187,8 +201,7 @@ class _AmpSettingsPageState extends State<AmpSettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('检查文章 AMP 页面',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text('检查文章 AMP 页面', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
               '只检查已发布文章。私有、密码保护和付费文章不会生成可缓存 AMP 页面。',
@@ -274,16 +287,18 @@ class _AmpSettingsPageState extends State<AmpSettingsPage> {
           children: [
             Row(
               children: [
-                Icon(result.available ? Icons.check_circle : Icons.info,
-                    color: color.shade700),
+                Icon(
+                  result.available ? Icons.check_circle : Icons.info,
+                  color: color.shade700,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     result.available ? 'AMP 页面可用' : 'AMP 页面不可用',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: color.shade700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                      color: color.shade700,
+                    ),
                   ),
                 ),
                 if (result.available && result.ampUrl.isNotEmpty)
@@ -325,10 +340,9 @@ class _AmpSettingsPageState extends State<AmpSettingsPage> {
           spacing: 22,
           runSpacing: 12,
           children: items
-              .map((item) => SizedBox(
-                    width: width,
-                    child: _buildInfoItem(item),
-                  ))
+              .map(
+                (item) => SizedBox(width: width, child: _buildInfoItem(item)),
+              )
               .toList(),
         );
       },
@@ -339,10 +353,12 @@ class _AmpSettingsPageState extends State<AmpSettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(item.label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: Colors.grey.shade700,
-                )),
+        Text(
+          item.label,
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: Colors.grey.shade700),
+        ),
         const SizedBox(height: 2),
         SelectableText(item.value),
       ],
