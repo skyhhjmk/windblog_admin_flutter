@@ -160,6 +160,36 @@ class _PostEditorPageState extends State<PostEditorPage>
     passwordCtrl.addListener(_markDirty);
   }
 
+  Future<void> _openLocalAiWriting() async {
+    final original = contentCtrl.text;
+    final originalSummary = summaryCtrl.text;
+    final result = await showDialog<LocalAiWritingResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => LocalAiWritingDialog(
+        title: titleCtrl.text,
+        content: original,
+        html: renderType == 1,
+      ),
+    );
+    if (!mounted || result == null) return;
+    if ((result.target == '摘要' && summaryCtrl.text != originalSummary) ||
+        (result.target != '摘要' && contentCtrl.text != original)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('文章内容已变化，请重新生成后采用。')));
+      return;
+    }
+    if (result.target == '摘要') {
+      summaryCtrl.text = result.text;
+    } else {
+      contentCtrl.text = result.target == '续写'
+          ? '$original\n\n${result.text}'
+          : result.text;
+    }
+    _markDirty();
+  }
+
   void _onScroll() {
     // No longer hiding title on scroll
   }
@@ -978,6 +1008,11 @@ class _PostEditorPageState extends State<PostEditorPage>
             overflow: TextOverflow.ellipsis,
           ),
           actions: [
+            IconButton(
+              tooltip: '本机 AI 写作',
+              icon: const Icon(Icons.auto_awesome),
+              onPressed: _openLocalAiWriting,
+            ),
             if (_isDirty)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
