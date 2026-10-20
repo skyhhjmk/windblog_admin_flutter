@@ -23,6 +23,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
 
   final _nameController = TextEditingController();
   final _urlController = TextEditingController();
+  final _placementUrlController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _emailController = TextEditingController();
   final _iconController = TextEditingController();
@@ -72,6 +73,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
       final link = widget.initialLink!;
       _nameController.text = link.name;
       _urlController.text = link.url;
+      _placementUrlController.text = link.placementUrl ?? '';
       _descriptionController.text = link.description ?? '';
       _emailController.text = link.email ?? '';
       _iconController.text = link.icon ?? '';
@@ -110,6 +112,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
   void dispose() {
     _nameController.dispose();
     _urlController.dispose();
+    _placementUrlController.dispose();
     _descriptionController.dispose();
     _emailController.dispose();
     _iconController.dispose();
@@ -252,6 +255,7 @@ class _AddLinkPageState extends State<AddLinkPage> {
         seoDescription: _seoDescriptionController.text.trim().isEmpty
             ? null
             : _seoDescriptionController.text.trim(),
+        placementUrl: _placementUrlController.text.trim(),
         type: _linkType,
         monitoringEnabled: _monitoringEnabled,
         monitoringIntervalMinutes:
@@ -809,6 +813,17 @@ class _AddLinkPageState extends State<AddLinkPage> {
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
                               children: [
+                                TextFormField(
+                                  controller: _placementUrlController,
+                                  keyboardType: TextInputType.url,
+                                  decoration: const InputDecoration(
+                                    labelText: '友链所在页面 URL（反链检测）',
+                                    helperText:
+                                        '可填写站点中的专属友链页。留空时检测站点首页；友链页面可用性与站点首页可用性分别判断。',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
                                 TextFormField(
                                   controller:
                                       _monitoringIntervalMinutesController,

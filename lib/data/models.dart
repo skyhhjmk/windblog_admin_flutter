@@ -2774,6 +2774,7 @@ class LinkCreateRequest {
     this.seoTitle,
     this.seoKeywords,
     this.seoDescription,
+    this.placementUrl,
     this.type,
     this.monitoringEnabled,
     this.monitoringIntervalMinutes,
@@ -2806,6 +2807,7 @@ class LinkCreateRequest {
   final String? seoTitle;
   final String? seoKeywords;
   final String? seoDescription;
+  final String? placementUrl;
   final int? type;
   final bool? monitoringEnabled;
   final int? monitoringIntervalMinutes;
@@ -2837,6 +2839,7 @@ class LinkCreateRequest {
     if (seoTitle != null) payload['seoTitle'] = seoTitle;
     if (seoKeywords != null) payload['seoKeywords'] = seoKeywords;
     if (seoDescription != null) payload['seoDescription'] = seoDescription;
+    if (placementUrl != null) payload['placementUrl'] = placementUrl;
     if (type != null) payload['type'] = type;
     if (monitoringEnabled != null) {
       payload['monitoringEnabled'] = monitoringEnabled;
