@@ -104,6 +104,10 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   Future<CommentItem?> _auditComment(CommentItem comment) async {
+    final previous = comments.firstWhere(
+      (item) => item.id == comment.id,
+      orElse: () => comment,
+    );
     _replaceComment(_copyComment(comment, isReviewing: true));
     try {
       final updated = await widget.api.auditComment(comment.id);
@@ -111,9 +115,10 @@ class _CommentsPageState extends State<CommentsPage> {
       return updated;
     } on UnauthorizedException {
       widget.onAuthError();
-      _replaceComment(_copyComment(comment, isReviewing: false));
+      _replaceComment(previous);
     } catch (e) {
-      _replaceComment(_copyComment(comment, isReviewing: false));
+      _replaceComment(previous);
+      await _loadComments();
       if (!mounted) return null;
       AdminFeedback.showSnackBar(
         context,
@@ -424,6 +429,7 @@ class _CommentsPageState extends State<CommentsPage> {
                 onPressed: dialogComment.isReviewing
                     ? null
                     : () async {
+                        final previousDialogComment = dialogComment;
                         setDialogState(() {
                           dialogComment = _copyComment(
                             dialogComment,
@@ -433,9 +439,7 @@ class _CommentsPageState extends State<CommentsPage> {
                         final updated = await _auditComment(dialogComment);
                         if (dialogContext.mounted) {
                           setDialogState(() {
-                            dialogComment =
-                                updated ??
-                                _copyComment(dialogComment, isReviewing: false);
+                            dialogComment = updated ?? previousDialogComment;
                           });
                         }
                       },

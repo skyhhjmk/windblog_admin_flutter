@@ -1941,6 +1941,8 @@ class CommentItem {
         return '审核通过';
       case 3:
         return '审核拒绝';
+      case 4:
+        return '审核失败';
       default:
         return '未知';
     }
