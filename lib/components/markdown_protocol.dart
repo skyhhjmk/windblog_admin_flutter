@@ -17,15 +17,27 @@ md.ExtensionSet markdownEditorExtensionSet() => md.ExtensionSet(
   ],
 );
 
-Map<String, MarkdownElementBuilder> markdownEditorBuilders() => {
+Map<String, MarkdownElementBuilder> markdownEditorBuilders({
+  AdminApiClient? api,
+  ValueChanged<String>? onLinkTap,
+  ValueChanged<String>? onImageTap,
+}) => {
   'mdplus-callout': CalloutElementBuilder(),
   'mark': HighlightElementBuilder(),
   'kbd': KeyboardElementBuilder(),
   'progress': ProgressElementBuilder(),
   'badge': StatusBadgeElementBuilder(),
   'error-block': ErrorBlockBuilder(),
-  'custom-container': CustomContainerBuilder(),
-  'gamification-hide': GamificationHideBuilder(),
+  'custom-container': CustomContainerBuilder(
+    api: api,
+    onLinkTap: onLinkTap,
+    onImageTap: onImageTap,
+  ),
+  'gamification-hide': GamificationHideBuilder(
+    api: api,
+    onLinkTap: onLinkTap,
+    onImageTap: onImageTap,
+  ),
   'store-item': StoreItemBuilder(),
 };
 
@@ -267,7 +279,15 @@ class BlockquoteBuilder extends MarkdownElementBuilder {
 
 class CalloutElementBuilder extends MarkdownElementBuilder {
   @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+  bool isBlockElement() => true;
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final colors = ArticlePreviewPalette.of(context);
     final type = element.attributes['type'] ?? 'info';
     Color color;
     String label;
@@ -275,22 +295,22 @@ class CalloutElementBuilder extends MarkdownElementBuilder {
 
     switch (type) {
       case 'danger':
-        color = Colors.red;
+        color = const Color(0xffef4444);
         label = 'DANGER';
         icon = Icons.error_outline;
         break;
       case 'warning':
-        color = Colors.orange;
+        color = const Color(0xfff59e0b);
         label = 'WARNING';
         icon = Icons.warning_amber_rounded;
         break;
       case 'question':
-        color = Colors.deepPurple;
+        color = const Color(0xff8b5cf6);
         label = 'QUESTION';
         icon = Icons.help_outline;
         break;
       default:
-        color = Colors.blue;
+        color = const Color(0xff3b82f6);
         label = 'INFO';
         icon = Icons.info_outline;
     }
@@ -320,7 +340,7 @@ class CalloutElementBuilder extends MarkdownElementBuilder {
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     letterSpacing: 1.1,
                   ),
                 ),
@@ -331,14 +351,10 @@ class CalloutElementBuilder extends MarkdownElementBuilder {
           Container(
             padding: const EdgeInsets.all(12),
             width: double.infinity,
-            color: color.withValues(alpha: 0.05), // Transparent
+            color: colors.hover,
             child: Text(
               element.textContent,
-              style: TextStyle(
-                color: Colors.grey.shade900,
-                fontSize: 13,
-                height: 1.5,
-              ),
+              style: TextStyle(color: colors.main, fontSize: 13, height: 1.5),
             ),
           ),
         ],
@@ -349,13 +365,21 @@ class CalloutElementBuilder extends MarkdownElementBuilder {
 
 class ProgressElementBuilder extends MarkdownElementBuilder {
   @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final colors = ArticlePreviewPalette.of(context);
     final value = double.tryParse(element.attributes['value'] ?? '0') ?? 0;
     return Container(
       width: 120,
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: LinearProgressIndicator(
-        value: value / 100,
+        value: value.clamp(0, 100) / 100,
+        color: colors.accent,
+        backgroundColor: colors.input,
         minHeight: 6,
         borderRadius: BorderRadius.circular(3),
       ),
@@ -368,10 +392,12 @@ class StatusBadgeElementBuilder extends MarkdownElementBuilder {
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     final status = element.attributes['status'] ?? 'default';
     Color color = status == 'p'
-        ? Colors.green
+        ? const Color(0xff10b981)
         : (status == 'w'
-              ? Colors.orange
-              : (status == 'e' ? Colors.red : Colors.blue));
+              ? const Color(0xfff59e0b)
+              : (status == 'e'
+                    ? const Color(0xffef4444)
+                    : const Color(0xff3b82f6)));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -393,20 +419,27 @@ class StatusBadgeElementBuilder extends MarkdownElementBuilder {
 
 class KeyboardElementBuilder extends MarkdownElementBuilder {
   @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final colors = ArticlePreviewPalette.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        border: Border.all(color: Colors.grey.shade300),
+        color: colors.input,
+        border: Border.all(color: colors.border),
         borderRadius: BorderRadius.circular(4),
         boxShadow: [
-          BoxShadow(color: Colors.grey.shade300, offset: const Offset(0, 1)),
+          BoxShadow(color: colors.border, offset: const Offset(0, 1)),
         ],
       ),
       child: Text(
         element.textContent,
-        style: const TextStyle(
+        style: TextStyle(
+          color: colors.main,
           fontFamily: 'monospace',
           fontSize: 12,
           fontWeight: FontWeight.bold,
@@ -418,13 +451,23 @@ class KeyboardElementBuilder extends MarkdownElementBuilder {
 
 class HighlightElementBuilder extends MarkdownElementBuilder {
   @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
     return Container(
-      color: Colors.yellow.withValues(alpha: 0.3),
-      padding: const EdgeInsets.symmetric(horizontal: 2),
+      color: const Color(0xfffef08a).withValues(alpha: 0.3),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
         element.textContent,
-        style: const TextStyle(fontWeight: FontWeight.w500),
+        style: const TextStyle(
+          color: Color(0xfffde047),
+          fontSize: 15,
+          height: 1.6,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -461,24 +504,67 @@ class ErrorBlockBuilder extends MarkdownElementBuilder {
 }
 
 class CustomContainerBuilder extends MarkdownElementBuilder {
+  CustomContainerBuilder({this.api, this.onLinkTap, this.onImageTap});
+  final AdminApiClient? api;
+  final ValueChanged<String>? onLinkTap;
+  final ValueChanged<String>? onImageTap;
   @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    // We just render the inner text using MarkdownBody to support all Markdown syntax inside.
+  bool isBlockElement() => true;
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    if (element.attributes['name'] == 'article') {
+      final colors = ArticlePreviewPalette.of(context);
+      return ArticleReferenceCard(
+        child: ArticlePreviewMarkdown(
+          data: element.textContent,
+          api: api,
+          onLinkTap: onLinkTap,
+          onImageTap: onImageTap,
+          styleSheet: articlePreviewStyle(context).copyWith(
+            p: TextStyle(fontSize: 13, height: 1.6, color: colors.body),
+            a: TextStyle(
+              fontSize: 16,
+              height: 1.5,
+              fontWeight: FontWeight.w600,
+              color: colors.accent,
+            ),
+          ),
+        ),
+      );
+    }
     return SizedBox(
       width: double.infinity,
-      child: MarkdownBody(
+      child: ArticlePreviewMarkdown(
         data: element.textContent,
-        selectable: false,
-        extensionSet: markdownEditorExtensionSet(),
-        builders: markdownEditorBuilders(),
+        api: api,
+        onLinkTap: onLinkTap,
+        onImageTap: onImageTap,
       ),
     );
   }
 }
 
 class GamificationHideBuilder extends MarkdownElementBuilder {
+  GamificationHideBuilder({this.api, this.onLinkTap, this.onImageTap});
+  final AdminApiClient? api;
+  final ValueChanged<String>? onLinkTap;
+  final ValueChanged<String>? onImageTap;
   @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+  bool isBlockElement() => true;
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
     final type = element.attributes['type'] ?? 'hide-text';
     final price = element.attributes['price'] ?? '0';
     final showText = element.attributes['show'];
@@ -544,20 +630,11 @@ class GamificationHideBuilder extends MarkdownElementBuilder {
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: MarkdownBody(
+            child: ArticlePreviewMarkdown(
               data: content.trim().isEmpty ? '_该区块内容为空_' : content,
-              selectable: true,
-              softLineBreak: true,
-              // 启用软换行
-              extensionSet: markdownEditorExtensionSet(),
-              builders: markdownEditorBuilders(),
-              styleSheet: MarkdownStyleSheet(
-                p: TextStyle(
-                  color: Colors.grey.shade800,
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-              ),
+              api: api,
+              onLinkTap: onLinkTap,
+              onImageTap: onImageTap,
             ),
           ),
         ],

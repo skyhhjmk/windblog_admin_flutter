@@ -26,7 +26,7 @@ class AdminNotification {
   }) : createdAt = DateTime.now();
 
   final String id;
-  final int sequence;
+  int sequence;
   final String? taskId;
   final DateTime createdAt;
   final Map<String, dynamic> persistenceData;
@@ -54,8 +54,14 @@ class _AdminSystemNotificationBridge {
       FlutterLocalNotificationsPlugin();
   Future<bool>? _initialization;
 
-  Future<void> show(int id, AdminNotification notification) async {
-    if (kIsWeb || !await _ensureInitialized()) return;
+  Future<void> show(
+    int id,
+    AdminNotification notification, {
+    required bool Function() canShow,
+  }) async {
+    if (kIsWeb || !canShow() || !await _ensureInitialized() || !canShow()) {
+      return;
+    }
     try {
       await _plugin.show(
         id: id,
@@ -170,10 +176,19 @@ class _AdminSystemNotificationBridge {
   }
 }
 
-class AdminNotificationController extends ChangeNotifier {
+class AdminNotificationController extends ChangeNotifier
+    with WidgetsBindingObserver {
   static const int transientLimit = 5;
   static const int persistentVisibleLimit = 10;
   static const Duration transientDuration = Duration(seconds: 5);
+
+  AdminNotificationController() {
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    _appHasFocus =
+        lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
+    _viewId = WidgetsBinding.instance.platformDispatcher.implicitView?.viewId;
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   final List<AdminNotification> _notifications = <AdminNotification>[];
   final Map<String, Timer> _expirationTimers = <String, Timer>{};
@@ -186,7 +201,33 @@ class AdminNotificationController extends ChangeNotifier {
   DateTime? _lastPersistenceWrite;
   AdminApiClient? _api;
   bool _restoring = false;
+  bool _appHasFocus = true;
+  int? _viewId;
   int _nextSequence = 0;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appHasFocus = state == AppLifecycleState.resumed;
+  }
+
+  @override
+  void didChangeViewFocus(ViewFocusEvent event) {
+    if (_viewId != null && event.viewId != _viewId) return;
+    _appHasFocus = event.state == ViewFocusState.focused;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    for (final timer in _expirationTimers.values) {
+      timer.cancel();
+    }
+    for (final timer in _mediaPollingTimers.values) {
+      timer.cancel();
+    }
+    _persistenceTimer?.cancel();
+    super.dispose();
+  }
 
   List<AdminNotification> get notifications {
     final result = List<AdminNotification>.from(_notifications);
@@ -226,11 +267,7 @@ class AdminNotificationController extends ChangeNotifier {
       onAction: onAction,
     );
     _notifications.add(notification);
-    while (transientNotifications.length > transientLimit) {
-      final oldest = transientNotifications.last;
-      _remove(oldest.id, notify: false);
-    }
-    _scheduleExpiration(notification);
+    _activateTransientLifecycle(notification);
     _showSystemNotification(notification);
     notifyListeners();
     return notification.id;
@@ -255,9 +292,11 @@ class AdminNotificationController extends ChangeNotifier {
       existing.progressMode = progressMode;
       existing.progress = _normalizeProgress(progress);
       existing.reopen = reopen ?? existing.reopen;
+      existing.kind = AdminNotificationKind.persistent;
       existing.persistenceData.addAll(persistenceData);
       existing.completed = false;
       existing.navigationLeaves = 0;
+      _expirationTimers.remove(existing.id)?.cancel();
       _showSystemNotification(existing);
       notifyListeners();
       _persistActiveTasks();
@@ -314,6 +353,7 @@ class AdminNotificationController extends ChangeNotifier {
     required String taskId,
     required String message,
     bool failed = false,
+    bool transientAfterCompletion = false,
     AdminNotificationReopen? reopen,
   }) {
     final notification = _findTask(taskId);
@@ -327,6 +367,9 @@ class AdminNotificationController extends ChangeNotifier {
     notification.completed = true;
     notification.reopen = reopen ?? notification.reopen;
     _mediaPollingTimers.remove(taskId)?.cancel();
+    if (transientAfterCompletion) {
+      _activateTransientLifecycle(notification);
+    }
     _showSystemNotification(notification);
     notifyListeners();
     _persistActiveTasks(immediate: true);
@@ -368,9 +411,7 @@ class AdminNotificationController extends ChangeNotifier {
     for (final notification in completed) {
       notification.navigationLeaves++;
       if (notification.navigationLeaves < 3) continue;
-      notification.kind = AdminNotificationKind.transient;
-      notification.navigationLeaves = 0;
-      _scheduleExpiration(notification);
+      _activateTransientLifecycle(notification);
     }
     if (completed.isNotEmpty) {
       _persistActiveTasks();
@@ -485,6 +526,7 @@ class AdminNotificationController extends ChangeNotifier {
     String? taskId,
     AdminNotificationReopen? reopen,
     VoidCallback? onCompleted,
+    void Function(MediaItem item)? onMediaCompleted,
   }) {
     final resolvedTaskId = taskId ?? 'media-processing-${item.id}';
     final isTerminal = _isTerminal(item);
@@ -509,9 +551,11 @@ class AdminNotificationController extends ChangeNotifier {
         taskId: resolvedTaskId,
         message: _mediaStatusMessage(item),
         failed: item.processingStatus == 'FAILED',
+        transientAfterCompletion: true,
         reopen: reopen,
       );
       onCompleted?.call();
+      onMediaCompleted?.call(item);
       return;
     }
 
@@ -538,6 +582,7 @@ class AdminNotificationController extends ChangeNotifier {
         fileName: fileName,
         reopen: reopen,
         onCompleted: onCompleted,
+        onMediaCompleted: onMediaCompleted,
       ),
     );
   }
@@ -548,6 +593,7 @@ class AdminNotificationController extends ChangeNotifier {
     required Uint8List bytes,
     required String mimeType,
     VoidCallback? onCompleted,
+    void Function(MediaItem item)? onMediaCompleted,
   }) async {
     final taskId = 'media-upload-${DateTime.now().microsecondsSinceEpoch}';
 
@@ -615,6 +661,7 @@ class AdminNotificationController extends ChangeNotifier {
         taskId: taskId,
         reopen: reopenProcessing,
         onCompleted: onCompleted,
+        onMediaCompleted: onMediaCompleted,
       );
       return item;
     } on UnauthorizedException {
@@ -643,6 +690,21 @@ class AdminNotificationController extends ChangeNotifier {
     });
   }
 
+  void _activateTransientLifecycle(AdminNotification notification) {
+    if (notification.kind == AdminNotificationKind.persistent) {
+      notification.sequence = _nextSequence++;
+    }
+    notification.kind = AdminNotificationKind.transient;
+    notification.navigationLeaves = 0;
+    notification.progressMode = AdminNotificationProgressMode.none;
+    notification.progress = null;
+    while (transientNotifications.length > transientLimit) {
+      final oldest = transientNotifications.last;
+      _remove(oldest.id, notify: false);
+    }
+    _scheduleExpiration(notification);
+  }
+
   Future<void> _pollMediaTask({
     required AdminApiClient api,
     required String taskId,
@@ -650,6 +712,7 @@ class AdminNotificationController extends ChangeNotifier {
     required String fileName,
     required AdminNotificationReopen? reopen,
     required VoidCallback? onCompleted,
+    required void Function(MediaItem item)? onMediaCompleted,
   }) async {
     final notification = _findTask(taskId);
     if (notification == null || notification.completed) return;
@@ -660,9 +723,11 @@ class AdminNotificationController extends ChangeNotifier {
           taskId: taskId,
           message: '$fileName：${_mediaStatusMessage(item)}',
           failed: item.processingStatus == 'FAILED',
+          transientAfterCompletion: true,
           reopen: reopen,
         );
         onCompleted?.call();
+        onMediaCompleted?.call(item);
         return;
       }
       updatePersistent(
@@ -971,11 +1036,14 @@ class AdminNotificationController extends ChangeNotifier {
   }
 
   void _showSystemNotification(AdminNotification notification) {
+    if (_appHasFocus) return;
     final id = _systemNotificationIds.putIfAbsent(
       notification.id,
       () => _nextSystemNotificationId++,
     );
-    unawaited(_systemNotifications.show(id, notification));
+    unawaited(
+      _systemNotifications.show(id, notification, canShow: () => !_appHasFocus),
+    );
   }
 
   double? _normalizeProgress(double? progress) {

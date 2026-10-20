@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/admin_api_client.dart';
 import 'data/models.dart';
+import 'components/native_clipboard.dart';
 import 'l10n/app_localizations.dart';
 import 'components/web_stub.dart'
     if (dart.library.html) 'components/web_impl.dart'
@@ -45,6 +46,8 @@ part 'components/media_library_picker.dart';
 
 part 'components/media_detail_dialog.dart';
 part 'components/markdown_protocol.dart';
+part 'components/article_preview_style.dart';
+part 'components/article_reference_picker.dart';
 part 'components/markdown_plus_editor.dart';
 part 'pages/user_management_page.dart';
 part 'pages/permission_management_page.dart';
@@ -299,6 +302,12 @@ class _AdminRootPageState extends State<AdminRootPage> {
     api.onSessionRecovery = _recoverExpiredInstanceSession;
     api.onStepUpExpired = AdminStepUpAuthorization.clear;
     _loadSession();
+  }
+
+  @override
+  void dispose() {
+    notificationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSession() async {

@@ -31,6 +31,8 @@ Map<String, Object?> analyzeMarkdownOutline(String text) {
     if (match == null) continue;
 
     final level = match.group(1) ?? 'quick';
+    // Article references are content, not a selectable reading level.
+    if (level == 'article') continue;
     String? group;
     String? title;
     var exclude = <String>[];
@@ -154,6 +156,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   ScrollController? _internalScrollController;
   final ScrollController _previewScrollController = SmoothScrollController();
   dynamic _pasteSubscription;
+  int _pasteMarkerSequence = 0;
 
   ScrollController get _editorScrollController =>
       widget.scrollController ?? _internalScrollController!;
@@ -173,6 +176,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   @override
   void initState() {
     super.initState();
+    _focusNode.onKeyEvent = _handleEditorKeyEvent;
     _selectionGestureDetectorBuilder = TextSelectionGestureDetectorBuilder(
       delegate: this,
     );
@@ -539,51 +543,219 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   Future<void> _uploadPastedImageBytes(
     Uint8List bytes,
     String fileName,
-    String mimeType,
-  ) async {
-    final placeholder = '![上传中...]()';
-    _insertText(placeholder, '\n');
+    String mimeType, {
+    String? marker,
+  }) async {
+    final placeholder = '（图片上传处理中：$fileName）';
+    final pasteMarker = marker ?? _newPasteMarker();
+    final uploadAnchor = '$pasteMarker$placeholder\n';
+    if (marker == null) {
+      _replaceCurrentSelection(uploadAnchor);
+    } else if (!_replacePasteAnchor(marker, uploadAnchor)) {
+      return;
+    }
 
     try {
       final notifications = AdminNotificationScope.of(context);
-      final uploaded = await notifications.uploadMediaWithNotification(
+      await notifications.uploadMediaWithNotification(
         api: widget.api,
         fileName: fileName,
         bytes: bytes,
         mimeType: mimeType,
+        onMediaCompleted: (item) {
+          if (!mounted) return;
+          final url = _markdownImageUrl(item);
+          if (item.processingStatus == 'COMPLETED' && url.isNotEmpty) {
+            _replacePasteAnchor(uploadAnchor, '![${item.fileName}]($url)');
+          } else {
+            _replacePasteAnchor(uploadAnchor, '');
+          }
+        },
       );
-
-      if (mounted) {
-        final text = widget.controller.text;
-        final newText = text.replaceFirst(
-          placeholder,
-          '![${uploaded.fileName}](${uploaded.url})',
-        );
-        widget.controller.value = widget.controller.value.copyWith(
-          text: newText,
-          selection: TextSelection.collapsed(
-            offset:
-                widget.controller.selection.baseOffset -
-                placeholder.length +
-                '![${uploaded.fileName}](${uploaded.url})'.length,
-          ),
-        );
-        widget.onChanged?.call();
-      }
     } catch (e) {
       if (mounted) {
-        final text = widget.controller.text;
-        final newText = text.replaceFirst(placeholder, '');
-        widget.controller.value = widget.controller.value.copyWith(
-          text: newText,
-          selection: TextSelection.collapsed(
-            offset:
-                widget.controller.selection.baseOffset - placeholder.length - 1,
-          ),
-        );
-        widget.onChanged?.call();
+        _replacePasteAnchor(uploadAnchor, '');
       }
     }
+  }
+
+  KeyEventResult _handleEditorKeyEvent(FocusNode node, KeyEvent event) {
+    if (kIsWeb || !_focusNode.hasFocus || event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final keyboard = HardwareKeyboard.instance;
+    final isPasteShortcut =
+        event.logicalKey == LogicalKeyboardKey.keyV &&
+        (keyboard.isControlPressed || keyboard.isMetaPressed);
+    if (!isPasteShortcut) return KeyEventResult.ignored;
+
+    unawaited(_pasteFromNativeClipboard());
+    return KeyEventResult.handled;
+  }
+
+  Future<void> _pasteFromNativeClipboard() async {
+    if (kIsWeb) return;
+
+    final currentValue = widget.controller.value;
+    final selection = currentValue.selection;
+    final start = selection.isValid
+        ? selection.start.clamp(0, currentValue.text.length)
+        : currentValue.text.length;
+    final end = selection.isValid
+        ? selection.end.clamp(start, currentValue.text.length)
+        : start;
+    final selectedText = currentValue.text.substring(start, end);
+    final marker = _newPasteMarker();
+    _replaceCurrentSelection(marker);
+
+    ClipboardPasteData? clipboardData;
+    try {
+      clipboardData = await readNativeClipboardData();
+    } catch (_) {
+      // Fall back to Flutter's built-in plain-text clipboard below.
+    }
+    if (!mounted) return;
+
+    final bytes = clipboardData?.imageBytes;
+    if (bytes != null) {
+      final mimeType = clipboardData?.mimeType ?? 'image/png';
+      final fileName = _clipboardImageFileName(
+        clipboardData?.fileName,
+        mimeType,
+      );
+      unawaited(
+        _uploadPastedImageBytes(bytes, fileName, mimeType, marker: marker),
+      );
+      return;
+    }
+
+    String? text = clipboardData?.text;
+    if (text == null) {
+      try {
+        text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+      } catch (_) {
+        // An unavailable clipboard leaves the original selection unchanged.
+      }
+    }
+    if (mounted) _replacePasteAnchor(marker, text ?? selectedText);
+  }
+
+  String _clipboardImageFileName(String? fileName, String mimeType) {
+    final extension = switch (mimeType) {
+      'image/jpeg' => 'jpg',
+      'image/gif' => 'gif',
+      'image/tiff' => 'tiff',
+      'image/webp' => 'webp',
+      'image/bmp' => 'bmp',
+      'image/heic' => 'heic',
+      'image/heif' => 'heif',
+      _ => 'png',
+    };
+    final leaf = fileName?.split(RegExp(r'[/\\]')).last.trim();
+    if (leaf != null &&
+        leaf.isNotEmpty &&
+        leaf.toLowerCase().endsWith('.$extension')) {
+      return leaf.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    }
+    return 'pasted_image_${DateTime.now().millisecondsSinceEpoch}.$extension';
+  }
+
+  String _newPasteMarker() {
+    final sequence = (++_pasteMarkerSequence).toRadixString(2);
+    final invisibleId = sequence
+        .split('')
+        .map((bit) => bit == '0' ? '\u200B' : '\u200C')
+        .join();
+    return '\u2063$invisibleId\u2063';
+  }
+
+  void _replaceCurrentSelection(String replacement) {
+    final value = widget.controller.value;
+    final text = value.text;
+    final selection = value.selection;
+    final start = selection.isValid
+        ? selection.start.clamp(0, text.length)
+        : text.length;
+    final end = selection.isValid
+        ? selection.end.clamp(start, text.length)
+        : start;
+    final newText = text.replaceRange(start, end, replacement);
+    widget.controller.value = value.copyWith(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + replacement.length),
+      composing: TextRange.empty,
+    );
+    _focusNode.requestFocus();
+    widget.onChanged?.call();
+  }
+
+  bool _replacePasteAnchor(String anchor, String replacement) {
+    final value = widget.controller.value;
+    final index = value.text.indexOf(anchor);
+    if (index < 0) return false;
+
+    final end = index + anchor.length;
+    final newText = value.text.replaceRange(index, end, replacement);
+    final delta = replacement.length - anchor.length;
+    final currentSelection = value.selection;
+    int mapOffset(int offset) {
+      if (offset <= index) return offset;
+      if (offset >= end) return offset + delta;
+      return index + replacement.length;
+    }
+
+    final selection = currentSelection.isValid
+        ? TextSelection(
+            baseOffset: mapOffset(
+              currentSelection.baseOffset,
+            ).clamp(0, newText.length),
+            extentOffset: mapOffset(
+              currentSelection.extentOffset,
+            ).clamp(0, newText.length),
+            affinity: currentSelection.affinity,
+            isDirectional: currentSelection.isDirectional,
+          )
+        : TextSelection.collapsed(offset: index + replacement.length);
+    widget.controller.value = value.copyWith(
+      text: newText,
+      selection: selection,
+      composing: TextRange.empty,
+    );
+    widget.onChanged?.call();
+    return true;
+  }
+
+  Widget _buildEditorContextMenu(
+    BuildContext context,
+    EditableTextState editableTextState,
+  ) {
+    final items = editableTextState.contextMenuButtonItems;
+    ContextMenuButtonItem? pasteItem;
+    for (final item in items) {
+      if (item.type == ContextMenuButtonType.paste) {
+        pasteItem = item;
+        break;
+      }
+    }
+    void onPaste() {
+      editableTextState.hideToolbar();
+      unawaited(_pasteFromNativeClipboard());
+    }
+
+    final buttonItems = <ContextMenuButtonItem>[
+      for (final item in items)
+        if (item.type != ContextMenuButtonType.paste) item,
+      pasteItem?.copyWith(onPressed: onPaste) ??
+          ContextMenuButtonItem(
+            type: ContextMenuButtonType.paste,
+            onPressed: onPaste,
+          ),
+    ];
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: buttonItems,
+    );
   }
 
   void _onSelectionChanged() {
@@ -833,9 +1005,49 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
 
     if (items != null && items.isNotEmpty) {
       for (final item in items) {
-        _insertText('![${item.fileName}](${item.url})', '\n');
+        _insertText('![${item.fileName}](${_markdownImageUrl(item)})', '\n');
       }
     }
+  }
+
+  String _markdownImageUrl(MediaItem item) {
+    final url = item.url.trim();
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty ||
+        !(uri.path == '/uploads' || uri.path.startsWith('/uploads/'))) {
+      return url;
+    }
+
+    // Media-library upload URLs may contain the admin/region origin even though
+    // the same upload is served from /uploads on the public article host.
+    final schemeEnd = url.indexOf('://');
+    final pathStart = schemeEnd < 0 ? -1 : url.indexOf('/', schemeEnd + 3);
+    return pathStart < 0 ? url : url.substring(pathStart);
+  }
+
+  Future<void> _pickArticleReference() async {
+    final snapshot = widget.controller.text;
+    final selection = widget.controller.selection;
+    final article = await showDialog<PostItem>(
+      context: context,
+      builder: (_) => ArticleReferencePicker(api: widget.api),
+    );
+    if (!mounted || article == null) return;
+    final text = widget.controller.text;
+    final range = text == snapshot ? selection : widget.controller.selection;
+    final start = range.isValid
+        ? range.start.clamp(0, text.length)
+        : text.length;
+    final end = range.isValid ? range.end.clamp(start, text.length) : start;
+    final block = articleReferenceMarkdown(article);
+    widget.controller.value = TextEditingValue(
+      text: text.replaceRange(start, end, block),
+      selection: TextSelection.collapsed(offset: start + block.length),
+    );
+    _focusNode.requestFocus();
+    widget.onChanged?.call();
   }
 
   Future<void> _pickStoreItem() async {
@@ -1165,6 +1377,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
                   '提示框 (Callouts)',
                   '>! 警告内容\n>i 信息内容\n>? 疑问内容\n>!! 危险内容',
                 ),
+                _buildHintItem(
+                  '文章引用卡片',
+                  '::: article\n[文章标题](/post/article-slug)\n::: /article\n可通过工具栏“引用文章”搜索插入。',
+                ),
                 _buildHintItem('文本高亮', '==被高亮的文字=='),
                 _buildHintItem('键盘按键', '[[Ctrl]] + [[C]]'),
                 _buildHintItem('进度条', '[% 85 %]'),
@@ -1371,6 +1587,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
                             },
                             rendererIgnoresPointer: true,
                             selectionControls: materialTextSelectionControls,
+                            contextMenuBuilder: kIsWeb
+                                ? null
+                                : _buildEditorContextMenu,
                           ),
                         ),
                   ),
@@ -1383,32 +1602,72 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     );
   }
 
+  bool? _previewDark;
+
   Widget _buildPreviewSurface() {
     final isPhone = AdminBreakpoints.isPhone(context);
-    return Container(
-      color: Colors.grey.shade50,
-      child: Stack(
-        children: [
-          SelectionArea(
-            child: ListView.builder(
-              controller: _previewScrollController,
-              scrollCacheExtent: const ScrollCacheExtent.pixels(800),
-              padding: EdgeInsets.fromLTRB(
-                isPhone ? 16 : 48,
-                isPhone ? 16 : 32,
-                isPhone ? 16 : 48,
-                300,
+    final dark =
+        _previewDark ?? Theme.of(context).brightness == Brightness.dark;
+    final colors = ArticlePreviewPalette(dark);
+    return Theme(
+      data: Theme.of(
+        context,
+      ).copyWith(brightness: dark ? Brightness.dark : Brightness.light),
+      child: ColoredBox(
+        color: colors.background,
+        child: Column(
+          children: [
+            SizedBox(
+              height: 36,
+              child: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      '正文预览',
+                      style: TextStyle(fontSize: 12, color: colors.body),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: dark ? '切换浅色预览' : '切换深色预览',
+                    iconSize: 18,
+                    color: colors.body,
+                    icon: Icon(
+                      dark
+                          ? Icons.light_mode_outlined
+                          : Icons.dark_mode_outlined,
+                    ),
+                    onPressed: () => setState(() => _previewDark = !dark),
+                  ),
+                ],
               ),
-              itemCount: _previewBlocks.length,
-              itemBuilder: (context, index) => Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1000),
-                  child: _buildPreviewBlock(_previewBlocks[index], index),
+            ),
+            Expanded(
+              child: SelectionArea(
+                child: ListView.builder(
+                  controller: _previewScrollController,
+                  scrollCacheExtent: const ScrollCacheExtent.pixels(800),
+                  padding: EdgeInsets.fromLTRB(
+                    isPhone ? 16 : 32,
+                    0,
+                    isPhone ? 16 : 32,
+                    120,
+                  ),
+                  itemCount: _previewBlocks.length,
+                  itemBuilder: (context, index) => Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1000),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: _buildPreviewBlock(_previewBlocks[index], index),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1458,6 +1717,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
             onPressed: () => _insertText('> '),
           ),
           const VerticalDivider(width: 16, indent: 12, endIndent: 12),
+          _ToolbarButton(
+            icon: Icons.article_outlined,
+            tooltip: '引用文章',
+            onPressed: _pickArticleReference,
+          ),
           _ToolbarButton(
             icon: Icons.link,
             tooltip: '链接',
@@ -2128,8 +2392,8 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                 color: color,
                 borderRadius: BorderRadius.circular(4),
               ),
-              margin: const EdgeInsets.symmetric(vertical: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              margin: EdgeInsets.zero,
+              padding: EdgeInsets.zero,
               child: child,
             );
           },
@@ -2137,6 +2401,7 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
             data: widget.block.content,
             selectable: false,
             extensionSet: markdownEditorExtensionSet(),
+            styleSheet: articlePreviewStyle(context),
             imageBuilder: (uri, title, alt) {
               final url = uri.toString();
               return GestureDetector(
@@ -2144,12 +2409,13 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                 child: MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 32),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 10,
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 20,
                           offset: const Offset(0, 4),
                         ),
                       ],
@@ -2185,7 +2451,11 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
               }
               widget.onLinkTap(href);
             },
-            builders: markdownEditorBuilders(),
+            builders: markdownEditorBuilders(
+              api: widget.api,
+              onLinkTap: widget.onLinkTap,
+              onImageTap: widget.onImageTap,
+            ),
           ),
         ),
       ),
