@@ -284,6 +284,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                       initialValues: Map<String, dynamic>.from(
                         setting.configValue is Map ? setting.configValue : {},
                       ),
+                      api: widget.api,
                       isFrozen: setting.isFrozen,
                       onSave: (values) =>
                           _saveSetting(setting.configKey, values),

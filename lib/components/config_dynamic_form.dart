@@ -6,6 +6,7 @@ class ConfigDynamicForm extends StatefulWidget {
     required this.schema,
     required this.initialValues,
     required this.onSave,
+    this.api,
     this.isFrozen = false,
     this.showSaveButton = true,
   });
@@ -13,6 +14,7 @@ class ConfigDynamicForm extends StatefulWidget {
   final UISchema schema;
   final Map<String, dynamic> initialValues;
   final Function(Map<String, dynamic> values) onSave;
+  final AdminApiClient? api;
   final bool isFrozen;
   final bool showSaveButton;
 
@@ -76,6 +78,38 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
       }
     }
     target[parts.last] = value;
+  }
+
+  Future<void> _pickMedia(UISchemaField field) async {
+    final api = widget.api;
+    if (api == null) return;
+    final items = await showDialog<List<MediaItem>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('选择${field.label}'),
+        content: SizedBox(
+          width: 800,
+          height: 600,
+          child: MediaLibraryPicker(api: api, imageOnly: true),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || items == null || items.isEmpty) return;
+    final item = items.first;
+    if (!item.isImage) {
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(content: Text('请选择图片文件')),
+      );
+      return;
+    }
+    setState(() => _setFieldValue(field.key, item.url));
   }
 
   @override
@@ -239,6 +273,54 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
           onChanged: (rules) {
             _values[field.key] = rules;
           },
+        );
+      case 'media_picker':
+        final value = _fieldValue(field.key)?.toString() ?? '';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(field.label, style: Theme.of(context).textTheme.bodyLarge),
+            if (field.hint != null) ...[
+              const SizedBox(height: 4),
+              Text(field.hint!, style: Theme.of(context).textTheme.bodySmall),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    key: ValueKey('${field.key}:$value'),
+                    initialValue: value,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      hintText: '尚未选择',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.image_outlined),
+                      suffixIcon: value.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: '清除选择',
+                              onPressed: widget.isFrozen
+                                  ? null
+                                  : () => setState(
+                                      () => _setFieldValue(field.key, ''),
+                                    ),
+                              icon: const Icon(Icons.clear),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: widget.isFrozen || widget.api == null
+                      ? null
+                      : () => _pickMedia(field),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('从媒体库选择'),
+                ),
+              ],
+            ),
+          ],
         );
       case 'input':
       default:

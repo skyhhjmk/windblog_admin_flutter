@@ -6,11 +6,13 @@ class MediaLibraryPicker extends StatefulWidget {
     required this.api,
     this.onSelected,
     this.multiSelect = false,
+    this.imageOnly = false,
   });
 
   final AdminApiClient api;
   final Function(List<MediaItem>)? onSelected;
   final bool multiSelect;
+  final bool imageOnly;
 
   @override
   State<MediaLibraryPicker> createState() => _MediaLibraryPickerState();
@@ -106,7 +108,9 @@ class _MediaLibraryPickerState extends State<MediaLibraryPicker> {
   }
 
   Widget _buildGrid() {
-    final items = mediaResult?.items ?? [];
+    final items = (mediaResult?.items ?? [])
+        .where((item) => !widget.imageOnly || item.isImage)
+        .toList();
     if (items.isEmpty) {
       return const Center(child: Text('未找到媒体文件'));
     }
