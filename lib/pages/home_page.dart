@@ -44,6 +44,10 @@ class _HomePageState extends State<HomePage> {
   int tab = 0;
   int slideDirection = 1;
   final GlobalKey<ScaffoldState> _phoneScaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey<_PostsPageState> _postsPageKey = GlobalKey<_PostsPageState>();
+  final TextEditingController _postSearchController = TextEditingController();
+  final FocusNode _postSearchFocusNode = FocusNode();
+  bool _postSearchActive = false;
   final Map<String, bool> submenuExpandedStates = {
     '内容管理': false,
     '运营管理': false,
@@ -318,6 +322,35 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void dispose() {
+    _postSearchController.dispose();
+    _postSearchFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _openPostSearch() {
+    setState(() => _postSearchActive = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _postSearchFocusNode.requestFocus();
+    });
+  }
+
+  void _closePostSearch() {
+    _postSearchFocusNode.unfocus();
+    final hadQuery = _postSearchController.text.trim().isNotEmpty;
+    _postSearchController.clear();
+    setState(() => _postSearchActive = false);
+    if (hadQuery) _postsPageKey.currentState?.applySearch();
+  }
+
+  void _clearPostSearch() {
+    _postSearchController.clear();
+    setState(() {});
+    _postsPageKey.currentState?.applySearch();
+    _postSearchFocusNode.requestFocus();
+  }
+
+  @override
   Widget build(BuildContext context) {
     bool isSuperAdmin = widget.user?.roleName == 'SUPER_ADMIN';
     bool isPhone = AdminBreakpoints.isPhone(context);
@@ -330,8 +363,36 @@ class _HomePageState extends State<HomePage> {
         key: _phoneScaffoldKey,
         appBar: _buildAppBar(context, pageTitle),
         drawer: _buildDrawer(context),
-        body: _buildAnimatedPage(page),
-        bottomNavigationBar: _buildPhoneNavigationBar(context),
+        body: Stack(
+          children: [
+            Positioned.fill(child: _buildAnimatedPage(page)),
+            if (_postSearchActive)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _postSearchFocusNode.unfocus,
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.32),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        bottomNavigationBar: Stack(
+          children: [
+            _buildPhoneNavigationBar(context),
+            if (_postSearchActive)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _postSearchFocusNode.unfocus,
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.32),
+                  ),
+                ),
+              ),
+          ],
+        ),
       );
     }
 
@@ -420,17 +481,54 @@ class _HomePageState extends State<HomePage> {
   AppBar _buildAppBar(BuildContext context, String pageTitle) {
     final themeColor = brandColor;
     return AppBar(
-      title: Text(
-        pageTitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5),
-      ),
+      title: tab == 1 && _postSearchActive
+          ? TextField(
+              controller: _postSearchController,
+              focusNode: _postSearchFocusNode,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              style: const TextStyle(fontSize: 16),
+              decoration: InputDecoration(
+                hintText: t(context, 'search_hint'),
+                prefixIcon: const Icon(Icons.search, size: 22),
+                suffixIcon: _postSearchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: _clearPostSearch,
+                        icon: const Icon(Icons.close, size: 20),
+                        tooltip: t(context, 'clear'),
+                      ),
+                filled: false,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                border: InputBorder.none,
+              ),
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) {
+                _postsPageKey.currentState?.applySearch();
+                _postSearchFocusNode.unfocus();
+              },
+            )
+          : Text(
+              pageTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
+            ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(2),
         child: Container(color: themeColor, height: 2),
       ),
       actions: [
+        if (tab == 1)
+          IconButton(
+            onPressed: _postSearchActive ? _closePostSearch : _openPostSearch,
+            icon: Icon(_postSearchActive ? Icons.close : Icons.search),
+            tooltip: t(context, _postSearchActive ? 'cancel' : 'search'),
+          ),
         IconButton(
           onPressed: widget.onLogout,
           icon: const Icon(Icons.logout),
@@ -1169,6 +1267,8 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       slideDirection = direction;
       tab = index;
+      _postSearchActive = false;
+      _postSearchFocusNode.unfocus();
       List<String> keys = submenuExpandedStates.keys.toList();
       for (int i = 0; i < keys.length; i++) {
         String key = keys[i];
@@ -1206,7 +1306,12 @@ class _HomePageState extends State<HomePage> {
       case 0:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);
       case 1:
-        return PostsPage(api: widget.api, onAuthError: widget.onAuthError);
+        return PostsPage(
+          key: _postsPageKey,
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+          searchController: _postSearchController,
+        );
       case 2:
         return CategoriesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 3:

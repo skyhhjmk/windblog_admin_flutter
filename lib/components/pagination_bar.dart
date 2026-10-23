@@ -36,25 +36,142 @@ class _PaginationBarState extends State<PaginationBar> {
     super.dispose();
   }
 
-  void _onJump() {
+  void _onJump({BuildContext? dialogContext, StateSetter? updateDialog}) {
+    void updateError(String? error) {
+      if (updateDialog != null) {
+        updateDialog(() => _jumpError = error);
+      } else {
+        setState(() => _jumpError = error);
+      }
+    }
+
     final text = _jumpCtrl.text.trim();
     if (text.isEmpty) {
-      setState(() => _jumpError = null);
+      updateError(null);
       return;
     }
     final page = int.tryParse(text);
     if (page != null && page > 0 && page <= widget.totalPages) {
-      setState(() => _jumpError = null);
+      updateError(null);
+      if (dialogContext != null) Navigator.pop(dialogContext);
       widget.onPageChanged(page);
       _jumpCtrl.clear();
     } else {
-      setState(() => _jumpError = t(context, 'invalid_page'));
+      updateError(t(context, 'invalid_page'));
     }
+  }
+
+  Future<void> _showPhoneJumpDialog() async {
+    _jumpCtrl.clear();
+    _jumpError = null;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(t(context, 'jump_to')),
+          content: TextField(
+            controller: _jumpCtrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: '${t(context, 'page')} (1-${widget.totalPages})',
+              isDense: true,
+              errorText: _jumpError,
+            ),
+            onChanged: (_) {
+              if (_jumpError != null) {
+                setDialogState(() => _jumpError = null);
+              }
+            },
+            onSubmitted: (_) => _onJump(
+              dialogContext: dialogContext,
+              updateDialog: setDialogState,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(t(context, 'cancel')),
+            ),
+            FilledButton(
+              onPressed: () => _onJump(
+                dialogContext: dialogContext,
+                updateDialog: setDialogState,
+              ),
+              child: Text(t(context, 'go')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhonePagination(ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${t(context, 'total')}: ${widget.totalItems}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: widget.currentPage <= 1
+                ? null
+                : () => widget.onPageChanged(widget.currentPage - 1),
+            icon: const Icon(Icons.chevron_left),
+            tooltip: t(context, 'prev_page'),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${widget.currentPage} / ${widget.totalPages}',
+              style: TextStyle(
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: widget.currentPage >= widget.totalPages
+                ? null
+                : () => widget.onPageChanged(widget.currentPage + 1),
+            icon: const Icon(Icons.chevron_right),
+            tooltip: t(context, 'next_page'),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: widget.totalPages <= 1 ? null : _showPhoneJumpDialog,
+            icon: const Icon(Icons.find_in_page_outlined),
+            tooltip: t(context, 'jump_to'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    if (AdminBreakpoints.isPhone(context)) {
+      return _buildPhonePagination(colorScheme);
+    }
+
     final summaryItems = [
       Text(
         '${t(context, 'total')}: ${widget.totalItems}',

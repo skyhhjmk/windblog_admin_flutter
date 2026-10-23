@@ -25,17 +25,24 @@ Color _generateColorFromSlug(String slug) {
 enum _PostAction { edit, comments, publish, delete }
 
 class PostsPage extends StatefulWidget {
-  const PostsPage({super.key, required this.api, required this.onAuthError});
+  const PostsPage({
+    super.key,
+    required this.api,
+    required this.onAuthError,
+    this.searchController,
+  });
 
   final AdminApiClient api;
   final VoidCallback onAuthError;
+  final TextEditingController? searchController;
 
   @override
   State<PostsPage> createState() => _PostsPageState();
 }
 
 class _PostsPageState extends State<PostsPage> {
-  final keywordCtrl = TextEditingController();
+  late final TextEditingController keywordCtrl;
+  late final bool _ownsSearchController;
   List<PostItem> items = [];
   int page = 1;
   int total = 0;
@@ -50,6 +57,8 @@ class _PostsPageState extends State<PostsPage> {
   @override
   void initState() {
     super.initState();
+    keywordCtrl = widget.searchController ?? TextEditingController();
+    _ownsSearchController = widget.searchController == null;
     _loading = true;
     _loadAllCategories();
     load();
@@ -189,8 +198,14 @@ class _PostsPageState extends State<PostsPage> {
 
   @override
   void dispose() {
-    keywordCtrl.dispose();
+    if (_ownsSearchController) keywordCtrl.dispose();
     super.dispose();
+  }
+
+  void applySearch() {
+    page = 1;
+    if (_isTreeView) _clearCategoryPostsCache();
+    load();
   }
 
   Future<void> load() async {
@@ -317,6 +332,9 @@ class _PostsPageState extends State<PostsPage> {
     return Card(
       child: ListView.separated(
         physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.only(
+          bottom: AdminBreakpoints.isPhone(context) ? 72 : 0,
+        ),
         itemCount: items.length,
         separatorBuilder: (_, index) => const Divider(height: 1),
         itemBuilder: (_, i) => _buildPostTile(items[i]),
@@ -325,9 +343,51 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Widget _buildPostTile(PostItem it, {double indent = 16}) {
+    final isPhone = AdminBreakpoints.isPhone(context);
+    final statusLabel = it.status == 0
+        ? t(context, 'draft')
+        : (it.status == 1 ? t(context, 'published') : t(context, 'archived'));
+    final visibilityLabel = it.visibility == 0
+        ? t(context, 'public_visibility')
+        : (it.visibility == 1
+              ? t(context, 'private_visibility')
+              : t(context, 'password_protected'));
+    Widget? aiSummaryBadge;
+    if (it.aiSummaryStatus != 2) {
+      aiSummaryBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0.5),
+        decoration: BoxDecoration(
+          color: it.aiSummaryStatus == 0
+              ? Colors.blue.shade50
+              : Colors.green.shade50,
+          border: Border.all(
+            color: it.aiSummaryStatus == 0
+                ? Colors.blue.shade200
+                : Colors.green.shade200,
+          ),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Text(
+          it.aiSummaryStatus == 0
+              ? t(context, 'ai_status_auto')
+              : t(context, 'ai_status_manual_locked'),
+          style: TextStyle(
+            fontSize: 9,
+            color: it.aiSummaryStatus == 0
+                ? Colors.blue.shade700
+                : Colors.green.shade700,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
     return Padding(
-      padding: EdgeInsets.only(left: indent),
+      padding: EdgeInsets.only(left: isPhone && indent > 0 ? 8 : indent),
       child: ListTile(
+        visualDensity: isPhone ? VisualDensity.compact : VisualDensity.standard,
+        minLeadingWidth: isPhone ? 32 : 40,
+        horizontalTitleGap: isPhone ? 8 : 16,
         contentPadding: const EdgeInsets.only(right: 16),
         leading: Icon(
           Icons.description_outlined,
@@ -336,59 +396,61 @@ class _PostsPageState extends State<PostsPage> {
         ),
         title: Text(
           it.zhTitle.isEmpty ? it.slug : it.zhTitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'slug: ${it.slug} | ${t(context, 'author')}: ${it.userName ?? t(context, 'unknown')} | ${t(context, 'status_text')}: ${it.status == 0 ? t(context, 'draft') : (it.status == 1 ? t(context, 'published') : t(context, 'archived'))}',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${t(context, 'visibility_label')}: ${it.visibility == 0 ? t(context, 'public_visibility') : (it.visibility == 1 ? t(context, 'private_visibility') : t(context, 'password_protected'))}',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-            ),
-            if (it.aiSummaryStatus != 2)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 0.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: it.aiSummaryStatus == 0
-                            ? Colors.blue.shade50
-                            : Colors.green.shade50,
-                        border: Border.all(
-                          color: it.aiSummaryStatus == 0
-                              ? Colors.blue.shade200
-                              : Colors.green.shade200,
-                        ),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Text(
-                        it.aiSummaryStatus == 0
-                            ? t(context, 'ai_status_auto')
-                            : t(context, 'ai_status_manual_locked'),
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: it.aiSummaryStatus == 0
-                              ? Colors.blue.shade700
-                              : Colors.green.shade700,
-                          fontWeight: FontWeight.bold,
+        subtitle: isPhone
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${t(context, 'author')}: ${it.userName ?? t(context, 'unknown')} · $statusLabel · $visibilityLabel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${t(context, 'slug')}: ${it.slug}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
+                      if (aiSummaryBadge != null) ...[
+                        const SizedBox(width: 6),
+                        aiSummaryBadge,
+                      ],
+                    ],
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'slug: ${it.slug} | ${t(context, 'author')}: ${it.userName ?? t(context, 'unknown')} | ${t(context, 'status_text')}: $statusLabel',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${t(context, 'visibility_label')}: $visibilityLabel',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                  if (aiSummaryBadge != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(children: [aiSummaryBadge]),
                     ),
-                  ],
-                ),
+                ],
               ),
-          ],
-        ),
         trailing: _buildPostActions(it),
       ),
     );
@@ -767,25 +829,102 @@ class _PostsPageState extends State<PostsPage> {
 
   @override
   Widget build(BuildContext context) {
-    Widget searchField = SizedBox(
-      width: AdminBreakpoints.isPhone(context) ? double.infinity : 260,
-      child: AdminShortcutSearchField(
-        controller: keywordCtrl,
-        decoration: InputDecoration(
-          hintText: t(context, 'search_hint'),
-          border: const OutlineInputBorder(),
-          prefixIcon: const Icon(Icons.search),
-          isDense: true,
-        ),
-        onSubmitted: (value) {
-          page = 1;
-          if (_isTreeView) {
-            _clearCategoryPostsCache();
-          }
-          load();
-        },
+    final isPhone = AdminBreakpoints.isPhone(context);
+    Widget searchField = AdminShortcutSearchField(
+      controller: keywordCtrl,
+      decoration: InputDecoration(
+        hintText: t(context, 'search_hint'),
+        border: const OutlineInputBorder(),
+        prefixIcon: const Icon(Icons.search),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
+      onSubmitted: (value) {
+        applySearch();
+      },
     );
+
+    final totalPages = (total / 10).ceil().clamp(1, 999999);
+    final pagination = PaginationBar(
+      currentPage: page,
+      totalPages: totalPages,
+      totalItems: total,
+      onPageChanged: (newPage) {
+        setState(() => page = newPage);
+        load();
+      },
+    );
+
+    void onSortChanged(String? value) {
+      if (value == null || value == _sortBy) return;
+      setState(() {
+        _sortBy = value;
+        page = 1;
+      });
+      load();
+    }
+
+    if (isPhone) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => createOrEdit(),
+          icon: const Icon(Icons.add),
+          label: Text(t(context, 'create')),
+        ),
+        bottomNavigationBar: pagination,
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    tooltip: t(context, 'refresh'),
+                    onPressed: _loading ? null : _refresh,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                  PopupMenuButton<String>(
+                    tooltip: t(context, 'sort_method'),
+                    icon: const Icon(Icons.sort_rounded),
+                    onSelected: onSortChanged,
+                    itemBuilder: (context) => [
+                      CheckedPopupMenuItem<String>(
+                        value: 'id',
+                        checked: _sortBy == 'id',
+                        child: Text(t(context, 'sort_id_desc')),
+                      ),
+                      CheckedPopupMenuItem<String>(
+                        value: 'updatedAt',
+                        checked: _sortBy == 'updatedAt',
+                        child: Text(t(context, 'sort_updated_desc')),
+                      ),
+                      CheckedPopupMenuItem<String>(
+                        value: 'createdAt',
+                        checked: _sortBy == 'createdAt',
+                        child: Text(t(context, 'sort_created_desc')),
+                      ),
+                      CheckedPopupMenuItem<String>(
+                        value: 'publishedAt',
+                        checked: _sortBy == 'publishedAt',
+                        child: Text(t(context, 'sort_published_desc')),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Expanded(
+                child: _loading && items.isEmpty
+                    ? const AdminStatusView.loading(title: '正在加载文章')
+                    : _buildListView(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return AdminPageScaffold(
       title: t(context, 'posts'),
@@ -803,7 +942,7 @@ class _PostsPageState extends State<PostsPage> {
       ],
       filters: AdminToolbar(
         children: [
-          searchField,
+          SizedBox(width: 260, child: searchField),
           if (!_isTreeView)
             SizedBox(
               width: 190,
@@ -831,24 +970,11 @@ class _PostsPageState extends State<PostsPage> {
                     child: Text(t(context, 'sort_published_desc')),
                   ),
                 ],
-                onChanged: (value) {
-                  if (value == null || value == _sortBy) return;
-                  setState(() {
-                    _sortBy = value;
-                    page = 1;
-                  });
-                  load();
-                },
+                onChanged: onSortChanged,
               ),
             ),
           FilledButton.icon(
-            onPressed: () {
-              page = 1;
-              if (_isTreeView) {
-                _clearCategoryPostsCache();
-              }
-              load();
-            },
+            onPressed: applySearch,
             icon: const Icon(Icons.search, size: 18),
             label: AdminShortcutText(
               t(context, 'search'),
@@ -882,15 +1008,7 @@ class _PostsPageState extends State<PostsPage> {
           ),
         ],
       ),
-      footer: PaginationBar(
-        currentPage: page,
-        totalPages: (total / 10).ceil().clamp(1, 999999),
-        totalItems: total,
-        onPageChanged: (newPage) {
-          setState(() => page = newPage);
-          load();
-        },
-      ),
+      footer: pagination,
     );
   }
 }
