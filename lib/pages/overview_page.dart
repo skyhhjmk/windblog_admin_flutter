@@ -58,9 +58,15 @@ class _OverviewPageState extends State<OverviewPage> {
 
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    Widget card(String label, Object value, IconData icon) {
+    Widget card(
+      String label,
+      Object value,
+      IconData icon, {
+      required double width,
+    }) {
+      final isPhone = AdminBreakpoints.isPhone(context);
       return SizedBox(
-        width: AdminBreakpoints.isPhone(context) ? double.infinity : 200,
+        width: width,
         child: Card(
           elevation: 3,
           shadowColor: primaryColor.withValues(alpha: 0.1),
@@ -82,7 +88,7 @@ class _OverviewPageState extends State<OverviewPage> {
                 end: Alignment.bottomRight,
               ),
             ),
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(isPhone ? 14 : 20),
             child: Row(
               children: [
                 Expanded(
@@ -97,26 +103,37 @@ class _OverviewPageState extends State<OverviewPage> {
                           fontSize: 13,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: isPhone ? 8 : 12),
                       Text(
                         '$value',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: Theme.of(context).colorScheme.onSurface,
-                              height: 1,
-                            ),
+                        style:
+                            (isPhone
+                                    ? Theme.of(context).textTheme.headlineSmall
+                                    : Theme.of(
+                                        context,
+                                      ).textTheme.headlineMedium)
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                  height: 1,
+                                ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: EdgeInsets.all(isPhone ? 8 : 10),
                   decoration: BoxDecoration(
                     color: primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: primaryColor, size: 24),
+                  child: Icon(
+                    icon,
+                    color: primaryColor,
+                    size: isPhone ? 20 : 24,
+                  ),
                 ),
               ],
             ),
@@ -137,32 +154,53 @@ class _OverviewPageState extends State<OverviewPage> {
       body: ListView(
         physics: const BouncingScrollPhysics(),
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              card(
-                t(context, 'users_count'),
-                map['users'] ?? 0,
-                Icons.people_alt,
-              ),
-              card(t(context, 'posts_count'), map['posts'] ?? 0, Icons.article),
-              card(
-                t(context, 'comments_count'),
-                map['comments'] ?? 0,
-                Icons.comment,
-              ),
-              card(
-                t(context, 'tags_count'),
-                map['tags'] ?? 0,
-                Icons.local_offer,
-              ),
-              card(
-                t(context, 'categories_count'),
-                map['categories'] ?? 0,
-                Icons.folder,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isPhone = AdminBreakpoints.isPhone(context);
+              final useTwoColumns = isPhone && constraints.maxWidth >= 320;
+              final gap = isPhone ? 10.0 : 12.0;
+              final cardWidth = isPhone
+                  ? (useTwoColumns
+                        ? (constraints.maxWidth - gap) / 2
+                        : constraints.maxWidth)
+                  : 200.0;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  card(
+                    t(context, 'users_count'),
+                    map['users'] ?? 0,
+                    Icons.people_alt,
+                    width: cardWidth,
+                  ),
+                  card(
+                    t(context, 'posts_count'),
+                    map['posts'] ?? 0,
+                    Icons.article,
+                    width: cardWidth,
+                  ),
+                  card(
+                    t(context, 'comments_count'),
+                    map['comments'] ?? 0,
+                    Icons.comment,
+                    width: cardWidth,
+                  ),
+                  card(
+                    t(context, 'tags_count'),
+                    map['tags'] ?? 0,
+                    Icons.local_offer,
+                    width: cardWidth,
+                  ),
+                  card(
+                    t(context, 'categories_count'),
+                    map['categories'] ?? 0,
+                    Icons.folder,
+                    width: cardWidth,
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
           Card(

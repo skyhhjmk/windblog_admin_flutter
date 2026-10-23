@@ -156,7 +156,8 @@ class AdminPageScaffold extends StatelessWidget {
     Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _AdminPageHeader(title: title, actions: actions),
+        if (!AdminBreakpoints.isPhone(context) || actions.isNotEmpty)
+          _AdminPageHeader(title: title, actions: actions),
         if (filters != null) ...[const SizedBox(height: 12), filters!],
         const SizedBox(height: 12),
         Expanded(child: body),
@@ -193,15 +194,14 @@ class _AdminPageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     TextStyle? titleStyle = Theme.of(context).textTheme.titleLarge;
     if (AdminBreakpoints.isPhone(context)) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, style: titleStyle?.copyWith(fontWeight: FontWeight.w700)),
-          if (actions.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Wrap(spacing: 8, runSpacing: 8, children: actions),
-          ],
-        ],
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.end,
+          children: actions,
+        ),
       );
     }
 
@@ -234,7 +234,7 @@ class AdminToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(AdminBreakpoints.isPhone(context) ? 8 : 12),
         child: Wrap(
           spacing: 10,
           runSpacing: 10,

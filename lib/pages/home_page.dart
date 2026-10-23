@@ -43,6 +43,7 @@ class _AdminNavigationItem {
 class _HomePageState extends State<HomePage> {
   int tab = 0;
   int slideDirection = 1;
+  final GlobalKey<ScaffoldState> _phoneScaffoldKey = GlobalKey<ScaffoldState>();
   final Map<String, bool> submenuExpandedStates = {
     '内容管理': false,
     '运营管理': false,
@@ -326,9 +327,11 @@ class _HomePageState extends State<HomePage> {
 
     if (isPhone) {
       return Scaffold(
+        key: _phoneScaffoldKey,
         appBar: _buildAppBar(context, pageTitle),
         drawer: _buildDrawer(context),
         body: _buildAnimatedPage(page),
+        bottomNavigationBar: _buildPhoneNavigationBar(context),
       );
     }
 
@@ -353,11 +356,74 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  int get _phoneNavigationIndex {
+    switch (tab) {
+      case 0:
+        return 0;
+      case 1:
+        return 1;
+      case 4:
+        return 2;
+      case 9:
+        return 3;
+      default:
+        return 4;
+    }
+  }
+
+  Widget _buildPhoneNavigationBar(BuildContext context) {
+    return NavigationBar(
+      selectedIndex: _phoneNavigationIndex,
+      onDestinationSelected: (index) {
+        switch (index) {
+          case 0:
+            _selectTab(0);
+          case 1:
+            _selectTab(1);
+          case 2:
+            _selectTab(4);
+          case 3:
+            _selectTab(9);
+          case 4:
+            _phoneScaffoldKey.currentState?.openDrawer();
+        }
+      },
+      destinations: [
+        NavigationDestination(
+          icon: const Icon(Icons.dashboard_outlined),
+          selectedIcon: const Icon(Icons.dashboard),
+          label: _itemLabel(context, _navigationItems[0]),
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.article_outlined),
+          selectedIcon: const Icon(Icons.article),
+          label: _itemLabel(context, _navigationItems[1]),
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.comment_outlined),
+          selectedIcon: const Icon(Icons.comment),
+          label: _itemLabel(context, _navigationItems[4]),
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.photo_library_outlined),
+          selectedIcon: const Icon(Icons.photo_library),
+          label: _itemLabel(context, _navigationItems[9]),
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.menu_rounded),
+          label: t(context, 'more'),
+        ),
+      ],
+    );
+  }
+
   AppBar _buildAppBar(BuildContext context, String pageTitle) {
     final themeColor = brandColor;
     return AppBar(
       title: Text(
         pageTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5),
       ),
       bottom: PreferredSize(
@@ -365,20 +431,6 @@ class _HomePageState extends State<HomePage> {
         child: Container(color: themeColor, height: 2),
       ),
       actions: [
-        if (widget.user != null)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Chip(
-              label: Text(widget.user!.username),
-              backgroundColor: themeColor.withValues(alpha: 0.1),
-              side: BorderSide.none,
-              labelStyle: TextStyle(
-                color: themeColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ),
         IconButton(
           onPressed: widget.onLogout,
           icon: const Icon(Icons.logout),
@@ -790,7 +842,9 @@ class _HomePageState extends State<HomePage> {
   Widget _buildDrawer(BuildContext context) {
     List<Widget> children = [
       SizedBox(
-        height: widget.instances.isEmpty ? 100 : 150,
+        height: widget.instances.isEmpty
+            ? (widget.user == null ? 100 : 124)
+            : (widget.user == null ? 150 : 174),
         child: DrawerHeader(
           decoration: BoxDecoration(color: navigationColor),
           margin: EdgeInsets.zero,
@@ -799,6 +853,22 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               _buildBrand(true),
+              if (widget.user != null) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    widget.user!.username,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
               if (widget.instances.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 _buildInstanceSelector(context),
