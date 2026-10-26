@@ -117,6 +117,8 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
           children: [
             _buildStatusCard(),
             const SizedBox(height: 12),
+            _buildPostIndexFeedbackCard(),
+            const SizedBox(height: 12),
             _buildConfigurationCard(),
             const SizedBox(height: 12),
             _buildSynonymRulesCard(),
@@ -206,6 +208,114 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
                   style: const TextStyle(color: Colors.red),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPostIndexFeedbackCard() {
+    Map<String, dynamic> feedback = {};
+    dynamic rawFeedback = status['postIndexFeedback'];
+    if (rawFeedback is Map) {
+      feedback = Map<String, dynamic>.from(rawFeedback);
+    }
+
+    bool healthy = feedback['healthy'] == true;
+    bool autoSyncEnabled = feedback['autoSyncEnabled'] == true;
+    String feedbackStatus = feedback['status']?.toString() ?? 'CHECKING';
+    String syncState = feedback['syncState']?.toString() ?? 'IDLE';
+    int expectedCount = (feedback['expectedCount'] as num?)?.toInt() ?? 0;
+    int indexedCount = (feedback['indexedCount'] as num?)?.toInt() ?? 0;
+    int missingCount = (feedback['missingCount'] as num?)?.toInt() ?? 0;
+    int staleCount = (feedback['staleCount'] as num?)?.toInt() ?? 0;
+    String lastCheckedAt = feedback['lastCheckedAt']?.toString() ?? '';
+    String lastSyncedAt = feedback['lastSyncedAt']?.toString() ?? '';
+    String lastError = feedback['lastError']?.toString() ?? '';
+
+    String label;
+    Color stateColor;
+    IconData stateIcon;
+    if (healthy) {
+      label = '文章索引正常';
+      stateColor = Colors.green;
+      stateIcon = Icons.check_circle_outline;
+    } else if (syncState == 'SYNCING') {
+      label = '文章索引同步中';
+      stateColor = Colors.blue;
+      stateIcon = Icons.sync;
+    } else if (feedbackStatus == 'OUT_OF_SYNC') {
+      label = '文章索引存在差异';
+      stateColor = Colors.orange;
+      stateIcon = Icons.warning_amber_outlined;
+    } else if (feedbackStatus == 'UNAVAILABLE') {
+      label = 'Elasticsearch 暂不可用';
+      stateColor = Colors.red;
+      stateIcon = Icons.error_outline;
+    } else if (feedbackStatus == 'ERROR') {
+      label = '索引反馈检查失败';
+      stateColor = Colors.red;
+      stateIcon = Icons.error_outline;
+    } else {
+      label = '正在检查文章索引';
+      stateColor = Colors.grey;
+      stateIcon = Icons.hourglass_empty;
+    }
+
+    String formatTimestamp(String value) {
+      DateTime? parsed = DateTime.tryParse(value);
+      return parsed == null ? value : parsed.toLocal().toString().split('.').first;
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 16,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '文章索引反馈',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Chip(
+                  avatar: Icon(stateIcon, color: stateColor, size: 18),
+                  label: Text(label),
+                  side: BorderSide(color: stateColor.withValues(alpha: 0.4)),
+                ),
+                Text('数据库应有 $expectedCount 篇 · ES 当前 $indexedCount 篇'),
+                Text('缺失 $missingCount · 多余 $staleCount'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              autoSyncEnabled
+                  ? '系统每 5 分钟校验一次文章 ID；发现缺失或陈旧文档后会自动同步。'
+                  : '当前节点不运行文章索引自动同步。',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+            if (lastCheckedAt.isNotEmpty || lastSyncedAt.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                [
+                  if (lastCheckedAt.isNotEmpty)
+                    '最近检查：${formatTimestamp(lastCheckedAt)}',
+                  if (lastSyncedAt.isNotEmpty)
+                    '最近同步：${formatTimestamp(lastSyncedAt)}',
+                ].join('  ·  '),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
+            ],
+            if (lastError.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(lastError, style: TextStyle(color: Colors.red.shade700)),
+            ],
           ],
         ),
       ),
