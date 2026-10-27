@@ -166,8 +166,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   List<_BlockOutlineInfo> _customBlocks = [];
   List<MarkdownBlock> _previewBlocks = [];
   int _lastSyncedLine = -1;
+  int _cursorLine = 1;
   int _activeHighlightIndex = -1;
   Timer? _highlightTimer;
+  Timer? _editorScrollSyncTimer;
+  Timer? _cursorLineRefreshTimer;
   Timer? _documentAnalysisTimer;
   int _documentAnalysisGeneration = 0;
   String _lastText = '';
@@ -184,7 +187,12 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
       _internalScrollController = SmoothScrollController();
     }
     _lastText = widget.controller.text;
+    final selection = widget.controller.selection;
+    if (selection.isValid) {
+      _cursorLine = _lineForOffset(_lastText, selection.baseOffset);
+    }
     _previewBlocks = _splitMarkdownBlocks(_lastText);
+    _editorScrollController.addListener(_onEditorScroll);
     widget.controller.addListener(_scheduleDocumentAnalysis);
     widget.controller.addListener(_onSelectionChanged);
     _scheduleDocumentAnalysis(immediate: true);
@@ -767,22 +775,81 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     // every character typed.
     if (text != _lastText) {
       _lastText = text;
+      _scheduleCursorLineRefresh();
       return;
     }
 
     final selection = widget.controller.selection;
     if (!selection.isValid) return;
 
-    if (selection.baseOffset > text.length) return;
+    final currentLine = _lineForOffset(text, selection.baseOffset);
+    final lineChanged = currentLine != _cursorLine;
+    _cursorLine = currentLine;
+    _syncPreviewForCurrentViewport(shouldHighlight: _isPointerDown);
+    if (lineChanged) _autoScrollEditor(currentLine);
+  }
 
-    final textBefore = text.substring(0, selection.baseOffset);
-    final currentLine = textBefore.split('\n').length;
-
-    if (currentLine != _lastSyncedLine) {
-      _lastSyncedLine = currentLine;
-      _syncPreview(shouldHighlight: _isPointerDown);
-      _autoScrollEditor(currentLine);
+  int _lineForOffset(String text, int offset) {
+    final end = offset.clamp(0, text.length);
+    var line = 1;
+    for (var index = 0; index < end; index++) {
+      if (text.codeUnitAt(index) == 10) line++;
     }
+    return line;
+  }
+
+  void _scheduleCursorLineRefresh() {
+    _cursorLineRefreshTimer?.cancel();
+    _cursorLineRefreshTimer = Timer(const Duration(milliseconds: 100), () {
+      if (!mounted || !isPreviewVisible) return;
+      final selection = widget.controller.selection;
+      if (!selection.isValid) return;
+
+      final currentLine = _lineForOffset(
+        widget.controller.text,
+        selection.baseOffset,
+      );
+      final lineChanged = currentLine != _cursorLine;
+      _cursorLine = currentLine;
+      _syncPreviewForCurrentViewport();
+      if (lineChanged) _autoScrollEditor(currentLine);
+    });
+  }
+
+  void _onEditorScroll() {
+    if (!isPreviewVisible || !mounted) return;
+    _editorScrollSyncTimer?.cancel();
+    _editorScrollSyncTimer = Timer(const Duration(milliseconds: 40), () {
+      if (mounted && isPreviewVisible) {
+        _syncPreviewForCurrentViewport(shouldHighlight: false);
+      }
+    });
+  }
+
+  int _previewFollowLine() {
+    if (!_editorScrollController.hasClients) return _cursorLine;
+
+    const double lineHeight = 24.0;
+    const double topPadding = 24.0;
+    final position = _editorScrollController.position;
+    final cursorY = topPadding + (_cursorLine - 1) * lineHeight;
+    final viewportTop = position.pixels;
+    final viewportBottom = viewportTop + position.viewportDimension;
+
+    if (cursorY >= viewportTop && cursorY < viewportBottom) {
+      return _cursorLine;
+    }
+
+    final virtualCursorY = viewportTop + position.viewportDimension * 0.3;
+    final virtualLine =
+        ((virtualCursorY - topPadding) / lineHeight).floor() + 1;
+    return virtualLine
+        .clamp(1, widget.controller.text.split('\n').length)
+        .toInt();
+  }
+
+  void _syncPreviewForCurrentViewport({bool shouldHighlight = true}) {
+    _syncPreview(line: _previewFollowLine(), shouldHighlight: shouldHighlight);
   }
 
   void _autoScrollEditor(int currentLine) {
@@ -814,16 +881,18 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     }
   }
 
-  void _syncPreview({bool shouldHighlight = true}) {
+  void _syncPreview({required int line, bool shouldHighlight = true}) {
     if (!_previewScrollController.hasClients) return;
 
     final text = widget.controller.text;
     final lines = text.split('\n');
     final totalLines = lines.length;
     if (totalLines <= 1) return;
+    if (line == _lastSyncedLine) return;
+    _lastSyncedLine = line;
 
-    // Calculate ratio based on cursor line
-    double ratio = (_lastSyncedLine - 1) / (totalLines - 1);
+    // Keep the preview position proportional to the effective source line.
+    double ratio = (line - 1) / (totalLines - 1);
     // Clamp ratio between 0 and 1
     ratio = ratio.clamp(0.0, 1.0);
 
@@ -837,11 +906,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
 
     // Identify and highlight the current block only if it was a navigation action
     if (shouldHighlight) {
-      _highlightCurrentBlock();
+      _highlightCurrentBlock(line);
     }
   }
 
-  void _highlightCurrentBlock() {
+  void _highlightCurrentBlock(int line) {
     int targetIndex = -1;
 
     for (int i = 0; i < _previewBlocks.length; i++) {
@@ -849,7 +918,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
       final nextStart = (i + 1 < _previewBlocks.length)
           ? _previewBlocks[i + 1].startLine
           : 1000000;
-      if (_lastSyncedLine >= block.startLine && _lastSyncedLine < nextStart) {
+      if (line >= block.startLine && line < nextStart) {
         targetIndex = i;
         break;
       }
@@ -870,6 +939,9 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   void didUpdateWidget(MarkdownPlusEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.scrollController != oldWidget.scrollController) {
+      final oldEditorScrollController =
+          oldWidget.scrollController ?? _internalScrollController!;
+      oldEditorScrollController.removeListener(_onEditorScroll);
       if (oldWidget.scrollController == null &&
           _internalScrollController != null) {
         _internalScrollController!.dispose();
@@ -878,6 +950,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
       if (widget.scrollController == null) {
         _internalScrollController = SmoothScrollController();
       }
+      _editorScrollController.addListener(_onEditorScroll);
     }
     if (widget.controller != oldWidget.controller) {
       oldWidget.controller.removeListener(_scheduleDocumentAnalysis);
@@ -885,6 +958,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
       widget.controller.addListener(_scheduleDocumentAnalysis);
       widget.controller.addListener(_onSelectionChanged);
       _lastText = widget.controller.text;
+      final selection = widget.controller.selection;
+      _cursorLine = selection.isValid
+          ? _lineForOffset(_lastText, selection.baseOffset)
+          : 1;
+      _lastSyncedLine = -1;
       _scheduleDocumentAnalysis(immediate: true);
     }
   }
@@ -893,10 +971,13 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   void dispose() {
     widget.controller.removeListener(_scheduleDocumentAnalysis);
     widget.controller.removeListener(_onSelectionChanged);
+    _editorScrollController.removeListener(_onEditorScroll);
     _internalScrollController?.dispose();
     _focusNode.dispose();
     _previewScrollController.dispose();
     _highlightTimer?.cancel();
+    _editorScrollSyncTimer?.cancel();
+    _cursorLineRefreshTimer?.cancel();
     _documentAnalysisTimer?.cancel();
     _pasteSubscription?.cancel();
     if (kIsWeb) {
