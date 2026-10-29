@@ -33,6 +33,9 @@ class _TranslationsPageState extends State<TranslationsPage> {
   int? _postStatus;
   bool _loading = true;
   bool _batchRunning = false;
+  String? _activeBatchId;
+  TranslationBatchStatus? _batchStatus;
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -42,9 +45,12 @@ class _TranslationsPageState extends State<TranslationsPage> {
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _keywordCtrl.dispose();
     super.dispose();
   }
+
+  bool get _queueActive => _batchStatus?.active == true;
 
   String get _targetLabel => _languages
       .firstWhere(
@@ -134,37 +140,12 @@ class _TranslationsPageState extends State<TranslationsPage> {
     TranslationItem item, {
     bool overwrite = false,
   }) async {
-    if (_busy.contains(item.id)) return;
-    setState(() => _busy.add(item.id));
-    try {
-      final result = await widget.api.translatePostToTarget(
-        item.id,
-        targetLanguage: _targetLanguage,
-        overwrite: overwrite,
-      );
-      if (!mounted) return;
-      if (result.skipped) {
-        AdminFeedback.info(context, result.message ?? '该文章已存在目标语言译本');
-      } else {
-        AdminFeedback.success(
-          context,
-          result.published
-              ? '已翻译并发布 $_targetLabel 版本'
-              : '已生成 $_targetLabel 译本（草稿）',
-        );
-      }
-      await _load();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (error) {
-      if (mounted) AdminFeedback.error(context, '翻译失败：$error');
-    } finally {
-      if (mounted) setState(() => _busy.remove(item.id));
-    }
+    if (_queueActive) return;
+    await _submitTasks([item.id], overwrite: overwrite);
   }
 
   Future<void> _batchTranslate() async {
-    if (_selected.isEmpty || _batchRunning) return;
+    if (_selected.isEmpty || _batchRunning || _queueActive) return;
     bool overwrite = false;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -178,8 +159,8 @@ class _TranslationsPageState extends State<TranslationsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '将使用 AI 提供商（支持轮询组）翻译 ${_selected.length} 篇文章。'
-                  '已有译本的条目默认会跳过。',
+                  '将提交 ${_selected.length} 篇文章到后台翻译队列，'
+                  '由 AI 提供商（支持轮询组）逐篇执行。你可以关闭页面后稍后回来查看进度。',
                 ),
                 const SizedBox(height: 8),
                 SwitchListTile(
@@ -199,66 +180,123 @@ class _TranslationsPageState extends State<TranslationsPage> {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('开始翻译'),
+              child: const Text('提交任务'),
             ),
           ],
         ),
       ),
     );
     if (confirmed != true || !mounted) return;
+    await _submitTasks(_selected.toList(), overwrite: overwrite);
+  }
 
+  Future<void> _submitTasks(List<int> postIds, {bool overwrite = false}) async {
+    if (postIds.isEmpty || _batchRunning) return;
     setState(() => _batchRunning = true);
     try {
-      final result = await widget.api.batchTranslatePosts(
-        _selected.toList(),
+      final status = await widget.api.submitTranslationTasks(
+        postIds,
         targetLanguage: _targetLanguage,
         overwrite: overwrite,
       );
       if (!mounted) return;
-      _selected.clear();
-      final failureText = result.failed > 0 ? '，失败 ${result.failed} 篇' : '';
-      AdminFeedback.success(
-        context,
-        '翻译完成：成功 ${result.translated} 篇，跳过 ${result.skipped} 篇$failureText',
-      );
-      if (result.errors.isNotEmpty) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('部分文章翻译失败'),
-            content: SizedBox(
-              width: 520,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: result.errors
-                      .map(
-                        (error) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Text('• $error'),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('知道了'),
-              ),
-            ],
-          ),
-        );
-      }
-      await _load();
+      setState(() {
+        _activeBatchId = status.batchId;
+        _batchStatus = status;
+        _selected.clear();
+        _batchRunning = false;
+      });
+      AdminFeedback.info(context, '已提交 ${status.total} 个翻译任务，后台排队执行');
+      _startPolling();
     } on UnauthorizedException {
       widget.onAuthError();
-    } catch (error) {
-      if (mounted) AdminFeedback.error(context, '批量翻译失败：$error');
-    } finally {
       if (mounted) setState(() => _batchRunning = false);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _batchRunning = false);
+        AdminFeedback.error(context, '提交翻译任务失败：$error');
+      }
     }
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => unawaited(_pollTasks()),
+    );
+    unawaited(_pollTasks());
+  }
+
+  Future<void> _pollTasks() async {
+    final batchId = _activeBatchId;
+    if (batchId == null) return;
+    try {
+      final status = await widget.api.translationTaskBatch(batchId);
+      if (!mounted) return;
+      setState(() => _batchStatus = status);
+      if (!status.active) {
+        _pollTimer?.cancel();
+        _pollTimer = null;
+        await _load();
+        if (!mounted) return;
+        final failureText = status.failed > 0 ? '，失败 ${status.failed} 篇' : '';
+        AdminFeedback.success(
+          context,
+          '翻译队列已完成：成功 ${status.succeeded} 篇，'
+          '跳过 ${status.skipped} 篇$failureText',
+        );
+        if (status.failed > 0) {
+          await _showTaskErrors(status);
+        }
+      }
+    } on UnauthorizedException {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      widget.onAuthError();
+    } catch (error) {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      if (mounted) AdminFeedback.error(context, '读取翻译任务进度失败：$error');
+    }
+  }
+
+  Future<void> _showTaskErrors(TranslationBatchStatus status) async {
+    final failures = status.tasks
+        .where((task) => task.status == 'FAILED')
+        .toList();
+    if (failures.isEmpty || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('部分文章翻译失败'),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: failures
+                  .map(
+                    (task) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '文章 #${task.postId}：'
+                        '${task.message?.isNotEmpty == true ? task.message : '未知错误'}',
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _publishTranslation(TranslationItem item) async {
@@ -378,12 +416,74 @@ class _TranslationsPageState extends State<TranslationsPage> {
     );
   }
 
+  String _taskStatusLabel(TranslationTaskItem task) {
+    return switch (task.status) {
+      'QUEUED' => '排队中',
+      'RUNNING' => '翻译中',
+      'SUCCEEDED' => '已完成',
+      'SKIPPED' => '已跳过',
+      'FAILED' => '失败',
+      'CANCELED' => '已取消',
+      _ => task.status,
+    };
+  }
+
+  Widget _taskStatusBadge(TranslationTaskItem task) {
+    final color = switch (task.status) {
+      'QUEUED' => Colors.orange,
+      'RUNNING' => Colors.blue,
+      'SUCCEEDED' => Colors.green,
+      'SKIPPED' => Colors.blueGrey,
+      'FAILED' => Colors.red,
+      _ => Colors.grey,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        _taskStatusLabel(task),
+        style: TextStyle(
+          color: color.shade700,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   Widget _rowActions(TranslationItem item, {bool compact = false}) {
     final busy = _busy.contains(item.id);
     if (busy) {
       return const SizedBox(
         width: 96,
         child: LinearProgressIndicator(minHeight: 2),
+      );
+    }
+    final task = _batchStatus?.taskForPost(item.id);
+    if (task != null && task.isActive) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 6),
+          _taskStatusBadge(task),
+        ],
+      );
+    }
+    if (task != null && task.status == 'FAILED') {
+      return TextButton.icon(
+        onPressed: _queueActive
+            ? null
+            : () => _translateOne(item, overwrite: task.overwrite),
+        icon: const Icon(Icons.refresh, size: 17),
+        label: const Text('重试'),
       );
     }
     if (item.translated) {
@@ -421,7 +521,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
       );
     }
     return TextButton.icon(
-      onPressed: () => _translateOne(item),
+      onPressed: _queueActive ? null : () => _translateOne(item),
       icon: const Icon(Icons.translate, size: 17),
       label: Text(compact ? '翻译' : '译为$_targetLabel'),
     );
@@ -464,6 +564,10 @@ class _TranslationsPageState extends State<TranslationsPage> {
                   ),
                   const SizedBox(height: 6),
                   _languageChips(item),
+                  if (_batchStatus?.taskForPost(item.id) != null) ...[
+                    const SizedBox(height: 4),
+                    _taskStatusBadge(_batchStatus!.taskForPost(item.id)!),
+                  ],
                   const SizedBox(height: 4),
                   Text(
                     '更新 ${_formatDate(item.updatedAt)}',
@@ -636,6 +740,66 @@ class _TranslationsPageState extends State<TranslationsPage> {
     );
   }
 
+  Widget? _taskBanner() {
+    final status = _batchStatus;
+    if (status == null || status.total == 0) return null;
+    final progress = status.finished / status.total;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: status.active
+          ? Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withValues(alpha: 0.25)
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    status.active
+                        ? '后台翻译队列执行中：完成 ${status.finished}/${status.total}'
+                        : '翻译队列已完成：成功 ${status.succeeded}，跳过 ${status.skipped}，失败 ${status.failed}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '排队 ${status.queued} · 执行中 ${status.running} · 已完成 ${status.succeeded} · 跳过 ${status.skipped} · 失败 ${status.failed}',
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                  ),
+                  if (status.active) ...[
+                    const SizedBox(height: 6),
+                    LinearProgressIndicator(value: progress),
+                  ],
+                ],
+              ),
+            ),
+            if (status.failed > 0)
+              TextButton(
+                onPressed: () => _showTaskErrors(status),
+                child: const Text('失败原因'),
+              ),
+            if (!status.active)
+              IconButton(
+                tooltip: '关闭队列状态',
+                onPressed: () => setState(() {
+                  _batchStatus = null;
+                  _activeBatchId = null;
+                }),
+                icon: const Icon(Icons.close, size: 18),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _selectionSummary() {
     return Text(
       '共 $_total 篇 · 已选 ${_selected.length} 篇 · 目标语言 $_targetLabel',
@@ -644,7 +808,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
   }
 
   Widget _batchButton() {
-    final enabled = _selected.isNotEmpty && !_batchRunning;
+    final enabled = _selected.isNotEmpty && !_batchRunning && !_queueActive;
     return FilledButton.icon(
       onPressed: enabled ? _batchTranslate : null,
       icon: _batchRunning
@@ -753,6 +917,10 @@ class _TranslationsPageState extends State<TranslationsPage> {
         if (mobile) ...[
           const SizedBox(height: 8),
           Align(alignment: Alignment.centerRight, child: _batchButton()),
+        ],
+        if (_taskBanner() != null) ...[
+          const SizedBox(height: 8),
+          _taskBanner()!,
         ],
         const SizedBox(height: 8),
         Expanded(

@@ -668,6 +668,33 @@ class AdminApiClient {
     return TranslationPageResult.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<TranslationBatchStatus> submitTranslationTasks(
+    List<int> postIds, {
+    String targetLanguage = 'en-US',
+    String? sourceLanguage,
+    bool overwrite = false,
+  }) async {
+    final res = await _post(
+      '/api/admin/translations/tasks',
+      body: {
+        'postIds': postIds,
+        'targetLanguage': targetLanguage,
+        if (sourceLanguage != null && sourceLanguage.isNotEmpty)
+          'sourceLanguage': sourceLanguage,
+        'overwrite': overwrite,
+      },
+    );
+    return TranslationBatchStatus.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<TranslationBatchStatus> translationTaskBatch(String batchId) async {
+    final res = await _get(
+      '/api/admin/translations/tasks',
+      query: {'batchId': batchId},
+    );
+    return TranslationBatchStatus.fromMap(_map(jsonDecode(res.body)));
+  }
+
   Future<TranslatePostOutcome> translatePostToTarget(
     int postId, {
     String targetLanguage = 'en-US',
@@ -1576,6 +1603,25 @@ class AdminApiClient {
 
   Future<Map<String, dynamic>> seoGet(String path) async {
     final response = await _get('/api/admin/seo/$path');
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<Map<String, dynamic>> articleMap(
+    int postId, {
+    String language = 'zh-cn',
+    int depth = 2,
+    int maxNodes = 80,
+    int relatedPerNode = 4,
+  }) async {
+    final response = await _get(
+      '/api/admin/seo/posts/$postId/article-map',
+      query: {
+        'language': language,
+        'depth': '$depth',
+        'maxNodes': '$maxNodes',
+        'relatedPerNode': '$relatedPerNode',
+      },
+    );
     return _map(jsonDecode(response.body));
   }
 

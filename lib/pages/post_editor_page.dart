@@ -539,6 +539,18 @@ class _PostEditorPageState extends State<PostEditorPage>
     return result ?? false;
   }
 
+  Future<void> _openArticleMap() async {
+    final id = _currentDetail?.id;
+    if (id == null || !mounted) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            ArticleMapPage(api: widget.api, onAuthError: () {}, postId: id),
+      ),
+    );
+  }
+
   Future<void> _openTranslationManager() async {
     final detail = _currentDetail;
     if (detail == null) return;
@@ -1223,15 +1235,36 @@ class _PostEditorPageState extends State<PostEditorPage>
                   ),
                 ),
               ),
-              if (_currentDetail != null)
+              if (_currentDetail != null) ...[
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: isPhone
+                      ? IconButton(
+                          tooltip: '文章地图',
+                          onPressed: _openArticleMap,
+                          icon: const Icon(Icons.account_tree_outlined),
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: _openArticleMap,
+                          icon: const Icon(Icons.account_tree_outlined),
+                          label: const Text('文章地图'),
+                        ),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: OutlinedButton.icon(
-                    onPressed: _openTranslationManager,
-                    icon: const Icon(Icons.translate),
-                    label: Text(t(context, 'multilingual_management')),
-                  ),
+                  child: isPhone
+                      ? IconButton(
+                          tooltip: t(context, 'multilingual_management'),
+                          onPressed: _openTranslationManager,
+                          icon: const Icon(Icons.translate),
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: _openTranslationManager,
+                          icon: const Icon(Icons.translate),
+                          label: Text(t(context, 'multilingual_management')),
+                        ),
                 ),
+              ],
             ],
           ),
         ),

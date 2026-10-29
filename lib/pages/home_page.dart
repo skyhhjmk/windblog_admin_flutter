@@ -311,6 +311,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.translate,
         submenuParent: '内容管理',
       ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '文章地图',
+        icon: Icons.account_tree_outlined,
+        selectedIcon: Icons.account_tree,
+        submenuParent: '内容管理',
+      ),
     ];
     if (widget.user?.roleName == 'SUPER_ADMIN') {
       items.add(
@@ -1450,6 +1457,8 @@ class _HomePageState extends State<HomePage> {
           onAuthError: widget.onAuthError,
         );
       case 33:
+        return ArticleMapPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 34:
         return HoneypotPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);
