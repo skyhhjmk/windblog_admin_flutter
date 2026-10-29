@@ -4015,3 +4015,26 @@ class RegionRule {
     };
   }
 }
+
+class RegionLanguageSetting {
+  final String region;
+  final String displayName;
+  final String defaultLanguage;
+  final bool overridden;
+
+  RegionLanguageSetting({
+    required this.region,
+    required this.displayName,
+    required this.defaultLanguage,
+    this.overridden = false,
+  });
+
+  factory RegionLanguageSetting.fromJson(Map<String, dynamic> json) {
+    return RegionLanguageSetting(
+      region: json['region']?.toString() ?? '',
+      displayName: json['displayName']?.toString() ?? '',
+      defaultLanguage: json['defaultLanguage']?.toString() ?? 'zh-cn',
+      overridden: toBool(json['overridden']) ?? false,
+    );
+  }
+}

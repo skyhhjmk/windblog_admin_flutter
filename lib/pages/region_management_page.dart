@@ -18,6 +18,7 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
   bool _loading = true;
   String? _error;
   List<RegionRule> _rules = [];
+  List<RegionLanguageSetting> _languages = [];
 
   @override
   void initState() {
@@ -31,10 +32,14 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
       _error = null;
     });
     try {
-      final list = await widget.api.listRegionRules();
+      final results = await Future.wait([
+        widget.api.listRegionRules(),
+        widget.api.listRegionLanguages(),
+      ]);
       if (mounted) {
         setState(() {
-          _rules = list;
+          _rules = results[0] as List<RegionRule>;
+          _languages = results[1] as List<RegionLanguageSetting>;
         });
       }
     } on UnauthorizedException {
@@ -43,6 +48,26 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
       if (mounted) setState(() => _error = '$e');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _saveLanguage(String region, String language) async {
+    try {
+      await widget.api.updateRegionLanguage(region, language);
+      if (!mounted) return;
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(content: Text('默认语言已更新'), backgroundColor: Colors.green),
+      );
+      _load();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (!mounted) return;
+      AdminFeedback.showSnackBar(
+        context,
+        SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -249,6 +274,68 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '区域默认语言',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '未单独配置的区域继承 global；.cn 与 .com 可分别设置。用户在前台切换语言后会通过 Cookie 覆盖此默认值。',
+                    style: TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 20,
+                    runSpacing: 8,
+                    children: _languages
+                        .map(
+                          (setting) => Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${setting.displayName} (${setting.region})',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              const SizedBox(width: 8),
+                              DropdownButton<String>(
+                                value:
+                                    setting.defaultLanguage.toLowerCase() ==
+                                        'en-us'
+                                    ? 'en-US'
+                                    : 'zh-cn',
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'zh-cn',
+                                    child: Text('中文'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'en-US',
+                                    child: Text('English'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    _saveLanguage(setting.region, value);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               FilledButton.icon(

@@ -1944,6 +1944,25 @@ class AdminApiClient {
     await _delete('/api/admin/regions/$id');
   }
 
+  Future<List<RegionLanguageSetting>> listRegionLanguages() async {
+    final res = await _get('/api/admin/regions/languages');
+    final list = jsonDecode(res.body) as List;
+    return list
+        .map((e) => RegionLanguageSetting.fromJson(_map(e)))
+        .toList();
+  }
+
+  Future<RegionLanguageSetting> updateRegionLanguage(
+    String region,
+    String defaultLanguage,
+  ) async {
+    final res = await _put(
+      '/api/admin/regions/languages/$region',
+      body: {'defaultLanguage': defaultLanguage},
+    );
+    return RegionLanguageSetting.fromJson(_map(jsonDecode(res.body)));
+  }
+
   Future<MediaItem> updateMedia(
     int id, {
     List<String>? visibilityRegions,
