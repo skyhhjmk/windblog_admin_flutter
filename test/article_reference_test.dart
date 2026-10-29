@@ -29,6 +29,8 @@ class _Api extends AdminApiClient {
     required int pageSize,
     String? keyword,
     String sortBy = 'id',
+    int? status,
+    int? categoryId,
   }) async => handler!(page, keyword);
 }
 
