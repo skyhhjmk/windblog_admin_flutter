@@ -38,6 +38,8 @@ class _TopicsPageState extends State<TopicsPage>
   List<Map<String, dynamic>> _assignedTopics = [];
   List<Map<String, dynamic>> _runs = [];
   Map<String, dynamic> _models = {};
+  List<AiProviderConfig> _aiProviders = [];
+  bool _loadingAiProviders = false;
 
   @override
   void initState() {
@@ -45,6 +47,21 @@ class _TopicsPageState extends State<TopicsPage>
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_handleTabChanged);
     _load();
+    _loadAiProviders();
+  }
+
+  Future<void> _loadAiProviders() async {
+    if (mounted) setState(() => _loadingAiProviders = true);
+    try {
+      final providers = await widget.api.listAiProviders();
+      if (!mounted) return;
+      setState(() {
+        _aiProviders = providers.where((provider) => provider.enabled).toList();
+        _loadingAiProviders = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingAiProviders = false);
+    }
   }
 
   @override
@@ -149,7 +166,7 @@ class _TopicsPageState extends State<TopicsPage>
   }
 
   Future<void> _refresh() async {
-    await _load();
+    await Future.wait([_load(), _loadAiProviders()]);
     if (mounted && _activeTabIndex == 1) await _loadAssignedTopics();
   }
 
@@ -206,33 +223,57 @@ class _TopicsPageState extends State<TopicsPage>
   }
 
   Future<void> _runNow() async {
-    final profileId = await _chooseModel(
-      title: '选择话题生成模型',
-      description: '本次选择只影响这一次立即运行；定时任务继续使用默认模型。',
-      operation: 'topic',
-    );
-    if (profileId == null || !mounted) return;
-    if (mounted) setState(() => _saving = true);
+    final choice = await _chooseTopicRunMode();
+    if (choice == null || !mounted) return;
+    final maxTopics =
+        _intValue(_mapValue(_automation?['settings'])['maxTopicsPerRun']) ?? 20;
+    setState(() => _saving = true);
     try {
-      final run = await widget.api.startCodexCreatorTopicRun(
-        profileId: profileId,
-      );
-      if (!mounted) return;
-      final notifications = AdminNotificationScope.maybeOf(context);
-      notifications?.trackTopicDiscovery(
-        api: widget.api,
-        run: run,
-        onCompleted: () {
-          if (mounted) unawaited(_load());
-        },
-      );
-      if (notifications == null) {
-        AdminFeedback.showSnackBar(
-          context,
-          SnackBar(content: Text('话题生成已提交：${run['status'] ?? 'QUEUED'}')),
+      if (choice.providerId != null) {
+        final result = await widget.api.discoverTopicsWithAi(
+          providerId: choice.providerId,
+          maxTopics: maxTopics,
+          seeds: _seeds
+              .where((seed) => seed['enabled'] != false)
+              .map(
+                (seed) => {
+                  'id': _intValue(seed['id']),
+                  'name': seed['name']?.toString() ?? '',
+                  'query': seed['query']?.toString() ?? '',
+                  'language': seed['language']?.toString() ?? 'zh-CN',
+                },
+              )
+              .where((seed) => (seed['id'] as int? ?? 0) > 0)
+              .toList(),
         );
+        if (!mounted) return;
+        AdminFeedback.success(
+          context,
+          'AI 提供商已生成话题：新增 ${result['created'] ?? 0} 个，'
+          '更新 ${result['updated'] ?? 0} 个。',
+        );
+        await _load();
+      } else {
+        final run = await widget.api.startCodexCreatorTopicRun(
+          profileId: choice.profileId,
+        );
+        if (!mounted) return;
+        final notifications = AdminNotificationScope.maybeOf(context);
+        notifications?.trackTopicDiscovery(
+          api: widget.api,
+          run: run,
+          onCompleted: () {
+            if (mounted) unawaited(_load());
+          },
+        );
+        if (notifications == null) {
+          AdminFeedback.showSnackBar(
+            context,
+            SnackBar(content: Text('话题生成已提交：${run['status'] ?? 'QUEUED'}')),
+          );
+        }
+        await _load();
       }
-      await _load();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
@@ -245,6 +286,135 @@ class _TopicsPageState extends State<TopicsPage>
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<_TopicRunChoice?> _chooseTopicRunMode() async {
+    final models = _modelOptions('topic');
+    if (models.isEmpty && _aiProviders.isEmpty) {
+      if (mounted) AdminFeedback.error(context, '没有可用于话题生成的模型或 AI 提供商');
+      return null;
+    }
+    var mode = models.isEmpty ? 'provider' : 'codex';
+    var profileId = models.isEmpty
+        ? null
+        : models
+              .firstWhere(
+                (model) => model['isDefault'] == true,
+                orElse: () => models.first,
+              )['profileId']
+              ?.toString();
+    int? providerId = _aiProviders.isEmpty ? null : _aiProviders.first.id;
+    return showDialog<_TopicRunChoice>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('立即运行话题生成'),
+          content: SizedBox(
+            width: 500,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('选择本次话题生成的执行方式。定时任务仍按原有配置运行。'),
+                  const SizedBox(height: 12),
+                  SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment(
+                        value: 'codex',
+                        icon: const Icon(Icons.auto_awesome, size: 16),
+                        label: const Text('Codex Creator'),
+                        enabled: models.isNotEmpty,
+                      ),
+                      ButtonSegment(
+                        value: 'provider',
+                        icon: const Icon(Icons.cloud_outlined, size: 16),
+                        label: const Text('API 提供商'),
+                        enabled: _aiProviders.isNotEmpty,
+                      ),
+                    ],
+                    selected: {mode},
+                    onSelectionChanged: (values) =>
+                        setDialogState(() => mode = values.first),
+                  ),
+                  const SizedBox(height: 12),
+                  if (mode == 'codex')
+                    DropdownButtonFormField<String>(
+                      initialValue: profileId,
+                      decoration: const InputDecoration(
+                        labelText: 'Codex 模型',
+                        prefixIcon: Icon(Icons.model_training),
+                      ),
+                      items: models
+                          .map(
+                            (model) => DropdownMenuItem<String>(
+                              value: model['profileId']?.toString(),
+                              child: Text(
+                                model['displayName']?.toString() ??
+                                    model['modelId']?.toString() ??
+                                    '未命名模型',
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setDialogState(() => profileId = value),
+                    )
+                  else if (_loadingAiProviders)
+                    const LinearProgressIndicator()
+                  else
+                    DropdownButtonFormField<int>(
+                      initialValue: providerId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'AI 提供商 / 轮询组',
+                        prefixIcon: Icon(Icons.cloud_outlined),
+                        helperText: '支持单个提供商和轮询组；轮询组会按算法选择节点并在失败时自动切换。',
+                      ),
+                      items: _aiProviders
+                          .map(
+                            (provider) => DropdownMenuItem<int>(
+                              value: provider.id,
+                              child: Text(
+                                '${provider.name}（'
+                                '${provider.type == 'POLLING_GROUP' ? '轮询组' : provider.provider}）',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setDialogState(() => providerId = value),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: mode == 'codex'
+                  ? (profileId == null
+                        ? null
+                        : () => Navigator.pop(
+                            dialogContext,
+                            _TopicRunChoice(profileId: profileId),
+                          ))
+                  : (providerId == null
+                        ? null
+                        : () => Navigator.pop(
+                            dialogContext,
+                            _TopicRunChoice(providerId: providerId),
+                          )),
+              child: const Text('开始生成'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _editSeed([Map<String, dynamic>? seed]) async {
@@ -341,6 +511,13 @@ class _TopicsPageState extends State<TopicsPage>
   Future<void> _assignDraft(Map<String, dynamic> topic) async {
     final topicId = _intValue(topic['id']);
     if (topicId == null) return;
+    final mode = await _chooseDraftMode();
+    if (mode == null || !mounted) return;
+    if (mode == 'provider') {
+      await _assignDraftWithProvider(topicId);
+      return;
+    }
+
     List<Map<String, dynamic>> servers = const [];
     List<RepostPolicyItem> policies = const [];
     try {
@@ -425,6 +602,140 @@ class _TopicsPageState extends State<TopicsPage>
     ],
   );
 
+  Future<String?> _chooseDraftMode() async {
+    final hasModels = _modelOptions('article').isNotEmpty;
+    final hasProviders = _aiProviders.isNotEmpty;
+    if (!hasProviders) return 'codex';
+    if (!hasModels) return 'provider';
+    var mode = 'codex';
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('选择文章生成方式'),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Codex Creator 使用其模型配置与质量校验；API 提供商使用 WindBlog 已配置的提供商或轮询组直接生成草稿。',
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'codex',
+                      icon: Icon(Icons.auto_awesome, size: 16),
+                      label: Text('Codex Creator'),
+                    ),
+                    ButtonSegment(
+                      value: 'provider',
+                      icon: Icon(Icons.cloud_outlined, size: 16),
+                      label: Text('API 提供商'),
+                    ),
+                  ],
+                  selected: {mode},
+                  onSelectionChanged: (values) =>
+                      setDialogState(() => mode = values.first),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, mode),
+              child: const Text('继续'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _assignDraftWithProvider(int topicId) async {
+    List<RepostPolicyItem> policies = const [];
+    try {
+      policies = await widget.api.listRepostPolicies();
+    } catch (_) {}
+    if (policies.isEmpty) {
+      policies = [_fallbackRepostPolicy()];
+    }
+    if (!mounted) return;
+    final request = await showDialog<_ApiDraftRequest>(
+      context: context,
+      builder: (_) =>
+          _ApiDraftDialog(providers: _aiProviders, policies: policies),
+    );
+    if (request == null || !mounted) return;
+
+    setState(() {
+      _saving = true;
+      _pollingMessage = 'AI 提供商正在生成文章草稿，请稍候…';
+    });
+    try {
+      final result = await widget.api.generateArticleWithAi(
+        topicId,
+        providerId: request.providerId,
+        language: request.language,
+        instructions: request.instructions,
+        repostPolicyCode: request.repostPolicyCode,
+      );
+      if (!mounted) return;
+      final postId = _intValue(result['postId']);
+      final warning = result['warning']?.toString().trim() ?? '';
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('草稿已生成'),
+          content: Text(
+            [
+              result['title']?.toString() ?? '文章草稿',
+              '',
+              warning,
+            ].where((value) => value.isNotEmpty).join('\n'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('稍后处理'),
+            ),
+            if (postId != null)
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  unawaited(_openPostEditor(postId));
+                },
+                child: const Text('打开文章'),
+              ),
+          ],
+        ),
+      );
+      await _loadAssignedTopics();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('AI 生成草稿失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _pollingMessage = null;
+        });
+      }
+    }
+  }
+
   Future<void> _regenerateDraft(Map<String, dynamic> topic) async {
     final topicId = _intValue(topic['id']);
     if (topicId == null) return;
@@ -477,75 +788,6 @@ class _TopicsPageState extends State<TopicsPage>
   List<Map<String, dynamic>> _modelOptions(String operation) {
     final values = _models[operation];
     return _mapList(values);
-  }
-
-  Future<String?> _chooseModel({
-    required String title,
-    required String description,
-    required String operation,
-  }) async {
-    final models = _modelOptions(operation);
-    if (models.isEmpty) {
-      if (mounted) AdminFeedback.error(context, '没有可用于本操作的模型');
-      return null;
-    }
-    var selected = models
-        .firstWhere(
-          (model) => model['isDefault'] == true,
-          orElse: () => models.first,
-        )['profileId']
-        ?.toString();
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(title),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(description),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: selected,
-                  decoration: const InputDecoration(
-                    labelText: '模型',
-                    prefixIcon: Icon(Icons.model_training),
-                  ),
-                  items: models
-                      .map(
-                        (model) => DropdownMenuItem<String>(
-                          value: model['profileId']?.toString(),
-                          child: Text(
-                            model['displayName']?.toString() ??
-                                model['modelId']?.toString() ??
-                                '未命名模型',
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setDialogState(() => selected = value),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: selected == null
-                  ? null
-                  : () => Navigator.pop(dialogContext, selected),
-              child: const Text('继续'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<_ArticleGenerationChoice?> _chooseArticleGeneration({
@@ -954,8 +1196,10 @@ class _TopicsPageState extends State<TopicsPage>
     final sourceCount = _mapList(source['sources']).length;
     final error = topic['articleError']?.toString().trim() ?? '';
     final execution = _mapValue(topic['execution']);
+    final external = topic['external'] == true;
     final message = switch (status) {
-      'DRAFT_CREATED' => '草稿已生成并保存，可在文章管理中继续编辑。',
+      'DRAFT_CREATED' =>
+        external ? '草稿由 AI 提供商生成并保存，可在文章管理中继续编辑。' : '草稿已生成并保存，可在文章管理中继续编辑。',
       'FAILED' => error.isEmpty ? '草稿生成失败，可调整模型后重新生成。' : '草稿生成失败：$error',
       _ => 'Codex 正在生成草稿，请稍后刷新任务。',
     };
@@ -1005,7 +1249,7 @@ class _TopicsPageState extends State<TopicsPage>
                   icon: const Icon(Icons.source_outlined),
                   label: const Text('来源详情'),
                 ),
-                if (status == 'DRAFT_CREATED')
+                if (status == 'DRAFT_CREATED' && !external)
                   FilledButton.tonalIcon(
                     onPressed: _saving ? null : () => _regenerateDraft(topic),
                     icon: const Icon(Icons.autorenew),
@@ -2412,6 +2656,203 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
           icon: const Icon(Icons.auto_awesome),
           label: const Text('开始生成'),
         ),
+      ],
+    );
+  }
+}
+
+class _TopicRunChoice {
+  const _TopicRunChoice({this.profileId, this.providerId});
+  final String? profileId;
+  final int? providerId;
+}
+
+class _ApiDraftRequest {
+  const _ApiDraftRequest({
+    required this.providerId,
+    required this.language,
+    required this.instructions,
+    required this.repostPolicyCode,
+  });
+
+  final int providerId;
+  final String language;
+  final String instructions;
+  final String repostPolicyCode;
+}
+
+class _ApiDraftDialog extends StatefulWidget {
+  const _ApiDraftDialog({required this.providers, required this.policies});
+
+  final List<AiProviderConfig> providers;
+  final List<RepostPolicyItem> policies;
+
+  @override
+  State<_ApiDraftDialog> createState() => _ApiDraftDialogState();
+}
+
+class _ApiDraftDialogState extends State<_ApiDraftDialog> {
+  late final TextEditingController _languageController;
+  late final TextEditingController _instructionsController;
+  late int? _providerId;
+  late String _repostPolicyCode;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _languageController = TextEditingController(text: 'zh-CN');
+    _instructionsController = TextEditingController();
+    _providerId = widget.providers.isEmpty ? null : widget.providers.first.id;
+    _repostPolicyCode = widget.policies.isEmpty
+        ? RepostPolicyItem.defaultCode
+        : widget.policies.first.code;
+  }
+
+  @override
+  void dispose() {
+    _languageController.dispose();
+    _instructionsController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final language = _languageController.text.trim();
+    if (language.isEmpty) {
+      setState(() => _error = '请填写文章语言');
+      return;
+    }
+    if (_providerId == null) {
+      setState(() => _error = '请选择 AI 提供商或轮询组');
+      return;
+    }
+    Navigator.pop(
+      context,
+      _ApiDraftRequest(
+        providerId: _providerId!,
+        language: language,
+        instructions: _instructionsController.text.trim(),
+        repostPolicyCode: _repostPolicyCode,
+      ),
+    );
+  }
+
+  String _providerLabel(AiProviderConfig provider) {
+    final kind = provider.type == 'POLLING_GROUP' ? '轮询组' : provider.provider;
+    final model = provider.model == null || provider.model!.isEmpty
+        ? ''
+        : ' · ${provider.model}';
+    return '${provider.name}（$kind$model）';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    return AlertDialog(
+      title: const Text('使用 API 提供商生成草稿'),
+      content: SizedBox(
+        width: screenWidth < 560 ? screenWidth - 48 : 520,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                '将使用 WindBlog 已配置的 AI 提供商或轮询组直接生成文章草稿。草稿创建后可在文章管理中继续编辑和发布。',
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                initialValue: _providerId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'AI 提供商 / 轮询组',
+                  prefixIcon: Icon(Icons.cloud_outlined),
+                ),
+                items: widget.providers
+                    .map(
+                      (provider) => DropdownMenuItem<int>(
+                        value: provider.id,
+                        child: Text(
+                          _providerLabel(provider),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _providerId = value),
+              ),
+              if (_providerId != null &&
+                  widget.providers.any(
+                    (provider) =>
+                        provider.id == _providerId &&
+                        provider.type == 'POLLING_GROUP',
+                  ))
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    '轮询组会按算法选择节点，并在失败时自动切换到下一个节点。',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _languageController,
+                decoration: const InputDecoration(
+                  labelText: '文章语言',
+                  hintText: 'zh-CN',
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _repostPolicyCode,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: '转载协议',
+                  prefixIcon: Icon(Icons.copyright_outlined),
+                ),
+                items: widget.policies
+                    .map(
+                      (policy) => DropdownMenuItem<String>(
+                        value: policy.code,
+                        child: Text(policy.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(
+                  () =>
+                      _repostPolicyCode = value ?? RepostPolicyItem.defaultCode,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _instructionsController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: '额外要求（可选）',
+                  hintText: '例如：面向初学者，包含可运行示例',
+                ),
+              ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('开始生成')),
       ],
     );
   }

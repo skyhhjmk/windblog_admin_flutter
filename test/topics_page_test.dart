@@ -51,6 +51,9 @@ void main() {
 
     await tester.tap(find.text('指派并生成草稿'));
     await tester.pumpAndSettle();
+    expect(find.text('选择文章生成方式'), findsOneWidget);
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
     expect(find.text('生成模型'), findsOneWidget);
     expect(find.text('Codex 自动'), findsOneWidget);
     expect(find.text('high'), findsNothing);
@@ -130,6 +133,38 @@ void main() {
     expect(find.text('生成失败测试话题'), findsOneWidget);
     expect(find.text('重新生成'), findsOneWidget);
   });
+
+  testWidgets('话题模块支持切换到 API 提供商并调用轮询组', (tester) async {
+    final api = _TopicsApiStub();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Theme(
+          data: AdminTheme.build(),
+          child: Scaffold(
+            body: TopicsPage(api: api, onAuthError: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('设置与记录'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('立即运行'));
+    await tester.tap(find.text('立即运行'));
+    await tester.pumpAndSettle();
+    expect(find.text('Codex Creator'), findsOneWidget);
+    expect(find.text('API 提供商'), findsOneWidget);
+
+    await tester.tap(find.text('API 提供商'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('话题轮询组'), findsOneWidget);
+
+    await tester.tap(find.text('开始生成'));
+    await tester.pumpAndSettle();
+    expect(api.discoverCalls, 1);
+    expect(api.lastDiscoveryProviderId, 21);
+  });
 }
 
 class _TopicsApiStub extends AdminApiClient {
@@ -138,6 +173,37 @@ class _TopicsApiStub extends AdminApiClient {
   int seedCount = 1;
   bool showFailedTopic = false;
   int? requestedPostId;
+  int discoverCalls = 0;
+  int? lastDiscoveryProviderId;
+
+  @override
+  Future<List<AiProviderConfig>> listAiProviders() async => [
+    AiProviderConfig(
+      id: 21,
+      type: 'POLLING_GROUP',
+      name: '话题轮询组',
+      provider: 'POOL',
+      enabled: true,
+    ),
+  ];
+
+  @override
+  Future<Map<String, dynamic>> discoverTopicsWithAi({
+    int? providerId,
+    int maxTopics = 10,
+    String language = 'zh-CN',
+    List<Map<String, dynamic>> seeds = const [],
+  }) async {
+    discoverCalls++;
+    lastDiscoveryProviderId = providerId;
+    return {
+      'success': true,
+      'created': 1,
+      'updated': 0,
+      'total': 1,
+      'topics': [],
+    };
+  }
 
   @override
   Future<Map<String, dynamic>> codexCreatorModels() async => {

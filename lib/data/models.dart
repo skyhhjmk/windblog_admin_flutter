@@ -65,6 +65,9 @@ class PostItem {
     this.tagIds = const [],
     required this.publishedRevisionNumber,
     required this.hasPublishedRevision,
+    this.publishedAt,
+    this.createdAt,
+    this.updatedAt,
   });
   final int id;
   final String slug;
@@ -81,6 +84,9 @@ class PostItem {
   final List<int> tagIds;
   final int publishedRevisionNumber;
   final bool hasPublishedRevision;
+  final DateTime? publishedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
@@ -119,6 +125,15 @@ class PostItem {
           .toList(),
       publishedRevisionNumber: toInt(map['publishedRevisionNumber']) ?? 0,
       hasPublishedRevision: map['hasPublishedRevision'] == true,
+      publishedAt: map['publishedAt'] == null
+          ? null
+          : DateTime.tryParse(map['publishedAt'].toString()),
+      createdAt: map['createdAt'] == null
+          ? null
+          : DateTime.tryParse(map['createdAt'].toString()),
+      updatedAt: map['updatedAt'] == null
+          ? null
+          : DateTime.tryParse(map['updatedAt'].toString()),
     );
   }
 }
@@ -4035,6 +4050,190 @@ class RegionLanguageSetting {
       displayName: json['displayName']?.toString() ?? '',
       defaultLanguage: json['defaultLanguage']?.toString() ?? 'zh-cn',
       overridden: toBool(json['overridden']) ?? false,
+    );
+  }
+}
+
+class TranslationItem {
+  const TranslationItem({
+    required this.id,
+    required this.slug,
+    required this.title,
+    required this.status,
+    required this.hasPublishedRevision,
+    required this.currentRevisionPublished,
+    required this.revisionNumber,
+    required this.languages,
+    required this.sourceLanguage,
+    required this.translated,
+    this.publishedAt,
+    this.updatedAt,
+  });
+
+  final int id;
+  final String slug;
+  final Map<String, String> title;
+  final int status;
+  final bool hasPublishedRevision;
+  final bool currentRevisionPublished;
+  final int revisionNumber;
+  final List<String> languages;
+  final String sourceLanguage;
+  final bool translated;
+  final DateTime? publishedAt;
+  final DateTime? updatedAt;
+
+  String get displayTitle {
+    for (final key in ['zh-cn', 'zh-CN', 'en-US', 'en-us']) {
+      final value = title[key];
+      if (value != null && value.trim().isNotEmpty) return value;
+    }
+    return title.isEmpty ? slug : title.values.first;
+  }
+
+  factory TranslationItem.fromMap(Map<String, dynamic> map) {
+    return TranslationItem(
+      id: toInt(map['id']) ?? 0,
+      slug: map['slug']?.toString() ?? '',
+      title: toStringMap(map['title']),
+      status: toInt(map['status']) ?? 0,
+      hasPublishedRevision: map['hasPublishedRevision'] == true,
+      currentRevisionPublished: map['currentRevisionPublished'] == true,
+      revisionNumber: toInt(map['revisionNumber']) ?? 0,
+      languages: (asDynamicList(map['languages']) ?? [])
+          .map((e) => e.toString())
+          .where((value) => value.isNotEmpty)
+          .toList(),
+      sourceLanguage: map['sourceLanguage']?.toString() ?? '',
+      translated: map['translated'] == true,
+      publishedAt: map['publishedAt'] == null
+          ? null
+          : DateTime.tryParse(map['publishedAt'].toString()),
+      updatedAt: map['updatedAt'] == null
+          ? null
+          : DateTime.tryParse(map['updatedAt'].toString()),
+    );
+  }
+}
+
+class TranslationPageResult {
+  const TranslationPageResult({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.pageSize,
+    required this.targetLanguage,
+  });
+
+  final List<TranslationItem> items;
+  final int total;
+  final int page;
+  final int pageSize;
+  final String targetLanguage;
+
+  factory TranslationPageResult.fromMap(Map<String, dynamic> map) {
+    return TranslationPageResult(
+      items: (asDynamicList(map['items']) ?? [])
+          .map((e) => TranslationItem.fromMap(toDynamicMap(e)))
+          .toList(),
+      total: toInt(map['total']) ?? 0,
+      page: toInt(map['page']) ?? 1,
+      pageSize: toInt(map['pageSize']) ?? 20,
+      targetLanguage: map['targetLanguage']?.toString() ?? 'en-US',
+    );
+  }
+}
+
+class TranslatePostOutcome {
+  const TranslatePostOutcome({
+    required this.postId,
+    required this.slug,
+    required this.sourceLanguage,
+    required this.targetLanguage,
+    required this.translated,
+    required this.skipped,
+    required this.published,
+    this.revisionNumber,
+    this.message,
+  });
+
+  final int postId;
+  final String slug;
+  final String sourceLanguage;
+  final String targetLanguage;
+  final bool translated;
+  final bool skipped;
+  final bool published;
+  final int? revisionNumber;
+  final String? message;
+
+  factory TranslatePostOutcome.fromMap(Map<String, dynamic> map) {
+    return TranslatePostOutcome(
+      postId: toInt(map['postId']) ?? 0,
+      slug: map['slug']?.toString() ?? '',
+      sourceLanguage: map['sourceLanguage']?.toString() ?? '',
+      targetLanguage: map['targetLanguage']?.toString() ?? '',
+      translated: map['translated'] == true,
+      skipped: map['skipped'] == true,
+      published: map['published'] == true,
+      revisionNumber: toInt(map['revisionNumber']),
+      message: map['message']?.toString(),
+    );
+  }
+}
+
+class BatchTranslateOutcome {
+  const BatchTranslateOutcome({
+    required this.requested,
+    required this.translated,
+    required this.skipped,
+    required this.failed,
+    required this.results,
+    required this.errors,
+  });
+
+  final int requested;
+  final int translated;
+  final int skipped;
+  final int failed;
+  final List<TranslatePostOutcome> results;
+  final List<String> errors;
+
+  factory BatchTranslateOutcome.fromMap(Map<String, dynamic> map) {
+    return BatchTranslateOutcome(
+      requested: toInt(map['requested']) ?? 0,
+      translated: toInt(map['translated']) ?? 0,
+      skipped: toInt(map['skipped']) ?? 0,
+      failed: toInt(map['failed']) ?? 0,
+      results: (asDynamicList(map['results']) ?? [])
+          .map((e) => TranslatePostOutcome.fromMap(toDynamicMap(e)))
+          .toList(),
+      errors: (asDynamicList(map['errors']) ?? [])
+          .map((e) => e.toString())
+          .toList(),
+    );
+  }
+}
+
+class AiCompletionResult {
+  const AiCompletionResult({
+    required this.text,
+    this.provider,
+    this.modelId,
+    this.totalTokens = 0,
+  });
+
+  final String text;
+  final String? provider;
+  final String? modelId;
+  final int totalTokens;
+
+  factory AiCompletionResult.fromMap(Map<String, dynamic> map) {
+    return AiCompletionResult(
+      text: map['text']?.toString() ?? '',
+      provider: map['provider']?.toString(),
+      modelId: map['modelId']?.toString(),
+      totalTokens: toInt(map['totalTokens']) ?? 0,
     );
   }
 }

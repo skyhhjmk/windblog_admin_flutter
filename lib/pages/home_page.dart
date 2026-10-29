@@ -304,6 +304,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.settings_suggest,
         submenuParent: '系统设置',
       ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '翻译',
+        icon: Icons.translate_outlined,
+        selectedIcon: Icons.translate,
+        submenuParent: '内容管理',
+      ),
     ];
     if (widget.user?.roleName == 'SUPER_ADMIN') {
       items.add(
@@ -1438,6 +1445,11 @@ class _HomePageState extends State<HomePage> {
       case 31:
         return LocalAppSettingsPage(api: widget.api, user: widget.user);
       case 32:
+        return TranslationsPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
+      case 33:
         return HoneypotPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);

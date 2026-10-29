@@ -172,6 +172,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         title: titleCtrl.text,
         content: original,
         html: renderType == 1,
+        api: widget.api,
       ),
     );
     if (!mounted || result == null) return;

@@ -561,12 +561,16 @@ class AdminApiClient {
     required int pageSize,
     String? keyword,
     String sortBy = 'id',
+    int? status,
+    int? categoryId,
   }) async {
     final query = {
       'page': '$page',
       'pageSize': '$pageSize',
       'sortBy': sortBy,
       if ((keyword?.isNotEmpty ?? false)) 'keyword': keyword!,
+      if (status != null) 'status': '$status',
+      if (categoryId != null) 'categoryId': '$categoryId',
     };
     final res = await _get('/api/admin/posts', query: query);
     final map = _map(jsonDecode(res.body));
@@ -640,6 +644,122 @@ class AdminApiClient {
       },
     );
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<TranslationPageResult> listTranslations({
+    required int page,
+    required int pageSize,
+    String targetLanguage = 'en-US',
+    String? translationStatus,
+    String? keyword,
+    int? status,
+  }) async {
+    final query = {
+      'page': '$page',
+      'pageSize': '$pageSize',
+      'targetLanguage': targetLanguage,
+      if (translationStatus != null && translationStatus.isNotEmpty)
+        'translationStatus': translationStatus,
+      if (keyword != null && keyword.trim().isNotEmpty)
+        'keyword': keyword.trim(),
+      if (status != null) 'status': '$status',
+    };
+    final res = await _get('/api/admin/translations', query: query);
+    return TranslationPageResult.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<TranslatePostOutcome> translatePostToTarget(
+    int postId, {
+    String targetLanguage = 'en-US',
+    String? sourceLanguage,
+    bool overwrite = false,
+  }) async {
+    final res = await _post(
+      '/api/admin/translations/$postId/translate',
+      body: {
+        'targetLanguage': targetLanguage,
+        if (sourceLanguage != null && sourceLanguage.isNotEmpty)
+          'sourceLanguage': sourceLanguage,
+        'overwrite': overwrite,
+      },
+    );
+    return TranslatePostOutcome.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<BatchTranslateOutcome> batchTranslatePosts(
+    List<int> postIds, {
+    String targetLanguage = 'en-US',
+    String? sourceLanguage,
+    bool overwrite = false,
+  }) async {
+    final res = await _post(
+      '/api/admin/translations/batch-translate',
+      body: {
+        'postIds': postIds,
+        'targetLanguage': targetLanguage,
+        if (sourceLanguage != null && sourceLanguage.isNotEmpty)
+          'sourceLanguage': sourceLanguage,
+        'overwrite': overwrite,
+      },
+    );
+    return BatchTranslateOutcome.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<Map<String, dynamic>> discoverTopicsWithAi({
+    int? providerId,
+    int maxTopics = 10,
+    String language = 'zh-CN',
+    List<Map<String, dynamic>> seeds = const [],
+  }) async {
+    final res = await _post(
+      '/api/admin/ai/topics/discover',
+      body: {
+        'providerId': ?providerId,
+        'maxTopics': maxTopics,
+        'language': language,
+        'seeds': seeds,
+      },
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> generateArticleWithAi(
+    int topicId, {
+    int? providerId,
+    String language = 'zh-CN',
+    String? instructions,
+    String? repostPolicyCode,
+  }) async {
+    final res = await _post(
+      '/api/admin/ai/topics/$topicId/draft',
+      body: {
+        'providerId': ?providerId,
+        'language': language,
+        if (instructions != null && instructions.isNotEmpty)
+          'instructions': instructions,
+        if (repostPolicyCode != null && repostPolicyCode.isNotEmpty)
+          'repostPolicyCode': repostPolicyCode,
+      },
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<AiCompletionResult> completeAi({
+    int? providerId,
+    required String prompt,
+    String? systemPrompt,
+  }) async {
+    final res = await _post(
+      '/api/admin/ai/complete',
+      body: {
+        'providerId': ?providerId,
+        'prompt': prompt,
+        if (systemPrompt != null && systemPrompt.isNotEmpty)
+          'systemPrompt': systemPrompt,
+      },
+    );
+    return AiCompletionResult.fromMap(_map(jsonDecode(res.body)));
   }
 
   Future<void> publishPost(int id, {bool sendArticleUpdate = false}) async =>
@@ -1947,9 +2067,7 @@ class AdminApiClient {
   Future<List<RegionLanguageSetting>> listRegionLanguages() async {
     final res = await _get('/api/admin/regions/languages');
     final list = jsonDecode(res.body) as List;
-    return list
-        .map((e) => RegionLanguageSetting.fromJson(_map(e)))
-        .toList();
+    return list.map((e) => RegionLanguageSetting.fromJson(_map(e))).toList();
   }
 
   Future<RegionLanguageSetting> updateRegionLanguage(
