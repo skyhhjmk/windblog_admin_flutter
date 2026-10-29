@@ -660,6 +660,7 @@ class AiProviderConfig {
     required this.enabled,
     this.endpoint,
     this.model,
+    this.rateLimitPerMinute,
     this.apiKey,
     this.config,
     this.updatedAt,
@@ -672,6 +673,7 @@ class AiProviderConfig {
   final bool enabled;
   final String? endpoint;
   final String? model;
+  final int? rateLimitPerMinute;
   final String? apiKey;
   final String? config;
   final DateTime? updatedAt;
@@ -684,6 +686,7 @@ class AiProviderConfig {
     bool? enabled,
     String? endpoint,
     String? model,
+    int? rateLimitPerMinute,
     String? apiKey,
     String? config,
     DateTime? updatedAt,
@@ -696,6 +699,7 @@ class AiProviderConfig {
       enabled: enabled ?? this.enabled,
       endpoint: endpoint ?? this.endpoint,
       model: model ?? this.model,
+      rateLimitPerMinute: rateLimitPerMinute ?? this.rateLimitPerMinute,
       apiKey: apiKey ?? this.apiKey,
       config: config ?? this.config,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -711,6 +715,7 @@ class AiProviderConfig {
       enabled: toBool(map['enabled']) ?? false,
       endpoint: map['endpoint']?.toString(),
       model: map['model']?.toString(),
+      rateLimitPerMinute: toInt(map['rateLimitPerMinute']),
       apiKey: map['apiKey']?.toString(),
       config: map['config']?.toString(),
       updatedAt: map['updatedAt'] != null
@@ -738,6 +743,7 @@ class AiProviderConfigUpdateRequest {
     required this.enabled,
     this.endpoint,
     this.model,
+    this.rateLimitPerMinute,
     this.apiKey,
     this.config,
   });
@@ -748,6 +754,7 @@ class AiProviderConfigUpdateRequest {
   final bool enabled;
   final String? endpoint;
   final String? model;
+  final int? rateLimitPerMinute;
   final String? apiKey;
   final String? config;
 
@@ -763,6 +770,9 @@ class AiProviderConfigUpdateRequest {
     }
     if (model != null) {
       payload['model'] = model;
+    }
+    if (rateLimitPerMinute != null) {
+      payload['rateLimitPerMinute'] = rateLimitPerMinute;
     }
     if (apiKey != null) {
       payload['apiKey'] = apiKey;
@@ -4234,6 +4244,114 @@ class AiCompletionResult {
       provider: map['provider']?.toString(),
       modelId: map['modelId']?.toString(),
       totalTokens: toInt(map['totalTokens']) ?? 0,
+    );
+  }
+}
+
+class TranslationTaskItem {
+  const TranslationTaskItem({
+    required this.id,
+    required this.postId,
+    required this.targetLanguage,
+    this.sourceLanguage,
+    required this.overwrite,
+    required this.status,
+    this.message,
+    this.revisionNumber,
+    required this.published,
+    required this.attempts,
+    this.batchId,
+    this.createdAt,
+    this.startedAt,
+    this.finishedAt,
+  });
+
+  final int id;
+  final int postId;
+  final String targetLanguage;
+  final String? sourceLanguage;
+  final bool overwrite;
+  final String status;
+  final String? message;
+  final int? revisionNumber;
+  final bool published;
+  final int attempts;
+  final String? batchId;
+  final DateTime? createdAt;
+  final DateTime? startedAt;
+  final DateTime? finishedAt;
+
+  bool get isActive => status == 'QUEUED' || status == 'RUNNING';
+
+  factory TranslationTaskItem.fromMap(Map<String, dynamic> map) {
+    return TranslationTaskItem(
+      id: toInt(map['id']) ?? 0,
+      postId: toInt(map['postId']) ?? 0,
+      targetLanguage: map['targetLanguage']?.toString() ?? '',
+      sourceLanguage: map['sourceLanguage']?.toString(),
+      overwrite: map['overwrite'] == true,
+      status: map['status']?.toString() ?? 'QUEUED',
+      message: map['message']?.toString(),
+      revisionNumber: toInt(map['revisionNumber']),
+      published: map['published'] == true,
+      attempts: toInt(map['attempts']) ?? 0,
+      batchId: map['batchId']?.toString(),
+      createdAt: map['createdAt'] == null
+          ? null
+          : DateTime.tryParse(map['createdAt'].toString()),
+      startedAt: map['startedAt'] == null
+          ? null
+          : DateTime.tryParse(map['startedAt'].toString()),
+      finishedAt: map['finishedAt'] == null
+          ? null
+          : DateTime.tryParse(map['finishedAt'].toString()),
+    );
+  }
+}
+
+class TranslationBatchStatus {
+  const TranslationBatchStatus({
+    this.batchId,
+    required this.tasks,
+    required this.total,
+    required this.queued,
+    required this.running,
+    required this.succeeded,
+    required this.skipped,
+    required this.failed,
+  });
+
+  final String? batchId;
+  final List<TranslationTaskItem> tasks;
+  final int total;
+  final int queued;
+  final int running;
+  final int succeeded;
+  final int skipped;
+  final int failed;
+
+  bool get active => queued > 0 || running > 0;
+  int get finished => succeeded + skipped + failed;
+
+  TranslationTaskItem? taskForPost(int postId) {
+    for (final task in tasks) {
+      if (task.postId == postId) return task;
+    }
+    return null;
+  }
+
+  factory TranslationBatchStatus.fromMap(Map<String, dynamic> map) {
+    return TranslationBatchStatus(
+      batchId: map['batchId']?.toString(),
+      tasks: (asDynamicList(map['tasks']) ?? [])
+          .map((e) => TranslationTaskItem.fromMap(toDynamicMap(e)))
+          .toList(),
+      total: toInt(map['total']) ?? 0,
+      queued: toInt(map['queued']) ?? 0,
+      running: toInt(map['running']) ?? 0,
+      succeeded: toInt(map['succeeded']) ?? 0,
+      skipped: toInt(map['skipped']) ?? 0,
+      failed: toInt(map['failed']) ?? 0,
     );
   }
 }

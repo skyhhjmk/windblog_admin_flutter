@@ -16,8 +16,15 @@ String articleReferenceMarkdown(PostItem article) {
 }
 
 class ArticleReferencePicker extends StatefulWidget {
-  const ArticleReferencePicker({super.key, required this.api});
+  const ArticleReferencePicker({
+    super.key,
+    required this.api,
+    this.dialogTitle = '引用文章',
+    this.description = '选择已公开发布的文章，以卡片形式嵌入正文。',
+  });
   final AdminApiClient api;
+  final String dialogTitle;
+  final String description;
 
   @override
   State<ArticleReferencePicker> createState() => _ArticleReferencePickerState();
@@ -90,7 +97,7 @@ class _ArticleReferencePickerState extends State<ArticleReferencePicker> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('引用文章'),
+    title: Text(widget.dialogTitle),
     content: SizedBox(
       width: 640,
       height: 480,
@@ -108,7 +115,7 @@ class _ArticleReferencePickerState extends State<ArticleReferencePicker> {
             onSubmitted: (_) => _load(1),
           ),
           const SizedBox(height: 8),
-          const Text('选择已公开发布的文章，以卡片形式嵌入正文。'),
+          Text(widget.description),
           const SizedBox(height: 8),
           Expanded(
             child: _loading

@@ -7,6 +7,9 @@ import 'package:windblog_admin_flutter/main.dart';
 class _TranslationApi extends AdminApiClient {
   int translateCalls = 0;
   int batchCalls = 0;
+  int submitCalls = 0;
+  List<int>? lastPostIds;
+  bool? lastOverwrite;
   String? lastTarget;
 
   @override
@@ -51,6 +54,57 @@ class _TranslationApi extends AdminApiClient {
       page: page,
       pageSize: pageSize,
       targetLanguage: targetLanguage,
+    );
+  }
+
+  @override
+  Future<TranslationBatchStatus> submitTranslationTasks(
+    List<int> postIds, {
+    String targetLanguage = 'en-US',
+    String? sourceLanguage,
+    bool overwrite = false,
+  }) async {
+    submitCalls++;
+    lastPostIds = postIds;
+    lastTarget = targetLanguage;
+    lastOverwrite = overwrite;
+    return TranslationBatchStatus(
+      batchId: 'batch-1',
+      tasks: [
+        TranslationTaskItem(
+          id: 11,
+          postId: postIds.first,
+          targetLanguage: targetLanguage,
+          sourceLanguage: 'zh-cn',
+          overwrite: overwrite,
+          status: 'SUCCEEDED',
+          message: '翻译完成',
+          revisionNumber: 4,
+          published: true,
+          attempts: 1,
+          batchId: 'batch-1',
+        ),
+      ],
+      total: postIds.length,
+      queued: 0,
+      running: 0,
+      succeeded: postIds.length,
+      skipped: 0,
+      failed: 0,
+    );
+  }
+
+  @override
+  Future<TranslationBatchStatus> translationTaskBatch(String batchId) async {
+    return TranslationBatchStatus(
+      batchId: batchId,
+      tasks: const [],
+      total: 1,
+      queued: 0,
+      running: 0,
+      succeeded: 1,
+      skipped: 0,
+      failed: 0,
     );
   }
 
@@ -122,7 +176,8 @@ void main() {
 
     await tester.tap(find.text('译为英语'));
     await tester.pumpAndSettle();
-    expect(api.translateCalls, 1);
+    expect(api.submitCalls, 1);
+    expect(api.lastPostIds, [1]);
     expect(api.lastTarget, 'en-US');
   });
 

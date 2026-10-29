@@ -58,8 +58,9 @@ class _AiProvidersPageState extends State<AiProvidersPage>
           if (_selectedTestConfig == null && _configs.isNotEmpty) {
             _selectedTestConfig = _configs.first;
           } else if (_selectedTestConfig != null) {
-            final idx = _configs.indexWhere((c) =>
-            c.id == _selectedTestConfig!.id);
+            final idx = _configs.indexWhere(
+              (c) => c.id == _selectedTestConfig!.id,
+            );
             if (idx != -1) {
               _selectedTestConfig = _configs[idx];
             } else {
@@ -85,17 +86,24 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         await widget.api.updateAiProvider(id, req);
       }
       if (!mounted) return;
-      AdminFeedback.showSnackBar(context,
+      AdminFeedback.showSnackBar(
+        context,
         SnackBar(
-            content: Text(t(context, 'save_success')), backgroundColor: Colors.green),
+          content: Text(t(context, 'save_success')),
+          backgroundColor: Colors.green,
+        ),
       );
       _load();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
       if (!mounted) return;
-      AdminFeedback.showSnackBar(context,
-        SnackBar(content: Text('${t(context, 'save_failed')}$e'), backgroundColor: Colors.red),
+      AdminFeedback.showSnackBar(
+        context,
+        SnackBar(
+          content: Text('${t(context, 'save_failed')}$e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -103,20 +111,21 @@ class _AiProvidersPageState extends State<AiProvidersPage>
   Future<void> _deleteConfig(int id) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: Text(t(context, 'ai_delete_confirm_title')),
-            content: Text(t(context, 'ai_delete_confirm_desc')),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false),
-                  child: Text(t(context, 'cancel'))),
-              FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(t(context, 'delete')),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text(t(context, 'ai_delete_confirm_title')),
+        content: Text(t(context, 'ai_delete_confirm_desc')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t(context, 'cancel')),
           ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t(context, 'delete')),
+          ),
+        ],
+      ),
     );
     if (confirmed == true) {
       try {
@@ -124,8 +133,12 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         _load();
       } catch (e) {
         if (!mounted) return;
-        AdminFeedback.showSnackBar(context,
-          SnackBar(content: Text('${t(context, 'delete_failed')}$e'), backgroundColor: Colors.red),
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(
+            content: Text('${t(context, 'delete_failed')}$e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -136,28 +149,28 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     'DeepSeek': {'provider': 'OPENAI', 'endpoint': 'https://api.deepseek.com'},
     'SiliconFlow': {
       'provider': 'OPENAI',
-      'endpoint': 'https://api.siliconflow.cn/v1'
+      'endpoint': 'https://api.siliconflow.cn/v1',
     },
     'Groq': {
       'provider': 'OPENAI',
-      'endpoint': 'https://api.groq.com/openai/v1'
+      'endpoint': 'https://api.groq.com/openai/v1',
     },
     'Cerebras': {
       'provider': 'CEREBRAS',
-      'endpoint': 'https://api.cerebras.ai/v1'
+      'endpoint': 'https://api.cerebras.ai/v1',
     },
     'ChatGLM (SDK)': {
       'provider': 'CHATGLM',
-      'endpoint': 'https://open.bigmodel.cn/api/paas/v4'
+      'endpoint': 'https://open.bigmodel.cn/api/paas/v4',
     },
     'Ollama (Local)': {
       'provider': 'OLLAMA',
-      'endpoint': 'http://localhost:11434'
+      'endpoint': 'http://localhost:11434',
     },
     'Custom (OpenAI Compatible)': {'provider': 'OPENAI', 'endpoint': ''},
     'Codex Creator (内部)': {
       'provider': 'CODEX_CREATOR',
-      'endpoint': 'http://codex-creator:8681'
+      'endpoint': 'http://codex-creator:8681',
     },
   };
 
@@ -166,6 +179,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     var provider = existing?.provider ?? 'OPENAI';
     var endpoint = existing?.endpoint ?? 'https://api.openai.com/v1';
     var model = existing?.model ?? '';
+    var rateLimitPerMinute = existing?.rateLimitPerMinute ?? 0;
     var apiKey = existing?.apiKey ?? '';
     var configText = existing?.config ?? '';
     var enabled = existing?.enabled ?? true;
@@ -204,8 +218,9 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     // 尝试匹配预设选项
     String? selectedPreset;
     _providerOptions.forEach((key, value) {
-      if (value['provider'] == provider && (value['endpoint'] == endpoint ||
-          (value['endpoint']!.isEmpty && endpoint.isNotEmpty))) {
+      if (value['provider'] == provider &&
+          (value['endpoint'] == endpoint ||
+              (value['endpoint']!.isEmpty && endpoint.isNotEmpty))) {
         if (selectedPreset == null || value['endpoint'] == endpoint) {
           selectedPreset = key;
         }
@@ -244,6 +259,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   enabled: enabled,
                   endpoint: endpoint,
                   model: model,
+                  rateLimitPerMinute: rateLimitPerMinute,
                   apiKey: apiKey,
                   config: jsonEncode(extraConfig),
                 );
@@ -255,18 +271,23 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   }
                 });
                 if (context.mounted) {
-                  AdminFeedback.showSnackBar(context,
-                    SnackBar(content: Text(
-                        '${t(context, 'fetch_models_success')} ${models
-                            .length}')),
+                  AdminFeedback.showSnackBar(
+                    context,
+                    SnackBar(
+                      content: Text(
+                        '${t(context, 'fetch_models_success')} ${models.length}',
+                      ),
+                    ),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
-                  AdminFeedback.showSnackBar(context,
-                    SnackBar(content: Text(
-                        '${t(context, 'fetch_models_failed')}: $e'),
-                        backgroundColor: Colors.red),
+                  AdminFeedback.showSnackBar(
+                    context,
+                    SnackBar(
+                      content: Text('${t(context, 'fetch_models_failed')}: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               } finally {
@@ -275,9 +296,13 @@ class _AiProvidersPageState extends State<AiProvidersPage>
             }
 
             return AlertDialog(
-              title: Text(existing == null ? (type == "PROVIDER"
-                  ? t(context, 'ai_add_provider')
-                  : t(context, 'ai_add_polling_group')) : t(context, 'ai_edit_config')),
+              title: Text(
+                existing == null
+                    ? (type == "PROVIDER"
+                          ? t(context, 'ai_add_provider')
+                          : t(context, 'ai_add_polling_group'))
+                    : t(context, 'ai_edit_config'),
+              ),
               content: SizedBox(
                 width: 500,
                 child: SingleChildScrollView(
@@ -287,10 +312,12 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     children: [
                       TextField(
                         decoration: InputDecoration(
-                            labelText: t(context, 'ai_config_name')),
+                          labelText: t(context, 'ai_config_name'),
+                        ),
                         controller: TextEditingController(text: name)
-                          ..selection = TextSelection.collapsed(offset: name
-                              .length),
+                          ..selection = TextSelection.collapsed(
+                            offset: name.length,
+                          ),
                         onChanged: (v) => name = v,
                       ),
                       const SizedBox(height: 12),
@@ -298,6 +325,28 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                         title: Text(t(context, 'ai_is_enabled')),
                         value: enabled,
                         onChanged: (v) => setState(() => enabled = v),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: '每分钟请求上限',
+                          hintText: '0 或留空表示不限制',
+                          helperText: '该提供商/轮询组每分钟最多发起的 AI 请求次数',
+                        ),
+                        controller:
+                            TextEditingController(
+                                text: rateLimitPerMinute == 0
+                                    ? ''
+                                    : '$rateLimitPerMinute',
+                              )
+                              ..selection = TextSelection.collapsed(
+                                offset: rateLimitPerMinute == 0
+                                    ? 0
+                                    : '$rateLimitPerMinute'.length,
+                              ),
+                        onChanged: (v) =>
+                            rateLimitPerMinute = int.tryParse(v.trim()) ?? 0,
                       ),
                       if (type == 'PROVIDER') ...[
                         const SizedBox(height: 12),
@@ -307,8 +356,10 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                           ),
                           initialValue: selectedPreset,
                           items: _providerOptions.keys
-                              .map((e) =>
-                              DropdownMenuItem(value: e, child: Text(e)))
+                              .map(
+                                (e) =>
+                                    DropdownMenuItem(value: e, child: Text(e)),
+                              )
                               .toList(),
                           onChanged: (v) {
                             if (v != null) {
@@ -331,10 +382,13 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                         if (provider == 'CHATGLM') ...[
                           const SizedBox(height: 8),
                           SwitchListTile(
-                            title: Text(t(context, 'ai_force_endpoint'),
-                                style: const TextStyle(fontSize: 14)),
+                            title: Text(
+                              t(context, 'ai_force_endpoint'),
+                              style: const TextStyle(fontSize: 14),
+                            ),
                             subtitle: Text(
-                                t(context, 'ai_force_endpoint_hint')),
+                              t(context, 'ai_force_endpoint_hint'),
+                            ),
                             value: forceEndpoint,
                             onChanged: (v) => setState(() => forceEndpoint = v),
                           ),
@@ -352,17 +406,20 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                           ),
                           controller: TextEditingController(text: endpoint)
                             ..selection = TextSelection.collapsed(
-                                offset: endpoint.length),
+                              offset: endpoint.length,
+                            ),
                           onChanged: (v) => endpoint = v,
                         ),
                         const SizedBox(height: 12),
                         TextField(
                           decoration: InputDecoration(
-                              labelText: t(context, 'ai_api_key_modify_hint')),
+                            labelText: t(context, 'ai_api_key_modify_hint'),
+                          ),
                           obscureText: true,
                           controller: TextEditingController(text: apiKey)
                             ..selection = TextSelection.collapsed(
-                                offset: apiKey.length),
+                              offset: apiKey.length,
+                            ),
                           onChanged: (v) => apiKey = v,
                         ),
                         const SizedBox(height: 12),
@@ -370,46 +427,64 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Expanded(
-                              child: fetchedModels.isEmpty ? TextField(
-                                decoration: InputDecoration(
-                                    labelText: t(context, 'ai_model_name')),
-                                controller: TextEditingController(text: model)
-                                  ..selection = TextSelection.collapsed(
-                                      offset: model.length),
-                                onChanged: (v) => model = v,
-                              ) : DropdownButtonFormField<String>(
-                                decoration: InputDecoration(
-                                    labelText: t(context, 'ai_model_name')),
-                                initialValue: fetchedModels.contains(model)
-                                    ? model
-                                    : (fetchedModels.isNotEmpty ? fetchedModels
-                                    .first : null),
-                                items: [
-                                  ...fetchedModels.map((e) =>
-                                      DropdownMenuItem(
-                                          value: e, child: Text(e))),
-                                  const DropdownMenuItem(value: "__manual__",
-                                      child: Text("-- 手动输入 (Manual) --")),
-                                ],
-                                onChanged: (v) {
-                                  if (v == "__manual__") {
-                                    setState(() {
-                                      fetchedModels = [];
-                                    });
-                                  } else if (v != null) {
-                                    model = v;
-                                  }
-                                },
-                              ),
+                              child: fetchedModels.isEmpty
+                                  ? TextField(
+                                      decoration: InputDecoration(
+                                        labelText: t(context, 'ai_model_name'),
+                                      ),
+                                      controller:
+                                          TextEditingController(text: model)
+                                            ..selection =
+                                                TextSelection.collapsed(
+                                                  offset: model.length,
+                                                ),
+                                      onChanged: (v) => model = v,
+                                    )
+                                  : DropdownButtonFormField<String>(
+                                      decoration: InputDecoration(
+                                        labelText: t(context, 'ai_model_name'),
+                                      ),
+                                      initialValue:
+                                          fetchedModels.contains(model)
+                                          ? model
+                                          : (fetchedModels.isNotEmpty
+                                                ? fetchedModels.first
+                                                : null),
+                                      items: [
+                                        ...fetchedModels.map(
+                                          (e) => DropdownMenuItem(
+                                            value: e,
+                                            child: Text(e),
+                                          ),
+                                        ),
+                                        const DropdownMenuItem(
+                                          value: "__manual__",
+                                          child: Text("-- 手动输入 (Manual) --"),
+                                        ),
+                                      ],
+                                      onChanged: (v) {
+                                        if (v == "__manual__") {
+                                          setState(() {
+                                            fetchedModels = [];
+                                          });
+                                        } else if (v != null) {
+                                          model = v;
+                                        }
+                                      },
+                                    ),
                             ),
                             const SizedBox(width: 8),
                             IconButton(
                               onPressed: fetchingModels ? null : doFetchModels,
-                              icon: fetchingModels ? const SizedBox(width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2)) : const Icon(
-                                  Icons.refresh),
+                              icon: fetchingModels
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.refresh),
                               tooltip: t(context, 'ai_fetch_models_tooltip'),
                             ),
                           ],
@@ -418,8 +493,10 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                         const Divider(),
                         const SizedBox(height: 8),
                         SwitchListTile(
-                          title: const Text('启用代理 (Enable Proxy)',
-                              style: TextStyle(fontSize: 14)),
+                          title: const Text(
+                            '启用代理 (Enable Proxy)',
+                            style: TextStyle(fontSize: 14),
+                          ),
                           value: proxyEnabled,
                           onChanged: (v) => setState(() => proxyEnabled = v),
                         ),
@@ -431,11 +508,17 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                                 flex: 2,
                                 child: DropdownButtonFormField<String>(
                                   decoration: const InputDecoration(
-                                      labelText: '代理类型'),
+                                    labelText: '代理类型',
+                                  ),
                                   initialValue: proxyType,
-                                  items: ['HTTP', 'SOCKS5'].map((e) =>
-                                      DropdownMenuItem(
-                                          value: e, child: Text(e))).toList(),
+                                  items: ['HTTP', 'SOCKS5']
+                                      .map(
+                                        (e) => DropdownMenuItem(
+                                          value: e,
+                                          child: Text(e),
+                                        ),
+                                      )
+                                      .toList(),
                                   onChanged: (v) {
                                     if (v != null) {
                                       setState(() => proxyType = v);
@@ -448,12 +531,14 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                                 flex: 3,
                                 child: TextField(
                                   decoration: const InputDecoration(
-                                      labelText: '代理主机',
-                                      hintText: '127.0.0.1'),
-                                  controller: TextEditingController(
-                                      text: proxyHost)
-                                    ..selection = TextSelection.collapsed(
-                                        offset: proxyHost.length),
+                                    labelText: '代理主机',
+                                    hintText: '127.0.0.1',
+                                  ),
+                                  controller:
+                                      TextEditingController(text: proxyHost)
+                                        ..selection = TextSelection.collapsed(
+                                          offset: proxyHost.length,
+                                        ),
                                   onChanged: (v) => proxyHost = v,
                                 ),
                               ),
@@ -462,16 +547,19 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                                 flex: 2,
                                 child: TextField(
                                   decoration: const InputDecoration(
-                                      labelText: '端口', hintText: '7890'),
+                                    labelText: '端口',
+                                    hintText: '7890',
+                                  ),
                                   keyboardType: TextInputType.number,
-                                  controller: TextEditingController(
-                                      text: proxyPort.toString())
-                                    ..selection = TextSelection.collapsed(
-                                        offset: proxyPort
-                                            .toString()
-                                            .length),
+                                  controller:
+                                      TextEditingController(
+                                          text: proxyPort.toString(),
+                                        )
+                                        ..selection = TextSelection.collapsed(
+                                          offset: proxyPort.toString().length,
+                                        ),
                                   onChanged: (v) =>
-                                  proxyPort = int.tryParse(v) ?? 7890,
+                                      proxyPort = int.tryParse(v) ?? 7890,
                                 ),
                               ),
                             ],
@@ -482,22 +570,26 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                         const SizedBox(height: 12),
                         TextField(
                           decoration: InputDecoration(
-                              labelText: t(context, 'ai_json_config'),
-                              hintText: t(context, 'ai_json_config_hint')),
+                            labelText: t(context, 'ai_json_config'),
+                            hintText: t(context, 'ai_json_config_hint'),
+                          ),
                           controller: TextEditingController(text: configText)
                             ..selection = TextSelection.collapsed(
-                                offset: configText.length),
+                              offset: configText.length,
+                            ),
                           onChanged: (v) => configText = v,
                           maxLines: 4,
                         ),
-                      ]
+                      ],
                     ],
                   ),
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context),
-                    child: Text(t(context, 'cancel'))),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(t(context, 'cancel')),
+                ),
                 FilledButton(
                   onPressed: () {
                     // 更新 JSON 配置
@@ -525,9 +617,11 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                       enabled: enabled,
                       endpoint: endpoint,
                       model: model,
+                      rateLimitPerMinute: rateLimitPerMinute,
                       apiKey: apiKey,
-                      config: extraConfig.isEmpty ? null : jsonEncode(
-                          extraConfig),
+                      config: extraConfig.isEmpty
+                          ? null
+                          : jsonEncode(extraConfig),
                     );
                     _saveConfig(existing?.id, req);
                     Navigator.pop(context);
@@ -544,9 +638,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
 
   void _runTest() async {
     if (_selectedTestConfig == null) return;
-    if (_testPromptCtrl.text
-        .trim()
-        .isEmpty) {
+    if (_testPromptCtrl.text.trim().isEmpty) {
       return;
     }
 
@@ -581,7 +673,8 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         } catch (e) {
           if (mounted) {
             setState(() {
-              _testOutput += '\n[${t(context, 'ai_data_parse_failed')}]: $e\n${t(context, 'ai_raw_data')}: $line';
+              _testOutput +=
+                  '\n[${t(context, 'ai_data_parse_failed')}]: $e\n${t(context, 'ai_raw_data')}: $line';
             });
           }
         }
@@ -615,13 +708,13 @@ class _AiProvidersPageState extends State<AiProvidersPage>
               : _error != null
               ? Center(child: Text('${t(context, 'error')}: $_error'))
               : TabBarView(
-            controller: _tabController,
-            children: [
-              _buildConfigsList('PROVIDER'),
-              _buildConfigsList('POLLING_GROUP'),
-              _buildTestTab(),
-            ],
-          ),
+                  controller: _tabController,
+                  children: [
+                    _buildConfigsList('PROVIDER'),
+                    _buildConfigsList('POLLING_GROUP'),
+                    _buildTestTab(),
+                  ],
+                ),
         ),
       ],
     );
@@ -644,14 +737,13 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                 elevation: 2,
                 margin: const EdgeInsets.only(bottom: 16),
                 child: ListTile(
-                  title: Text('${config.name} (ID: ${config.id})',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    '${config.name} (ID: ${config.id})',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Text(
-                      '${t(context, 'status')}: ${config.enabled ? t(context, 'enabled') : t(context, 'disabled')}\n'
-                          '${type == 'PROVIDER'
-                          ? '${t(context, 'ai_provider_type')}: ${config.provider}\n${t(context, 'api_base_url')}: ${config
-                          .endpoint ?? t(context, 'no_parent')}\n${t(context, 'ai_model_name')}: ${config.model}'
-                          : '${t(context, 'ai_json_config')}: ${config.config}'}'
+                    '${t(context, 'status')}: ${config.enabled ? t(context, 'enabled') : t(context, 'disabled')}\n'
+                    '${type == 'PROVIDER' ? '${t(context, 'ai_provider_type')}: ${config.provider}\n${t(context, 'api_base_url')}: ${config.endpoint ?? t(context, 'no_parent')}\n${t(context, 'ai_model_name')}: ${config.model}\n每分钟请求上限: ${config.rateLimitPerMinute ?? 0}' : '${t(context, 'ai_json_config')}: ${config.config}\n每分钟请求上限: ${config.rateLimitPerMinute ?? 0}'}',
                   ),
                   isThreeLine: true,
                   trailing: Row(
@@ -692,21 +784,26 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         children: [
           Row(
             children: [
-              Text(t(context, 'ai_test_select_config'),
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                t(context, 'ai_test_select_config'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(width: 8),
               if (_configs.isEmpty)
                 Text(t(context, 'ai_no_configs'))
               else
                 DropdownButton<AiProviderConfig>(
                   value: _selectedTestConfig,
-                  items: _configs.map((c) =>
-                      DropdownMenuItem(
-                        value: c,
-                        child: Text('${c.name} (${c.type == "PROVIDER"
-                            ? c.provider
-                            : "POLLING"})'),
-                      )).toList(),
+                  items: _configs
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(
+                            '${c.name} (${c.type == "PROVIDER" ? c.provider : "POLLING"})',
+                          ),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (val) {
                     setState(() => _selectedTestConfig = val);
                   },
@@ -742,17 +839,28 @@ class _AiProvidersPageState extends State<AiProvidersPage>
             alignment: Alignment.centerRight,
             child: FilledButton.icon(
               onPressed: _testing ? null : _runTest,
-              icon: _testing ? const SizedBox(width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2)) : const Icon(
-                  Icons.send),
-              label: Text(_testing ? t(context, 'ai_testing') : t(context, 'ai_send_request')),
+              icon: _testing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.send),
+              label: Text(
+                _testing
+                    ? t(context, 'ai_testing')
+                    : t(context, 'ai_send_request'),
+              ),
             ),
           ),
           const SizedBox(height: 16),
           Text(
-              t(context, 'ai_response_result'), style: const TextStyle(fontWeight: FontWeight.bold)),
+            t(context, 'ai_response_result'),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           Expanded(
             child: Container(
@@ -768,25 +876,36 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (_testReasoning.isNotEmpty) ...[
-                      Text(t(context, 'ai_deep_thinking'), style: TextStyle(
-                          fontWeight: FontWeight.bold, color: Colors.indigo
-                          .shade400)),
+                      Text(
+                        t(context, 'ai_deep_thinking'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.indigo.shade400,
+                        ),
+                      ),
                       Container(
                         padding: const EdgeInsets.all(8),
                         margin: const EdgeInsets.only(top: 4, bottom: 12),
                         decoration: BoxDecoration(
                           color: Colors.indigo.shade50,
-                          border: Border(left: BorderSide(
-                              color: Colors.indigo.shade200, width: 4)),
+                          border: Border(
+                            left: BorderSide(
+                              color: Colors.indigo.shade200,
+                              width: 4,
+                            ),
+                          ),
                         ),
                         child: SelectableText(
-                            _testReasoning, style: const TextStyle(
-                            color: Colors.black87)),
+                          _testReasoning,
+                          style: const TextStyle(color: Colors.black87),
+                        ),
                       ),
                     ],
-                    SelectableText(_testOutput.isEmpty && !_testing
-                        ? t(context, 'ai_waiting_result')
-                        : _testOutput),
+                    SelectableText(
+                      _testOutput.isEmpty && !_testing
+                          ? t(context, 'ai_waiting_result')
+                          : _testOutput,
+                    ),
                   ],
                 ),
               ),

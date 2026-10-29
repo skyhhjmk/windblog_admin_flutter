@@ -113,6 +113,7 @@ part 'pages/honeypot_page.dart';
 part 'pages/codex_creator_page.dart';
 part 'pages/topics_page.dart';
 part 'pages/translations_page.dart';
+part 'pages/article_map_page.dart';
 
 String _resolveMimeType(PlatformFile file) {
   final candidate = file.path ?? file.name;
