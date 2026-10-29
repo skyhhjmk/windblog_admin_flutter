@@ -14,7 +14,8 @@ class PostEditorPage extends StatefulWidget {
 }
 
 class _PostEditorPageState extends State<PostEditorPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin
+    implements PostEditorStateInterface {
   late final TextEditingController slugCtrl;
   late final TextEditingController titleCtrl;
   late final TextEditingController summaryCtrl;
@@ -83,6 +84,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   @override
   void initState() {
     super.initState();
+    FlutterMcpServer.instance.setActiveEditor(this);
     _contentScrollController.addListener(_onScroll);
     _currentDetail = widget.detail;
     final d = _currentDetail;
@@ -440,6 +442,7 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   @override
   void dispose() {
+    FlutterMcpServer.instance.clearActiveEditor(this);
     _contentScrollController.removeListener(_onScroll);
     _contentScrollController.dispose();
     slugCtrl.dispose();
@@ -454,6 +457,50 @@ class _PostEditorPageState extends State<PostEditorPage>
     freeLinesCtrl.dispose();
     _sidebarTabController.dispose();
     super.dispose();
+  }
+
+  @override
+  int? get currentPostId => _currentDetail?.id;
+
+  @override
+  Map<String, dynamic> getEditorData() {
+    _titles['zh-cn'] = titleCtrl.text.trim();
+    _summaries['zh-cn'] = summaryCtrl.text.trim();
+    _contents['zh-cn'] = contentCtrl.text.trim();
+    return {
+      'postId': _currentDetail?.id,
+      'slug': slugCtrl.text.trim(),
+      'titles': Map<String, String>.from(_titles),
+      'summaries': Map<String, String>.from(_summaries),
+      'contents': Map<String, String>.from(_contents),
+      'currentTitle': titleCtrl.text.trim(),
+      'currentSummary': summaryCtrl.text.trim(),
+      'currentContent': contentCtrl.text.trim(),
+      'isDirty': _checkIfDirty(),
+    };
+  }
+
+  @override
+  void applyTranslation({
+    required String targetLanguage,
+    required String title,
+    String? summary,
+    required String contentMarkdown,
+  }) {
+    if (!mounted) return;
+    final lang = targetLanguage.trim().toLowerCase();
+    setState(() {
+      _titles[lang] = title;
+      if (summary != null) {
+        _summaries[lang] = summary;
+      }
+      _contents[lang] = contentMarkdown;
+      _isDirty = true;
+    });
+    AdminFeedback.showSnackBar(
+      context,
+      SnackBar(content: Text('AI 已通过 MCP 注入 [$targetLanguage] 译本')),
+    );
   }
 
   Future<bool> _onWillPop() async {

@@ -297,6 +297,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.auto_awesome,
         submenuParent: '系统设置',
       ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: '本地应用设置',
+        icon: Icons.settings_suggest_outlined,
+        selectedIcon: Icons.settings_suggest,
+        submenuParent: '系统设置',
+      ),
     ];
     if (widget.user?.roleName == 'SUPER_ADMIN') {
       items.add(
@@ -1429,6 +1436,8 @@ class _HomePageState extends State<HomePage> {
           onAuthError: widget.onAuthError,
         );
       case 31:
+        return LocalAppSettingsPage(api: widget.api, user: widget.user);
+      case 32:
         return HoneypotPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);

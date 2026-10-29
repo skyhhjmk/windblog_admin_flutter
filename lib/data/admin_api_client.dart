@@ -623,6 +623,25 @@ class AdminApiClient {
     return PostTranslationResult.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<PostDetail> savePostTranslation(
+    int postId, {
+    required String targetLanguage,
+    required String title,
+    String? summary,
+    required String contentMarkdown,
+  }) async {
+    final res = await _put(
+      '/api/admin/posts/$postId/translation',
+      body: {
+        'targetLanguage': targetLanguage,
+        'title': title,
+        'summary': summary ?? '',
+        'contentMarkdown': contentMarkdown,
+      },
+    );
+    return PostDetail.fromMap(_map(jsonDecode(res.body)));
+  }
+
   Future<void> publishPost(int id, {bool sendArticleUpdate = false}) async =>
       _post(
         '/api/admin/posts/$id/publish',

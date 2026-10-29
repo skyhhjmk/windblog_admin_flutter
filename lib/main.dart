@@ -27,12 +27,14 @@ import 'utils/storage_service.dart';
 import 'utils/instance_vault.dart';
 import 'utils/passkey_authentication.dart' show PasskeyException;
 import 'services/seeray_analytics_service.dart';
+import 'services/mcp/mcp_server.dart';
 
 part 'components/admin_ui.dart';
 part 'components/admin_step_up.dart';
 part 'components/admin_shortcuts.dart';
 part 'components/notification_center.dart';
 part 'pages/login_page.dart';
+part 'pages/local_app_settings_page.dart';
 part 'pages/instance_vault_page.dart';
 part 'pages/installation_page.dart';
 part 'pages/home_page.dart';
@@ -301,11 +303,14 @@ class _AdminRootPageState extends State<AdminRootPage> {
     api.onSessionExpired = _handleSessionExpired;
     api.onSessionRecovery = _recoverExpiredInstanceSession;
     api.onStepUpExpired = AdminStepUpAuthorization.clear;
+    FlutterMcpServer.instance.init(api);
+    FlutterMcpServer.instance.start();
     _loadSession();
   }
 
   @override
   void dispose() {
+    FlutterMcpServer.instance.stop();
     notificationController.dispose();
     super.dispose();
   }
@@ -335,8 +340,10 @@ class _AdminRootPageState extends State<AdminRootPage> {
       api.onSessionExpired = null;
       try {
         user = await api.me();
+        FlutterMcpServer.instance.updateSession(api: api, user: user);
       } on UnauthorizedException {
         api.token = null;
+        FlutterMcpServer.instance.updateSession(api: api, user: null);
         await StorageService.clearSession();
         if (mounted) {
           setState(() {
@@ -345,6 +352,7 @@ class _AdminRootPageState extends State<AdminRootPage> {
         }
       } catch (e) {
         api.token = null;
+        FlutterMcpServer.instance.updateSession(api: api, user: null);
         await StorageService.clearSession();
       } finally {
         api.onSessionExpired = savedSessionExpiredHandler;
@@ -481,6 +489,7 @@ class _AdminRootPageState extends State<AdminRootPage> {
     } else {
       await StorageService.saveSession(baseUrl, token);
     }
+    FlutterMcpServer.instance.updateSession(api: api, user: authenticatedUser);
     if (mounted) {
       setState(() {
         user = authenticatedUser;
@@ -516,6 +525,7 @@ class _AdminRootPageState extends State<AdminRootPage> {
     AdminStepUpAuthorization.clear();
     api.token = null;
     user = null;
+    FlutterMcpServer.instance.updateSession(api: api, user: null);
     _showSessionExpiredLogin = false;
     _showSessionExpiredNotice = false;
     await StorageService.clearSession();
