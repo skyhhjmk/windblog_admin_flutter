@@ -592,13 +592,13 @@ class _TopicsPageState extends State<TopicsPage>
     nameEn: 'Request authorization before reposting',
     licenseUrl: null,
     requiresApplication: true,
-    summary: '转载前需要申请授权，并保留授权码、原文地址和转载链路。',
+    summary: '转载前需要申请授权，并保留授权码、原文地址和文中 go/affiliate 链接。',
     summaryEn:
-        'Request authorization before reposting and retain attribution details.',
-    conditions: ['转载前申请授权', '保留授权码和原文地址'],
+        'Request authorization before reposting and retain the license code, original URL, and go/affiliate links.',
+    conditions: ['转载前申请授权', '保留授权码、原文地址和文中 go/affiliate 链接'],
     conditionsEn: [
       'Authorization is required before reposting',
-      'Keep the original URL',
+      'Keep the license code, original URL, and go/affiliate links on the reposted page',
     ],
   );
 
@@ -2567,7 +2567,11 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
                     .map(
                       (policy) => DropdownMenuItem<String>(
                         value: policy.code,
-                        child: Text(policy.name),
+                        child: Text(
+                          Localizations.localeOf(context).languageCode == 'en'
+                              ? policy.nameEn
+                              : policy.name,
+                        ),
                       ),
                     )
                     .toList(),
@@ -2586,7 +2590,9 @@ class _DraftRequestDialogState extends State<_DraftRequestDialog> {
                     child: Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
-                        policy.summary,
+                        Localizations.localeOf(context).languageCode == 'en'
+                            ? policy.summaryEn
+                            : policy.summary,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -2822,7 +2828,11 @@ class _ApiDraftDialogState extends State<_ApiDraftDialog> {
                     .map(
                       (policy) => DropdownMenuItem<String>(
                         value: policy.code,
-                        child: Text(policy.name),
+                        child: Text(
+                          Localizations.localeOf(context).languageCode == 'en'
+                              ? policy.nameEn
+                              : policy.name,
+                        ),
                       ),
                     )
                     .toList(),

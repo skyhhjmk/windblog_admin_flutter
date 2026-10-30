@@ -606,6 +606,222 @@ class AdminApiClient {
     return list.map((e) => RepostPolicyItem.fromMap(_map(e))).toList();
   }
 
+  Future<Map<String, dynamic>> repostStats() async {
+    final res = await _get('/api/admin/repost/stats');
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<PageResult<Map<String, dynamic>>> listRepostLicenses({
+    int page = 1,
+    int pageSize = 20,
+    int? status,
+    String? keyword,
+  }) async {
+    final res = await _get(
+      '/api/admin/repost/licenses',
+      query: {
+        'page': '$page',
+        'pageSize': '$pageSize',
+        if (status != null) 'status': '$status',
+        if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
+      },
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(res.body)),
+      (item) => item,
+    );
+  }
+
+  Future<PageResult<Map<String, dynamic>>> listRepostTokens({
+    int page = 1,
+    int pageSize = 20,
+    int? status,
+    String? tokenType,
+    String? keyword,
+  }) async {
+    final res = await _get(
+      '/api/admin/repost/tokens',
+      query: {
+        'page': '$page',
+        'pageSize': '$pageSize',
+        if (status != null) 'status': '$status',
+        if (tokenType != null && tokenType.isNotEmpty) 'tokenType': tokenType,
+        if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
+      },
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(res.body)),
+      (item) => item,
+    );
+  }
+
+  Future<PageResult<Map<String, dynamic>>> listRepostClickEvents({
+    int page = 1,
+    int pageSize = 20,
+    String? refererCategory,
+  }) async {
+    final res = await _get(
+      '/api/admin/repost/click-events',
+      query: {
+        'page': '$page',
+        'pageSize': '$pageSize',
+        if (refererCategory != null && refererCategory.isNotEmpty)
+          'refererCategory': refererCategory,
+      },
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(res.body)),
+      (item) => item,
+    );
+  }
+
+  Future<PageResult<Map<String, dynamic>>> listSuspiciousReposts({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final res = await _get(
+      '/api/admin/repost/suspicious',
+      query: {'page': '$page', 'pageSize': '$pageSize'},
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(res.body)),
+      (item) => item,
+    );
+  }
+
+  Future<PageResult<Map<String, dynamic>>> listRepostAffiliateLinks({
+    int page = 1,
+    int pageSize = 20,
+    int? status,
+  }) async {
+    final res = await _get(
+      '/api/admin/repost/affiliate-links',
+      query: {
+        'page': '$page',
+        'pageSize': '$pageSize',
+        if (status != null) 'status': '$status',
+      },
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(res.body)),
+      (item) => item,
+    );
+  }
+
+  Future<PageResult<Map<String, dynamic>>> listRepostBlockedDomains({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final res = await _get(
+      '/api/admin/repost/blocked-domains',
+      query: {'page': '$page', 'pageSize': '$pageSize'},
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(res.body)),
+      (item) => item,
+    );
+  }
+
+  Future<PageResult<Map<String, dynamic>>> listRepostRiskDevices({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final res = await _get(
+      '/api/admin/repost/risk-devices',
+      query: {'page': '$page', 'pageSize': '$pageSize'},
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(res.body)),
+      (item) => item,
+    );
+  }
+
+  Future<void> revokeRepostLicense(int id, {String? stepUpToken}) async {
+    await _post(
+      '/api/admin/repost/licenses/$id/revoke',
+      body: const {},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+  }
+
+  Future<void> revokeRepostToken(int id, {String? stepUpToken}) async {
+    await _post(
+      '/api/admin/repost/tokens/$id/revoke',
+      body: const {},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+  }
+
+  Future<Map<String, dynamic>> checkRepostLicenseCompliance(int id) async {
+    final res = await _post(
+      '/api/admin/repost/licenses/$id/check',
+      body: const {},
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> createRepostAffiliateLink({
+    required String name,
+    required String targetUrl,
+    String? note,
+  }) async {
+    final res = await _post(
+      '/api/admin/repost/affiliate-links',
+      body: {
+        'name': name,
+        'targetUrl': targetUrl,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<void> updateRepostAffiliateLinkStatus(int id, int status) async {
+    await _post(
+      '/api/admin/repost/affiliate-links/$id/status',
+      body: {'status': status},
+    );
+  }
+
+  Future<void> createRepostBlockedDomain({
+    required String domain,
+    String? reason,
+  }) async {
+    await _post(
+      '/api/admin/repost/blocked-domains',
+      body: {
+        'domain': domain,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      },
+    );
+  }
+
+  Future<void> unblockRepostDomain(int id) async {
+    await _post(
+      '/api/admin/repost/blocked-domains/$id/unblock',
+      body: const {},
+    );
+  }
+
+  Future<void> createRepostRiskDevice({
+    required String deviceRiskId,
+    String? reason,
+  }) async {
+    await _post(
+      '/api/admin/repost/risk-devices',
+      body: {
+        'deviceRiskId': deviceRiskId,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      },
+    );
+  }
+
+  Future<void> unblockRepostRiskDevice(int id) async {
+    await _post('/api/admin/repost/risk-devices/$id/unblock', body: const {});
+  }
+
   Future<PostTranslationResult> translatePost(
     int postId, {
     required String sourceLanguage,

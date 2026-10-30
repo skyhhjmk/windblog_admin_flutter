@@ -59,6 +59,7 @@ part 'pages/categories_page.dart';
 part 'pages/tags_page.dart';
 
 part 'pages/store_items_page.dart';
+part 'pages/repost_management_page.dart';
 part 'pages/database_management_page.dart';
 
 part 'pages/import_data_page.dart';

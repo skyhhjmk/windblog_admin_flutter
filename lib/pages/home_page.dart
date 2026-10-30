@@ -140,6 +140,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.storefront,
         submenuParent: '运营管理',
       ),
+      _AdminNavigationItem(
+        labelKey: 'repost_management',
+        fallbackLabel: '转载管理',
+        icon: Icons.published_with_changes_outlined,
+        selectedIcon: Icons.published_with_changes,
+        submenuParent: '运营管理',
+      ),
       // 媒体与存储
       _AdminNavigationItem(
         labelKey: 'media',
@@ -534,7 +541,7 @@ class _HomePageState extends State<HomePage> {
         return 1;
       case 4:
         return 2;
-      case 9:
+      case 10:
         return 3;
       default:
         return 4;
@@ -553,7 +560,7 @@ class _HomePageState extends State<HomePage> {
           case 2:
             _selectTab(4);
           case 3:
-            _selectTab(9);
+            _selectTab(10);
           case 4:
             _phoneScaffoldKey.currentState?.openDrawer();
         }
@@ -1442,113 +1449,118 @@ class _HomePageState extends State<HomePage> {
       case 8:
         return StoreItemsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 9:
-        return MediaLibraryPage(
+        return RepostManagementPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
       case 10:
-        return StorageClassesPage(
+        return MediaLibraryPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
       case 11:
-        return ImageProcessingConfigPage(
+        return StorageClassesPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
       case 12:
-        return StorageSyncPanel(
+        return ImageProcessingConfigPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
       case 13:
-        return EdgeNodesPage(api: widget.api, onAuthError: widget.onAuthError);
+        return StorageSyncPanel(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
       case 14:
+        return EdgeNodesPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 15:
         return RegionManagementPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 15:
+      case 16:
         return EdgeMonitorPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 16:
-        return QueuesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 17:
-        return DeadLetterPage(api: widget.api, onAuthError: widget.onAuthError);
+        return QueuesPage(api: widget.api, onAuthError: widget.onAuthError);
       case 18:
+        return DeadLetterPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 19:
         return SystemMonitorPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 19:
+      case 20:
         return DatabaseManagementPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 20:
-        return AuditLogsPage(api: widget.api, onAuthError: widget.onAuthError);
       case 21:
+        return AuditLogsPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 22:
         return SystemSettingsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 22:
+      case 23:
         return ElasticsearchSettingsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
-          onOpenSynonymRules: () => _selectTab(23),
+          onOpenSynonymRules: () => _selectTab(24),
         );
-      case 23:
+      case 24:
         return ElasticsearchSynonymsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
-          onOpenElasticSettings: () => _selectTab(22),
+          onOpenElasticSettings: () => _selectTab(23),
         );
-      case 24:
+      case 25:
         return AiProvidersPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 25:
+      case 26:
         return PermissionManagementPage(
           api: widget.api,
           isSuperAdmin: isSuperAdmin,
           onAuthError: widget.onAuthError,
         );
-      case 26:
+      case 27:
         return EmailCenterPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 27:
-        return OutboxPage(api: widget.api, onAuthError: widget.onAuthError);
       case 28:
+        return OutboxPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 29:
         return SecurityServicesPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 29:
+      case 30:
         return AmpSettingsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 30:
+      case 31:
         return CodexCreatorPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 31:
-        return LocalAppSettingsPage(api: widget.api, user: widget.user);
       case 32:
+        return LocalAppSettingsPage(api: widget.api, user: widget.user);
+      case 33:
         return TranslationsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 33:
-        return ArticleMapPage(api: widget.api, onAuthError: widget.onAuthError);
       case 34:
+        return ArticleMapPage(api: widget.api, onAuthError: widget.onAuthError);
+      case 35:
         return HoneypotPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);
