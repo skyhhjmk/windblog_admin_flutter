@@ -397,44 +397,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _reopenDraft(EditorDraft draft) async {
-    PostDetail? detail;
-    if (draft.postId != null) {
-      try {
-        detail = await widget.api.postDetail(draft.postId!);
-      } on UnauthorizedException {
-        widget.onAuthError();
-        return;
-      } catch (_) {
+    final opened = await openPostEditor(
+      context: context,
+      api: widget.api,
+      postId: draft.postId,
+      draft: draft,
+      onAuthError: widget.onAuthError,
+      onLoadError: (_) {
         if (!mounted) return;
         AdminFeedback.showTransient(
           context,
           message: t(context, 'draft_restore_failed'),
           severity: AdminNotificationSeverity.warning,
         );
-        return;
-      }
-    }
-    if (!mounted || _userNavigated) return;
-    final notifications = AdminNotificationScope.maybeOf(context);
-    await Navigator.push<PostEditRequest?>(
-      context,
-      MaterialPageRoute(
-        builder: (_) {
-          final editor = PostEditorPage(
-            detail: detail,
-            api: widget.api,
-            initialDraft: draft,
-          );
-          if (notifications == null) return editor;
-          return AdminNotificationHost(
-            api: widget.api,
-            controller: notifications,
-            child: editor,
-          );
-        },
-      ),
+      },
+      shouldCancel: () => _userNavigated,
     );
-    await _postsPageKey.currentState?.load();
+    if (opened) await _postsPageKey.currentState?.load();
   }
 
   @override

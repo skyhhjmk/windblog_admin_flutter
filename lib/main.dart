@@ -715,3 +715,112 @@ class AdminAuthenticatedWorkspace extends StatelessWidget {
     );
   }
 }
+
+/// Non-dismissible loading indicator shown while an article is being opened in
+/// the post editor. It is only ever dismissed programmatically.
+class EditorLoadingDialog extends StatelessWidget {
+  const EditorLoadingDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: Center(
+        child: Card(
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+                const SizedBox(width: 16),
+                Text(t(context, 'opening_editor')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The single entry point every "open article editor" action goes through so
+/// the loading feedback is consistent. Shows a non-dismissible indicator while
+/// the article detail and local draft are fetched, then pushes the editor.
+Future<bool> openPostEditor({
+  required BuildContext context,
+  required AdminApiClient api,
+  required int? postId,
+  PostDetail? detail,
+  EditorDraft? draft,
+  void Function()? onAuthError,
+  void Function(Object error)? onLoadError,
+  bool Function()? shouldCancel,
+}) async {
+  final navigator = Navigator.of(context, rootNavigator: true);
+  unawaited(
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => const EditorLoadingDialog(),
+    ),
+  );
+
+  PostDetail? resolvedDetail = detail;
+  EditorDraft? resolvedDraft = draft;
+  try {
+    if (postId != null && resolvedDetail == null) {
+      resolvedDetail = await api.postDetail(postId);
+    }
+    resolvedDraft ??= await EditorDraftStore.load(
+      baseUrl: api.normalizeBaseUrl(api.baseUrl),
+      postId: postId,
+    );
+  } on UnauthorizedException {
+    navigator.pop();
+    onAuthError?.call();
+    return false;
+  } catch (error) {
+    navigator.pop();
+    if (onLoadError != null) {
+      onLoadError(error);
+    } else if (context.mounted) {
+      AdminFeedback.showSnackBar(
+        context,
+        SnackBar(content: Text('打开文章编辑器失败：$error')),
+      );
+    }
+    return false;
+  }
+
+  navigator.pop();
+  if (!context.mounted || (shouldCancel?.call() ?? false)) return false;
+  final notifications = AdminNotificationScope.maybeOf(context);
+  await navigator.push<void>(
+    MaterialPageRoute(
+      builder: (_) {
+        final editor = PostEditorPage(
+          detail: resolvedDetail,
+          api: api,
+          initialDraft: resolvedDraft,
+        );
+        if (notifications == null) return editor;
+        return AdminNotificationHost(
+          api: api,
+          controller: notifications,
+          child: editor,
+        );
+      },
+    ),
+  );
+  return true;
+}

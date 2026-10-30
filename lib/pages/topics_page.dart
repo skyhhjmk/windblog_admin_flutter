@@ -963,41 +963,12 @@ class _TopicsPageState extends State<TopicsPage>
   }
 
   Future<void> _openPostEditor(int postId) async {
-    try {
-      final detail = await widget.api.postDetail(postId);
-      final draft = await EditorDraftStore.load(
-        baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
-        postId: postId,
-      );
-      if (!mounted) return;
-      final notifications = AdminNotificationScope.maybeOf(context);
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) {
-            final editor = PostEditorPage(
-              detail: detail,
-              api: widget.api,
-              initialDraft: draft,
-            );
-            if (notifications == null) return editor;
-            return AdminNotificationHost(
-              api: widget.api,
-              controller: notifications,
-              child: editor,
-            );
-          },
-        ),
-      );
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (error) {
-      if (mounted) {
-        AdminFeedback.showSnackBar(
-          context,
-          SnackBar(content: Text('打开文章编辑器失败：$error')),
-        );
-      }
-    }
+    await openPostEditor(
+      context: context,
+      api: widget.api,
+      postId: postId,
+      onAuthError: widget.onAuthError,
+    );
   }
 
   Future<void> _showSources(Map<String, dynamic> topic) async {

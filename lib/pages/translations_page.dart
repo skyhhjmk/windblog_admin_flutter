@@ -316,38 +316,16 @@ class _TranslationsPageState extends State<TranslationsPage> {
   }
 
   Future<void> _openEditor(TranslationItem item) async {
-    try {
-      final detail = await widget.api.postDetail(item.id);
-      final draft = await EditorDraftStore.load(
-        baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
-        postId: item.id,
-      );
-      if (!mounted) return;
-      final notifications = AdminNotificationScope.maybeOf(context);
-      await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-          builder: (_) {
-            final editor = PostEditorPage(
-              detail: detail,
-              api: widget.api,
-              initialDraft: draft,
-            );
-            if (notifications == null) return editor;
-            return AdminNotificationHost(
-              api: widget.api,
-              controller: notifications,
-              child: editor,
-            );
-          },
-        ),
-      );
-      await _load();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (error) {
-      if (mounted) AdminFeedback.error(context, '打开文章失败：$error');
-    }
+    final opened = await openPostEditor(
+      context: context,
+      api: widget.api,
+      postId: item.id,
+      onAuthError: widget.onAuthError,
+      onLoadError: (error) {
+        if (mounted) AdminFeedback.error(context, '打开文章失败：$error');
+      },
+    );
+    if (opened) await _load();
   }
 
   String _languageLabel(String language) {

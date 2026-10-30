@@ -103,46 +103,19 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   /// Opens the post editor for a post that references this media item.
   Future<void> _openReferencedPost(MediaReference reference) async {
     if (reference.postId <= 0) return;
-    try {
-      final detail = await widget.api.postDetail(reference.postId);
-      final draft = await EditorDraftStore.load(
-        baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
-        postId: reference.postId,
-      );
-      if (!mounted) return;
-      final notifications = AdminNotificationScope.maybeOf(context);
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) {
-            final editor = PostEditorPage(
-              detail: detail,
-              api: widget.api,
-              initialDraft: draft,
-            );
-            if (notifications == null) return editor;
-            return AdminNotificationHost(
-              api: widget.api,
-              controller: notifications,
-              child: editor,
-            );
-          },
-        ),
-      );
-    } on UnauthorizedException {
-      if (mounted) {
-        AdminFeedback.showSnackBar(
-          context,
-          SnackBar(content: Text(t(context, 'token_expired'))),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        AdminFeedback.showSnackBar(
-          context,
-          SnackBar(content: Text('打开文章编辑器失败：$error')),
-        );
-      }
-    }
+    await openPostEditor(
+      context: context,
+      api: widget.api,
+      postId: reference.postId,
+      onAuthError: () {
+        if (mounted) {
+          AdminFeedback.showSnackBar(
+            context,
+            SnackBar(content: Text(t(context, 'token_expired'))),
+          );
+        }
+      },
+    );
   }
 
   bool get _hasRegionConstraintChanges =>

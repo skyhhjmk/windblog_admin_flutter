@@ -826,5 +826,6 @@
   "repost_unban_user_confirm": "恢复该用户申请转载的权限？已撤销的授权不会自动恢复。",
   "repost_ban_reason_hint": "封禁原因（可选）",
   "repost_ban_success": "已封禁转载权限",
-  "repost_unban_success": "已恢复转载权限"
+  "repost_unban_success": "已恢复转载权限",
+  "opening_editor": "正在打开文章编辑器..."
 }

@@ -826,5 +826,6 @@
   "repost_unban_user_confirm": "Restore this user's permission to request reposts? Revoked licenses will not be restored automatically.",
   "repost_ban_reason_hint": "Ban reason (optional)",
   "repost_ban_success": "Repost access banned",
-  "repost_unban_success": "Repost access restored"
+  "repost_unban_success": "Repost access restored",
+  "opening_editor": "Opening article editor..."
 }

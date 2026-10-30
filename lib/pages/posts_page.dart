@@ -239,48 +239,21 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Future<void> createOrEdit({PostItem? item}) async {
-    try {
-      PostDetail? detail;
-      if (item != null) {
-        detail = await widget.api.postDetail(item.id);
-      }
-      final draft = await EditorDraftStore.load(
-        baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
-        postId: item?.id,
-      );
-      if (!mounted) return;
-
-      final notifications = AdminNotificationScope.maybeOf(context);
-      await Navigator.push<PostEditRequest?>(
-        context,
-        MaterialPageRoute(
-          builder: (_) {
-            final editor = PostEditorPage(
-              detail: detail,
-              api: widget.api,
-              initialDraft: draft,
-            );
-            if (notifications == null) return editor;
-            return AdminNotificationHost(
-              api: widget.api,
-              controller: notifications,
-              child: editor,
-            );
-          },
-        ),
-      );
-
-      await load();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (e) {
-      if (mounted) {
-        AdminFeedback.showSnackBar(
-          context,
-          SnackBar(content: Text('${t(context, 'operation_failed')}: $e')),
-        );
-      }
-    }
+    final opened = await openPostEditor(
+      context: context,
+      api: widget.api,
+      postId: item?.id,
+      onAuthError: widget.onAuthError,
+      onLoadError: (error) {
+        if (mounted) {
+          AdminFeedback.showSnackBar(
+            context,
+            SnackBar(content: Text('${t(context, 'operation_failed')}: $error')),
+          );
+        }
+      },
+    );
+    if (opened) await load();
   }
 
   Future<void> _publishLatestDraft(PostItem item) async {
