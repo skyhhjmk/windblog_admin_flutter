@@ -6,6 +6,7 @@ class StorageService {
   static const String _keyBaseUrl = 'admin_base_url';
   static const String _keyToken = 'admin_auth_token';
   static const String _keyNotificationTasks = 'admin_notification_tasks';
+  static const String _keyWorkspaceTab = 'admin_workspace_tab';
   static const String _keyLastArticleModel = 'codex_creator_last_article_model';
   static const String _keyLastArticleReasoningEffort =
       'codex_creator_last_article_reasoning_effort';
@@ -64,6 +65,23 @@ class StorageService {
   static Future<void> clearNotificationTasks() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyNotificationTasks);
+  }
+
+  /// Remembers which admin section was open, so a cold start after Android
+  /// killed the process lands back where the user left off.
+  static Future<int?> getWorkspaceTab() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyWorkspaceTab);
+  }
+
+  static Future<void> saveWorkspaceTab(int tab) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyWorkspaceTab, tab);
+  }
+
+  static Future<void> clearWorkspaceTab() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyWorkspaceTab);
   }
 
   static Future<Map<String, String?>> getLastArticleGenerationChoice() async {

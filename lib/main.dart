@@ -25,6 +25,7 @@ import 'components/web_stub.dart'
     as web_helper;
 import 'utils/storage_service.dart';
 import 'utils/instance_vault.dart';
+import 'utils/editor_draft_store.dart';
 import 'utils/passkey_authentication.dart' show PasskeyException;
 import 'services/seeray_analytics_service.dart';
 import 'services/mcp/mcp_server.dart';
@@ -531,6 +532,8 @@ class _AdminRootPageState extends State<AdminRootPage> {
     _showSessionExpiredLogin = false;
     _showSessionExpiredNotice = false;
     await StorageService.clearSession();
+    await StorageService.clearWorkspaceTab();
+    await EditorDraftStore.clearAll();
     if (mounted) setState(() {});
   }
 

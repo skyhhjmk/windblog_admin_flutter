@@ -1,11 +1,18 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
 class PostEditorPage extends StatefulWidget {
-  const PostEditorPage({super.key, PostDetail? detail, required this.api})
-    : _detail = detail;
+  const PostEditorPage({
+    super.key,
+    PostDetail? detail,
+    required this.api,
+    this.initialDraft,
+  }) : _detail = detail;
 
   final PostDetail? _detail;
   final AdminApiClient api;
+
+  /// Working copy recovered after Android killed the process mid-edit.
+  final EditorDraft? initialDraft;
 
   PostDetail? get detail => _detail;
 
@@ -14,7 +21,7 @@ class PostEditorPage extends StatefulWidget {
 }
 
 class _PostEditorPageState extends State<PostEditorPage>
-    with SingleTickerProviderStateMixin
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver
     implements PostEditorStateInterface {
   late final TextEditingController slugCtrl;
   late final TextEditingController titleCtrl;
@@ -57,6 +64,10 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   bool _isDirty = false;
   bool _isSaving = false;
+  bool _draftAbandoned = false;
+  bool _draftPersistScheduled = false;
+  DateTime? _lastDraftPersistAt;
+  bool _restoredDraftApplied = false;
 
   String? _initialSlug;
   String? _initialTitle;
@@ -84,10 +95,12 @@ class _PostEditorPageState extends State<PostEditorPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     FlutterMcpServer.instance.setActiveEditor(this);
     _contentScrollController.addListener(_onScroll);
     _currentDetail = widget.detail;
     final d = _currentDetail;
+    final draft = _matchingDraft(widget.initialDraft);
     slugCtrl = TextEditingController(text: d?.slug ?? '');
     titleCtrl = TextEditingController(text: d?.zhTitle ?? '');
     summaryCtrl = TextEditingController(text: d?.zhSummary ?? '');
@@ -95,15 +108,6 @@ class _PostEditorPageState extends State<PostEditorPage>
     seoDescriptionCtrl = TextEditingController(text: d?.seoDescription ?? '');
     seoKeywordsCtrl = TextEditingController(text: d?.seoKeywords ?? '');
     _initialSeo = _seoValues;
-    for (final controller in [
-      seoTitleCtrl,
-      seoDescriptionCtrl,
-      seoKeywordsCtrl,
-    ]) {
-      controller.addListener(() {
-        if (mounted) setState(() => _isDirty = _checkIfDirty());
-      });
-    }
     _titles = Map<String, String>.from(d?.title ?? {});
     _summaries = Map<String, String>.from(d?.summary ?? {});
     _contents = Map<String, String>.from(d?.contentMarkdown ?? {});
@@ -147,6 +151,11 @@ class _PostEditorPageState extends State<PostEditorPage>
 
     _captureBaseline();
 
+    if (draft != null) {
+      _applyDraft(draft);
+      _restoredDraftApplied = true;
+    }
+
     _sidebarTabController = TabController(length: 3, vsync: this);
 
     _loadCategoriesAndTags();
@@ -156,10 +165,27 @@ class _PostEditorPageState extends State<PostEditorPage>
     }
 
     titleCtrl.addListener(_onTitleChanged);
+    slugCtrl.addListener(_markDirty);
+    summaryCtrl.addListener(_markDirty);
+    seoTitleCtrl.addListener(_markDirty);
+    seoDescriptionCtrl.addListener(_markDirty);
+    seoKeywordsCtrl.addListener(_markDirty);
     contentCtrl.addListener(_markDirty);
     pointsPriceCtrl.addListener(_markDirty);
     freeLinesCtrl.addListener(_markDirty);
     passwordCtrl.addListener(_markDirty);
+
+    if (_restoredDraftApplied) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        AdminFeedback.showTransient(
+          context,
+          message: t(context, 'draft_restored'),
+          actionLabel: t(context, 'discard_restore'),
+          onAction: _discardRestoredDraft,
+        );
+      });
+    }
   }
 
   Future<void> _openLocalAiWriting() async {
@@ -197,6 +223,15 @@ class _PostEditorPageState extends State<PostEditorPage>
     // No longer hiding title on scroll
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      if (!_draftAbandoned) unawaited(_persistDraftNow());
+    }
+  }
+
   void _onTitleChanged() {
     if (widget.detail == null ||
         _initialSlug == null ||
@@ -223,6 +258,194 @@ class _PostEditorPageState extends State<PostEditorPage>
       setState(() {
         _isDirty = isDirty;
       });
+    }
+    _scheduleDraftSave();
+  }
+
+  /// Matches [candidate] against the article currently being edited.
+  EditorDraft? _matchingDraft(EditorDraft? candidate) {
+    if (candidate == null || candidate.isExpired) return null;
+    if (!candidate.matches(
+      baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
+      postId: widget.detail?.id,
+    )) {
+      return null;
+    }
+    return candidate;
+  }
+
+  void _applyDraft(EditorDraft draft) {
+    slugCtrl.text = draft.slug;
+    titleCtrl.text = draft.title;
+    summaryCtrl.text = draft.summary;
+    seoTitleCtrl.text = draft.seoTitle;
+    seoDescriptionCtrl.text = draft.seoDescription;
+    seoKeywordsCtrl.text = draft.seoKeywords;
+    pointsPriceCtrl.text = draft.pointsPrice;
+    freeLinesCtrl.text = draft.freeLines;
+    status = draft.status;
+    visibility = draft.visibility;
+    aiSummaryStatus = draft.aiSummaryStatus;
+    categoryId = draft.categoryId;
+    categoryIds = List<int>.from(draft.categoryIds);
+    tagIds = List<int>.from(draft.tagIds);
+    visibilityRegions = List<String>.from(draft.visibilityRegions);
+    contentDeclarations = List<String>.from(draft.contentDeclarations);
+    repostPolicyCode = draft.repostPolicyCode.isEmpty
+        ? RepostPolicyItem.defaultCode
+        : draft.repostPolicyCode;
+    _titles = Map<String, String>.from(draft.titles);
+    _summaries = Map<String, String>.from(draft.summaries);
+    _contents = Map<String, String>.from(draft.contents);
+    _titles['zh-cn'] = draft.title;
+    _summaries['zh-cn'] = draft.summary;
+    _contents['zh-cn'] = draft.content;
+    _replaceContentControllerIfNeeded(draft.renderType, draft.content);
+    editorType = draft.editorType;
+    _isDirty = _checkIfDirty();
+  }
+
+  void _replaceContentControllerIfNeeded(int targetRenderType, String text) {
+    if (targetRenderType == renderType) {
+      contentCtrl.text = text;
+      return;
+    }
+    renderType = targetRenderType;
+    final previous = contentCtrl;
+    contentCtrl = renderType == 1
+        ? HtmlSyntaxController(text: text)
+        : MarkdownSyntaxController(text: text);
+    previous.dispose();
+  }
+
+  EditorDraft _buildDraft() {
+    final title = titleCtrl.text;
+    final summary = summaryCtrl.text;
+    final content = contentCtrl.text;
+    return EditorDraft(
+      baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
+      postId: _currentDetail?.id,
+      savedAt: DateTime.now(),
+      slug: slugCtrl.text,
+      title: title,
+      summary: summary,
+      content: content,
+      seoTitle: seoTitleCtrl.text,
+      seoDescription: seoDescriptionCtrl.text,
+      seoKeywords: seoKeywordsCtrl.text,
+      status: status,
+      visibility: visibility,
+      renderType: renderType,
+      editorType: editorType,
+      aiSummaryStatus: aiSummaryStatus,
+      categoryId: categoryId,
+      categoryIds: List<int>.from(categoryIds),
+      tagIds: List<int>.from(tagIds),
+      visibilityRegions: List<String>.from(visibilityRegions),
+      contentDeclarations: List<String>.from(contentDeclarations),
+      repostPolicyCode: repostPolicyCode,
+      pointsPrice: pointsPriceCtrl.text,
+      freeLines: freeLinesCtrl.text,
+      titles: Map<String, String>.from(_titles)..['zh-cn'] = title,
+      summaries: Map<String, String>.from(_summaries)..['zh-cn'] = summary,
+      contents: Map<String, String>.from(_contents)..['zh-cn'] = content,
+    );
+  }
+
+  /// Persists a burst of edits at most once every two seconds. This is
+  /// deliberately timer-free: a pending [Timer] would outlive the widget in
+  /// widget tests, and lifecycle hooks cover the final trailing edit.
+  void _scheduleDraftSave() {
+    if (_draftAbandoned || _isSaving || _draftPersistScheduled) return;
+    final last = _lastDraftPersistAt;
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(seconds: 2)) {
+      return;
+    }
+    _draftPersistScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _draftPersistScheduled = false;
+      if (!mounted || _draftAbandoned) return;
+      unawaited(_persistDraftNow());
+    });
+  }
+
+  Future<void> _persistDraftNow() async {
+    if (_draftAbandoned) return;
+    final baseUrl = widget.api.normalizeBaseUrl(widget.api.baseUrl);
+    final postId = _currentDetail?.id;
+    if (!_checkIfDirty()) {
+      await EditorDraftStore.clear(baseUrl: baseUrl, postId: postId);
+      return;
+    }
+    _lastDraftPersistAt = DateTime.now();
+    await EditorDraftStore.save(_buildDraft());
+  }
+
+  void _clearStoredDraft() {
+    _lastDraftPersistAt = DateTime.now();
+    unawaited(
+      EditorDraftStore.clear(
+        baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
+        postId: _currentDetail?.id,
+      ),
+    );
+  }
+
+  void _abandonDraft() {
+    _draftAbandoned = true;
+    _clearStoredDraft();
+  }
+
+  void _discardRestoredDraft() {
+    _clearStoredDraft();
+    final baselineRenderType = _initialRenderType ?? renderType;
+    final baselineContent = _initialContent ?? '';
+    setState(() {
+      slugCtrl.text = _initialSlug ?? '';
+      titleCtrl.text = _initialTitle ?? '';
+      summaryCtrl.text = _initialSummary ?? '';
+      final seoLines = _initialSeo.split('\n');
+      seoTitleCtrl.text = seoLines.isNotEmpty ? seoLines[0] : '';
+      seoDescriptionCtrl.text = seoLines.length > 1 ? seoLines[1] : '';
+      seoKeywordsCtrl.text = seoLines.length > 2 ? seoLines[2] : '';
+      if (baselineRenderType != renderType) {
+        _replaceContentControllerIfNeeded(baselineRenderType, baselineContent);
+      } else {
+        contentCtrl.text = baselineContent;
+      }
+      status = _initialStatus ?? status;
+      visibility = _initialVisibility ?? visibility;
+      editorType = _initialEditorType ?? editorType;
+      aiSummaryStatus = _initialAiSummaryStatus ?? aiSummaryStatus;
+      categoryId = _initialCategoryId;
+      categoryIds = List<int>.from(_initialCategoryIds ?? const <int>[]);
+      tagIds = List<int>.from(_initialTagIds ?? const <int>[]);
+      visibilityRegions = List<String>.from(
+        _initialVisibilityRegions ?? const <String>[],
+      );
+      contentDeclarations = List<String>.from(
+        _initialContentDeclarations ?? const <String>[],
+      );
+      repostPolicyCode =
+          _initialRepostPolicyCode ?? RepostPolicyItem.defaultCode;
+      pointsPriceCtrl.text = _initialPointsPrice ?? '';
+      freeLinesCtrl.text = _initialFreeLines ?? '';
+      _titles = Map<String, String>.from(_initialTitles);
+      _summaries = Map<String, String>.from(_initialSummaries);
+      _contents = Map<String, String>.from(_initialContents);
+      _isDirty = _checkIfDirty();
+    });
+  }
+
+  void _persistDraftBeforeDispose() {
+    if (_draftAbandoned) return;
+    final baseUrl = widget.api.normalizeBaseUrl(widget.api.baseUrl);
+    final postId = _currentDetail?.id;
+    if (_checkIfDirty()) {
+      unawaited(EditorDraftStore.save(_buildDraft()));
+    } else {
+      unawaited(EditorDraftStore.clear(baseUrl: baseUrl, postId: postId));
     }
   }
 
@@ -443,6 +666,8 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _persistDraftBeforeDispose();
     FlutterMcpServer.instance.clearActiveEditor(this);
     _contentScrollController.removeListener(_onScroll);
     _contentScrollController.dispose();
@@ -521,7 +746,10 @@ class _PostEditorPageState extends State<PostEditorPage>
             child: Text(t(context, 'cancel')),
           ),
           TextButton(
-            onPressed: () => navigator.pop(true),
+            onPressed: () {
+              _abandonDraft();
+              navigator.pop(true);
+            },
             child: Text(t(context, 'dont_save')),
           ),
           FilledButton(
@@ -580,9 +808,11 @@ class _PostEditorPageState extends State<PostEditorPage>
       _contents[language] = result['contentMarkdown'] ?? '';
       _isDirty = _checkIfDirty();
     });
+    _scheduleDraftSave();
   }
 
   Future<bool> _save() async {
+    final priorPostId = _currentDetail?.id;
     final finalContent = contentCtrl.text.trim();
     _titles['zh-cn'] = titleCtrl.text.trim();
     _summaries['zh-cn'] = summaryCtrl.text.trim();
@@ -650,6 +880,14 @@ class _PostEditorPageState extends State<PostEditorPage>
           _isSaving = false;
           _isDirty = false;
         });
+        _lastDraftPersistAt = DateTime.now();
+        final baseUrl = widget.api.normalizeBaseUrl(widget.api.baseUrl);
+        unawaited(
+          EditorDraftStore.clear(baseUrl: baseUrl, postId: priorPostId),
+        );
+        unawaited(
+          EditorDraftStore.clear(baseUrl: baseUrl, postId: savedDetail.id),
+        );
         await _loadRevisions();
         if (!mounted) return false;
         AdminFeedback.showTransient(
@@ -882,6 +1120,7 @@ class _PostEditorPageState extends State<PostEditorPage>
 
           _isDirty = false;
         });
+        _clearStoredDraft();
 
         await _loadRevisions();
 
@@ -1220,6 +1459,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1200),
                     child: TextField(
+                      key: const Key('postTitleField'),
                       controller: titleCtrl,
                       decoration: InputDecoration(
                         hintText: t(context, 'title'),

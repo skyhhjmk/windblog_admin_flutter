@@ -244,6 +244,10 @@ class _PostsPageState extends State<PostsPage> {
       if (item != null) {
         detail = await widget.api.postDetail(item.id);
       }
+      final draft = await EditorDraftStore.load(
+        baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
+        postId: item?.id,
+      );
       if (!mounted) return;
 
       final notifications = AdminNotificationScope.maybeOf(context);
@@ -251,7 +255,11 @@ class _PostsPageState extends State<PostsPage> {
         context,
         MaterialPageRoute(
           builder: (_) {
-            final editor = PostEditorPage(detail: detail, api: widget.api);
+            final editor = PostEditorPage(
+              detail: detail,
+              api: widget.api,
+              initialDraft: draft,
+            );
             if (notifications == null) return editor;
             return AdminNotificationHost(
               api: widget.api,

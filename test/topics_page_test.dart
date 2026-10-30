@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:windblog_admin_flutter/data/admin_api_client.dart';
 import 'package:windblog_admin_flutter/data/models.dart';
 import 'package:windblog_admin_flutter/l10n/app_localizations.dart';
 import 'package:windblog_admin_flutter/main.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('话题页使用服务端分页并显示主题内容', (WidgetTester tester) async {
     final api = _TopicsApiStub();
     final notifications = AdminNotificationController();

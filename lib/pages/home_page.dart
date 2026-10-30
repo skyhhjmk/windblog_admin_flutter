@@ -57,6 +57,7 @@ class _HomePageState extends State<HomePage> {
     '系统设置': false,
   };
   bool _switchingInstance = false;
+  bool _userNavigated = false;
 
   Future<void> _selectInstance(AdminInstance? instance) async {
     if (instance == null ||
@@ -340,6 +341,93 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     WindBlogSeeRayAnalytics.trackScreen('overview');
+    unawaited(_restoreWorkspace());
+  }
+
+  /// Android can kill the process while the app is in the background. Restore
+  /// the section the user was on, and reopen the editor when it held unsaved
+  /// work, so a cold start no longer looks like data loss.
+  Future<void> _restoreWorkspace() async {
+    int? savedTab;
+    EditorDraft? draft;
+    try {
+      savedTab = await StorageService.getWorkspaceTab();
+      draft = await EditorDraftStore.loadLatest(
+        baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
+      );
+    } catch (_) {}
+    if (!mounted || _userNavigated) return;
+
+    final maxIndex = _navigationItems.length - 1;
+    if (savedTab != null &&
+        savedTab >= 0 &&
+        savedTab <= maxIndex &&
+        savedTab != tab) {
+      _applyRestoredTab(savedTab);
+    }
+    if (draft != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_userNavigated) {
+          unawaited(_reopenDraft(draft!));
+        }
+      });
+    }
+  }
+
+  void _applyRestoredTab(int index) {
+    final items = _navigationItems;
+    final activeSubmenu = index >= 0 && index < items.length
+        ? items[index].submenuParent
+        : null;
+    setState(() {
+      tab = index;
+      slideDirection = 1;
+      for (final key in submenuExpandedStates.keys.toList()) {
+        submenuExpandedStates[key] = key == activeSubmenu;
+      }
+    });
+    WindBlogSeeRayAnalytics.trackScreen('admin_tab_$index');
+  }
+
+  Future<void> _reopenDraft(EditorDraft draft) async {
+    PostDetail? detail;
+    if (draft.postId != null) {
+      try {
+        detail = await widget.api.postDetail(draft.postId!);
+      } on UnauthorizedException {
+        widget.onAuthError();
+        return;
+      } catch (_) {
+        if (!mounted) return;
+        AdminFeedback.showTransient(
+          context,
+          message: t(context, 'draft_restore_failed'),
+          severity: AdminNotificationSeverity.warning,
+        );
+        return;
+      }
+    }
+    if (!mounted || _userNavigated) return;
+    final notifications = AdminNotificationScope.maybeOf(context);
+    await Navigator.push<PostEditRequest?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) {
+          final editor = PostEditorPage(
+            detail: detail,
+            api: widget.api,
+            initialDraft: draft,
+          );
+          if (notifications == null) return editor;
+          return AdminNotificationHost(
+            api: widget.api,
+            controller: notifications,
+            child: editor,
+          );
+        },
+      ),
+    );
+    await _postsPageKey.currentState?.load();
   }
 
   @override
@@ -1272,6 +1360,8 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    _userNavigated = true;
+    unawaited(StorageService.saveWorkspaceTab(index));
     AdminNotificationScope.maybeOf(context)?.recordNavigation();
     WindBlogSeeRayAnalytics.trackScreen('admin_tab_$index');
 

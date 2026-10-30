@@ -965,12 +965,20 @@ class _TopicsPageState extends State<TopicsPage>
   Future<void> _openPostEditor(int postId) async {
     try {
       final detail = await widget.api.postDetail(postId);
+      final draft = await EditorDraftStore.load(
+        baseUrl: widget.api.normalizeBaseUrl(widget.api.baseUrl),
+        postId: postId,
+      );
       if (!mounted) return;
       final notifications = AdminNotificationScope.maybeOf(context);
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) {
-            final editor = PostEditorPage(detail: detail, api: widget.api);
+            final editor = PostEditorPage(
+              detail: detail,
+              api: widget.api,
+              initialDraft: draft,
+            );
             if (notifications == null) return editor;
             return AdminNotificationHost(
               api: widget.api,
