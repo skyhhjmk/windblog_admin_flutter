@@ -655,6 +655,63 @@ class AdminApiClient {
     );
   }
 
+  Future<PageResult<Map<String, dynamic>>> listRepostReferrals({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final res = await _get(
+      '/api/admin/repost/referrals',
+      query: {'page': '$page', 'pageSize': '$pageSize'},
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(res.body)),
+      (item) => item,
+    );
+  }
+
+  Future<PageResult<Map<String, dynamic>>> listRepostUsers({
+    int page = 1,
+    int pageSize = 20,
+    String? keyword,
+    bool? banned,
+  }) async {
+    final res = await _get(
+      '/api/admin/repost/users',
+      query: {
+        'page': '$page',
+        'pageSize': '$pageSize',
+        if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
+        if (banned != null) 'banned': '$banned',
+      },
+    );
+    return PageResult<Map<String, dynamic>>.fromMap(
+      _map(jsonDecode(res.body)),
+      (item) => item,
+    );
+  }
+
+  Future<Map<String, dynamic>> banRepostUser(
+    int id, {
+    String? reason,
+    String? stepUpToken,
+  }) async {
+    final res = await _post(
+      '/api/admin/repost/users/$id/ban',
+      body: {if (reason != null && reason.isNotEmpty) 'reason': reason},
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> unbanRepostUser(int id) async {
+    final res = await _post(
+      '/api/admin/repost/users/$id/unban',
+      body: const {},
+    );
+    return _map(jsonDecode(res.body));
+  }
+
   Future<PageResult<Map<String, dynamic>>> listRepostClickEvents({
     int page = 1,
     int pageSize = 20,

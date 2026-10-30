@@ -27,14 +27,16 @@ class _RepostTabData {
 
 class _RepostManagementPageState extends State<RepostManagementPage>
     with SingleTickerProviderStateMixin {
-  static const int _tabCount = 7;
+  static const int _tabCount = 9;
   static const int _licensesTab = 0;
   static const int _affiliateLinksTab = 1;
   static const int _tokensTab = 2;
   static const int _clickEventsTab = 3;
-  static const int _suspiciousTab = 4;
-  static const int _blockedDomainsTab = 5;
-  static const int _riskDevicesTab = 6;
+  static const int _referralsTab = 4;
+  static const int _suspiciousTab = 5;
+  static const int _blockedDomainsTab = 6;
+  static const int _riskDevicesTab = 7;
+  static const int _usersTab = 8;
 
   late final TabController _tabController;
   final List<_RepostTabData> _tabs = List.generate(
@@ -44,6 +46,7 @@ class _RepostManagementPageState extends State<RepostManagementPage>
   final Map<int, TextEditingController> _keywordControllers = {
     _licensesTab: TextEditingController(),
     _tokensTab: TextEditingController(),
+    _usersTab: TextEditingController(),
   };
   Map<String, dynamic> _stats = const {};
   bool _statsLoading = true;
@@ -144,6 +147,12 @@ class _RepostManagementPageState extends State<RepostManagementPage>
             pageSize: _RepostTabData.pageSize,
           );
           break;
+        case _referralsTab:
+          result = await widget.api.listRepostReferrals(
+            page: data.page,
+            pageSize: _RepostTabData.pageSize,
+          );
+          break;
         case _suspiciousTab:
           result = await widget.api.listSuspiciousReposts(
             page: data.page,
@@ -160,6 +169,18 @@ class _RepostManagementPageState extends State<RepostManagementPage>
           result = await widget.api.listRepostRiskDevices(
             page: data.page,
             pageSize: _RepostTabData.pageSize,
+          );
+          break;
+        case _usersTab:
+          result = await widget.api.listRepostUsers(
+            page: data.page,
+            pageSize: _RepostTabData.pageSize,
+            keyword: data.keyword,
+            banned: data.statusFilter == 'active'
+                ? false
+                : data.statusFilter == 'revoked'
+                ? true
+                : null,
           );
           break;
         default:
@@ -226,9 +247,11 @@ class _RepostManagementPageState extends State<RepostManagementPage>
                 Tab(text: t(context, 'repost_tab_affiliate_links')),
                 Tab(text: t(context, 'repost_tab_tokens')),
                 Tab(text: t(context, 'repost_tab_clicks')),
+                Tab(text: t(context, 'repost_tab_referrals')),
                 Tab(text: t(context, 'repost_tab_suspicious')),
                 Tab(text: t(context, 'repost_tab_blocked_domains')),
                 Tab(text: t(context, 'repost_tab_risk_devices')),
+                Tab(text: t(context, 'repost_tab_users')),
               ],
             ),
           ),
@@ -262,6 +285,10 @@ class _RepostManagementPageState extends State<RepostManagementPage>
       [t(context, 'repost_stats_tokens'), '${_stats['tokens'] ?? 0}'],
       [t(context, 'repost_stats_clicks'), '${_stats['clickEvents'] ?? 0}'],
       [
+        t(context, 'repost_stats_referrals'),
+        '${_stats['referralEvents'] ?? 0}',
+      ],
+      [
         t(context, 'repost_stats_suspicious'),
         '${_stats['suspiciousReposts'] ?? 0}',
       ],
@@ -276,6 +303,10 @@ class _RepostManagementPageState extends State<RepostManagementPage>
       [
         t(context, 'repost_stats_risk_devices'),
         '${_stats['riskDevices'] ?? 0}',
+      ],
+      [
+        t(context, 'repost_stats_banned_users'),
+        '${_stats['bannedUsers'] ?? 0}',
       ],
     ];
     return Wrap(
@@ -344,8 +375,10 @@ class _RepostManagementPageState extends State<RepostManagementPage>
     final hasStatusFilter =
         index == _licensesTab ||
         index == _affiliateLinksTab ||
-        index == _tokensTab;
-    final hasSearch = index == _licensesTab || index == _tokensTab;
+        index == _tokensTab ||
+        index == _usersTab;
+    final hasSearch =
+        index == _licensesTab || index == _tokensTab || index == _usersTab;
     final showCreate =
         index == _affiliateLinksTab ||
         index == _blockedDomainsTab ||
@@ -371,13 +404,19 @@ class _RepostManagementPageState extends State<RepostManagementPage>
                 ),
                 DropdownMenuItem(
                   value: 'active',
-                  child: Text(t(context, 'repost_filter_active')),
+                  child: Text(
+                    index == _usersTab
+                        ? t(context, 'repost_filter_normal')
+                        : t(context, 'repost_filter_active'),
+                  ),
                 ),
                 DropdownMenuItem(
                   value: 'revoked',
                   child: Text(
                     index == _affiliateLinksTab
                         ? t(context, 'repost_filter_disabled')
+                        : index == _usersTab
+                        ? t(context, 'repost_filter_banned')
                         : t(context, 'repost_filter_revoked'),
                   ),
                 ),
@@ -461,12 +500,16 @@ class _RepostManagementPageState extends State<RepostManagementPage>
         return _buildTokenCard(item);
       case _clickEventsTab:
         return _buildClickEventCard(item);
+      case _referralsTab:
+        return _buildReferralCard(item);
       case _suspiciousTab:
         return _buildSuspiciousCard(item);
       case _blockedDomainsTab:
         return _buildBlockedDomainCard(item);
       case _riskDevicesTab:
         return _buildRiskDeviceCard(item);
+      case _usersTab:
+        return _buildRepostUserCard(item);
       default:
         return const SizedBox.shrink();
     }
@@ -498,6 +541,11 @@ class _RepostManagementPageState extends State<RepostManagementPage>
             _buildField('repost_user', _text(item['userName'])),
             _buildField('repost_allowed_domain', _text(item['allowedDomain'])),
             _buildField('repost_target_url', _text(item['targetUrl'])),
+            _buildField(
+              'repost_original_visits',
+              '${item['originalClicks'] ?? 0}',
+            ),
+            _buildField('repost_go_visits', '${item['goClicks'] ?? 0}'),
             _buildField('created_at', _formatDate(item['createdAt'])),
             const SizedBox(height: 8),
             Wrap(
@@ -796,6 +844,155 @@ class _RepostManagementPageState extends State<RepostManagementPage>
     );
   }
 
+  Widget _buildReferralCard(Map<String, dynamic> item) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SelectableText(
+                  _text(item['licenseCode']),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Chip(label: Text(_text(item['refererCategory']))),
+              ],
+            ),
+            _buildField('repost_post', _text(item['postTitle'])),
+            _buildField('repost_referer_domain', _text(item['refererDomain'])),
+            _buildField('repost_latest_referer', _text(item['refererUrl'])),
+            _buildField('repost_source_node', _text(item['sourceNodeId'])),
+            _buildField('repost_viewed_at', _formatDate(item['viewedAt'])),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRepostUserCard(Map<String, dynamic> item) {
+    final banned = item['repostBanned'] == true;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SelectableText(
+                  _text(item['username']),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Chip(
+                  label: Text(
+                    banned
+                        ? t(context, 'repost_filter_banned')
+                        : t(context, 'repost_filter_normal'),
+                  ),
+                  backgroundColor: banned
+                      ? Theme.of(context).colorScheme.errorContainer
+                      : Colors.green.shade100,
+                ),
+              ],
+            ),
+            _buildField('repost_user_email', _text(item['email'])),
+            _buildField('repost_user_nickname', _text(item['nickname'])),
+            _buildField(
+              'repost_user_license_count',
+              '${item['licenseCount'] ?? 0}',
+            ),
+            _buildField(
+              'repost_user_active_license_count',
+              '${item['activeLicenseCount'] ?? 0}',
+            ),
+            _buildField('repost_reason', _text(item['repostBanReason'])),
+            _buildField(
+              'repost_user_banned_at',
+              _formatDate(item['repostBannedAt']),
+            ),
+            const SizedBox(height: 8),
+            banned
+                ? OutlinedButton.icon(
+                    onPressed: () => _unbanUser(item),
+                    icon: const Icon(Icons.lock_open, size: 18),
+                    label: Text(t(context, 'repost_unban_user')),
+                  )
+                : TextButton.icon(
+                    onPressed: () => _banUser(item),
+                    icon: const Icon(Icons.block, size: 18),
+                    label: Text(t(context, 'repost_ban_user')),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _banUser(Map<String, dynamic> item) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) =>
+          _RepostBanUserDialog(username: _text(item['username'])),
+    );
+    if (reason == null || !mounted) return;
+    final stepUpToken = await AdminStepUpAuthorization.obtain(
+      context,
+      widget.api,
+      title: t(context, 'repost_ban_user'),
+    );
+    if (stepUpToken == null || !mounted) return;
+    try {
+      await widget.api.banRepostUser(
+        _asInt(item['id']),
+        reason: reason,
+        stepUpToken: stepUpToken,
+      );
+      if (!mounted) return;
+      AdminFeedback.success(context, t(context, 'repost_ban_success'));
+      await _reloadAll();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) AdminFeedback.error(context, error.toString());
+    }
+  }
+
+  Future<void> _unbanUser(Map<String, dynamic> item) async {
+    final confirmed = await AdminConfirmDialog.show(
+      context: context,
+      title: t(context, 'repost_unban_user'),
+      message: t(context, 'repost_unban_user_confirm'),
+      confirmText: t(context, 'confirm'),
+      cancelText: t(context, 'cancel'),
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await widget.api.unbanRepostUser(_asInt(item['id']));
+      if (!mounted) return;
+      AdminFeedback.success(context, t(context, 'repost_unban_success'));
+      await _reloadAll();
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) AdminFeedback.error(context, error.toString());
+    }
+  }
+
   Widget _statusChip(
     int status, {
     String inactiveKey = 'repost_filter_revoked',
@@ -986,9 +1183,14 @@ class _RepostManagementPageState extends State<RepostManagementPage>
   }
 
   Future<void> _showCreateDialog(int index) async {
+    final kind = index == _affiliateLinksTab
+        ? 'affiliate'
+        : index == _blockedDomainsTab
+        ? 'blocked'
+        : 'risk';
     final values = await showDialog<Map<String, String>>(
       context: context,
-      builder: (dialogContext) => _RepostCreateDialog(index: index),
+      builder: (dialogContext) => _RepostCreateDialog(kind: kind),
     );
     if (values == null || !mounted) return;
     try {
@@ -1045,9 +1247,9 @@ class _RepostManagementPageState extends State<RepostManagementPage>
 }
 
 class _RepostCreateDialog extends StatefulWidget {
-  const _RepostCreateDialog({required this.index});
+  const _RepostCreateDialog({required this.kind});
 
-  final int index;
+  final String kind;
 
   @override
   State<_RepostCreateDialog> createState() => _RepostCreateDialogState();
@@ -1068,9 +1270,8 @@ class _RepostCreateDialogState extends State<_RepostCreateDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final index = widget.index;
-    final isAffiliate = index == 1;
-    final isBlockedDomain = index == 5;
+    final isAffiliate = widget.kind == 'affiliate';
+    final isBlockedDomain = widget.kind == 'blocked';
     final title = isAffiliate
         ? t(context, 'repost_create_affiliate_link')
         : isBlockedDomain
@@ -1141,6 +1342,61 @@ class _RepostCreateDialogState extends State<_RepostCreateDialog> {
             Navigator.pop(context, result);
           },
           child: Text(t(context, 'create')),
+        ),
+      ],
+    );
+  }
+}
+
+class _RepostBanUserDialog extends StatefulWidget {
+  const _RepostBanUserDialog({required this.username});
+
+  final String username;
+
+  @override
+  State<_RepostBanUserDialog> createState() => _RepostBanUserDialogState();
+}
+
+class _RepostBanUserDialogState extends State<_RepostBanUserDialog> {
+  final TextEditingController _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(t(context, 'repost_ban_user')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.username),
+            const SizedBox(height: 8),
+            Text(t(context, 'repost_ban_user_confirm')),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _reason,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: t(context, 'repost_ban_reason_hint'),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(t(context, 'cancel')),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _reason.text.trim()),
+          child: Text(t(context, 'confirm')),
         ),
       ],
     );

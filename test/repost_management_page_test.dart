@@ -41,8 +41,10 @@ void main() {
     expect(find.text('转载授权'), findsOneWidget);
     expect(find.text('商业链接'), findsOneWidget);
     expect(find.text('短链 Token'), findsOneWidget);
+    expect(find.text('原文转化'), findsOneWidget);
     expect(find.text('封禁域名'), findsOneWidget);
     expect(find.text('风险设备'), findsOneWidget);
+    expect(find.text('用户转载权限'), findsOneWidget);
   });
 }
 
@@ -108,6 +110,20 @@ class _EmptyRepostApi extends AdminApiClient {
   Future<PageResult<Map<String, dynamic>>> listRepostBlockedDomains({
     int page = 1,
     int pageSize = 20,
+  }) async => _empty;
+
+  @override
+  Future<PageResult<Map<String, dynamic>>> listRepostReferrals({
+    int page = 1,
+    int pageSize = 20,
+  }) async => _empty;
+
+  @override
+  Future<PageResult<Map<String, dynamic>>> listRepostUsers({
+    int page = 1,
+    int pageSize = 20,
+    String? keyword,
+    bool? banned,
   }) async => _empty;
 
   @override
