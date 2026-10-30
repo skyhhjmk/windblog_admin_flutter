@@ -881,6 +881,40 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     }
   }
 
+  /// Scrolls the editor so that the outline heading [headingLine] is visible,
+  /// matching the fixed line metrics used elsewhere in this widget.
+  void _scrollEditorToHeading(String headingLine) {
+    if (!_editorScrollController.hasClients) return;
+    final lines = widget.controller.text.split('\n');
+    var index = lines.indexOf(headingLine);
+    if (index < 0) {
+      final stripped = headingLine.replaceFirst(RegExp(r'^#+\s*'), '');
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].trim().replaceFirst(RegExp(r'^#+\s*'), '') == stripped) {
+          index = i;
+          break;
+        }
+      }
+    }
+    if (index < 0) return;
+
+    const double lineHeight = 24.0;
+    const double topPadding = 24.0;
+    final targetOffset = (topPadding + index * lineHeight).clamp(
+      0.0,
+      _editorScrollController.position.maxScrollExtent,
+    );
+    Future.microtask(() {
+      if (mounted && _editorScrollController.hasClients) {
+        _editorScrollController.animateTo(
+          targetOffset,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
+
   void _syncPreview({required int line, bool shouldHighlight = true}) {
     if (!_previewScrollController.hasClients) return;
 
@@ -2141,9 +2175,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
                     : item.split(' ')[0].length;
                 final text = item.replaceFirst(RegExp(r'^#+\s*'), '');
                 return InkWell(
-                  onTap: () {
-                    // TODO: Scroll to line
-                  },
+                  onTap: () => _scrollEditorToHeading(item),
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(
                       12 + (level - 1) * 12,
