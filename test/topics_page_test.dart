@@ -168,6 +168,46 @@ void main() {
     expect(api.discoverCalls, 1);
     expect(api.lastDiscoveryProviderId, 21);
   });
+
+  testWidgets('已分配任务支持使用 API 提供商/轮询组重新生成草稿', (tester) async {
+    final api = _TopicsApiStub();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Theme(
+          data: AdminTheme.build(),
+          child: Scaffold(
+            body: TopicsPage(api: api, onAuthError: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('已指派任务'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已指派测试任务'), findsOneWidget);
+    expect(find.text('重新生成'), findsOneWidget);
+
+    await tester.tap(find.text('重新生成'));
+    await tester.pumpAndSettle();
+    expect(find.text('Codex Creator'), findsOneWidget);
+    expect(find.text('API 提供商'), findsOneWidget);
+
+    await tester.tap(find.text('API 提供商'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('使用 API 提供商生成草稿'), findsOneWidget);
+    expect(find.textContaining('话题轮询组'), findsOneWidget);
+
+    await tester.tap(find.text('开始生成'));
+    await tester.pumpAndSettle();
+
+    expect(api.generateArticleCalls, 1);
+    expect(api.lastGenerateArticleProviderId, 21);
+  });
 }
 
 class _TopicsApiStub extends AdminApiClient {
@@ -178,6 +218,39 @@ class _TopicsApiStub extends AdminApiClient {
   int? requestedPostId;
   int discoverCalls = 0;
   int? lastDiscoveryProviderId;
+  int generateArticleCalls = 0;
+  int? lastGenerateArticleProviderId;
+
+  @override
+  Future<Map<String, dynamic>> generateArticleWithAi(
+    int topicId, {
+    int? providerId,
+    String? language,
+    String? instructions,
+    String? repostPolicyCode,
+  }) async {
+    generateArticleCalls++;
+    lastGenerateArticleProviderId = providerId;
+    return {
+      'postId': 9,
+      'title': '已重新生成文章草稿',
+      'slug': 'regenerated-article',
+    };
+  }
+
+  @override
+  Future<List<RepostPolicyItem>> listRepostPolicies() async => [
+    const RepostPolicyItem(
+      code: 'REQUEST_REQUIRED',
+      name: '需申请授权',
+      nameEn: 'Request authorization before reposting',
+      requiresApplication: true,
+      summary: '需要先申请授权',
+      summaryEn: 'Request authorization before reposting',
+      conditions: [],
+      conditionsEn: [],
+    ),
+  ];
 
   @override
   Future<List<AiProviderConfig>> listAiProviders() async => [

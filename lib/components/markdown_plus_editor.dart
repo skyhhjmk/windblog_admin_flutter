@@ -3,6 +3,60 @@ part of 'package:windblog_admin_flutter/main.dart';
 // Regex for markdown image syntax: ![alt](url)
 final _imageRegExp = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
 
+/// Browsers can render these inline; other `image/*` payloads (PSD, ...)
+/// become download links instead of broken images.
+const _inlineImageMimeTypes = <String>{
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+  'image/tiff',
+  'image/svg+xml',
+  'image/avif',
+  'image/heic',
+  'image/heif',
+};
+
+/// Normalizes a stored media URL to the public `/uploads/...` path so the
+/// same markdown works on every region host.
+String markdownMediaUrl(MediaItem item) {
+  final url = item.url.trim();
+  final uri = Uri.tryParse(url);
+  if (uri == null ||
+      (uri.scheme != 'http' && uri.scheme != 'https') ||
+      uri.host.isEmpty ||
+      !(uri.path == '/uploads' || uri.path.startsWith('/uploads/'))) {
+    return url;
+  }
+  final schemeEnd = url.indexOf('://');
+  final pathStart = schemeEnd < 0 ? -1 : url.indexOf('/', schemeEnd + 3);
+  return pathStart < 0 ? url : url.substring(pathStart);
+}
+
+/// Images stay inline; every other file becomes a download link so archives,
+/// office documents and 3D models keep their original file name.
+String markdownMediaReference(MediaItem item, {String fallbackName = ''}) {
+  final url = markdownMediaUrl(item);
+  if (url.isEmpty) return '';
+  final storedName = item.fileName.trim();
+  var name = storedName.isEmpty ? fallbackName.trim() : storedName;
+  if (name.isEmpty) {
+    final segments = Uri.tryParse(url)?.pathSegments;
+    if (segments != null && segments.isNotEmpty) name = segments.last;
+  }
+  if (name.isEmpty) name = '附件';
+  final text = _escapeMarkdownLinkText(name);
+  if (_inlineImageMimeTypes.contains(item.mimeType.toLowerCase())) {
+    return '![$text]($url)';
+  }
+  return '[$text]($url)';
+}
+
+String _escapeMarkdownLinkText(String text) {
+  return text.replaceAll('[', r'\[').replaceAll(']', r'\]');
+}
+
 /// Pure document analysis deliberately kept outside the widget state.  `compute`
 /// can run it in a helper isolate on native targets, while the debounce at the
 /// call site still prevents a burst of keystrokes from repeatedly parsing the
@@ -175,6 +229,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   int _documentAnalysisGeneration = 0;
   String _lastText = '';
   bool _isPointerDown = false;
+  bool _fileDragActive = false;
 
   @override
   void initState() {
@@ -203,7 +258,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
         fileName,
         mimeType,
       ) {
-        _uploadPastedImageBytes(bytes, fileName, mimeType);
+        unawaited(_uploadPastedFile(bytes, fileName, mimeType));
       });
     }
   }
@@ -548,13 +603,15 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     }
   }
 
-  Future<void> _uploadPastedImageBytes(
+  Future<void> _uploadPastedFile(
     Uint8List bytes,
     String fileName,
     String mimeType, {
     String? marker,
   }) async {
-    final placeholder = '（图片上传处理中：$fileName）';
+    if (!mounted) return;
+    final isImage = mimeType.toLowerCase().startsWith('image/');
+    final placeholder = isImage ? '（图片上传处理中：$fileName）' : '（文件上传处理中：$fileName）';
     final pasteMarker = marker ?? _newPasteMarker();
     final uploadAnchor = '$pasteMarker$placeholder\n';
     if (marker == null) {
@@ -572,9 +629,12 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
         mimeType: mimeType,
         onMediaCompleted: (item) {
           if (!mounted) return;
-          final url = _markdownImageUrl(item);
-          if (item.processingStatus == 'COMPLETED' && url.isNotEmpty) {
-            _replacePasteAnchor(uploadAnchor, '![${item.fileName}]($url)');
+          final reference = _markdownReferenceForMedia(
+            item,
+            fallbackName: fileName,
+          );
+          if (item.processingStatus == 'COMPLETED' && reference.isNotEmpty) {
+            _replacePasteAnchor(uploadAnchor, reference);
           } else {
             _replacePasteAnchor(uploadAnchor, '');
           }
@@ -585,6 +645,13 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
         _replacePasteAnchor(uploadAnchor, '');
       }
     }
+  }
+
+  String _markdownReferenceForMedia(
+    MediaItem item, {
+    required String fallbackName,
+  }) {
+    return markdownMediaReference(item, fallbackName: fallbackName);
   }
 
   KeyEventResult _handleEditorKeyEvent(FocusNode node, KeyEvent event) {
@@ -625,16 +692,11 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     }
     if (!mounted) return;
 
-    final bytes = clipboardData?.imageBytes;
+    final bytes = clipboardData?.bytes;
     if (bytes != null) {
-      final mimeType = clipboardData?.mimeType ?? 'image/png';
-      final fileName = _clipboardImageFileName(
-        clipboardData?.fileName,
-        mimeType,
-      );
-      unawaited(
-        _uploadPastedImageBytes(bytes, fileName, mimeType, marker: marker),
-      );
+      final mimeType = clipboardData?.mimeType ?? 'application/octet-stream';
+      final fileName = _clipboardFileName(clipboardData?.fileName, mimeType);
+      unawaited(_uploadPastedFile(bytes, fileName, mimeType, marker: marker));
       return;
     }
 
@@ -649,24 +711,16 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     if (mounted) _replacePasteAnchor(marker, text ?? selectedText);
   }
 
-  String _clipboardImageFileName(String? fileName, String mimeType) {
-    final extension = switch (mimeType) {
-      'image/jpeg' => 'jpg',
-      'image/gif' => 'gif',
-      'image/tiff' => 'tiff',
-      'image/webp' => 'webp',
-      'image/bmp' => 'bmp',
-      'image/heic' => 'heic',
-      'image/heif' => 'heif',
-      _ => 'png',
-    };
+  String _clipboardFileName(String? fileName, String mimeType) {
     final leaf = fileName?.split(RegExp(r'[/\\]')).last.trim();
-    if (leaf != null &&
-        leaf.isNotEmpty &&
-        leaf.toLowerCase().endsWith('.$extension')) {
-      return leaf.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    if (leaf != null && leaf.isNotEmpty) {
+      // Keep Unicode names (Chinese document names are common); only strip
+      // characters that would break a markdown link or the upload path.
+      return leaf.replaceAll(RegExp(r'[/\\\x00-\x1F]'), '_');
     }
-    return 'pasted_image_${DateTime.now().millisecondsSinceEpoch}.$extension';
+    final extension = extensionFromMime(mimeType);
+    final suffix = (extension == null || extension.isEmpty) ? 'bin' : extension;
+    return 'pasted_file_${DateTime.now().millisecondsSinceEpoch}.$suffix';
   }
 
   String _newPasteMarker() {
@@ -1120,26 +1174,26 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
 
     if (items != null && items.isNotEmpty) {
       for (final item in items) {
-        _insertText('![${item.fileName}](${_markdownImageUrl(item)})', '\n');
+        final reference = markdownMediaReference(
+          item,
+          fallbackName: item.fileName,
+        );
+        if (reference.isNotEmpty) _insertText(reference, '\n');
       }
     }
   }
 
-  String _markdownImageUrl(MediaItem item) {
-    final url = item.url.trim();
-    final uri = Uri.tryParse(url);
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty ||
-        !(uri.path == '/uploads' || uri.path.startsWith('/uploads/'))) {
-      return url;
+  Future<void> _pickFile() async {
+    final result = await FilePicker.pickFiles(
+      withData: true,
+      allowMultiple: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    for (final file in result.files) {
+      final bytes = file.bytes;
+      if (bytes == null) continue;
+      unawaited(_uploadPastedFile(bytes, file.name, _resolveMimeType(file)));
     }
-
-    // Media-library upload URLs may contain the admin/region origin even though
-    // the same upload is served from /uploads on the public article host.
-    final schemeEnd = url.indexOf('://');
-    final pathStart = schemeEnd < 0 ? -1 : url.indexOf('/', schemeEnd + 3);
-    return pathStart < 0 ? url : url.substring(pathStart);
   }
 
   Future<void> _pickArticleReference() async {
@@ -1556,10 +1610,136 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     );
 
     if (isFullScreen) {
-      return Scaffold(body: SafeArea(child: editor));
+      editor = Scaffold(body: SafeArea(child: editor));
     }
 
-    return editor;
+    // Disable dropping while a dialog or another page is in front of the
+    // editor; the plugin otherwise keeps receiving drops for hidden widgets.
+    final dropEnabled = ModalRoute.of(context)?.isCurrent ?? true;
+    if (!dropEnabled && _fileDragActive) {
+      // The plugin resets its drag state when disabled without reporting an
+      // exit, so clear our overlay after this build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _fileDragActive) {
+          setState(() => _fileDragActive = false);
+        }
+      });
+    }
+    return DropTarget(
+      enable: dropEnabled,
+      onDragEntered: (_) {
+        if (_fileDragActive) return;
+        setState(() => _fileDragActive = true);
+      },
+      onDragExited: (_) {
+        if (!_fileDragActive) return;
+        setState(() => _fileDragActive = false);
+      },
+      onDragDone: (details) {
+        if (_fileDragActive) setState(() => _fileDragActive = false);
+        unawaited(_handleDroppedFiles(details.files));
+      },
+      child: Stack(
+        children: [
+          editor,
+          if (_fileDragActive && dropEnabled)
+            Positioned.fill(
+              child: IgnorePointer(child: _buildFileDropOverlay()),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleDroppedFiles(List<DropItem> items) async {
+    final files = <DropItem>[];
+    void collect(DropItem item) {
+      if (item is DropItemDirectory) {
+        for (final child in item.children) {
+          collect(child);
+        }
+        return;
+      }
+      files.add(item);
+    }
+
+    for (final item in items) {
+      collect(item);
+    }
+    if (files.isEmpty) return;
+
+    for (final item in files) {
+      if (!mounted) return;
+      try {
+        final bytes = await item.readAsBytes();
+        if (bytes.isEmpty) continue;
+        final name = _droppedFileName(item);
+        final mimeType = _droppedMimeType(item, name);
+        if (!mounted) return;
+        unawaited(_uploadPastedFile(bytes, name, mimeType));
+      } catch (error) {
+        if (!mounted) return;
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('读取 ${item.name} 失败：$error')),
+        );
+      }
+    }
+  }
+
+  String _droppedFileName(DropItem item) {
+    final name = item.name.trim();
+    if (name.isNotEmpty) return name;
+    final extension = extensionFromMime(item.mimeType ?? '');
+    final suffix = (extension == null || extension.isEmpty) ? 'bin' : extension;
+    return 'dropped_file_${DateTime.now().millisecondsSinceEpoch}.$suffix';
+  }
+
+  String _droppedMimeType(DropItem item, String fileName) {
+    final declared = item.mimeType?.trim().toLowerCase() ?? '';
+    final detected = lookupMimeType(fileName);
+    if (detected != null && declared.isEmpty) return detected;
+    if (declared.isNotEmpty && declared != 'application/octet-stream') {
+      return declared;
+    }
+    return detected ?? 'application/octet-stream';
+  }
+
+  Widget _buildFileDropOverlay() {
+    final color = Theme.of(context).colorScheme.primary;
+    return Container(
+      color: color.withValues(alpha: 0.08),
+      alignment: Alignment.center,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color, width: 2),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 18)],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.upload_file, size: 42, color: color),
+            const SizedBox(height: 10),
+            Text(
+              '松开即可上传文件',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '图片会直接插入，其他文件会以链接形式插入',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildDesktopBody() {
@@ -1844,8 +2024,13 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
           ),
           _ToolbarButton(
             icon: Icons.image,
-            tooltip: '插入图片',
+            tooltip: '从媒体库插入',
             onPressed: _pickImage,
+          ),
+          _ToolbarButton(
+            icon: Icons.upload_file,
+            tooltip: '上传文件（也可粘贴或拖入）',
+            onPressed: _pickFile,
           ),
           _ToolbarButton(
             icon: Icons.storefront,

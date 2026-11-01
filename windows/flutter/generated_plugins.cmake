@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_drop
   flutter_local_authentication
   flutter_secure_storage_windows
   irondash_engine_context

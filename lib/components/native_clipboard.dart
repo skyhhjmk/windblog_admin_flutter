@@ -1,17 +1,20 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:mime/mime.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 
 class ClipboardPasteData {
   const ClipboardPasteData({
-    this.imageBytes,
+    this.bytes,
     this.fileName,
     this.mimeType,
     this.text,
   });
 
-  final Uint8List? imageBytes;
+  /// Raw contents of a pasted image or file, when the clipboard carries one.
+  final Uint8List? bytes;
   final String? fileName;
   final String? mimeType;
   final String? text;
@@ -36,8 +39,9 @@ const _clipboardImageFormats = <_ClipboardImageFormat>[
 ];
 
 /// Reads an image first so native paste can prefer clipboard pixels over any
-/// accompanying text representation. Falls back to plain text when no image
-/// format is available.
+/// accompanying text representation, then falls back to a file copied from the
+/// OS file manager (any type: documents, archives, 3D models, ...), and finally
+/// to plain text.
 Future<ClipboardPasteData?> readNativeClipboardData() async {
   final clipboard = SystemClipboard.instance;
   if (clipboard == null) return null;
@@ -46,17 +50,54 @@ Future<ClipboardPasteData?> readNativeClipboardData() async {
   for (final imageFormat in _clipboardImageFormats) {
     if (!reader.canProvide(imageFormat.format)) continue;
 
-    final image = await _readClipboardImage(reader, imageFormat);
+    final image = await _readClipboardFile(reader, imageFormat.format);
     if (image != null && image.bytes.isNotEmpty) {
       return ClipboardPasteData(
-        imageBytes: image.bytes,
+        bytes: image.bytes,
         fileName: image.fileName,
         mimeType: imageFormat.mimeType,
       );
     }
   }
 
+  final file = await _readClipboardFileUri(reader);
+  if (file != null) return file;
+
   return ClipboardPasteData(text: await reader.readValue(Formats.plainText));
+}
+
+/// Reads a file that was copied in the system file manager. Only local
+/// `file://` locations are readable; content-provider URIs are skipped.
+Future<ClipboardPasteData?> _readClipboardFileUri(
+  ClipboardReader reader,
+) async {
+  if (!reader.canProvide(Formats.fileUri)) return null;
+
+  Uri? uri;
+  try {
+    uri = await reader.readValue(Formats.fileUri);
+  } catch (_) {
+    return null;
+  }
+  if (uri == null || !uri.isScheme('file')) return null;
+
+  try {
+    final file = File(uri.toFilePath());
+    if (!await file.exists()) return null;
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) return null;
+    final segments = uri.pathSegments;
+    final fileName = segments.isEmpty
+        ? file.uri.pathSegments.last
+        : segments.last;
+    return ClipboardPasteData(
+      bytes: bytes,
+      fileName: fileName,
+      mimeType: lookupMimeType(fileName) ?? 'application/octet-stream',
+    );
+  } catch (_) {
+    return null;
+  }
 }
 
 class _ClipboardImage {
@@ -66,13 +107,13 @@ class _ClipboardImage {
   final String? fileName;
 }
 
-Future<_ClipboardImage?> _readClipboardImage(
+Future<_ClipboardImage?> _readClipboardFile(
   ClipboardReader reader,
-  _ClipboardImageFormat imageFormat,
+  FileFormat format,
 ) async {
   final result = Completer<_ClipboardImage?>();
   final progress = reader.getFile(
-    imageFormat.format,
+    format,
     (file) async {
       try {
         final bytes = await file.readAll();

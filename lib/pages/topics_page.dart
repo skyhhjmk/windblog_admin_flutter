@@ -739,6 +739,12 @@ class _TopicsPageState extends State<TopicsPage>
   Future<void> _regenerateDraft(Map<String, dynamic> topic) async {
     final topicId = _intValue(topic['id']);
     if (topicId == null) return;
+    final mode = await _chooseDraftMode();
+    if (mode == null || !mounted) return;
+    if (mode == 'provider') {
+      await _assignDraftWithProvider(topicId);
+      return;
+    }
     final choice = await _chooseArticleGeneration(
       title: '重新生成文章草稿',
       description: '选择本次重新生成使用的模型和思考级别。新内容会写入同一篇草稿的新修订，旧修订仍保留。',
@@ -1228,7 +1234,7 @@ class _TopicsPageState extends State<TopicsPage>
                   icon: const Icon(Icons.source_outlined),
                   label: const Text('来源详情'),
                 ),
-                if (status == 'DRAFT_CREATED' && !external)
+                if (status == 'DRAFT_CREATED')
                   FilledButton.tonalIcon(
                     onPressed: _saving ? null : () => _regenerateDraft(topic),
                     icon: const Icon(Icons.autorenew),

@@ -57,6 +57,7 @@ dependencies:
       ref: 3cdc853
   flutter_local_authentication: ^2.1.1
   super_clipboard: ^0.9.1
+  desktop_drop: ^0.8.4
 
 dev_dependencies:
   flutter_test:

@@ -13,6 +13,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:mime/mime.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:diff_match_patch/diff_match_patch.dart' as diff_match_patch;
 import 'package:shared_preferences/shared_preferences.dart';
 
