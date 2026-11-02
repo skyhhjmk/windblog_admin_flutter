@@ -241,11 +241,19 @@ class AdminApiClient {
     String? idempotencyKey,
     String? profileId,
     bool forceQuota = false,
+    int? providerId,
+    int? maxTopics,
+    List<Map<String, dynamic>> seeds = const [],
+    String language = 'zh-CN',
   }) async {
     final body = <String, dynamic>{'forceQuota': forceQuota};
     if (profileId != null && profileId.isNotEmpty) {
       body['profileId'] = profileId;
     }
+    if (providerId != null) body['providerId'] = providerId;
+    if (maxTopics != null) body['maxTopics'] = maxTopics;
+    if (seeds.isNotEmpty) body['seeds'] = seeds;
+    if (language.isNotEmpty) body['language'] = language;
     final res = await _post(
       '/api/admin/codex-creator/topic-runs',
       body: body,

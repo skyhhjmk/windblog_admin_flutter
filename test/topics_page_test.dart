@@ -167,8 +167,10 @@ void main() {
 
     await tester.tap(find.text('开始生成'));
     await tester.pumpAndSettle();
-    expect(api.discoverCalls, 1);
-    expect(api.lastDiscoveryProviderId, 21);
+    expect(api.startTopicRunCalls, 1);
+    expect(api.lastStartTopicRunProviderId, 21);
+    expect(api.lastStartTopicRunMaxTopics, 20);
+    expect(api.lastStartTopicRunSeedCount, 1);
   });
 
   testWidgets('已分配任务支持使用 API 提供商/轮询组重新生成草稿', (tester) async {
@@ -210,6 +212,46 @@ void main() {
     expect(api.generateArticleCalls, 1);
     expect(api.lastGenerateArticleProviderId, 21);
   });
+
+  testWidgets('添加种子后只更新本地状态，不触发整页重载', (WidgetTester tester) async {
+    final api = _TopicsApiStub();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Theme(
+          data: AdminTheme.build(),
+          child: Scaffold(
+            body: TopicsPage(api: api, onAuthError: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final automationBefore = api.automationCalls;
+    await tester.tap(find.text('设置与记录'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('新增种子'),
+      500,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新增种子'));
+    await tester.pumpAndSettle();
+
+    final fields = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(fields.at(0), '新种子');
+    await tester.enterText(fields.at(1), 'new query');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(api.createSeedCalls, 1);
+    expect(api.automationCalls, automationBefore, reason: '保存种子不应重新请求整页数据');
+    expect(find.text('新种子'), findsWidgets);
+  });
 }
 
 class _TopicsApiStub extends AdminApiClient {
@@ -222,6 +264,12 @@ class _TopicsApiStub extends AdminApiClient {
   int? lastDiscoveryProviderId;
   int generateArticleCalls = 0;
   int? lastGenerateArticleProviderId;
+  int automationCalls = 0;
+  int createSeedCalls = 0;
+  int startTopicRunCalls = 0;
+  int? lastStartTopicRunProviderId;
+  int? lastStartTopicRunMaxTopics;
+  int lastStartTopicRunSeedCount = 0;
 
   @override
   Future<Map<String, dynamic>> generateArticleWithAi(
@@ -280,6 +328,31 @@ class _TopicsApiStub extends AdminApiClient {
   }
 
   @override
+  Future<Map<String, dynamic>> startCodexCreatorTopicRun({
+    String? stepUpToken,
+    String? idempotencyKey,
+    String? profileId,
+    bool forceQuota = false,
+    int? providerId,
+    int? maxTopics,
+    List<Map<String, dynamic>> seeds = const [],
+    String language = 'zh-CN',
+  }) async {
+    startTopicRunCalls++;
+    lastStartTopicRunProviderId = providerId;
+    lastStartTopicRunMaxTopics = maxTopics;
+    lastStartTopicRunSeedCount = seeds.length;
+    return {
+      'id': 31,
+      'trigger': 'MANUAL',
+      'status': 'QUEUED',
+      'seedCount': seeds.length,
+      'topicCount': 0,
+      'error': '',
+    };
+  }
+
+  @override
   Future<Map<String, dynamic>> codexCreatorModels() async => {
     'topic': [
       {
@@ -302,31 +375,43 @@ class _TopicsApiStub extends AdminApiClient {
   };
 
   @override
-  Future<Map<String, dynamic>> codexCreatorTopicAutomation() async => {
-    'settings': {
-      'enabled': false,
-      'intervalMinutes': 360,
-      'maxSeedsPerRun': 5,
-      'maxTopicsPerRun': 20,
-    },
-    'seeds': <Map<String, dynamic>>[
-      {
-        'id': 7,
-        'name': 'AI 产业观察',
-        'query': 'AI industry',
-        'language': 'zh-CN',
-        'enabled': true,
+  Future<Map<String, dynamic>> createCodexCreatorTopicSeed(
+    Map<String, dynamic> body, {
+    String? stepUpToken,
+  }) async {
+    createSeedCalls++;
+    return {'id': 11, ...body};
+  }
+
+  @override
+  Future<Map<String, dynamic>> codexCreatorTopicAutomation() async {
+    automationCalls++;
+    return {
+      'settings': {
+        'enabled': false,
+        'intervalMinutes': 360,
+        'maxSeedsPerRun': 5,
+        'maxTopicsPerRun': 20,
       },
-      if (seedCount > 1)
+      'seeds': <Map<String, dynamic>>[
         {
-          'id': 8,
-          'name': 'AI 工程实践',
-          'query': 'AI engineering',
+          'id': 7,
+          'name': 'AI 产业观察',
+          'query': 'AI industry',
           'language': 'zh-CN',
           'enabled': true,
         },
-    ],
-  };
+        if (seedCount > 1)
+          {
+            'id': 8,
+            'name': 'AI 工程实践',
+            'query': 'AI engineering',
+            'language': 'zh-CN',
+            'enabled': true,
+          },
+      ],
+    };
+  }
 
   @override
   Future<Map<String, dynamic>> codexCreatorTopics({

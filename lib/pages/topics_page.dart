@@ -20,6 +20,8 @@ class _TopicsPageState extends State<TopicsPage>
 
   bool _loading = true;
   bool _assignedLoading = false;
+  bool _topicsLoading = false;
+  bool _runsLoading = false;
   bool _saving = false;
   String? _error;
   String? _pollingMessage;
@@ -54,13 +56,18 @@ class _TopicsPageState extends State<TopicsPage>
   Future<void> _loadAiProviders() async {
     if (mounted) setState(() => _loadingAiProviders = true);
     try {
-      final providers = await widget.api.listAiProviders();
-      int? configuredTopicProviderId;
-      try {
-        final setting = await widget.api.getSystemSetting('ai_operation_configs');
-        configuredTopicProviderId =
-            _intValue(_mapValue(setting.configValue)['topic']);
-      } catch (_) {}
+      final results = await Future.wait<Object?>([
+        widget.api.listAiProviders(),
+        widget.api
+            .getSystemSetting('ai_operation_configs')
+            .then<Object?>((setting) => setting)
+            .catchError((_) => null),
+      ]);
+      final providers = results[0] as List<AiProviderConfig>;
+      final setting = results[1] as SystemSetting?;
+      final configuredTopicProviderId = setting == null
+          ? null
+          : _intValue(_mapValue(setting.configValue)['topic']);
       if (!mounted) return;
       // The internal Codex Creator entry has its own mode (Codex Creator), so
       // it must never appear as an "API provider" option and must not be picked
@@ -109,18 +116,26 @@ class _TopicsPageState extends State<TopicsPage>
     }
 
     try {
-      final automation = await widget.api.codexCreatorTopicAutomation();
-      final models = await widget.api.codexCreatorModels();
-      final topics = await widget.api.codexCreatorTopics(
-        status: _topicStatus == 'ALL' ? null : _topicStatus,
-        page: _topicPage,
-        pageSize: _topicPageSize,
-      );
-      final runs = await widget.api.codexCreatorTopicRuns(
-        page: _runPage,
-        pageSize: _runPageSize,
-      );
+      // The public admin endpoint sits behind a high-latency edge hop, so load
+      // everything in parallel instead of paying one round trip per call.
+      final results = await Future.wait<Map<String, dynamic>>([
+        widget.api.codexCreatorTopicAutomation(),
+        widget.api.codexCreatorModels(),
+        widget.api.codexCreatorTopics(
+          status: _topicStatus == 'ALL' ? null : _topicStatus,
+          page: _topicPage,
+          pageSize: _topicPageSize,
+        ),
+        widget.api.codexCreatorTopicRuns(
+          page: _runPage,
+          pageSize: _runPageSize,
+        ),
+      ]);
       if (!mounted) return;
+      final automation = results[0];
+      final models = results[1];
+      final topics = results[2];
+      final runs = results[3];
 
       final topicPage = _intValue(topics['page']);
       final topicTotal = _intValue(topics['total']);
@@ -143,7 +158,7 @@ class _TopicsPageState extends State<TopicsPage>
             api: widget.api,
             run: run,
             onCompleted: () {
-              if (mounted) unawaited(_load());
+              if (mounted) unawaited(_refreshDiscoveryData());
             },
           );
         }
@@ -155,6 +170,115 @@ class _TopicsPageState extends State<TopicsPage>
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Refreshes only the topic list (status filter or pagination changed).
+  Future<void> _reloadTopics() async {
+    if (mounted) {
+      setState(() {
+        _topicsLoading = true;
+        _error = null;
+      });
+    }
+    try {
+      final topics = await widget.api.codexCreatorTopics(
+        status: _topicStatus == 'ALL' ? null : _topicStatus,
+        page: _topicPage,
+        pageSize: _topicPageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _topics = _mapList(topics['items']);
+        _topicPage = _intValue(topics['page']) ?? _topicPage;
+        _topicTotal = _intValue(topics['total']) ?? 0;
+      });
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) setState(() => _error = '读取话题列表失败：$error');
+    } finally {
+      if (mounted) setState(() => _topicsLoading = false);
+    }
+  }
+
+  /// Refreshes only the discovery run list.
+  Future<void> _reloadRuns() async {
+    if (mounted) {
+      setState(() {
+        _runsLoading = true;
+        _error = null;
+      });
+    }
+    try {
+      final runs = await widget.api.codexCreatorTopicRuns(
+        page: _runPage,
+        pageSize: _runPageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _runs = _mapList(runs['items']);
+        _runPage = _intValue(runs['page']) ?? _runPage;
+        _runTotal = _intValue(runs['total']) ?? 0;
+      });
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) setState(() => _error = '读取运行记录失败：$error');
+    } finally {
+      if (mounted) setState(() => _runsLoading = false);
+    }
+  }
+
+  /// Refreshes the data changed by a discovery run without reloading the page.
+  Future<void> _refreshDiscoveryData() async {
+    await Future.wait([_reloadTopics(), _reloadRuns()]);
+  }
+
+  /// Fallback when a seed mutation response cannot be merged locally.
+  Future<void> _reloadSeeds() async {
+    try {
+      final automation = await widget.api.codexCreatorTopicAutomation();
+      if (!mounted) return;
+      setState(() {
+        _automation = automation;
+        _seeds = _mapList(automation['seeds']);
+      });
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) setState(() => _error = '读取主题查询种子失败：$error');
+    }
+  }
+
+  /// Applies a server response to one topic and keeps the status filter correct.
+  void _applyTopicUpdate(int id, Map<String, dynamic> updated) {
+    final next = _topics
+        .map(
+          (item) => _intValue(item['id']) == id ? {...item, ...updated} : item,
+        )
+        .toList();
+    final filtered = _topicStatus == 'ALL'
+        ? next
+        : next
+              .where((item) => item['status']?.toString() == _topicStatus)
+              .toList();
+    final removed = next.length - filtered.length;
+    setState(() {
+      _topics = filtered;
+      if (removed > 0) {
+        _topicTotal = (_topicTotal - removed).clamp(0, 1 << 31);
+      }
+    });
+  }
+
+  static int _compareSeeds(
+    Map<String, dynamic> left,
+    Map<String, dynamic> right,
+  ) {
+    final leftOrder = _intValue(left['sortOrder']) ?? 0;
+    final rightOrder = _intValue(right['sortOrder']) ?? 0;
+    if (leftOrder != rightOrder) return leftOrder.compareTo(rightOrder);
+    return (_intValue(left['id']) ?? 0).compareTo(_intValue(right['id']) ?? 0);
   }
 
   Future<void> _loadAssignedTopics() async {
@@ -192,9 +316,9 @@ class _TopicsPageState extends State<TopicsPage>
   }
 
   Future<void> _changeTopicPage(int page) async {
-    if (page == _topicPage || page < 1) return;
+    if (page == _topicPage || page < 1 || _topicsLoading) return;
     setState(() => _topicPage = page);
-    await _load();
+    await _reloadTopics();
   }
 
   Future<void> _changeAssignedPage(int page) async {
@@ -216,12 +340,9 @@ class _TopicsPageState extends State<TopicsPage>
         'promotionMarkdown': settings['promotionMarkdown']?.toString() ?? '',
       });
       if (!mounted) return;
+      // The mutation returns the persisted settings; update in place instead of
+      // paying another full page reload through the edge hop.
       setState(() => _automation = {...?_automation, 'settings': saved});
-      // Confirm against the read endpoint instead of relying solely on the
-      // mutation response. This keeps the promotion state aligned with what a
-      // browser refresh will display.
-      await _load();
-      if (!mounted) return;
       AdminFeedback.showSnackBar(
         context,
         const SnackBar(
@@ -251,29 +372,41 @@ class _TopicsPageState extends State<TopicsPage>
     setState(() => _saving = true);
     try {
       if (choice.providerId != null) {
-        final result = await widget.api.discoverTopicsWithAi(
+        final seeds = _seeds
+            .where((seed) => seed['enabled'] != false)
+            .map(
+              (seed) => {
+                'id': _intValue(seed['id']),
+                'name': seed['name']?.toString() ?? '',
+                'query': seed['query']?.toString() ?? '',
+                'language': seed['language']?.toString() ?? 'zh-CN',
+              },
+            )
+            .where((seed) => (seed['id'] as int? ?? 0) > 0)
+            .toList();
+        // Provider discovery runs in the background. Keeping the HTTP request
+        // short avoids the public edge timeout (HTTP 554) for slow models.
+        final run = await widget.api.startCodexCreatorTopicRun(
           providerId: choice.providerId,
           maxTopics: maxTopics,
-          seeds: _seeds
-              .where((seed) => seed['enabled'] != false)
-              .map(
-                (seed) => {
-                  'id': _intValue(seed['id']),
-                  'name': seed['name']?.toString() ?? '',
-                  'query': seed['query']?.toString() ?? '',
-                  'language': seed['language']?.toString() ?? 'zh-CN',
-                },
-              )
-              .where((seed) => (seed['id'] as int? ?? 0) > 0)
-              .toList(),
+          seeds: seeds,
         );
         if (!mounted) return;
-        AdminFeedback.success(
-          context,
-          'AI 提供商已生成话题：新增 ${result['created'] ?? 0} 个，'
-          '更新 ${result['updated'] ?? 0} 个。',
+        final notifications = AdminNotificationScope.maybeOf(context);
+        notifications?.trackTopicDiscovery(
+          api: widget.api,
+          run: run,
+          onCompleted: () {
+            if (mounted) unawaited(_refreshDiscoveryData());
+          },
         );
-        await _load();
+        if (notifications == null) {
+          AdminFeedback.showSnackBar(
+            context,
+            SnackBar(content: Text('话题生成已提交：${run['status'] ?? 'QUEUED'}')),
+          );
+        }
+        await _reloadRuns();
       } else {
         final run = await widget.api.startCodexCreatorTopicRun(
           profileId: choice.profileId,
@@ -284,7 +417,7 @@ class _TopicsPageState extends State<TopicsPage>
           api: widget.api,
           run: run,
           onCompleted: () {
-            if (mounted) unawaited(_load());
+            if (mounted) unawaited(_refreshDiscoveryData());
           },
         );
         if (notifications == null) {
@@ -293,7 +426,7 @@ class _TopicsPageState extends State<TopicsPage>
             SnackBar(content: Text('话题生成已提交：${run['status'] ?? 'QUEUED'}')),
           );
         }
-        await _load();
+        await _reloadRuns();
       }
     } on UnauthorizedException {
       widget.onAuthError();
@@ -461,12 +594,28 @@ class _TopicsPageState extends State<TopicsPage>
     setState(() => _saving = true);
     try {
       final id = _intValue(seed?['id']);
-      if (id == null) {
-        await widget.api.createCodexCreatorTopicSeed(result);
+      final saved = id == null
+          ? await widget.api.createCodexCreatorTopicSeed(result)
+          : await widget.api.updateCodexCreatorTopicSeed(id, result);
+      if (!mounted) return;
+      final savedId = _intValue(saved['id']);
+      if (savedId == null) {
+        await _reloadSeeds();
       } else {
-        await widget.api.updateCodexCreatorTopicSeed(id, result);
+        setState(() {
+          final next = [..._seeds];
+          final index = next.indexWhere(
+            (item) => _intValue(item['id']) == savedId,
+          );
+          if (index >= 0) {
+            next[index] = saved;
+          } else {
+            next.add(saved);
+          }
+          next.sort(_compareSeeds);
+          _seeds = next;
+        });
       }
-      await _load();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
@@ -506,7 +655,10 @@ class _TopicsPageState extends State<TopicsPage>
     setState(() => _saving = true);
     try {
       await widget.api.deleteCodexCreatorTopicSeed(id);
-      await _load();
+      if (!mounted) return;
+      setState(() {
+        _seeds = _seeds.where((item) => _intValue(item['id']) != id).toList();
+      });
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
@@ -526,8 +678,13 @@ class _TopicsPageState extends State<TopicsPage>
     if (id == null) return;
     setState(() => _saving = true);
     try {
-      await widget.api.reviewCodexCreatorTopic(id, decision);
-      await _load();
+      final updated = await widget.api.reviewCodexCreatorTopic(id, decision);
+      if (!mounted) return;
+      if (updated.isEmpty) {
+        await _reloadTopics();
+      } else {
+        _applyTopicUpdate(id, updated);
+      }
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
@@ -753,6 +910,17 @@ class _TopicsPageState extends State<TopicsPage>
           ],
         ),
       );
+      if (!mounted) return;
+      if (postId != null) {
+        _applyTopicUpdate(topicId, {
+          'status': 'DRAFT_CREATED',
+          'postId': postId,
+          'articleJobStatus': 'DRAFT_CREATED',
+          'external': true,
+        });
+      } else {
+        await _reloadTopics();
+      }
       await _loadAssignedTopics();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -1002,7 +1170,16 @@ class _TopicsPageState extends State<TopicsPage>
         ],
       ),
     );
-    await Future.wait([_load(), _loadAssignedTopics()]);
+    final topicId = _intValue(job['topicId']);
+    if (topicId != null) {
+      _applyTopicUpdate(topicId, {
+        'status': 'DRAFT_CREATED',
+        'postId': postId,
+        'articleJobStatus': 'DRAFT_CREATED',
+        'external': true,
+      });
+    }
+    await _loadAssignedTopics();
   }
 
   Future<void> _openPostEditor(int postId) async {
@@ -1110,7 +1287,9 @@ class _TopicsPageState extends State<TopicsPage>
       title: '话题',
       actions: [
         IconButton(
-          onPressed: _loading || _assignedLoading ? null : _refresh,
+          onPressed: _loading || _topicsLoading || _assignedLoading
+              ? null
+              : _refresh,
           icon: const Icon(Icons.refresh),
           tooltip: '刷新话题',
         ),
@@ -1328,9 +1507,11 @@ class _TopicsPageState extends State<TopicsPage>
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('启用固定周期自动搜索'),
-              subtitle: Text(localTopicPool
-                  ? '本地话题池模式下不可用；请使用 Codex Creator 话题池启用定时自动搜索。'
-                  : '调度器会在服务端使用 Redis 锁和数据库幂等键避免多实例重复执行。'),
+              subtitle: Text(
+                localTopicPool
+                    ? '本地话题池模式下不可用；请使用 Codex Creator 话题池启用定时自动搜索。'
+                    : '调度器会在服务端使用 Redis 锁和数据库幂等键避免多实例重复执行。',
+              ),
               value: enabled && !localTopicPool,
               onChanged: _saving || localTopicPool
                   ? null
@@ -1698,7 +1879,7 @@ class _TopicsPageState extends State<TopicsPage>
                             _topicStatus = value;
                             _topicPage = 1;
                           });
-                          unawaited(_load());
+                          unawaited(_reloadTopics());
                         },
                 ),
               ),
@@ -1964,21 +2145,21 @@ class _TopicsPageState extends State<TopicsPage>
                 spacing: 4,
                 children: [
                   IconButton(
-                    onPressed: _runPage <= 1 || _loading
+                    onPressed: _runPage <= 1 || _runsLoading
                         ? null
                         : () {
                             setState(() => _runPage--);
-                            unawaited(_load());
+                            unawaited(_reloadRuns());
                           },
                     icon: const Icon(Icons.chevron_left),
                     tooltip: '上一页运行记录',
                   ),
                   IconButton(
-                    onPressed: _runPage >= runPages || _loading
+                    onPressed: _runPage >= runPages || _runsLoading
                         ? null
                         : () {
                             setState(() => _runPage++);
-                            unawaited(_load());
+                            unawaited(_reloadRuns());
                           },
                     icon: const Icon(Icons.chevron_right),
                     tooltip: '下一页运行记录',
