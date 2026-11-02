@@ -919,7 +919,6 @@ class _TranslationsPageState extends State<TranslationsPage> {
 
     if (mobile) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
         bottomNavigationBar: _pagination(),
         body: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),

@@ -340,15 +340,42 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
                   ),
                   if (hasNoReference) ...[
                     const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: const Text('当前没有文章引用这个链接，可以删除。'),
+                    Builder(
+                      builder: (context) {
+                        final isDark =
+                            Theme.of(context).brightness == Brightness.dark;
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color:
+                                isDark
+                                    ? const Color(
+                                      0xFF78350F,
+                                    ).withValues(alpha: 0.35)
+                                    : Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color:
+                                  isDark
+                                      ? Colors.orange.shade800.withValues(
+                                        alpha: 0.5,
+                                      )
+                                      : Colors.orange.shade200,
+                            ),
+                          ),
+                          child: Text(
+                            '当前没有文章引用这个链接，可以删除。',
+                            style: TextStyle(
+                              color:
+                                  isDark
+                                      ? Colors.orange.shade200
+                                      : Colors.orange.shade900,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                   if (references.isNotEmpty) ...[

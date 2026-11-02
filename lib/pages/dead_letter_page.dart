@@ -172,8 +172,20 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
                           ),
                           const Spacer(),
                           Chip(
-                            label: Text(message.statusText),
-                            backgroundColor: _getStatusColor(message.status),
+                            label: Text(
+                              message.statusText,
+                              style: TextStyle(
+                                color: _getStatusTextColor(
+                                  context,
+                                  message.status,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            backgroundColor: _getStatusColor(
+                              context,
+                              message.status,
+                            ),
                           ),
                         ],
                       ),
@@ -218,16 +230,37 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
     );
   }
 
-  Color _getStatusColor(int status) {
+  Color _getStatusColor(BuildContext context, int status) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (status == 0) {
-      return Colors.orange.shade100;
+      return isDark
+          ? const Color(0xFF78350F).withValues(alpha: 0.4)
+          : Colors.orange.shade100;
     }
     if (status == 1) {
-      return Colors.blue.shade100;
+      return isDark
+          ? const Color(0xFF1E3A8A).withValues(alpha: 0.4)
+          : Colors.blue.shade100;
     }
     if (status == 2) {
-      return Colors.green.shade100;
+      return isDark
+          ? const Color(0xFF14532D).withValues(alpha: 0.4)
+          : Colors.green.shade100;
     }
-    return Colors.grey.shade200;
+    return isDark ? const Color(0xFF334155) : Colors.grey.shade200;
+  }
+
+  Color _getStatusTextColor(BuildContext context, int status) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (status == 0) {
+      return isDark ? Colors.orange.shade200 : Colors.orange.shade900;
+    }
+    if (status == 1) {
+      return isDark ? Colors.blue.shade200 : Colors.blue.shade900;
+    }
+    if (status == 2) {
+      return isDark ? Colors.green.shade200 : Colors.green.shade900;
+    }
+    return isDark ? Colors.grey.shade300 : Colors.grey.shade800;
   }
 }

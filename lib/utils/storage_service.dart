@@ -1,8 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 
 class StorageService {
+  static const String _keyThemeMode = 'admin_theme_mode';
   static const String _keyBaseUrl = 'admin_base_url';
   static const String _keyToken = 'admin_auth_token';
   static const String _keyNotificationTasks = 'admin_notification_tasks';
@@ -82,6 +84,25 @@ class StorageService {
   static Future<void> clearWorkspaceTab() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyWorkspaceTab);
+  }
+
+  static Future<ThemeMode> getThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final modeStr = prefs.getString(_keyThemeMode);
+    switch (modeStr) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      case 'system':
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  static Future<void> saveThemeMode(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyThemeMode, mode.name);
   }
 
   static Future<Map<String, String?>> getLastArticleGenerationChoice() async {

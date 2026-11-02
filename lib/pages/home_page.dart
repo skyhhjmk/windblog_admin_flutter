@@ -624,6 +624,7 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(_postSearchActive ? Icons.close : Icons.search),
             tooltip: t(context, _postSearchActive ? 'cancel' : 'search'),
           ),
+        const ThemeModePopupButton(),
         IconButton(
           onPressed: widget.onLogout,
           icon: const Icon(Icons.logout),
@@ -634,14 +635,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTopBar(BuildContext context, String pageTitle) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final themeColor = brandColor;
     return Container(
       height: 60,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardTheme.color ?? theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -698,14 +701,16 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(width: 10),
             Text(
               widget.user!.username,
-              style: const TextStyle(
-                color: Color(0xFF334155),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
             ),
           ],
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
+          const ThemeModePopupButton(),
+          const SizedBox(width: 8),
           OutlinedButton.icon(
             onPressed: widget.onLogout,
             icon: const Icon(Icons.logout, size: 16),
@@ -759,7 +764,9 @@ class _HomePageState extends State<HomePage> {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       width: extended ? 210 : 72,
-      color: navigationColor,
+      color:
+          Theme.of(context).navigationRailTheme.backgroundColor ??
+          navigationColor,
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1109,6 +1116,15 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
+    children.add(const Divider());
+    children.add(
+      ListTile(
+        leading: const Icon(Icons.palette_outlined),
+        title: Text(t(context, 'theme_mode')),
+        trailing: const ThemeModePopupButton(),
+      ),
+    );
+
     return Drawer(
       child: SafeArea(child: ListView(children: children)),
     );
@@ -1221,123 +1237,39 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildAnimatedPage(Widget page) {
-    final themeColor = brandColor;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        final bool isCurrent = child.key == ValueKey<int>(tab);
+        Offset beginOffset = Offset.zero;
 
-    final pageTheme = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: themeColor,
-        primary: themeColor,
-        brightness: Brightness.light,
-      ),
-      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-      cardTheme: CardThemeData(
-        elevation: 3,
-        margin: EdgeInsets.zero,
-        color: Colors.white,
-        shadowColor: themeColor.withValues(alpha: 0.08),
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: themeColor.withValues(alpha: 0.15),
-            width: 1.5,
-          ),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: Colors.white,
-        isDense: false,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: themeColor.withValues(alpha: 0.3)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: themeColor.withValues(alpha: 0.2)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: themeColor, width: 2),
-        ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: themeColor,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(40, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 2,
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: themeColor,
-          side: BorderSide(color: themeColor, width: 1.5),
-          minimumSize: const Size(40, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      dataTableTheme: DataTableThemeData(
-        headingTextStyle: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: themeColor,
-        ),
-        headingRowColor: WidgetStateProperty.all(
-          themeColor.withValues(alpha: 0.05),
-        ),
-      ),
-      dividerTheme: DividerThemeData(
-        color: themeColor.withValues(alpha: 0.15),
-        thickness: 1,
-      ),
-    );
-
-    return Theme(
-      data: pageTheme,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          final bool isCurrent = child.key == ValueKey<int>(tab);
-          Offset beginOffset = Offset.zero;
-
-          if (slideDirection == 1) {
-            if (isCurrent) {
-              beginOffset = const Offset(0, 0.04);
-            } else {
-              beginOffset = const Offset(0, -0.04);
-            }
+        if (slideDirection == 1) {
+          if (isCurrent) {
+            beginOffset = const Offset(0, 0.04);
           } else {
-            if (isCurrent) {
-              beginOffset = const Offset(0, -0.04);
-            } else {
-              beginOffset = const Offset(0, 0.04);
-            }
+            beginOffset = const Offset(0, -0.04);
           }
+        } else {
+          if (isCurrent) {
+            beginOffset = const Offset(0, -0.04);
+          } else {
+            beginOffset = const Offset(0, 0.04);
+          }
+        }
 
-          final fade = FadeTransition(opacity: animation, child: child);
-          final slide = SlideTransition(
-            position: Tween<Offset>(
-              begin: beginOffset,
-              end: Offset.zero,
-            ).animate(animation),
-            child: fade,
-          );
-          return slide;
-        },
-        child: KeyedSubtree(key: ValueKey<int>(tab), child: page),
-      ),
+        final fade = FadeTransition(opacity: animation, child: child);
+        final slide = SlideTransition(
+          position: Tween<Offset>(
+            begin: beginOffset,
+            end: Offset.zero,
+          ).animate(animation),
+          child: fade,
+        );
+        return slide;
+      },
+      child: KeyedSubtree(key: ValueKey<int>(tab), child: page),
     );
   }
 

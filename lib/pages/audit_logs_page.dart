@@ -569,13 +569,29 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
   }
 
   Widget _buildJsonBox(dynamic data, {Color? color}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultBg =
+        isDark
+            ? Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35)
+            : Colors.grey.shade100;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: color ?? Colors.grey.shade100,
+        color: color ?? defaultBg,
         borderRadius: BorderRadius.circular(4),
-        border: color != null ? Border.all(color: Colors.blue.shade200) : null,
+        border:
+            color != null
+                ? Border.all(
+                  color: isDark ? Colors.blue.shade700 : Colors.blue.shade200,
+                )
+                : Border.all(
+                  color: Theme.of(
+                    context,
+                  ).dividerColor.withValues(alpha: 0.2),
+                ),
       ),
       child: Text(
         const JsonEncoder.withIndent('  ').convert(data),

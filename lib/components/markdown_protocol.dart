@@ -475,24 +475,42 @@ class HighlightElementBuilder extends MarkdownElementBuilder {
 
 class ErrorBlockBuilder extends MarkdownElementBuilder {
   @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.1),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
+        color:
+            isDark
+                ? const Color(0xFF7F1D1D).withValues(alpha: 0.3)
+                : Colors.red.withValues(alpha: 0.1),
+        border: Border.all(
+          color:
+              isDark
+                  ? Colors.red.shade400.withValues(alpha: 0.5)
+                  : Colors.red.withValues(alpha: 0.5),
+        ),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: Colors.red.shade700, size: 16),
+          Icon(
+            Icons.error_outline,
+            color: isDark ? Colors.red.shade300 : Colors.red.shade700,
+            size: 16,
+          ),
           const SizedBox(width: 8),
           Text(
             element.textContent,
             style: TextStyle(
-              color: Colors.red.shade700,
+              color: isDark ? Colors.red.shade200 : Colors.red.shade700,
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),

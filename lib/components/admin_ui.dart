@@ -36,42 +36,60 @@ class AdminTheme {
   static const Color brandColor = Color(0xFF2563EB);
   static const Color navigationColor = Color(0xFF0F172A);
 
-  static ThemeData build() {
-    ColorScheme colorScheme = ColorScheme.fromSeed(
+  static ThemeData build({Brightness brightness = Brightness.light}) {
+    final isDark = brightness == Brightness.dark;
+    final colorScheme = ColorScheme.fromSeed(
       seedColor: brandColor,
-      brightness: Brightness.light,
+      brightness: brightness,
     );
+
+    final scaffoldBg = isDark
+        ? const Color(0xFF0F172A)
+        : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final cardBorder = isDark
+        ? const Color(0xFF334155)
+        : const Color(0xFFE2E8F0);
+    final inputBorder = isDark
+        ? const Color(0xFF475569)
+        : const Color(0xFFCBD5E1);
+    final railBg = isDark ? const Color(0xFF0B101D) : navigationColor;
 
     return ThemeData(
       colorScheme: colorScheme,
+      brightness: brightness,
       useMaterial3: true,
       textSelectionTheme: TextSelectionThemeData(
         selectionColor: colorScheme.primary.withValues(alpha: 0.28),
         selectionHandleColor: colorScheme.primary,
         cursorColor: colorScheme.primary,
       ),
-      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+      scaffoldBackgroundColor: scaffoldBg,
       visualDensity: VisualDensity.standard,
       cardTheme: CardThemeData(
-        elevation: 2,
+        elevation: isDark ? 0 : 2,
         margin: EdgeInsets.zero,
-        color: Colors.white,
-        shadowColor: brandColor.withValues(alpha: 0.05),
+        color: cardBg,
+        shadowColor: isDark
+            ? Colors.black.withValues(alpha: 0.3)
+            : brandColor.withValues(alpha: 0.05),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFE2E8F0)),
+          side: BorderSide(color: cardBorder),
         ),
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         elevation: 0,
         centerTitle: false,
-        backgroundColor: Colors.white,
-        foregroundColor: Color(0xFF0F172A),
+        backgroundColor: cardBg,
+        foregroundColor: isDark
+            ? const Color(0xFFF8FAFC)
+            : const Color(0xFF0F172A),
         surfaceTintColor: Colors.transparent,
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: navigationColor,
+        backgroundColor: railBg,
         indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.2),
         selectedIconTheme: IconThemeData(color: colorScheme.primary),
         selectedLabelTextStyle: TextStyle(
@@ -87,7 +105,7 @@ class AdminTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: cardBg,
         isDense: false,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -95,15 +113,30 @@ class AdminTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+          borderSide: BorderSide(color: inputBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          borderSide: BorderSide(color: cardBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: cardBg,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      dividerTheme: DividerThemeData(color: cardBorder, thickness: 1),
+      dataTableTheme: DataTableThemeData(
+        headingTextStyle: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: colorScheme.primary,
+        ),
+        headingRowColor: WidgetStateProperty.all(
+          colorScheme.primary.withValues(alpha: isDark ? 0.12 : 0.05),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -125,7 +158,99 @@ class AdminTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        contentTextStyle: const TextStyle(color: Colors.white),
       ),
+    );
+  }
+
+  static ThemeData light() => build(brightness: Brightness.light);
+  static ThemeData dark() => build(brightness: Brightness.dark);
+}
+
+class ThemeModePopupButton extends StatelessWidget {
+  const ThemeModePopupButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: AppThemeController.instance,
+      builder: (context, _) {
+        final mode = AppThemeController.instance.themeMode;
+        final IconData icon;
+        switch (mode) {
+          case ThemeMode.system:
+            icon = Icons.brightness_auto_outlined;
+          case ThemeMode.light:
+            icon = Icons.light_mode_outlined;
+          case ThemeMode.dark:
+            icon = Icons.dark_mode_outlined;
+        }
+
+        return PopupMenuButton<ThemeMode>(
+          tooltip: t(context, 'theme_mode'),
+          icon: Icon(icon, size: 20),
+          initialValue: mode,
+          onSelected: (selectedMode) {
+            AppThemeController.instance.setThemeMode(selectedMode);
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: ThemeMode.system,
+              child: Row(
+                children: [
+                  const Icon(Icons.brightness_auto_outlined, size: 18),
+                  const SizedBox(width: 10),
+                  Text(t(context, 'theme_system')),
+                  if (mode == ThemeMode.system) ...[
+                    const Spacer(),
+                    Icon(
+                      Icons.check,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: ThemeMode.light,
+              child: Row(
+                children: [
+                  const Icon(Icons.light_mode_outlined, size: 18),
+                  const SizedBox(width: 10),
+                  Text(t(context, 'theme_light')),
+                  if (mode == ThemeMode.light) ...[
+                    const Spacer(),
+                    Icon(
+                      Icons.check,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: ThemeMode.dark,
+              child: Row(
+                children: [
+                  const Icon(Icons.dark_mode_outlined, size: 18),
+                  const SizedBox(width: 10),
+                  Text(t(context, 'theme_dark')),
+                  if (mode == ThemeMode.dark) ...[
+                    const Spacer(),
+                    Icon(
+                      Icons.check,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

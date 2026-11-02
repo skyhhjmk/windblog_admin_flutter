@@ -2474,17 +2474,24 @@ class SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveHeaderColor = headerColor ?? Colors.grey.shade700;
-    final effectiveHeaderBgColor = headerBgColor ?? Colors.grey.shade50;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final effectiveHeaderColor =
+        headerColor ?? (isDark ? Colors.grey.shade300 : Colors.grey.shade700);
+    final effectiveHeaderBgColor =
+        headerBgColor ??
+        (isDark ? theme.colorScheme.surfaceContainerHigh : Colors.grey.shade50);
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: isDark ? 0.3 : 0.6),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

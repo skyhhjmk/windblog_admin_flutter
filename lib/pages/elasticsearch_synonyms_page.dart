@@ -315,7 +315,7 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: stateColor.withValues(alpha: 0.16)),
       ),

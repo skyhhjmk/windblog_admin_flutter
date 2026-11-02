@@ -875,7 +875,9 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
                     side: BorderSide(
                       color: accentColor.withValues(alpha: 0.18),
                     ),
-                    backgroundColor: Colors.white,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
                   ),
                 )
                 .toList(),
@@ -1058,23 +1060,59 @@ class AlertBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color color;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
     IconData icon;
+
     switch (type) {
       case AlertType.warning:
-        color = Colors.orange.shade100;
+        bgColor =
+            isDark
+                ? const Color(0xFF78350F).withValues(alpha: 0.35)
+                : Colors.orange.shade50;
+        borderColor =
+            isDark
+                ? Colors.orange.shade800.withValues(alpha: 0.5)
+                : Colors.orange.shade200;
+        textColor = isDark ? Colors.orange.shade200 : Colors.orange.shade900;
         icon = Icons.warning_amber_rounded;
         break;
       case AlertType.error:
-        color = Colors.red.shade100;
+        bgColor =
+            isDark
+                ? const Color(0xFF7F1D1D).withValues(alpha: 0.35)
+                : Colors.red.shade50;
+        borderColor =
+            isDark
+                ? Colors.red.shade800.withValues(alpha: 0.5)
+                : Colors.red.shade200;
+        textColor = isDark ? Colors.red.shade200 : Colors.red.shade900;
         icon = Icons.error_outline;
         break;
       case AlertType.success:
-        color = Colors.green.shade100;
+        bgColor =
+            isDark
+                ? const Color(0xFF14532D).withValues(alpha: 0.35)
+                : Colors.green.shade50;
+        borderColor =
+            isDark
+                ? Colors.green.shade800.withValues(alpha: 0.5)
+                : Colors.green.shade200;
+        textColor = isDark ? Colors.green.shade200 : Colors.green.shade900;
         icon = Icons.check_circle_outline;
         break;
       case AlertType.info:
-        color = Colors.blue.shade100;
+        bgColor =
+            isDark
+                ? const Color(0xFF1E3A8A).withValues(alpha: 0.35)
+                : Colors.blue.shade50;
+        borderColor =
+            isDark
+                ? Colors.blue.shade800.withValues(alpha: 0.5)
+                : Colors.blue.shade200;
+        textColor = isDark ? Colors.blue.shade200 : Colors.blue.shade900;
         icon = Icons.info_outline;
         break;
     }
@@ -1082,14 +1120,24 @@ class AlertBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color,
+        color: bgColor,
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20),
+          Icon(icon, size: 20, color: textColor),
           const SizedBox(width: 12),
-          Expanded(child: Text(message)),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );

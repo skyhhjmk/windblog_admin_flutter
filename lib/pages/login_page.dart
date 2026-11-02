@@ -61,6 +61,12 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inputFill = isDark
+        ? const Color(0xFF0F172A).withValues(alpha: 0.7)
+        : Colors.white.withValues(alpha: 0.9);
+    final inputBorder = isDark ? const Color(0xFF334155) : Colors.grey.shade200;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -106,6 +112,21 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
+          Positioned(
+            top: 16,
+            right: 16,
+            child: SafeArea(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.3)
+                      : Colors.white.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const ThemeModePopupButton(),
+              ),
+            ),
+          ),
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -117,10 +138,14 @@ class _LoginPageState extends State<LoginPage> {
                     filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.85),
+                        color: isDark
+                            ? const Color(0xFF1E293B).withValues(alpha: 0.9)
+                            : Colors.white.withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.4),
+                          color: isDark
+                              ? const Color(0xFF475569).withValues(alpha: 0.6)
+                              : Colors.white.withValues(alpha: 0.4),
                           width: 1.5,
                         ),
                         boxShadow: [
@@ -186,7 +211,9 @@ class _LoginPageState extends State<LoginPage> {
                               style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
                                     fontWeight: FontWeight.w900,
-                                    color: const Color(0xFF1E293B),
+                                    color: isDark
+                                        ? const Color(0xFFF1F5F9)
+                                        : const Color(0xFF1E293B),
                                     letterSpacing: 0.5,
                                   ),
                             ),
@@ -200,10 +227,12 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ],
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'WindBlog Administration System',
                               style: TextStyle(
-                                color: Color(0xFF64748B),
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF64748B),
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -217,7 +246,11 @@ class _LoginPageState extends State<LoginPage> {
                                   vertical: 12,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFEF3C7),
+                                  color: isDark
+                                      ? const Color(
+                                          0xFF78350F,
+                                        ).withValues(alpha: 0.35)
+                                      : const Color(0xFFFEF3C7),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: const Color(
@@ -228,17 +261,21 @@ class _LoginPageState extends State<LoginPage> {
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.info_outline,
                                       size: 18,
-                                      color: Color(0xFFB45309),
+                                      color: isDark
+                                          ? const Color(0xFFFBBF24)
+                                          : const Color(0xFFB45309),
                                     ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
                                         t(context, 'token_expired'),
-                                        style: const TextStyle(
-                                          color: Color(0xFF92400E),
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? const Color(0xFFFDE68A)
+                                              : const Color(0xFF92400E),
                                           fontSize: 13,
                                           height: 1.35,
                                         ),
@@ -258,7 +295,7 @@ class _LoginPageState extends State<LoginPage> {
                                   color: AdminTheme.brandColor,
                                 ),
                                 filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.9),
+                                fillColor: inputFill,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide.none,
@@ -266,7 +303,7 @@ class _LoginPageState extends State<LoginPage> {
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide(
-                                    color: Colors.grey.shade200,
+                                    color: inputBorder,
                                     width: 1.5,
                                   ),
                                 ),
@@ -292,7 +329,7 @@ class _LoginPageState extends State<LoginPage> {
                                   color: AdminTheme.brandColor,
                                 ),
                                 filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.9),
+                                fillColor: inputFill,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide.none,
@@ -300,7 +337,7 @@ class _LoginPageState extends State<LoginPage> {
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide(
-                                    color: Colors.grey.shade200,
+                                    color: inputBorder,
                                     width: 1.5,
                                   ),
                                 ),
@@ -330,7 +367,7 @@ class _LoginPageState extends State<LoginPage> {
                                   color: AdminTheme.brandColor,
                                 ),
                                 filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.9),
+                                fillColor: inputFill,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide.none,
@@ -338,7 +375,7 @@ class _LoginPageState extends State<LoginPage> {
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide(
-                                    color: Colors.grey.shade200,
+                                    color: inputBorder,
                                     width: 1.5,
                                   ),
                                 ),

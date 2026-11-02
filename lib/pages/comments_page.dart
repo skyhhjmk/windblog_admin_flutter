@@ -560,7 +560,13 @@ class _CommentTile extends StatelessWidget {
               child: Text(
                 'AI: ${comment.aiResultText}',
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.indigo, fontSize: 10),
+                style: TextStyle(
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Colors.indigo.shade200
+                          : Colors.indigo,
+                  fontSize: 10,
+                ),
               ),
             ),
           ],

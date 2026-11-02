@@ -367,17 +367,37 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
                       final rule = _rules[index];
                       return Card(
                         child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: rule.isEnabled
-                                ? Colors.green.shade100
-                                : Colors.grey.shade200,
-                            child: Text(
-                              rule.region.toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          leading: Builder(
+                            builder: (context) {
+                              final isDark =
+                                  Theme.of(context).brightness ==
+                                  Brightness.dark;
+                              return CircleAvatar(
+                                backgroundColor:
+                                    rule.isEnabled
+                                        ? (isDark
+                                            ? const Color(0xFF14532D)
+                                            : Colors.green.shade100)
+                                        : (isDark
+                                            ? const Color(0xFF334155)
+                                            : Colors.grey.shade200),
+                                child: Text(
+                                  rule.region.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        rule.isEnabled
+                                            ? (isDark
+                                                ? Colors.green.shade200
+                                                : Colors.green.shade900)
+                                            : (isDark
+                                                ? Colors.grey.shade300
+                                                : Colors.grey.shade800),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                           title: Text(rule.name),
                           subtitle: Text(

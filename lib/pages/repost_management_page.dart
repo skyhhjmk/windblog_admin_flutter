@@ -895,15 +895,41 @@ class _RepostManagementPageState extends State<RepostManagementPage>
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                Chip(
-                  label: Text(
-                    banned
-                        ? t(context, 'repost_filter_banned')
-                        : t(context, 'repost_filter_normal'),
-                  ),
-                  backgroundColor: banned
-                      ? Theme.of(context).colorScheme.errorContainer
-                      : Colors.green.shade100,
+                Builder(
+                  builder: (context) {
+                    final isDark =
+                        Theme.of(context).brightness == Brightness.dark;
+                    return Chip(
+                      label: Text(
+                        banned
+                            ? t(context, 'repost_filter_banned')
+                            : t(context, 'repost_filter_normal'),
+                        style: TextStyle(
+                          color:
+                              banned
+                                  ? (isDark
+                                      ? Colors.red.shade200
+                                      : Colors.red.shade900)
+                                  : (isDark
+                                      ? Colors.green.shade200
+                                      : Colors.green.shade900),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      backgroundColor:
+                          banned
+                              ? (isDark
+                                  ? const Color(
+                                    0xFF7F1D1D,
+                                  ).withValues(alpha: 0.4)
+                                  : Colors.red.shade50)
+                              : (isDark
+                                  ? const Color(
+                                    0xFF14532D,
+                                  ).withValues(alpha: 0.4)
+                                  : Colors.green.shade100),
+                    );
+                  },
                 ),
               ],
             ),
@@ -998,13 +1024,24 @@ class _RepostManagementPageState extends State<RepostManagementPage>
     String inactiveKey = 'repost_filter_revoked',
   }) {
     final active = status == 1;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Chip(
       label: Text(
         active ? t(context, 'repost_filter_active') : t(context, inactiveKey),
+        style: TextStyle(
+          color:
+              active
+                  ? (isDark ? Colors.green.shade200 : Colors.green.shade900)
+                  : (isDark ? Colors.grey.shade300 : Colors.grey.shade800),
+          fontWeight: FontWeight.w600,
+        ),
       ),
-      backgroundColor: active
-          ? Colors.green.shade100
-          : Theme.of(context).colorScheme.surfaceContainerHighest,
+      backgroundColor:
+          active
+              ? (isDark
+                  ? const Color(0xFF14532D).withValues(alpha: 0.4)
+                  : Colors.green.shade100)
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
     );
   }
 

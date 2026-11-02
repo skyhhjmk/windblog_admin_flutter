@@ -193,36 +193,78 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                 ),
                 if (lastMigrateResult != null) ...[
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: lastMigrateResult!.contains('成功') ||
-                             lastMigrateResult!.contains('successfully')
-                          ? Colors.green[50]
-                          : Colors.red[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          lastMigrateResult!,
-                          style: TextStyle(
-                            color: lastMigrateResult!.contains('成功') ||
-                                   lastMigrateResult!.contains('successfully')
-                                ? Colors.green[800]
-                                : Colors.red[800],
+                  Builder(
+                    builder: (context) {
+                      final isDark =
+                          Theme.of(context).brightness == Brightness.dark;
+                      final isSuccess =
+                          lastMigrateResult!.contains('成功') ||
+                          lastMigrateResult!.contains('successfully');
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color:
+                              isSuccess
+                                  ? (isDark
+                                      ? const Color(
+                                        0xFF14532D,
+                                      ).withValues(alpha: 0.35)
+                                      : Colors.green[50])
+                                  : (isDark
+                                      ? const Color(
+                                        0xFF7F1D1D,
+                                      ).withValues(alpha: 0.35)
+                                      : Colors.red[50]),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color:
+                                isSuccess
+                                    ? (isDark
+                                        ? Colors.green.shade800.withValues(
+                                          alpha: 0.5,
+                                        )
+                                        : Colors.green.shade200)
+                                    : (isDark
+                                        ? Colors.red.shade800.withValues(
+                                          alpha: 0.5,
+                                        )
+                                        : Colors.red.shade200),
                           ),
                         ),
-                        if (lastMigrateTime != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '🕐 ${_formatTime(lastMigrateTime!)}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ],
-                    ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lastMigrateResult!,
+                              style: TextStyle(
+                                color:
+                                    isSuccess
+                                        ? (isDark
+                                            ? Colors.green.shade300
+                                            : Colors.green[800])
+                                        : (isDark
+                                            ? Colors.red.shade300
+                                            : Colors.red[800]),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (lastMigrateTime != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                '🕐 ${_formatTime(lastMigrateTime!)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      isDark
+                                          ? Colors.grey.shade400
+                                          : Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ],
@@ -259,36 +301,78 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                 ),
                 if (lastSeedResult != null) ...[
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: lastSeedResult!.contains('成功') ||
-                           lastSeedResult!.contains('successfully')
-                          ? Colors.green[50]
-                          : Colors.red[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          lastSeedResult!,
-                          style: TextStyle(
-                            color: lastSeedResult!.contains('成功') ||
-                                   lastSeedResult!.contains('successfully')
-                                ? Colors.green[800]
-                                : Colors.red[800],
+                  Builder(
+                    builder: (context) {
+                      final isDark =
+                          Theme.of(context).brightness == Brightness.dark;
+                      final isSuccess =
+                          lastSeedResult!.contains('成功') ||
+                          lastSeedResult!.contains('successfully');
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color:
+                              isSuccess
+                                  ? (isDark
+                                      ? const Color(
+                                        0xFF14532D,
+                                      ).withValues(alpha: 0.35)
+                                      : Colors.green[50])
+                                  : (isDark
+                                      ? const Color(
+                                        0xFF7F1D1D,
+                                      ).withValues(alpha: 0.35)
+                                      : Colors.red[50]),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color:
+                                isSuccess
+                                    ? (isDark
+                                        ? Colors.green.shade800.withValues(
+                                          alpha: 0.5,
+                                        )
+                                        : Colors.green.shade200)
+                                    : (isDark
+                                        ? Colors.red.shade800.withValues(
+                                          alpha: 0.5,
+                                        )
+                                        : Colors.red.shade200),
                           ),
                         ),
-                        if (lastSeedTime != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '🕐 ${_formatTime(lastSeedTime!)}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ],
-                    ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lastSeedResult!,
+                              style: TextStyle(
+                                color:
+                                    isSuccess
+                                        ? (isDark
+                                            ? Colors.green.shade300
+                                            : Colors.green[800])
+                                        : (isDark
+                                            ? Colors.red.shade300
+                                            : Colors.red[800]),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (lastSeedTime != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                '🕐 ${_formatTime(lastSeedTime!)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      isDark
+                                          ? Colors.grey.shade400
+                                          : Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ],

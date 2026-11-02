@@ -248,7 +248,9 @@ class _PostsPageState extends State<PostsPage> {
         if (mounted) {
           AdminFeedback.showSnackBar(
             context,
-            SnackBar(content: Text('${t(context, 'operation_failed')}: $error')),
+            SnackBar(
+              content: Text('${t(context, 'operation_failed')}: $error'),
+            ),
           );
         }
       },
@@ -1237,7 +1239,6 @@ class _PostsPageState extends State<PostsPage> {
 
     if (isPhone) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => createOrEdit(),
           icon: const Icon(Icons.add),

@@ -461,10 +461,33 @@ class _LinksPageState extends State<LinksPage>
             children: [
               Chip(label: Text(backlinkLabel)),
               if (log.keywordFraudDetected)
-                Chip(
-                  label: const Text('检测到关键词欺诈'),
-                  backgroundColor: Colors.red.shade50,
-                  side: BorderSide(color: Colors.red.shade200),
+                Builder(
+                  builder: (context) {
+                    final isDark =
+                        Theme.of(context).brightness == Brightness.dark;
+                    return Chip(
+                      label: Text(
+                        '检测到关键词欺诈',
+                        style: TextStyle(
+                          color:
+                              isDark
+                                  ? Colors.red.shade200
+                                  : Colors.red.shade900,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      backgroundColor:
+                          isDark
+                              ? const Color(0xFF7F1D1D).withValues(alpha: 0.35)
+                              : Colors.red.shade50,
+                      side: BorderSide(
+                        color:
+                            isDark
+                                ? Colors.red.shade800.withValues(alpha: 0.5)
+                                : Colors.red.shade200,
+                      ),
+                    );
+                  },
                 ),
               const Tooltip(
                 message: '点击查看详情',
@@ -618,14 +641,40 @@ class _LinksPageState extends State<LinksPage>
                           visualDensity: VisualDensity.compact,
                         ),
                         if (link.referenceCount == 0)
-                          Chip(
-                            label: const Text(
-                              '无引用，可删除',
-                              style: TextStyle(fontSize: 10),
-                            ),
-                            backgroundColor: Colors.orange.shade50,
-                            side: BorderSide(color: Colors.orange.shade200),
-                            visualDensity: VisualDensity.compact,
+                          Builder(
+                            builder: (context) {
+                              final isDark =
+                                  Theme.of(context).brightness ==
+                                  Brightness.dark;
+                              return Chip(
+                                label: Text(
+                                  '无引用，可删除',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color:
+                                        isDark
+                                            ? Colors.orange.shade200
+                                            : Colors.orange.shade900,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                backgroundColor:
+                                    isDark
+                                        ? const Color(
+                                          0xFF78350F,
+                                        ).withValues(alpha: 0.35)
+                                        : Colors.orange.shade50,
+                                side: BorderSide(
+                                  color:
+                                      isDark
+                                          ? Colors.orange.shade800.withValues(
+                                            alpha: 0.5,
+                                          )
+                                          : Colors.orange.shade200,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              );
+                            },
                           ),
                       ],
                     ),

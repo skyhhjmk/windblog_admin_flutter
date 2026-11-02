@@ -25,6 +25,7 @@ import 'components/web_stub.dart'
     if (dart.library.html) 'components/web_impl.dart'
     as web_helper;
 import 'utils/storage_service.dart';
+import 'utils/app_theme_controller.dart';
 import 'utils/instance_vault.dart';
 import 'utils/editor_draft_store.dart';
 import 'utils/passkey_authentication.dart' show PasskeyException;
@@ -253,6 +254,7 @@ class _SmoothScrollPosition extends ScrollPositionWithSingleContext {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppThemeController.instance.load();
   await WindBlogSeeRayAnalytics.initialize();
   runApp(const WindblogAdminApp());
 }
@@ -262,19 +264,26 @@ class WindblogAdminApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'WindBlog Admin',
-      debugShowCheckedModeBanner: false,
-      theme: AdminTheme.build(),
-      scrollBehavior: const SmoothScrollBehavior(),
-      localizationsDelegates: [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [Locale('en', ''), Locale('zh', '')],
-      home: const AdminRootPage(),
+    return ListenableBuilder(
+      listenable: AppThemeController.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'WindBlog Admin',
+          debugShowCheckedModeBanner: false,
+          theme: AdminTheme.light(),
+          darkTheme: AdminTheme.dark(),
+          themeMode: AppThemeController.instance.themeMode,
+          scrollBehavior: const SmoothScrollBehavior(),
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', ''), Locale('zh', '')],
+          home: const AdminRootPage(),
+        );
+      },
     );
   }
 }

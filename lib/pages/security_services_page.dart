@@ -113,8 +113,30 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
 
   Widget _buildHealthCard(HealthInfo health) {
     final healthy = health.isHealthy;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor =
+        healthy
+            ? (isDark
+                ? const Color(0xFF14532D).withValues(alpha: 0.3)
+                : Colors.green.shade50)
+            : (isDark
+                ? const Color(0xFF7F1D1D).withValues(alpha: 0.3)
+                : Colors.red.shade50);
+    final borderColor =
+        healthy
+            ? (isDark
+                ? Colors.green.shade800.withValues(alpha: 0.5)
+                : Colors.green.shade200)
+            : (isDark
+                ? Colors.red.shade800.withValues(alpha: 0.5)
+                : Colors.red.shade200);
+
     return Card(
-      color: healthy ? Colors.green.shade50 : Colors.red.shade50,
+      color: bgColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: borderColor),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -131,6 +153,14 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
                   '应用健康状态：${health.status}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
+                    color:
+                        healthy
+                            ? (isDark
+                                ? Colors.green.shade300
+                                : Colors.green.shade800)
+                            : (isDark
+                                ? Colors.red.shade300
+                                : Colors.red.shade800),
                   ),
                 ),
               ],
@@ -140,17 +170,56 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: health.components.entries.map((entry) {
-                  final component = entry.value;
-                  return Chip(
-                    avatar: Icon(
-                      component.isHealthy ? Icons.check : Icons.close,
-                      size: 16,
-                      color: component.isHealthy ? Colors.green : Colors.red,
-                    ),
-                    label: Text('${entry.key}: ${component.status}'),
-                  );
-                }).toList(),
+                children:
+                    health.components.entries.map((entry) {
+                      final component = entry.value;
+                      final isCompHealthy = component.isHealthy;
+                      final chipBg =
+                          isCompHealthy
+                              ? (isDark
+                                  ? const Color(
+                                    0xFF14532D,
+                                  ).withValues(alpha: 0.5)
+                                  : Colors.green.shade100)
+                              : (isDark
+                                  ? const Color(
+                                    0xFF7F1D1D,
+                                  ).withValues(alpha: 0.5)
+                                  : Colors.red.shade100);
+                      final chipTextColor =
+                          isCompHealthy
+                              ? (isDark
+                                  ? Colors.green.shade200
+                                  : Colors.green.shade900)
+                              : (isDark
+                                  ? Colors.red.shade200
+                                  : Colors.red.shade900);
+                      return Chip(
+                        avatar: Icon(
+                          isCompHealthy ? Icons.check : Icons.close,
+                          size: 16,
+                          color: isCompHealthy ? Colors.green : Colors.red,
+                        ),
+                        label: Text(
+                          '${entry.key}: ${component.status}',
+                          style: TextStyle(
+                            color: chipTextColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        backgroundColor: chipBg,
+                        side: BorderSide(
+                          color:
+                              isCompHealthy
+                                  ? (isDark
+                                      ? Colors.green.shade800
+                                      : Colors.green.shade200)
+                                  : (isDark
+                                      ? Colors.red.shade800
+                                      : Colors.red.shade200),
+                        ),
+                      );
+                    }).toList(),
               ),
             ],
           ],

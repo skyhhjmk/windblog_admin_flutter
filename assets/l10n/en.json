@@ -1,4 +1,9 @@
 {
+  "theme_mode": "Theme Mode",
+  "theme_system": "System Default",
+  "theme_light": "Light Mode",
+  "theme_dark": "Dark Mode",
+  "appearance": "Appearance & Theme",
   "view_comments": "View comments",
   "app_title": "WindBlog Admin",
   "login_title": "WindBlog Admin Panel",

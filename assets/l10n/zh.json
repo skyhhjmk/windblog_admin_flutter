@@ -1,4 +1,9 @@
 {
+  "theme_mode": "主题模式",
+  "theme_system": "跟随系统",
+  "theme_light": "浅色模式",
+  "theme_dark": "深色模式",
+  "appearance": "外观与主题",
   "view_comments": "查看评论",
   "app_title": "WindBlog 后台",
   "login_title": "WindBlog 管理后台",
