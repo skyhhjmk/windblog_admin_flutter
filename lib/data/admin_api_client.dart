@@ -608,6 +608,18 @@ class AdminApiClient {
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
   }
 
+  /// Generates a URL-safe slug from a title on the server, so non-Latin
+  /// titles are transliterated (CJK -> pinyin) with the same rules the API
+  /// applies when a post is saved without an explicit slug.
+  Future<String> previewPostSlug(String title) async {
+    final res = await _get(
+      '/api/admin/posts/slug-preview',
+      query: {'title': title},
+    );
+    final data = _map(jsonDecode(res.body));
+    return data['slug']?.toString() ?? '';
+  }
+
   Future<List<RepostPolicyItem>> listRepostPolicies() async {
     final res = await _get('/api/admin/repost/policies');
     final list = jsonDecode(res.body) as List<dynamic>? ?? [];

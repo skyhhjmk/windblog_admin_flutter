@@ -64,6 +64,9 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   bool _isDirty = false;
   bool _isSaving = false;
+  Timer? _slugDebounce;
+  bool _slugFollowsTitle = false;
+  bool _suppressSlugListener = false;
   bool _draftAbandoned = false;
   bool _draftPersistScheduled = false;
   DateTime? _lastDraftPersistAt;
@@ -102,6 +105,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     final d = _currentDetail;
     final draft = _matchingDraft(widget.initialDraft);
     slugCtrl = TextEditingController(text: d?.slug ?? '');
+    _slugFollowsTitle = d == null || d.slug.trim().isEmpty;
     titleCtrl = TextEditingController(text: d?.zhTitle ?? '');
     summaryCtrl = TextEditingController(text: d?.zhSummary ?? '');
     seoTitleCtrl = TextEditingController(text: d?.seoTitle ?? '');
@@ -165,7 +169,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     }
 
     titleCtrl.addListener(_onTitleChanged);
-    slugCtrl.addListener(_markDirty);
+    slugCtrl.addListener(_onSlugChanged);
     summaryCtrl.addListener(_markDirty);
     seoTitleCtrl.addListener(_markDirty);
     seoDescriptionCtrl.addListener(_markDirty);
@@ -233,23 +237,93 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   void _onTitleChanged() {
-    if (widget.detail == null ||
-        _initialSlug == null ||
-        _initialSlug!.isEmpty) {
-      final newSlug = _generateSlug(titleCtrl.text);
-      if (slugCtrl.text != newSlug) {
-        slugCtrl.text = newSlug;
-      }
+    if (_slugFollowsTitle) {
+      _scheduleSlugGeneration();
     }
     _markDirty();
   }
 
-  String _generateSlug(String title) {
-    if (title.isEmpty) return '';
-    return title
+  void _onSlugChanged() {
+    if (_suppressSlugListener) return;
+    // Once the slug is edited by hand it stops following the title.
+    _slugFollowsTitle = false;
+    _markDirty();
+  }
+
+  void _setSlugText(String value) {
+    if (slugCtrl.text == value) return;
+    _suppressSlugListener = true;
+    slugCtrl.text = value;
+    _suppressSlugListener = false;
+  }
+
+  void _scheduleSlugGeneration() {
+    _slugDebounce?.cancel();
+    _slugDebounce = Timer(const Duration(milliseconds: 350), () {
+      unawaited(_generateSlugFromTitle());
+    });
+  }
+
+  /// Generates a URL-safe slug from the current title. Pure ASCII titles are
+  /// handled locally; non-Latin titles are transliterated by the server
+  /// (CJK -> pinyin) through the same helper used when a post is saved.
+  Future<void> _generateSlugFromTitle() async {
+    final title = titleCtrl.text.trim();
+    if (title.isEmpty) {
+      if (_slugFollowsTitle) _setSlugText('');
+      return;
+    }
+    if (_isAsciiOnly(title)) {
+      final slug = _asciiSlug(title);
+      if (_slugFollowsTitle && slugCtrl.text != slug) {
+        _setSlugText(slug);
+        _markDirty();
+      }
+      return;
+    }
+    try {
+      final slug = await widget.api.previewPostSlug(title);
+      if (!mounted ||
+          !_slugFollowsTitle ||
+          titleCtrl.text.trim() != title ||
+          slug.isEmpty) {
+        return;
+      }
+      _setSlugText(slug);
+      _markDirty();
+    } catch (_) {
+      // Leave the current slug in place. An empty slug is still resolved from
+      // the title by the API when the post is saved.
+    }
+  }
+
+  String _asciiSlug(String title) {
+    var slug = title
+        .trim()
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
         .replaceAll(RegExp(r'^-+|-+$'), '');
+    if (slug.length > 160) {
+      slug = slug.substring(0, 160).replaceAll(RegExp(r'-+$'), '');
+    }
+    return slug;
+  }
+
+  bool _isAsciiOnly(String value) =>
+      value.codeUnits.every((unit) => unit < 128);
+
+  void _regenerateSlugFromTitle() {
+    final wasFollowing = _slugFollowsTitle;
+    _slugFollowsTitle = true;
+    unawaited(
+      _generateSlugFromTitle().whenComplete(() {
+        // The button is a one-shot action for saved posts; only brand-new
+        // posts keep following the title automatically.
+        if (mounted && _currentDetail != null && !wasFollowing) {
+          _slugFollowsTitle = false;
+        }
+      }),
+    );
   }
 
   void _markDirty() {
@@ -275,7 +349,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   void _applyDraft(EditorDraft draft) {
-    slugCtrl.text = draft.slug;
+    _setSlugText(draft.slug);
+    _slugFollowsTitle = false;
     titleCtrl.text = draft.title;
     summaryCtrl.text = draft.summary;
     seoTitleCtrl.text = draft.seoTitle;
@@ -402,7 +477,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     final baselineRenderType = _initialRenderType ?? renderType;
     final baselineContent = _initialContent ?? '';
     setState(() {
-      slugCtrl.text = _initialSlug ?? '';
+      _setSlugText(_initialSlug ?? '');
+      _slugFollowsTitle =
+          _currentDetail == null && (_initialSlug ?? '').isEmpty;
       titleCtrl.text = _initialTitle ?? '';
       summaryCtrl.text = _initialSummary ?? '';
       final seoLines = _initialSeo.split('\n');
@@ -667,6 +744,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _slugDebounce?.cancel();
     _persistDraftBeforeDispose();
     FlutterMcpServer.instance.clearActiveEditor(this);
     _contentScrollController.removeListener(_onScroll);
@@ -793,6 +871,7 @@ class _PostEditorPageState extends State<PostEditorPage>
       builder: (dialogContext) => _PostTranslationDialog(
         api: widget.api,
         postId: detail.id,
+        currentSlug: slugCtrl.text.trim(),
         titles: Map<String, String>.from(_titles),
         summaries: Map<String, String>.from(_summaries),
         contents: Map<String, String>.from(_contents),
@@ -806,6 +885,11 @@ class _PostEditorPageState extends State<PostEditorPage>
       _titles[language] = result['title'] ?? '';
       _summaries[language] = result['summary'] ?? '';
       _contents[language] = result['contentMarkdown'] ?? '';
+      final translatedSlug = result['slug'];
+      if (translatedSlug != null && translatedSlug.isNotEmpty) {
+        _setSlugText(translatedSlug);
+        _slugFollowsTitle = false;
+      }
       _isDirty = _checkIfDirty();
     });
     _scheduleDraftSave();
@@ -875,6 +959,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           _summaries = Map<String, String>.from(savedDetail.summary);
           _contents = Map<String, String>.from(savedDetail.contentMarkdown);
           repostPolicyCode = savedDetail.repostPolicyCode;
+          _setSlugText(savedDetail.slug);
+          _slugFollowsTitle = false;
           passwordCtrl.clear();
           _captureBaseline();
           _isSaving = false;
@@ -1092,7 +1178,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           _summaries = Map<String, String>.from(newDetail.summary);
           _contents = Map<String, String>.from(newDetail.contentMarkdown);
 
-          slugCtrl.text = newDetail.slug;
+          _setSlugText(newDetail.slug);
+          _slugFollowsTitle = false;
           titleCtrl.text = newDetail.zhTitle;
           summaryCtrl.text = newDetail.zhSummary;
           seoTitleCtrl.text = newDetail.seoTitle ?? '';
@@ -1580,6 +1667,8 @@ class _PostEditorPageState extends State<PostEditorPage>
         children: [
           _buildContentStatsCard(),
           const SizedBox(height: 16),
+          _buildSlugCard(),
+          const SizedBox(height: 16),
           _buildPublishSettingsCard(),
           const SizedBox(height: 16),
           _buildRepostPolicyCard(),
@@ -1658,6 +1747,29 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   Widget _buildRevisionsContent() {
     return _buildRevisionsCard();
+  }
+
+  Widget _buildSlugCard() {
+    return SectionCard(
+      icon: Icons.link,
+      title: '链接地址',
+      child: TextField(
+        key: const Key('postSlugField'),
+        controller: slugCtrl,
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          labelText: 'slug',
+          prefixText: '/post/',
+          isDense: true,
+          helperText: '只保留小写字母、数字和连字符；留空时保存会按标题自动生成（中文转为拼音）',
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.autorenew),
+            tooltip: '根据标题自动生成',
+            onPressed: _regenerateSlugFromTitle,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildContentStatsCard() {
@@ -2665,6 +2777,7 @@ class _PostTranslationDialog extends StatefulWidget {
   const _PostTranslationDialog({
     required this.api,
     required this.postId,
+    required this.currentSlug,
     required this.titles,
     required this.summaries,
     required this.contents,
@@ -2672,6 +2785,7 @@ class _PostTranslationDialog extends StatefulWidget {
 
   final AdminApiClient api;
   final int postId;
+  final String currentSlug;
   final Map<String, String> titles;
   final Map<String, String> summaries;
   final Map<String, String> contents;
@@ -2699,6 +2813,7 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
   late final TextEditingController _translatedTitleController;
   late final TextEditingController _translatedSummaryController;
   late final TextEditingController _translatedContentController;
+  late final TextEditingController _translatedSlugController;
   late String _sourceLanguage;
   late String _targetLanguage;
   PostTranslationResult? _translation;
@@ -2740,6 +2855,7 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
     _translatedTitleController = TextEditingController();
     _translatedSummaryController = TextEditingController();
     _translatedContentController = TextEditingController();
+    _translatedSlugController = TextEditingController();
     _loadSourceFields();
   }
 
@@ -2752,6 +2868,7 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
     _translatedTitleController.dispose();
     _translatedSummaryController.dispose();
     _translatedContentController.dispose();
+    _translatedSlugController.dispose();
     super.dispose();
   }
 
@@ -2801,11 +2918,23 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
         contentMarkdown: _contentController.text,
       );
       if (!mounted) return;
+      var slug = result.slug.trim();
+      if (slug.isEmpty) {
+        // AI providers that do not return a slug still get a URL-safe value
+        // derived from the translated title on the server.
+        try {
+          slug = await widget.api.previewPostSlug(result.title);
+        } catch (_) {
+          slug = '';
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _translation = result;
         _translatedTitleController.text = result.title;
         _translatedSummaryController.text = result.summary;
         _translatedContentController.text = result.contentMarkdown;
+        _translatedSlugController.text = slug;
         _isTranslating = false;
       });
     } catch (error) {
@@ -2935,14 +3064,56 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
       title: _translatedTitleController.text,
       summary: _translatedSummaryController.text,
       contentMarkdown: _translatedContentController.text,
+      slug: _translatedSlugController.text.trim(),
     );
     if (!await _confirmOverwrite(result) || !mounted) return;
+    String? nextSlug;
+    final generatedSlug = result.slug.trim();
+    final currentSlug = widget.currentSlug.trim();
+    if (generatedSlug.isNotEmpty && generatedSlug != currentSlug) {
+      if (currentSlug.isEmpty) {
+        nextSlug = generatedSlug;
+      } else {
+        final replace = await _confirmSlugChange(currentSlug, generatedSlug);
+        if (replace && mounted) {
+          nextSlug = generatedSlug;
+        }
+      }
+    }
+    if (!mounted) return;
     Navigator.pop(context, {
       'targetLanguage': result.targetLanguage,
       'title': result.title,
       'summary': result.summary,
       'contentMarkdown': result.contentMarkdown,
+      'slug': ?nextSlug,
     });
+  }
+
+  Future<bool> _confirmSlugChange(String currentSlug, String nextSlug) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('同时更新文章 slug？'),
+            content: Text(
+              currentSlug.isEmpty
+                  ? '译文标题生成的 slug 为：\n/post/$nextSlug'
+                  : '文章当前 slug 为 /post/$currentSlug，译文标题生成的新 slug 为 /post/$nextSlug。\n'
+                        '替换后旧链接会自动 301 跳转到新地址。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('保留原 slug'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('更新 slug'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   @override
@@ -3071,6 +3242,18 @@ class _PostTranslationDialogState extends State<_PostTranslationDialog> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: TextField(
+                    controller: _translatedSlugController,
+                    decoration: const InputDecoration(
+                      labelText: 'slug',
+                      prefixText: '/post/',
+                      helperText: '根据译文标题生成；应用时需确认才会替换文章 slug',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
                 _buildPreviewField(
                   t(context, 'title'),
                   _translatedTitleController,

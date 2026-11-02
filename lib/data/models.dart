@@ -337,6 +337,7 @@ class PostTranslationResult {
     required this.title,
     required this.summary,
     required this.contentMarkdown,
+    this.slug = '',
   });
 
   final String sourceLanguage;
@@ -344,6 +345,7 @@ class PostTranslationResult {
   final String title;
   final String summary;
   final String contentMarkdown;
+  final String slug;
 
   factory PostTranslationResult.fromMap(Map<String, dynamic> map) {
     return PostTranslationResult(
@@ -352,6 +354,7 @@ class PostTranslationResult {
       title: map['title']?.toString() ?? '',
       summary: map['summary']?.toString() ?? '',
       contentMarkdown: map['contentMarkdown']?.toString() ?? '',
+      slug: map['slug']?.toString() ?? '',
     );
   }
 }
