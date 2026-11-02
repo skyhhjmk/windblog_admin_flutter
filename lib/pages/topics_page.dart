@@ -294,7 +294,9 @@ class _TopicsPageState extends State<TopicsPage>
       if (mounted) AdminFeedback.error(context, '没有可用于话题生成的模型或 AI 提供商');
       return null;
     }
-    var mode = models.isEmpty ? 'provider' : 'codex';
+    var mode = _aiProviders.isNotEmpty
+        ? 'provider'
+        : (models.isNotEmpty ? 'codex' : 'provider');
     var profileId = models.isEmpty
         ? null
         : models
@@ -321,16 +323,16 @@ class _TopicsPageState extends State<TopicsPage>
                   SegmentedButton<String>(
                     segments: [
                       ButtonSegment(
-                        value: 'codex',
-                        icon: const Icon(Icons.auto_awesome, size: 16),
-                        label: const Text('Codex Creator'),
-                        enabled: models.isNotEmpty,
-                      ),
-                      ButtonSegment(
                         value: 'provider',
                         icon: const Icon(Icons.cloud_outlined, size: 16),
                         label: const Text('API 提供商'),
                         enabled: _aiProviders.isNotEmpty,
+                      ),
+                      ButtonSegment(
+                        value: 'codex',
+                        icon: const Icon(Icons.auto_awesome, size: 16),
+                        label: const Text('Codex Creator'),
+                        enabled: models.isNotEmpty,
                       ),
                     ],
                     selected: {mode},
@@ -605,9 +607,9 @@ class _TopicsPageState extends State<TopicsPage>
   Future<String?> _chooseDraftMode() async {
     final hasModels = _modelOptions('article').isNotEmpty;
     final hasProviders = _aiProviders.isNotEmpty;
-    if (!hasProviders) return 'codex';
     if (!hasModels) return 'provider';
-    var mode = 'codex';
+    if (!hasProviders) return 'codex';
+    var mode = 'provider';
     return showDialog<String>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -620,20 +622,20 @@ class _TopicsPageState extends State<TopicsPage>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  'Codex Creator 使用其模型配置与质量校验；API 提供商使用 WindBlog 已配置的提供商或轮询组直接生成草稿。',
+                  'API 提供商使用 WindBlog 已配置的提供商或轮询组直接生成草稿；Codex Creator 使用其模型配置与质量校验。',
                 ),
                 const SizedBox(height: 12),
                 SegmentedButton<String>(
                   segments: const [
                     ButtonSegment(
-                      value: 'codex',
-                      icon: Icon(Icons.auto_awesome, size: 16),
-                      label: Text('Codex Creator'),
-                    ),
-                    ButtonSegment(
                       value: 'provider',
                       icon: Icon(Icons.cloud_outlined, size: 16),
                       label: Text('API 提供商'),
+                    ),
+                    ButtonSegment(
+                      value: 'codex',
+                      icon: Icon(Icons.auto_awesome, size: 16),
+                      label: Text('Codex Creator'),
                     ),
                   ],
                   selected: {mode},

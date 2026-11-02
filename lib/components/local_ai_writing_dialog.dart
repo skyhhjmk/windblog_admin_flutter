@@ -39,7 +39,7 @@ class _LocalAiWritingDialogState extends State<LocalAiWritingDialog> {
   List<String> _models = [];
   List<AiProviderConfig> _providers = [];
   String _model = '';
-  String _mode = _modeCodex;
+  late String _mode = widget.api != null ? _modeProvider : _modeCodex;
   int? _providerId;
   bool _loadingProviders = false;
   bool _customPrompt = false;
@@ -162,16 +162,16 @@ class _LocalAiWritingDialogState extends State<LocalAiWritingDialog> {
   Widget _modeSelector() {
     return SegmentedButton<String>(
       segments: [
-        const ButtonSegment(
-          value: _modeCodex,
-          icon: Icon(Icons.terminal, size: 16),
-          label: Text('Codex CLI'),
-        ),
         ButtonSegment(
           value: _modeProvider,
           icon: const Icon(Icons.cloud_outlined, size: 16),
           label: const Text('API 提供商'),
           enabled: widget.api != null,
+        ),
+        const ButtonSegment(
+          value: _modeCodex,
+          icon: Icon(Icons.terminal, size: 16),
+          label: Text('Codex CLI'),
         ),
       ],
       selected: {_mode},

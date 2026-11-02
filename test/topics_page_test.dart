@@ -55,6 +55,8 @@ void main() {
     await tester.tap(find.text('指派并生成草稿'));
     await tester.pumpAndSettle();
     expect(find.text('选择文章生成方式'), findsOneWidget);
+    await tester.tap(find.text('Codex Creator'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('继续'));
     await tester.pumpAndSettle();
     expect(find.text('生成模型'), findsOneWidget);
@@ -231,11 +233,7 @@ class _TopicsApiStub extends AdminApiClient {
   }) async {
     generateArticleCalls++;
     lastGenerateArticleProviderId = providerId;
-    return {
-      'postId': 9,
-      'title': '已重新生成文章草稿',
-      'slug': 'regenerated-article',
-    };
+    return {'postId': 9, 'title': '已重新生成文章草稿', 'slug': 'regenerated-article'};
   }
 
   @override
