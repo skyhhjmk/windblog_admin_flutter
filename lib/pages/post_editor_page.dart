@@ -21,7 +21,7 @@ class PostEditorPage extends StatefulWidget {
 }
 
 class _PostEditorPageState extends State<PostEditorPage>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver
+    with TickerProviderStateMixin, WidgetsBindingObserver
     implements PostEditorStateInterface {
   late final TextEditingController slugCtrl;
   late final TextEditingController titleCtrl;
@@ -67,6 +67,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   Timer? _slugDebounce;
   bool _slugFollowsTitle = false;
   bool _suppressSlugListener = false;
+  bool _isGeneratingSlug = false;
+  late final AnimationController _slugSpinController;
   bool _draftAbandoned = false;
   bool _draftPersistScheduled = false;
   DateTime? _lastDraftPersistAt;
@@ -161,6 +163,10 @@ class _PostEditorPageState extends State<PostEditorPage>
     }
 
     _sidebarTabController = TabController(length: 3, vsync: this);
+    _slugSpinController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
 
     _loadCategoriesAndTags();
     _loadRepostPolicies();
@@ -267,10 +273,16 @@ class _PostEditorPageState extends State<PostEditorPage>
   /// Generates a URL-safe slug from the current title. Pure ASCII titles are
   /// handled locally; non-Latin titles are transliterated by the server
   /// (CJK -> pinyin) through the same helper used when a post is saved.
-  Future<void> _generateSlugFromTitle() async {
+  ///
+  /// [manual] is true when the user pressed the regenerate button; only then
+  /// do we surface validation and network errors as a notification.
+  Future<void> _generateSlugFromTitle({bool manual = false}) async {
     final title = titleCtrl.text.trim();
     if (title.isEmpty) {
       if (_slugFollowsTitle) _setSlugText('');
+      if (manual && mounted) {
+        _showSlugFeedback('请先填写文章标题');
+      }
       return;
     }
     if (_isAsciiOnly(title)) {
@@ -279,22 +291,37 @@ class _PostEditorPageState extends State<PostEditorPage>
         _setSlugText(slug);
         _markDirty();
       }
+      if (manual && mounted && slug.isEmpty) {
+        _showSlugFeedback('标题中没有可用于 slug 的字符，请手动填写');
+      }
       return;
     }
     try {
       final slug = await widget.api.previewPostSlug(title);
-      if (!mounted ||
-          !_slugFollowsTitle ||
-          titleCtrl.text.trim() != title ||
-          slug.isEmpty) {
+      if (!mounted) return;
+      if (slug.isEmpty) {
+        if (manual) {
+          _showSlugFeedback('无法根据标题生成 slug，请手动填写');
+        }
+        return;
+      }
+      if (!_slugFollowsTitle || titleCtrl.text.trim() != title) {
         return;
       }
       _setSlugText(slug);
       _markDirty();
-    } catch (_) {
-      // Leave the current slug in place. An empty slug is still resolved from
-      // the title by the API when the post is saved.
+    } catch (error) {
+      if (manual && mounted) {
+        _showSlugFeedback('生成 slug 失败: $error');
+      }
     }
+  }
+
+  void _showSlugFeedback(String message) {
+    AdminFeedback.showSnackBar(
+      context,
+      SnackBar(content: Text(message)),
+    );
   }
 
   String _asciiSlug(String title) {
@@ -313,10 +340,19 @@ class _PostEditorPageState extends State<PostEditorPage>
       value.codeUnits.every((unit) => unit < 128);
 
   void _regenerateSlugFromTitle() {
+    if (_isGeneratingSlug) return;
     final wasFollowing = _slugFollowsTitle;
+    setState(() => _isGeneratingSlug = true);
+    _slugSpinController.repeat();
     _slugFollowsTitle = true;
     unawaited(
-      _generateSlugFromTitle().whenComplete(() {
+      _generateSlugFromTitle(manual: true).whenComplete(() {
+        _slugSpinController
+          ..stop()
+          ..value = 0;
+        if (mounted) {
+          setState(() => _isGeneratingSlug = false);
+        }
         // The button is a one-shot action for saved posts; only brand-new
         // posts keep following the title automatically.
         if (mounted && _currentDetail != null && !wasFollowing) {
@@ -760,6 +796,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     pointsPriceCtrl.dispose();
     freeLinesCtrl.dispose();
     _sidebarTabController.dispose();
+    _slugSpinController.dispose();
     super.dispose();
   }
 
@@ -1761,11 +1798,21 @@ class _PostEditorPageState extends State<PostEditorPage>
           labelText: 'slug',
           prefixText: '/post/',
           isDense: true,
-          helperText: '只保留小写字母、数字和连字符；留空时保存会按标题自动生成（中文转为拼音）',
+          helperMaxLines: 3,
+          helperText:
+              '只保留小写字母、数字和连字符；留空保存时按标题自动生成（中文转为拼音）',
           suffixIcon: IconButton(
-            icon: const Icon(Icons.autorenew),
             tooltip: '根据标题自动生成',
             onPressed: _regenerateSlugFromTitle,
+            icon: RotationTransition(
+              turns: _slugSpinController,
+              child: Icon(
+                Icons.autorenew,
+                color: _isGeneratingSlug
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
+            ),
           ),
         ),
       ),

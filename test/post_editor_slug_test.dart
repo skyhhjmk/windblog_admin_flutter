@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -30,6 +32,8 @@ class _SyncLocalizationsDelegate
 class _SlugApi extends AdminApiClient {
   final String transliterated = 'kuai-su-ru-men';
   int previewCalls = 0;
+  bool failPreview = false;
+  Completer<String>? previewCompleter;
   PostEditRequest? lastUpdate;
 
   @override
@@ -48,6 +52,13 @@ class _SlugApi extends AdminApiClient {
   @override
   Future<String> previewPostSlug(String title) async {
     previewCalls++;
+    if (failPreview) {
+      throw Exception('network down');
+    }
+    final completer = previewCompleter;
+    if (completer != null) {
+      return completer.future;
+    }
     return transliterated;
   }
 
@@ -205,6 +216,55 @@ void main() {
 
     expect(_slugText(tester), 'my-custom-slug');
     expect(api.previewCalls, 1);
+  });
+
+  testWidgets('the regenerate button spins while the slug is generated', (
+    WidgetTester tester,
+  ) async {
+    final api = _SlugApi()..previewCompleter = Completer<String>();
+    final notifications = await _pumpEditor(tester, api, detail: _post());
+
+    await tester.tap(find.byTooltip('根据标题自动生成'));
+    await tester.pump();
+
+    final field = find.byKey(const Key('postSlugField'));
+    final turns = tester
+        .widget<RotationTransition>(
+          find.descendant(of: field, matching: find.byType(RotationTransition)),
+        )
+        .turns;
+    final before = turns.value;
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(turns.value, isNot(before));
+
+    api.previewCompleter!.complete('kuai-su-ru-men');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(_slugText(tester), 'kuai-su-ru-men');
+    notifications.clear();
+    await tester.pump();
+  });
+
+  testWidgets('the regenerate button reports generation errors', (
+    WidgetTester tester,
+  ) async {
+    final api = _SlugApi()..failPreview = true;
+    final notifications = await _pumpEditor(tester, api, detail: _post());
+
+    await tester.tap(find.byTooltip('根据标题自动生成'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      notifications.transientNotifications.any(
+        (item) => item.message.contains('生成 slug 失败'),
+      ),
+      isTrue,
+    );
+    expect(_slugText(tester), 'save-test');
+    notifications.clear();
+    await tester.pump();
   });
 
   testWidgets('editing the title does not rename an existing slug', (
