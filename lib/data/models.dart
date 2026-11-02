@@ -803,7 +803,7 @@ class PageResult<T> {
     final list =
         asDynamicList(
           map['items'],
-        )?.map((e) => converter(toStringMap(e))).toList() ??
+        )?.map((e) => converter(toDynamicMap(e))).toList() ??
         [];
     return PageResult(
       items: list,

@@ -87,6 +87,28 @@ void main() {
     expect(legacyDetail.repostPolicyCode, 'CC_BY_NC_4_0');
   });
 
+  test('PageResult.fromMap preserves dynamic types including booleans', () {
+    final pageResult = PageResult<Map<String, dynamic>>.fromMap(
+      {
+        'items': [
+          {'id': 1, 'username': 'admin', 'repostBanned': true, 'count': 5},
+          {'id': 2, 'username': 'user2', 'repostBanned': false, 'count': 0},
+        ],
+        'total': 2,
+        'page': 1,
+        'pageSize': 20,
+      },
+      (item) => item,
+    );
+
+    expect(pageResult.items[0]['repostBanned'], isTrue);
+    expect(pageResult.items[0]['repostBanned'], isA<bool>());
+    expect(pageResult.items[1]['repostBanned'], isFalse);
+    expect(pageResult.items[1]['repostBanned'], isA<bool>());
+    expect(pageResult.items[0]['count'], equals(5));
+    expect(pageResult.items[0]['count'], isA<int>());
+  });
+
   testWidgets('editor marks policy changes as unsaved', (
     WidgetTester tester,
   ) async {

@@ -339,18 +339,39 @@ class _SecurityServicesPageState extends State<SecurityServicesPage> {
   }
 
   Widget _buildReleaseNote() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.blue.shade200 : Colors.blue.shade900;
     return Card(
-      color: Colors.blue.shade50,
-      child: const Padding(
-        padding: EdgeInsets.all(18),
+      color: isDark
+          ? const Color(0xFF1E3A8A).withValues(alpha: 0.35)
+          : Colors.blue.shade50,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: isDark
+              ? Colors.blue.shade800.withValues(alpha: 0.5)
+              : Colors.blue.shade200,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: Colors.blue),
-            SizedBox(width: 10),
+            Icon(
+              Icons.info_outline,
+              color: isDark ? Colors.blue.shade200 : Colors.blue.shade700,
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 '服务端会优先按配置检查 ClamAV；未显式启用时也会自动尝试本机、clamav 容器和 host.docker.internal。管理端不会保存或修改扫描服务凭据。',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],

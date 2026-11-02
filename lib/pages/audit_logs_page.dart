@@ -489,7 +489,17 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
           ],
         ),
         const SizedBox(height: 8),
-        _buildJsonBox(_currentSetting!.configValue, color: Colors.blue.shade50),
+        Builder(
+          builder: (context) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            return _buildJsonBox(
+              _currentSetting!.configValue,
+              color: isDark
+                  ? const Color(0xFF1E3A8A).withValues(alpha: 0.35)
+                  : Colors.blue.shade50,
+            );
+          },
+        ),
       ],
     );
   }

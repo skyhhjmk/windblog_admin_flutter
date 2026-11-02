@@ -327,6 +327,11 @@ class _RepostManagementPageState extends State<RepostManagementPage>
 
   Widget _buildTab(int index) {
     final data = _tabs[index];
+    final totalPages = data.total <= 0
+        ? 1
+        : ((data.total + _RepostTabData.pageSize - 1) ~/
+            _RepostTabData.pageSize)
+            .clamp(1, 999999);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -334,36 +339,55 @@ class _RepostManagementPageState extends State<RepostManagementPage>
         _buildToolbar(index),
         const SizedBox(height: 8),
         Expanded(child: _buildList(index, data)),
-        if (data.total > _RepostTabData.pageSize)
-          PaginationBar(
-            currentPage: data.page,
-            totalPages: (_RepostTabData.pageSize == 0
-                ? 1
-                : (data.total + _RepostTabData.pageSize - 1) ~/
-                      _RepostTabData.pageSize),
-            totalItems: data.total,
-            pageSize: _RepostTabData.pageSize,
-            onPageChanged: (page) {
-              data.page = page;
-              _loadTab(index);
-            },
-          ),
+        PaginationBar(
+          currentPage: data.page,
+          totalPages: totalPages,
+          totalItems: data.total,
+          pageSize: _RepostTabData.pageSize,
+          onPageChanged: (page) {
+            data.page = page;
+            _loadTab(index);
+          },
+        ),
       ],
     );
   }
 
   Widget _buildAffiliateLinkExplainer() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.blue.shade200 : Colors.blue.shade900;
     return Card(
-      color: Colors.blue.shade50,
+      color: isDark
+          ? const Color(0xFF1E3A8A).withValues(alpha: 0.35)
+          : Colors.blue.shade50,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: isDark
+              ? Colors.blue.shade800.withValues(alpha: 0.5)
+              : Colors.blue.shade200,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline, color: Colors.blue),
+            Icon(
+              Icons.info_outline,
+              color: isDark ? Colors.blue.shade200 : Colors.blue.shade700,
+            ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(t(context, 'repost_affiliate_link_explained')),
+              child: Text(
+                t(context, 'repost_affiliate_link_explained'),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ],
         ),
@@ -877,7 +901,7 @@ class _RepostManagementPageState extends State<RepostManagementPage>
   }
 
   Widget _buildRepostUserCard(Map<String, dynamic> item) {
-    final banned = item['repostBanned'] == true;
+    final banned = _asBool(item['repostBanned']);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1262,6 +1286,16 @@ class _RepostManagementPageState extends State<RepostManagementPage>
   int _asInt(Object? value) {
     if (value is num) return value.toInt();
     return int.tryParse('${value ?? ''}') ?? 0;
+  }
+
+  bool _asBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final s = value.trim().toLowerCase();
+      return s == 'true' || s == '1' || s == 'yes' || s == 'y';
+    }
+    return false;
   }
 
   String _text(Object? value, {String fallback = ''}) {
