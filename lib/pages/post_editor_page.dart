@@ -318,10 +318,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   void _showSlugFeedback(String message) {
-    AdminFeedback.showSnackBar(
-      context,
-      SnackBar(content: Text(message)),
-    );
+    AdminFeedback.showSnackBar(context, SnackBar(content: Text(message)));
   }
 
   String _asciiSlug(String title) {
@@ -982,10 +979,7 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (_currentDetail == null) {
         savedDetail = await widget.api.createPost(request);
       } else {
-        savedDetail = await widget.api.updatePost(
-          _currentDetail!.id,
-          request.copyWith(version: _currentDetail!.version),
-        );
+        savedDetail = await _updatePostWithConflictRetry(request);
       }
 
       if (mounted) {
@@ -1034,6 +1028,46 @@ class _PostEditorPageState extends State<PostEditorPage>
       return false;
     }
   }
+
+  /// A second admin session (or a stale editor tab) can bump the version
+  /// while this editor is open. When the content revision is unchanged this
+  /// only means metadata changed, so refresh the version and retry once
+  /// instead of failing the save. If another session changed the content,
+  /// keep the edits but tell the operator to review before overwriting.
+  Future<PostDetail> _updatePostWithConflictRetry(
+    PostEditRequest request,
+  ) async {
+    final detail = _currentDetail!;
+    try {
+      return await widget.api.updatePost(
+        detail.id,
+        request.copyWith(version: detail.version),
+      );
+    } catch (error) {
+      if (!_isVersionConflict(error)) rethrow;
+      final latest = await widget.api.postDetail(detail.id);
+      if (mounted) {
+        setState(() => _currentDetail = latest);
+      }
+      if (latest.currentRevisionNumber != detail.currentRevisionNumber) {
+        if (mounted) {
+          AdminFeedback.showSnackBar(
+            context,
+            const SnackBar(
+              content: Text('文章已在其他会话被修改，已加载最新版本；请确认内容后重新保存，避免覆盖他人修改'),
+            ),
+          );
+        }
+        rethrow;
+      }
+      return widget.api.updatePost(
+        latest.id,
+        request.copyWith(version: latest.version),
+      );
+    }
+  }
+
+  bool _isVersionConflict(Object error) => error.toString().contains('版本冲突');
 
   Future<void> _publishLatestDraft() async {
     if (_currentDetail == null) return;
@@ -1798,8 +1832,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           prefixText: '/post/',
           isDense: true,
           helperMaxLines: 3,
-          helperText:
-              '只保留小写字母、数字和连字符；留空保存时按标题自动生成（中文转为拼音）',
+          helperText: '只保留小写字母、数字和连字符；留空保存时按标题自动生成（中文转为拼音）',
           suffixIcon: IconButton(
             tooltip: '根据标题自动生成',
             onPressed: _regenerateSlugFromTitle,

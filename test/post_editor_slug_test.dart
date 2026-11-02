@@ -87,7 +87,31 @@ class _SlugApi extends AdminApiClient {
   }
 }
 
-PostDetail _post({String slug = 'save-test'}) {
+class _ConflictApi extends _SlugApi {
+  _ConflictApi({this.latestRevision = 1});
+
+  final int latestRevision;
+  int updateCalls = 0;
+
+  @override
+  Future<PostDetail> updatePost(int id, PostEditRequest request) {
+    updateCalls++;
+    if (updateCalls == 1) {
+      return Future.error(Exception('版本冲突，请刷新后重试'));
+    }
+    return super.updatePost(id, request);
+  }
+
+  @override
+  Future<PostDetail> postDetail(int id) async =>
+      _post(version: 2, currentRevisionNumber: latestRevision);
+}
+
+PostDetail _post({
+  String slug = 'save-test',
+  int version = 1,
+  int currentRevisionNumber = 1,
+}) {
   return PostDetail(
     id: 11,
     slug: slug,
@@ -101,8 +125,8 @@ PostDetail _post({String slug = 'save-test'}) {
     renderType: 6,
     editorType: 6,
     aiSummaryStatus: 0,
-    currentRevisionNumber: 1,
-    version: 1,
+    currentRevisionNumber: currentRevisionNumber,
+    version: version,
     publishedRevisionNumber: 0,
     hasPublishedRevision: false,
   );
@@ -280,5 +304,48 @@ void main() {
 
     expect(_slugText(tester), 'save-test');
     expect(api.previewCalls, 0);
+  });
+
+  testWidgets('a stale version is refreshed and the save is retried', (
+    WidgetTester tester,
+  ) async {
+    final api = _ConflictApi();
+    final notifications = await _pumpEditor(tester, api, detail: _post());
+
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(api.updateCalls, 2);
+    expect(api.lastUpdate?.version, 2);
+    expect(
+      notifications.transientNotifications.any(
+        (item) => item.message == '草稿保存成功',
+      ),
+      isTrue,
+    );
+    notifications.clear();
+    await tester.pump();
+  });
+
+  testWidgets('a changed content revision asks the operator to review', (
+    WidgetTester tester,
+  ) async {
+    final api = _ConflictApi(latestRevision: 2);
+    final notifications = await _pumpEditor(tester, api, detail: _post());
+
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(api.updateCalls, 1);
+    expect(
+      notifications.transientNotifications.any(
+        (item) => item.message.contains('已在其他会话被修改'),
+      ),
+      isTrue,
+    );
+    notifications.clear();
+    await tester.pump();
   });
 }
