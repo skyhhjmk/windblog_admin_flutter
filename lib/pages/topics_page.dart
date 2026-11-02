@@ -39,6 +39,7 @@ class _TopicsPageState extends State<TopicsPage>
   List<Map<String, dynamic>> _runs = [];
   Map<String, dynamic> _models = {};
   List<AiProviderConfig> _aiProviders = [];
+  int? _topicProviderId;
   bool _loadingAiProviders = false;
 
   @override
@@ -54,9 +55,29 @@ class _TopicsPageState extends State<TopicsPage>
     if (mounted) setState(() => _loadingAiProviders = true);
     try {
       final providers = await widget.api.listAiProviders();
+      int? configuredTopicProviderId;
+      try {
+        final setting = await widget.api.getSystemSetting('ai_operation_configs');
+        configuredTopicProviderId =
+            _intValue(_mapValue(setting.configValue)['topic']);
+      } catch (_) {}
       if (!mounted) return;
+      // The internal Codex Creator entry has its own mode (Codex Creator), so
+      // it must never appear as an "API provider" option and must not be picked
+      // by default for provider-mode generation.
+      final apiProviders = providers
+          .where(
+            (provider) =>
+                provider.enabled &&
+                provider.provider.toUpperCase() != 'CODEX_CREATOR',
+          )
+          .toList();
       setState(() {
-        _aiProviders = providers.where((provider) => provider.enabled).toList();
+        _aiProviders = apiProviders;
+        _topicProviderId =
+            apiProviders.any((p) => p.id == configuredTopicProviderId)
+            ? configuredTopicProviderId
+            : null;
         _loadingAiProviders = false;
       });
     } catch (_) {
@@ -305,7 +326,14 @@ class _TopicsPageState extends State<TopicsPage>
                 orElse: () => models.first,
               )['profileId']
               ?.toString();
-    int? providerId = _aiProviders.isEmpty ? null : _aiProviders.first.id;
+    int? providerId = _aiProviders.isEmpty
+        ? null
+        : _aiProviders
+              .firstWhere(
+                (provider) => provider.id == _topicProviderId,
+                orElse: () => _aiProviders.first,
+              )
+              .id;
     return showDialog<_TopicRunChoice>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -318,7 +346,11 @@ class _TopicsPageState extends State<TopicsPage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('选择本次话题生成的执行方式。定时任务仍按原有配置运行。'),
+                  Text(
+                    models.isEmpty
+                        ? '选择本次话题生成的执行方式。当前使用 WindBlog 本地话题池，定时自动发现需 Codex Creator。'
+                        : '选择本次话题生成的执行方式。定时任务仍按原有配置运行。',
+                  ),
                   const SizedBox(height: 12),
                   SegmentedButton<String>(
                     segments: [
@@ -671,8 +703,11 @@ class _TopicsPageState extends State<TopicsPage>
     if (!mounted) return;
     final request = await showDialog<_ApiDraftRequest>(
       context: context,
-      builder: (_) =>
-          _ApiDraftDialog(providers: _aiProviders, policies: policies),
+      builder: (_) => _ApiDraftDialog(
+        providers: _aiProviders,
+        policies: policies,
+        initialProviderId: _topicProviderId,
+      ),
     );
     if (request == null || !mounted) return;
 
@@ -1270,6 +1305,7 @@ class _TopicsPageState extends State<TopicsPage>
     final maxTopics = _intValue(settings['maxTopicsPerRun']) ?? 20;
     final nextRun = settings['nextRunAt']?.toString() ?? '';
     final lastError = settings['lastError']?.toString() ?? '';
+    final localTopicPool = settings['storage'] == 'LOCAL';
     return Card(
       child: Padding(
         padding: EdgeInsets.all(AdminBreakpoints.isPhone(context) ? 16 : 20),
@@ -1278,7 +1314,9 @@ class _TopicsPageState extends State<TopicsPage>
           children: [
             _sectionHeader(
               '主题自动化',
-              '默认关闭。手动立即运行不会改变定时开关；每次运行只使用启用的主题查询种子。',
+              localTopicPool
+                  ? '当前使用 WindBlog 本地话题池：以下参数用于“立即运行”，固定周期自动搜索仍由 Codex Creator 执行。'
+                  : '默认关闭。手动立即运行不会改变定时开关；每次运行只使用启用的主题查询种子。',
               icon: Icons.schedule,
               action: FilledButton.icon(
                 onPressed: _saving ? null : _runNow,
@@ -1290,9 +1328,11 @@ class _TopicsPageState extends State<TopicsPage>
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('启用固定周期自动搜索'),
-              subtitle: const Text('调度器会在服务端使用 Redis 锁和数据库幂等键避免多实例重复执行。'),
-              value: enabled,
-              onChanged: _saving
+              subtitle: Text(localTopicPool
+                  ? '本地话题池模式下不可用；请使用 Codex Creator 话题池启用定时自动搜索。'
+                  : '调度器会在服务端使用 Redis 锁和数据库幂等键避免多实例重复执行。'),
+              value: enabled && !localTopicPool,
+              onChanged: _saving || localTopicPool
                   ? null
                   : (value) => _updateAutomationValue(
                       enabled: value,
@@ -2675,10 +2715,15 @@ class _ApiDraftRequest {
 }
 
 class _ApiDraftDialog extends StatefulWidget {
-  const _ApiDraftDialog({required this.providers, required this.policies});
+  const _ApiDraftDialog({
+    required this.providers,
+    required this.policies,
+    this.initialProviderId,
+  });
 
   final List<AiProviderConfig> providers;
   final List<RepostPolicyItem> policies;
+  final int? initialProviderId;
 
   @override
   State<_ApiDraftDialog> createState() => _ApiDraftDialogState();
@@ -2696,7 +2741,14 @@ class _ApiDraftDialogState extends State<_ApiDraftDialog> {
     super.initState();
     _languageController = TextEditingController(text: 'zh-CN');
     _instructionsController = TextEditingController();
-    _providerId = widget.providers.isEmpty ? null : widget.providers.first.id;
+    _providerId = widget.providers.isEmpty
+        ? null
+        : widget.providers
+              .firstWhere(
+                (provider) => provider.id == widget.initialProviderId,
+                orElse: () => widget.providers.first,
+              )
+              .id;
     _repostPolicyCode = widget.policies.isEmpty
         ? RepostPolicyItem.defaultCode
         : widget.policies.first.code;
