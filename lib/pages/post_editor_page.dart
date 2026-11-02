@@ -347,15 +347,14 @@ class _PostEditorPageState extends State<PostEditorPage>
     _slugFollowsTitle = true;
     unawaited(
       _generateSlugFromTitle(manual: true).whenComplete(() {
+        if (!mounted) return;
         _slugSpinController
           ..stop()
           ..value = 0;
-        if (mounted) {
-          setState(() => _isGeneratingSlug = false);
-        }
+        setState(() => _isGeneratingSlug = false);
         // The button is a one-shot action for saved posts; only brand-new
         // posts keep following the title automatically.
-        if (mounted && _currentDetail != null && !wasFollowing) {
+        if (_currentDetail != null && !wasFollowing) {
           _slugFollowsTitle = false;
         }
       }),
