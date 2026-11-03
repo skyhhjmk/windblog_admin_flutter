@@ -291,9 +291,9 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
                   child: TextFormField(
                     key: ValueKey('${field.key}:$value'),
                     initialValue: value,
-                    readOnly: true,
+                    readOnly: widget.isFrozen,
                     decoration: InputDecoration(
-                      hintText: '尚未选择',
+                      hintText: '输入图片 URL 或从媒体库选择',
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.image_outlined),
                       suffixIcon: value.isEmpty
@@ -308,6 +308,7 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
                               icon: const Icon(Icons.clear),
                             ),
                     ),
+                    onChanged: (val) => _setFieldValue(field.key, val),
                   ),
                 ),
                 const SizedBox(width: 8),
