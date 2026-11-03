@@ -988,6 +988,26 @@ class AdminApiClient {
     return TranslationBatchStatus.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<AutoTranslationStatus> getAutoTranslationStatus() async {
+    final res = await _get('/api/admin/translations/auto');
+    return AutoTranslationStatus.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<AutoTranslationStatus> setAutoTranslation({
+    required bool enabled,
+    String? targetLanguage,
+  }) async {
+    final res = await _post(
+      '/api/admin/translations/auto',
+      body: {
+        'enabled': enabled,
+        if (targetLanguage != null && targetLanguage.isNotEmpty)
+          'targetLanguage': targetLanguage,
+      },
+    );
+    return AutoTranslationStatus.fromMap(_map(jsonDecode(res.body)));
+  }
+
   Future<TranslatePostOutcome> translatePostToTarget(
     int postId, {
     String targetLanguage = 'en-US',

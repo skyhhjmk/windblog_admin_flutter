@@ -8,9 +8,39 @@ class _TranslationApi extends AdminApiClient {
   int translateCalls = 0;
   int batchCalls = 0;
   int submitCalls = 0;
+  int setAutoCalls = 0;
+  bool autoEnabled = false;
   List<int>? lastPostIds;
   bool? lastOverwrite;
   String? lastTarget;
+
+  @override
+  Future<AutoTranslationStatus> getAutoTranslationStatus() async {
+    return AutoTranslationStatus(
+      enabled: autoEnabled,
+      targetLanguage: lastTarget ?? 'en-US',
+      pendingCount: 1,
+      queuedCount: 0,
+      runningCount: 0,
+    );
+  }
+
+  @override
+  Future<AutoTranslationStatus> setAutoTranslation({
+    required bool enabled,
+    String? targetLanguage,
+  }) async {
+    setAutoCalls++;
+    autoEnabled = enabled;
+    if (targetLanguage != null) lastTarget = targetLanguage;
+    return AutoTranslationStatus(
+      enabled: autoEnabled,
+      targetLanguage: lastTarget ?? 'en-US',
+      pendingCount: autoEnabled ? 0 : 1,
+      queuedCount: autoEnabled ? 1 : 0,
+      runningCount: 0,
+    );
+  }
 
   @override
   Future<TranslationPageResult> listTranslations({
@@ -197,5 +227,30 @@ void main() {
     expect(find.text('待翻译'), findsWidgets);
     expect(find.text('批量翻译'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('翻译管理支持切换自动翻译并展示状态横幅', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final api = _TranslationApi();
+    await tester.pumpWidget(
+      _wrap(TranslationsPage(api: api, onAuthError: () {})),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('自动翻译'), findsWidgets);
+    expect(find.byType(Switch), findsWidgets);
+
+    // Toggle auto translation on
+    await tester.tap(find.byType(Switch).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(api.setAutoCalls, 1);
+    expect(api.autoEnabled, isTrue);
+    expect(find.textContaining('自动翻译运行中'), findsOneWidget);
   });
 }

@@ -664,6 +664,7 @@ class AiProviderConfig {
     this.endpoint,
     this.model,
     this.rateLimitPerMinute,
+    this.concurrencyLimit,
     this.apiKey,
     this.config,
     this.updatedAt,
@@ -677,6 +678,7 @@ class AiProviderConfig {
   final String? endpoint;
   final String? model;
   final int? rateLimitPerMinute;
+  final int? concurrencyLimit;
   final String? apiKey;
   final String? config;
   final DateTime? updatedAt;
@@ -690,6 +692,7 @@ class AiProviderConfig {
     String? endpoint,
     String? model,
     int? rateLimitPerMinute,
+    int? concurrencyLimit,
     String? apiKey,
     String? config,
     DateTime? updatedAt,
@@ -703,6 +706,7 @@ class AiProviderConfig {
       endpoint: endpoint ?? this.endpoint,
       model: model ?? this.model,
       rateLimitPerMinute: rateLimitPerMinute ?? this.rateLimitPerMinute,
+      concurrencyLimit: concurrencyLimit ?? this.concurrencyLimit,
       apiKey: apiKey ?? this.apiKey,
       config: config ?? this.config,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -719,6 +723,7 @@ class AiProviderConfig {
       endpoint: map['endpoint']?.toString(),
       model: map['model']?.toString(),
       rateLimitPerMinute: toInt(map['rateLimitPerMinute']),
+      concurrencyLimit: toInt(map['concurrencyLimit']),
       apiKey: map['apiKey']?.toString(),
       config: map['config']?.toString(),
       updatedAt: map['updatedAt'] != null
@@ -747,6 +752,7 @@ class AiProviderConfigUpdateRequest {
     this.endpoint,
     this.model,
     this.rateLimitPerMinute,
+    this.concurrencyLimit,
     this.apiKey,
     this.config,
   });
@@ -758,6 +764,7 @@ class AiProviderConfigUpdateRequest {
   final String? endpoint;
   final String? model;
   final int? rateLimitPerMinute;
+  final int? concurrencyLimit;
   final String? apiKey;
   final String? config;
 
@@ -776,6 +783,9 @@ class AiProviderConfigUpdateRequest {
     }
     if (rateLimitPerMinute != null) {
       payload['rateLimitPerMinute'] = rateLimitPerMinute;
+    }
+    if (concurrencyLimit != null) {
+      payload['concurrencyLimit'] = concurrencyLimit;
     }
     if (apiKey != null) {
       payload['apiKey'] = apiKey;
@@ -4355,6 +4365,37 @@ class TranslationBatchStatus {
       succeeded: toInt(map['succeeded']) ?? 0,
       skipped: toInt(map['skipped']) ?? 0,
       failed: toInt(map['failed']) ?? 0,
+    );
+  }
+}
+
+class AutoTranslationStatus {
+  const AutoTranslationStatus({
+    required this.enabled,
+    required this.targetLanguage,
+    required this.pendingCount,
+    required this.queuedCount,
+    required this.runningCount,
+    this.lastPollAt,
+  });
+
+  final bool enabled;
+  final String targetLanguage;
+  final int pendingCount;
+  final int queuedCount;
+  final int runningCount;
+  final DateTime? lastPollAt;
+
+  factory AutoTranslationStatus.fromMap(Map<String, dynamic> map) {
+    return AutoTranslationStatus(
+      enabled: toBool(map['enabled']) ?? false,
+      targetLanguage: map['targetLanguage']?.toString() ?? 'en-US',
+      pendingCount: toInt(map['pendingCount']) ?? 0,
+      queuedCount: toInt(map['queuedCount']) ?? 0,
+      runningCount: toInt(map['runningCount']) ?? 0,
+      lastPollAt: map['lastPollAt'] != null
+          ? DateTime.tryParse(map['lastPollAt'].toString())
+          : null,
     );
   }
 }

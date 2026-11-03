@@ -180,6 +180,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     var endpoint = existing?.endpoint ?? 'https://api.openai.com/v1';
     var model = existing?.model ?? '';
     var rateLimitPerMinute = existing?.rateLimitPerMinute ?? 0;
+    var concurrencyLimit = existing?.concurrencyLimit ?? 0;
     var apiKey = existing?.apiKey ?? '';
     var configText = existing?.config ?? '';
     var enabled = existing?.enabled ?? true;
@@ -260,6 +261,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   endpoint: endpoint,
                   model: model,
                   rateLimitPerMinute: rateLimitPerMinute,
+                  concurrencyLimit: concurrencyLimit,
                   apiKey: apiKey,
                   config: jsonEncode(extraConfig),
                 );
@@ -347,6 +349,28 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                               ),
                         onChanged: (v) =>
                             rateLimitPerMinute = int.tryParse(v.trim()) ?? 0,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: '最大并发数',
+                          hintText: '0 或留空表示不限制',
+                          helperText: '允许同时发送给该提供商的任务数量',
+                        ),
+                        controller:
+                            TextEditingController(
+                                text: concurrencyLimit == 0
+                                    ? ''
+                                    : '$concurrencyLimit',
+                              )
+                              ..selection = TextSelection.collapsed(
+                                offset: concurrencyLimit == 0
+                                    ? 0
+                                    : '$concurrencyLimit'.length,
+                              ),
+                        onChanged: (v) =>
+                            concurrencyLimit = int.tryParse(v.trim()) ?? 0,
                       ),
                       if (type == 'PROVIDER') ...[
                         const SizedBox(height: 12),
@@ -618,6 +642,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                       endpoint: endpoint,
                       model: model,
                       rateLimitPerMinute: rateLimitPerMinute,
+                      concurrencyLimit: concurrencyLimit,
                       apiKey: apiKey,
                       config: extraConfig.isEmpty
                           ? null
@@ -743,7 +768,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                   ),
                   subtitle: Text(
                     '${t(context, 'status')}: ${config.enabled ? t(context, 'enabled') : t(context, 'disabled')}\n'
-                    '${type == 'PROVIDER' ? '${t(context, 'ai_provider_type')}: ${config.provider}\n${t(context, 'api_base_url')}: ${config.endpoint ?? t(context, 'no_parent')}\n${t(context, 'ai_model_name')}: ${config.model}\n每分钟请求上限: ${config.rateLimitPerMinute ?? 0}' : '${t(context, 'ai_json_config')}: ${config.config}\n每分钟请求上限: ${config.rateLimitPerMinute ?? 0}'}',
+                    '${type == 'PROVIDER' ? '${t(context, 'ai_provider_type')}: ${config.provider}\n${t(context, 'api_base_url')}: ${config.endpoint ?? t(context, 'no_parent')}\n${t(context, 'ai_model_name')}: ${config.model}\n每分钟请求上限: ${config.rateLimitPerMinute ?? 0} · 最大并发: ${config.concurrencyLimit ?? '不限'}' : '${t(context, 'ai_json_config')}: ${config.config}\n每分钟请求上限: ${config.rateLimitPerMinute ?? 0} · 最大并发: ${config.concurrencyLimit ?? '不限'}'}',
                   ),
                   isThreeLine: true,
                   trailing: Row(

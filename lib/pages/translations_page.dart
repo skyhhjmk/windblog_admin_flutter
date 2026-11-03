@@ -35,12 +35,15 @@ class _TranslationsPageState extends State<TranslationsPage> {
   bool _batchRunning = false;
   String? _activeBatchId;
   TranslationBatchStatus? _batchStatus;
+  AutoTranslationStatus? _autoStatus;
+  bool _autoUpdating = false;
   Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadAutoStatus();
   }
 
   @override
@@ -103,6 +106,9 @@ class _TranslationsPageState extends State<TranslationsPage> {
       _selected.clear();
       _page = 1;
     });
+    if (_autoStatus?.enabled == true) {
+      unawaited(_toggleAutoTranslation(true));
+    }
     _load();
   }
 
@@ -219,6 +225,71 @@ class _TranslationsPageState extends State<TranslationsPage> {
     }
   }
 
+  Future<void> _loadAutoStatus() async {
+    try {
+      final status = await widget.api.getAutoTranslationStatus();
+      if (!mounted) return;
+      setState(() => _autoStatus = status);
+      if (status.enabled) {
+        _startPolling();
+      }
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (_) {}
+  }
+
+  Future<void> _toggleAutoTranslation(bool value) async {
+    if (_autoUpdating) return;
+    setState(() => _autoUpdating = true);
+    try {
+      final status = await widget.api.setAutoTranslation(
+        enabled: value,
+        targetLanguage: _targetLanguage,
+      );
+      if (!mounted) return;
+      setState(() {
+        _autoStatus = status;
+        _autoUpdating = false;
+      });
+      if (status.enabled) {
+        AdminFeedback.success(context, '已开启自动翻译为 $_targetLabel，后台将自动轮询未翻译文章');
+        _startPolling();
+      } else {
+        AdminFeedback.info(context, '已关闭自动翻译');
+      }
+    } on UnauthorizedException {
+      widget.onAuthError();
+      if (mounted) setState(() => _autoUpdating = false);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _autoUpdating = false);
+        AdminFeedback.error(context, '设置自动翻译失败：$error');
+      }
+    }
+  }
+
+  Future<void> _loadSilently() async {
+    try {
+      final result = await widget.api.listTranslations(
+        page: _page,
+        pageSize: _pageSize,
+        targetLanguage: _targetLanguage,
+        translationStatus: _translationStatus == 'all'
+            ? null
+            : _translationStatus,
+        keyword: _keywordCtrl.text,
+        status: _postStatus,
+      );
+      if (!mounted) return;
+      setState(() {
+        _items = result.items;
+        _total = result.total;
+        _page = result.page;
+        _selected.removeWhere((id) => !_items.any((item) => item.id == id));
+      });
+    } catch (_) {}
+  }
+
   void _startPolling() {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(
@@ -230,34 +301,54 @@ class _TranslationsPageState extends State<TranslationsPage> {
 
   Future<void> _pollTasks() async {
     final batchId = _activeBatchId;
-    if (batchId == null) return;
-    try {
-      final status = await widget.api.translationTaskBatch(batchId);
-      if (!mounted) return;
-      setState(() => _batchStatus = status);
-      if (!status.active) {
+    if (batchId != null) {
+      try {
+        final status = await widget.api.translationTaskBatch(batchId);
+        if (!mounted) return;
+        setState(() => _batchStatus = status);
+        if (!status.active) {
+          _activeBatchId = null;
+          await _load();
+          if (!mounted) return;
+          final failureText = status.failed > 0 ? '，失败 ${status.failed} 篇' : '';
+          AdminFeedback.success(
+            context,
+            '翻译队列已完成：成功 ${status.succeeded} 篇，'
+            '跳过 ${status.skipped} 篇$failureText',
+          );
+          if (status.failed > 0) {
+            await _showTaskErrors(status);
+          }
+        }
+      } on UnauthorizedException {
         _pollTimer?.cancel();
         _pollTimer = null;
-        await _load();
-        if (!mounted) return;
-        final failureText = status.failed > 0 ? '，失败 ${status.failed} 篇' : '';
-        AdminFeedback.success(
-          context,
-          '翻译队列已完成：成功 ${status.succeeded} 篇，'
-          '跳过 ${status.skipped} 篇$failureText',
-        );
-        if (status.failed > 0) {
-          await _showTaskErrors(status);
-        }
+        widget.onAuthError();
+        return;
+      } catch (error) {
+        if (mounted) AdminFeedback.error(context, '读取翻译任务进度失败：$error');
       }
-    } on UnauthorizedException {
+    }
+
+    if (_autoStatus?.enabled == true) {
+      try {
+        final autoStatus = await widget.api.getAutoTranslationStatus();
+        if (!mounted) return;
+        final hadRunning =
+            (_autoStatus?.runningCount ?? 0) > 0 ||
+            (_autoStatus?.queuedCount ?? 0) > 0;
+        setState(() => _autoStatus = autoStatus);
+        if (hadRunning ||
+            autoStatus.runningCount > 0 ||
+            autoStatus.queuedCount > 0) {
+          await _loadSilently();
+        }
+      } catch (_) {}
+    }
+
+    if (!_queueActive && _autoStatus?.enabled != true) {
       _pollTimer?.cancel();
       _pollTimer = null;
-      widget.onAuthError();
-    } catch (error) {
-      _pollTimer?.cancel();
-      _pollTimer = null;
-      if (mounted) AdminFeedback.error(context, '读取翻译任务进度失败：$error');
     }
   }
 
@@ -808,6 +899,107 @@ class _TranslationsPageState extends State<TranslationsPage> {
     );
   }
 
+  Widget? _autoTranslateBanner() {
+    final auto = _autoStatus;
+    if (auto == null || !auto.enabled) return null;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: Colors.teal.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.teal.withValues(alpha: 0.3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.teal,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '自动翻译运行中：后台正在自动轮询待翻译文章并执行翻译',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Colors.teal.shade900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '目标语言: $_targetLabel · 待翻译: ${auto.pendingCount} 篇 · 排队: ${auto.queuedCount} 篇 · 执行中: ${auto.runningCount} 篇',
+                    style: TextStyle(color: Colors.teal.shade800, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: _autoUpdating
+                  ? null
+                  : () => _toggleAutoTranslation(false),
+              child: const Text('暂停自动翻译', style: TextStyle(color: Colors.teal)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _autoTranslateWidget({bool compact = false}) {
+    final enabled = _autoStatus?.enabled == true;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      decoration: BoxDecoration(
+        color: enabled
+            ? Colors.teal.withValues(alpha: 0.12)
+            : Colors.grey.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: enabled
+              ? Colors.teal.withValues(alpha: 0.4)
+              : Colors.grey.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.autorenew,
+            size: 16,
+            color: enabled ? Colors.teal.shade700 : Colors.grey.shade600,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            compact ? '自动' : '自动翻译',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: enabled ? Colors.teal.shade800 : Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Transform.scale(
+            scale: 0.75,
+            child: Switch(
+              value: enabled,
+              activeTrackColor: Colors.teal,
+              onChanged: _autoUpdating ? null : _toggleAutoTranslation,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _filterWidgets(bool mobile) {
     final search = SizedBox(
       width: mobile ? double.infinity : 240,
@@ -896,13 +1088,25 @@ class _TranslationsPageState extends State<TranslationsPage> {
           builder: (context, constraints) => Row(
             children: [
               Expanded(child: _selectionSummary()),
+              _autoTranslateWidget(),
+              const SizedBox(width: 8),
               if (constraints.maxWidth > 520) _batchButton(),
             ],
           ),
         ),
         if (mobile) ...[
           const SizedBox(height: 8),
-          Align(alignment: Alignment.centerRight, child: _batchButton()),
+          Row(
+            children: [
+              _autoTranslateWidget(compact: true),
+              const Spacer(),
+              _batchButton(),
+            ],
+          ),
+        ],
+        if (_autoTranslateBanner() != null) ...[
+          const SizedBox(height: 8),
+          _autoTranslateBanner()!,
         ],
         if (_taskBanner() != null) ...[
           const SizedBox(height: 8),
@@ -950,6 +1154,8 @@ class _TranslationsPageState extends State<TranslationsPage> {
     return AdminPageScaffold(
       title: '翻译管理',
       actions: [
+        _autoTranslateWidget(),
+        const SizedBox(width: 4),
         IconButton(
           tooltip: '刷新',
           onPressed: _batchRunning ? null : _load,
