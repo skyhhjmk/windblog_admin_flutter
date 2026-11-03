@@ -20,8 +20,20 @@ const _inlineImageMimeTypes = <String>{
 
 /// Normalizes a stored media URL to the public `/uploads/...` path so the
 /// same markdown works on every region host.
-String markdownMediaUrl(MediaItem item) {
-  final url = item.url.trim();
+String markdownMediaUrl(MediaItem item, {bool preferWebp = true}) {
+  String candidate = item.url;
+  if (preferWebp && item.isImage) {
+    final webp = item.thumbnailUrl?.trim();
+    if (webp != null && webp.isNotEmpty) {
+      candidate = webp;
+    } else {
+      final metaWebp = item.metadata['webpUrl']?.toString().trim();
+      if (metaWebp != null && metaWebp.isNotEmpty) {
+        candidate = metaWebp;
+      }
+    }
+  }
+  final url = candidate.trim();
   final uri = Uri.tryParse(url);
   if (uri == null ||
       (uri.scheme != 'http' && uri.scheme != 'https') ||
@@ -36,8 +48,12 @@ String markdownMediaUrl(MediaItem item) {
 
 /// Images stay inline; every other file becomes a download link so archives,
 /// office documents and 3D models keep their original file name.
-String markdownMediaReference(MediaItem item, {String fallbackName = ''}) {
-  final url = markdownMediaUrl(item);
+String markdownMediaReference(
+  MediaItem item, {
+  String fallbackName = '',
+  bool preferWebp = true,
+}) {
+  final url = markdownMediaUrl(item, preferWebp: preferWebp);
   if (url.isEmpty) return '';
   final storedName = item.fileName.trim();
   var name = storedName.isEmpty ? fallbackName.trim() : storedName;
@@ -348,29 +364,26 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color:
-                                isDark
-                                    ? const Color(
-                                      0xFF78350F,
-                                    ).withValues(alpha: 0.35)
-                                    : Colors.orange.shade50,
+                            color: isDark
+                                ? const Color(
+                                    0xFF78350F,
+                                  ).withValues(alpha: 0.35)
+                                : Colors.orange.shade50,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color:
-                                  isDark
-                                      ? Colors.orange.shade800.withValues(
-                                        alpha: 0.5,
-                                      )
-                                      : Colors.orange.shade200,
+                              color: isDark
+                                  ? Colors.orange.shade800.withValues(
+                                      alpha: 0.5,
+                                    )
+                                  : Colors.orange.shade200,
                             ),
                           ),
                           child: Text(
                             '当前没有文章引用这个链接，可以删除。',
                             style: TextStyle(
-                              color:
-                                  isDark
-                                      ? Colors.orange.shade200
-                                      : Colors.orange.shade900,
+                              color: isDark
+                                  ? Colors.orange.shade200
+                                  : Colors.orange.shade900,
                               fontWeight: FontWeight.w500,
                             ),
                           ),

@@ -179,7 +179,8 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         setState(() {
           _item = updated;
         });
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           const SnackBar(
             content: Text('存储类同步策略更新成功'),
             backgroundColor: Colors.green,
@@ -188,7 +189,8 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
       }
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
         );
       }
@@ -424,17 +426,87 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   }
 
   Widget _buildInfoSection() {
+    final webpUrl = _getWebpUrl();
+    final placeholderUrl = _getPlaceholderUrl();
+    final coverUrl = _getCoverUrl();
+    final originalSize = _formatBytes(_item.size);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSidebarRow(t(context, 'media_name'), _item.fileName),
         _buildSidebarRow(t(context, 'media_type'), _item.mimeType),
-        _buildSidebarRow(t(context, 'media_size'), _formatBytes(_item.size)),
-        _buildSidebarRow(
-          t(context, 'media_url'),
-          _item.url,
-          isSelectable: true,
+        _buildSidebarRow(t(context, 'media_size'), originalSize),
+        const SizedBox(height: 4),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        Text(
+          t(context, 'resource_urls'),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
         ),
+        const SizedBox(height: 10),
+        _buildUrlRow(
+          label: t(context, 'original_url'),
+          url: _item.url,
+          sizeText: originalSize,
+          badgeText: _item.isImage ? 'ORIGINAL' : null,
+          badgeColor: Colors.blueGrey,
+        ),
+        if (webpUrl != null && webpUrl.isNotEmpty)
+          _buildUrlRow(
+            label: t(context, 'webp_variant_url'),
+            url: webpUrl,
+            sizeText: _getVariantSize('webp'),
+            badgeText: 'WEBP',
+            badgeColor: Colors.green,
+          ),
+        if (placeholderUrl != null && placeholderUrl.isNotEmpty)
+          _buildUrlRow(
+            label: t(context, 'placeholder_variant_url'),
+            url: placeholderUrl,
+            sizeText: _getVariantSize('placeholder'),
+            badgeText: 'PREVIEW',
+            badgeColor: Colors.amber.shade800,
+          ),
+        if (coverUrl != null && coverUrl.isNotEmpty)
+          _buildUrlRow(
+            label: t(context, 'cover_variant_url'),
+            url: coverUrl,
+            sizeText: _getVariantSize('cover'),
+            badgeText: 'COVER',
+            badgeColor: Colors.purple,
+          ),
+        if (_item.metadata['processingWarning'] != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 8),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                border: Border.all(color: Colors.amber.shade300),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: Colors.amber.shade900,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _item.metadata['processingWarning'].toString(),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.amber.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         if (_item.requiresManualOriginal && !_loadOriginal)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -447,6 +519,149 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
             ),
           ),
       ],
+    );
+  }
+
+  String? _getWebpUrl() {
+    final thumb = _item.thumbnailUrl?.trim();
+    if (thumb != null && thumb.isNotEmpty) return thumb;
+    final meta = _item.metadata['webpUrl']?.toString().trim();
+    if (meta != null && meta.isNotEmpty) return meta;
+    return null;
+  }
+
+  String? _getPlaceholderUrl() {
+    final preview = _item.previewUrl?.trim();
+    if (preview != null && preview.isNotEmpty) return preview;
+    final meta = _item.metadata['placeholderUrl']?.toString().trim();
+    if (meta != null && meta.isNotEmpty) return meta;
+    return null;
+  }
+
+  String? _getCoverUrl() {
+    final meta = _item.metadata['coverUrl']?.toString().trim();
+    if (meta != null && meta.isNotEmpty) return meta;
+    return null;
+  }
+
+  String? _getVariantSize(String variantKey) {
+    for (final provider in _item.storageClasses.values) {
+      if (provider is Map) {
+        final variantData = provider[variantKey];
+        if (variantData is Map) {
+          final size = variantData['size'];
+          if (size is num) {
+            return _formatBytes(size.toInt());
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  Widget _buildUrlRow({
+    required String label,
+    required String url,
+    String? sizeText,
+    String? badgeText,
+    Color? badgeColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (sizeText != null && sizeText.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    sizeText,
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade800),
+                  ),
+                ),
+              ],
+              if (badgeText != null && badgeText.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (badgeColor ?? Colors.blue).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: badgeColor ?? Colors.blue.shade700,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: url));
+                  AdminFeedback.showSnackBar(
+                    context,
+                    SnackBar(content: Text(t(context, 'copy_success'))),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.copy_rounded,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        t(context, 'copy_url'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            url,
+            style: const TextStyle(fontSize: 12, color: Colors.black87),
+          ),
+        ],
+      ),
     );
   }
 
@@ -563,7 +778,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         if (_loadingRegions)
           const LinearProgressIndicator()
         else if (availableRegions.isEmpty)
-          const Text('暂无可用区域', style: TextStyle(fontSize: 12, color: Colors.grey))
+          const Text(
+            '暂无可用区域',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          )
         else ...[
           Row(
             children: [
@@ -618,9 +836,7 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.save, size: 18),
-        label: Text(
-          _savingRegionConstraints ? '保存中...' : '保存区域约束更改',
-        ),
+        label: Text(_savingRegionConstraints ? '保存中...' : '保存区域约束更改'),
       ),
     );
   }
