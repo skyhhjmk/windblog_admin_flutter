@@ -300,13 +300,6 @@ class _HomePageState extends State<HomePage> {
       ),
       _AdminNavigationItem(
         labelKey: null,
-        fallbackLabel: 'Codex Creator',
-        icon: Icons.auto_awesome_outlined,
-        selectedIcon: Icons.auto_awesome,
-        submenuParent: '系统设置',
-      ),
-      _AdminNavigationItem(
-        labelKey: null,
         fallbackLabel: '本地应用设置',
         icon: Icons.settings_suggest_outlined,
         selectedIcon: Icons.settings_suggest,
@@ -1458,20 +1451,15 @@ class _HomePageState extends State<HomePage> {
           onAuthError: widget.onAuthError,
         );
       case 31:
-        return CodexCreatorPage(
-          api: widget.api,
-          onAuthError: widget.onAuthError,
-        );
-      case 32:
         return LocalAppSettingsPage(api: widget.api, user: widget.user);
-      case 33:
+      case 32:
         return TranslationsPage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
-      case 34:
+      case 33:
         return ArticleMapPage(api: widget.api, onAuthError: widget.onAuthError);
-      case 35:
+      case 34:
         return HoneypotPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);

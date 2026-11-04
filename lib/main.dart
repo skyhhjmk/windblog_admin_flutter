@@ -114,7 +114,6 @@ part 'pages/seo_tools_page.dart';
 part 'pages/internal_link_graph_page.dart';
 part 'pages/security_services_page.dart';
 part 'pages/honeypot_page.dart';
-part 'pages/codex_creator_page.dart';
 part 'pages/topics_page.dart';
 part 'pages/translations_page.dart';
 part 'pages/article_map_page.dart';

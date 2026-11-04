@@ -435,7 +435,7 @@ class AdminNotificationController extends ChangeNotifier
   }) {
     final runId = toInt(run['id']);
     if (runId == null) return;
-    final taskId = 'codex-topic-run-$runId';
+    final taskId = 'ai-topic-run-$runId';
     final reopen = _taskDetailsReopen(taskId);
     final status = run['status']?.toString() ?? 'QUEUED';
     showPersistent(
@@ -445,7 +445,7 @@ class AdminNotificationController extends ChangeNotifier
       progressMode: AdminNotificationProgressMode.indeterminate,
       reopen: reopen,
       persistenceData: <String, dynamic>{
-        'type': 'codex-topic-run',
+        'type': 'ai-topic-run',
         'runId': runId,
       },
     );
@@ -480,7 +480,7 @@ class AdminNotificationController extends ChangeNotifier
   }) {
     final jobId = toInt(job['id']);
     if (jobId == null) return;
-    final taskId = 'codex-draft-job-$jobId';
+    final taskId = 'ai-draft-job-$jobId';
     final reopen = _taskDetailsReopen(taskId);
     final status = job['status']?.toString() ?? 'REQUESTED';
     showPersistent(
@@ -490,7 +490,7 @@ class AdminNotificationController extends ChangeNotifier
       progressMode: AdminNotificationProgressMode.indeterminate,
       reopen: reopen,
       persistenceData: <String, dynamic>{
-        'type': 'codex-draft-job',
+        'type': 'ai-draft-job',
         'jobId': jobId,
         'regeneration': regeneration,
       },
@@ -756,35 +756,32 @@ class AdminNotificationController extends ChangeNotifier
       return;
     }
     for (final record in records) {
-      if (record['type'] == 'codex-topic-run') {
+      if (record['type'] == 'ai-topic-run') {
         final runId = toInt(record['runId']);
         if (runId == null) continue;
         try {
-          trackTopicDiscovery(
-            api: api,
-            run: await api.codexCreatorTopicRun(runId),
-          );
+          trackTopicDiscovery(api: api, run: await api.aiTopicRun(runId));
         } catch (_) {
           trackTopicDiscovery(
             api: api,
             run: <String, dynamic>{'id': runId, 'status': 'QUEUED'},
           );
           updatePersistent(
-            taskId: 'codex-topic-run-$runId',
+            taskId: 'ai-topic-run-$runId',
             title: '话题生成等待恢复',
             message: '暂时无法获取服务端状态，将继续等待',
           );
         }
         continue;
       }
-      if (record['type'] == 'codex-draft-job') {
+      if (record['type'] == 'ai-draft-job') {
         final jobId = toInt(record['jobId']);
         if (jobId == null) continue;
         final regeneration = record['regeneration'] == true;
         try {
           trackDraftGeneration(
             api: api,
-            job: await api.codexCreatorDraftJob(jobId),
+            job: await api.aiTopicDraftJob(jobId),
             regeneration: regeneration,
           );
         } catch (_) {
@@ -794,7 +791,7 @@ class AdminNotificationController extends ChangeNotifier
             regeneration: regeneration,
           );
           updatePersistent(
-            taskId: 'codex-draft-job-$jobId',
+            taskId: 'ai-draft-job-$jobId',
             title: regeneration ? '草稿重新生成等待恢复' : '草稿生成等待恢复',
             message: '暂时无法获取服务端状态，将继续等待',
           );
@@ -839,7 +836,7 @@ class AdminNotificationController extends ChangeNotifier
     final notification = _findTask(taskId);
     if (notification == null || notification.completed) return;
     try {
-      final run = await api.codexCreatorTopicRun(runId);
+      final run = await api.aiTopicRun(runId);
       final status = run['status']?.toString() ?? '';
       if (status == 'SUCCEEDED' || status == 'FAILED') {
         completePersistent(
@@ -868,7 +865,7 @@ class AdminNotificationController extends ChangeNotifier
     final notification = _findTask(taskId);
     if (notification == null || notification.completed) return;
     try {
-      final job = await api.codexCreatorDraftJob(jobId);
+      final job = await api.aiTopicDraftJob(jobId);
       final status = job['status']?.toString() ?? '';
       if (status == 'DRAFT_CREATED' || status == 'FAILED') {
         completePersistent(

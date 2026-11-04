@@ -39,10 +39,8 @@ class _TopicsPageState extends State<TopicsPage>
   List<Map<String, dynamic>> _topics = [];
   List<Map<String, dynamic>> _assignedTopics = [];
   List<Map<String, dynamic>> _runs = [];
-  Map<String, dynamic> _models = {};
   List<AiProviderConfig> _aiProviders = [];
   int? _topicProviderId;
-  bool _loadingAiProviders = false;
 
   @override
   void initState() {
@@ -54,7 +52,6 @@ class _TopicsPageState extends State<TopicsPage>
   }
 
   Future<void> _loadAiProviders() async {
-    if (mounted) setState(() => _loadingAiProviders = true);
     try {
       final results = await Future.wait<Object?>([
         widget.api.listAiProviders(),
@@ -69,15 +66,8 @@ class _TopicsPageState extends State<TopicsPage>
           ? null
           : _intValue(_mapValue(setting.configValue)['topic']);
       if (!mounted) return;
-      // The internal Codex Creator entry has its own mode (Codex Creator), so
-      // it must never appear as an "API provider" option and must not be picked
-      // by default for provider-mode generation.
       final apiProviders = providers
-          .where(
-            (provider) =>
-                provider.enabled &&
-                provider.provider.toUpperCase() != 'CODEX_CREATOR',
-          )
+          .where((provider) => provider.enabled)
           .toList();
       setState(() {
         _aiProviders = apiProviders;
@@ -85,11 +75,8 @@ class _TopicsPageState extends State<TopicsPage>
             apiProviders.any((p) => p.id == configuredTopicProviderId)
             ? configuredTopicProviderId
             : null;
-        _loadingAiProviders = false;
       });
-    } catch (_) {
-      if (mounted) setState(() => _loadingAiProviders = false);
-    }
+    } catch (_) {}
   }
 
   @override
@@ -119,30 +106,24 @@ class _TopicsPageState extends State<TopicsPage>
       // The public admin endpoint sits behind a high-latency edge hop, so load
       // everything in parallel instead of paying one round trip per call.
       final results = await Future.wait<Map<String, dynamic>>([
-        widget.api.codexCreatorTopicAutomation(),
-        widget.api.codexCreatorModels(),
-        widget.api.codexCreatorTopics(
+        widget.api.aiTopicAutomation(),
+        widget.api.aiTopics(
           status: _topicStatus == 'ALL' ? null : _topicStatus,
           page: _topicPage,
           pageSize: _topicPageSize,
         ),
-        widget.api.codexCreatorTopicRuns(
-          page: _runPage,
-          pageSize: _runPageSize,
-        ),
+        widget.api.aiTopicRuns(page: _runPage, pageSize: _runPageSize),
       ]);
       if (!mounted) return;
       final automation = results[0];
-      final models = results[1];
-      final topics = results[2];
-      final runs = results[3];
+      final topics = results[1];
+      final runs = results[2];
 
       final topicPage = _intValue(topics['page']);
       final topicTotal = _intValue(topics['total']);
       final runTotal = _intValue(runs['total']);
       setState(() {
         _automation = automation;
-        _models = models;
         _seeds = _mapList(automation['seeds']);
         _topics = _mapList(topics['items']);
         _runs = _mapList(runs['items']);
@@ -181,7 +162,7 @@ class _TopicsPageState extends State<TopicsPage>
       });
     }
     try {
-      final topics = await widget.api.codexCreatorTopics(
+      final topics = await widget.api.aiTopics(
         status: _topicStatus == 'ALL' ? null : _topicStatus,
         page: _topicPage,
         pageSize: _topicPageSize,
@@ -210,7 +191,7 @@ class _TopicsPageState extends State<TopicsPage>
       });
     }
     try {
-      final runs = await widget.api.codexCreatorTopicRuns(
+      final runs = await widget.api.aiTopicRuns(
         page: _runPage,
         pageSize: _runPageSize,
       );
@@ -237,7 +218,7 @@ class _TopicsPageState extends State<TopicsPage>
   /// Fallback when a seed mutation response cannot be merged locally.
   Future<void> _reloadSeeds() async {
     try {
-      final automation = await widget.api.codexCreatorTopicAutomation();
+      final automation = await widget.api.aiTopicAutomation();
       if (!mounted) return;
       setState(() {
         _automation = automation;
@@ -290,7 +271,7 @@ class _TopicsPageState extends State<TopicsPage>
     }
 
     try {
-      final result = await widget.api.codexCreatorTopics(
+      final result = await widget.api.aiTopics(
         status: 'ASSIGNED',
         page: _assignedPage,
         pageSize: _assignedPageSize,
@@ -331,7 +312,7 @@ class _TopicsPageState extends State<TopicsPage>
     final settings = _mapValue(_automation?['settings']);
     if (mounted) setState(() => _saving = true);
     try {
-      final saved = await widget.api.updateCodexCreatorTopicAutomation({
+      final saved = await widget.api.updateAiTopicAutomation({
         'enabled': settings['enabled'] == true,
         'intervalMinutes': _intValue(settings['intervalMinutes']) ?? 360,
         'maxSeedsPerRun': _intValue(settings['maxSeedsPerRun']) ?? 5,
@@ -371,63 +352,41 @@ class _TopicsPageState extends State<TopicsPage>
         _intValue(_mapValue(_automation?['settings'])['maxTopicsPerRun']) ?? 20;
     setState(() => _saving = true);
     try {
-      if (choice.providerId != null) {
-        final seeds = _seeds
-            .where((seed) => seed['enabled'] != false)
-            .map(
-              (seed) => {
-                'id': _intValue(seed['id']),
-                'name': seed['name']?.toString() ?? '',
-                'query': seed['query']?.toString() ?? '',
-                'language': seed['language']?.toString() ?? 'zh-CN',
-              },
-            )
-            .where((seed) => (seed['id'] as int? ?? 0) > 0)
-            .toList();
-        // Provider discovery runs in the background. Keeping the HTTP request
-        // short avoids the public edge timeout (HTTP 554) for slow models.
-        final run = await widget.api.startCodexCreatorTopicRun(
-          providerId: choice.providerId,
-          maxTopics: maxTopics,
-          seeds: seeds,
+      final seeds = _seeds
+          .where((seed) => seed['enabled'] != false)
+          .map(
+            (seed) => {
+              'id': _intValue(seed['id']),
+              'name': seed['name']?.toString() ?? '',
+              'query': seed['query']?.toString() ?? '',
+              'language': seed['language']?.toString() ?? 'zh-CN',
+            },
+          )
+          .where((seed) => (seed['id'] as int? ?? 0) > 0)
+          .toList();
+      // Provider discovery runs in the background. Keeping the HTTP request
+      // short avoids the public edge timeout (HTTP 554) for slow models.
+      final run = await widget.api.startAiTopicRun(
+        providerId: choice.providerId,
+        maxTopics: maxTopics,
+        seeds: seeds,
+      );
+      if (!mounted) return;
+      final notifications = AdminNotificationScope.maybeOf(context);
+      notifications?.trackTopicDiscovery(
+        api: widget.api,
+        run: run,
+        onCompleted: () {
+          if (mounted) unawaited(_refreshDiscoveryData());
+        },
+      );
+      if (notifications == null) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('话题生成已提交：${run['status'] ?? 'QUEUED'}')),
         );
-        if (!mounted) return;
-        final notifications = AdminNotificationScope.maybeOf(context);
-        notifications?.trackTopicDiscovery(
-          api: widget.api,
-          run: run,
-          onCompleted: () {
-            if (mounted) unawaited(_refreshDiscoveryData());
-          },
-        );
-        if (notifications == null) {
-          AdminFeedback.showSnackBar(
-            context,
-            SnackBar(content: Text('话题生成已提交：${run['status'] ?? 'QUEUED'}')),
-          );
-        }
-        await _reloadRuns();
-      } else {
-        final run = await widget.api.startCodexCreatorTopicRun(
-          profileId: choice.profileId,
-        );
-        if (!mounted) return;
-        final notifications = AdminNotificationScope.maybeOf(context);
-        notifications?.trackTopicDiscovery(
-          api: widget.api,
-          run: run,
-          onCompleted: () {
-            if (mounted) unawaited(_refreshDiscoveryData());
-          },
-        );
-        if (notifications == null) {
-          AdminFeedback.showSnackBar(
-            context,
-            SnackBar(content: Text('话题生成已提交：${run['status'] ?? 'QUEUED'}')),
-          );
-        }
-        await _reloadRuns();
       }
+      await _reloadRuns();
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
@@ -443,30 +402,16 @@ class _TopicsPageState extends State<TopicsPage>
   }
 
   Future<_TopicRunChoice?> _chooseTopicRunMode() async {
-    final models = _modelOptions('topic');
-    if (models.isEmpty && _aiProviders.isEmpty) {
-      if (mounted) AdminFeedback.error(context, '没有可用于话题生成的模型或 AI 提供商');
+    if (_aiProviders.isEmpty) {
+      if (mounted) AdminFeedback.error(context, '没有可用的 AI 提供商或轮询组');
       return null;
     }
-    var mode = _aiProviders.isNotEmpty
-        ? 'provider'
-        : (models.isNotEmpty ? 'codex' : 'provider');
-    var profileId = models.isEmpty
-        ? null
-        : models
-              .firstWhere(
-                (model) => model['isDefault'] == true,
-                orElse: () => models.first,
-              )['profileId']
-              ?.toString();
-    int? providerId = _aiProviders.isEmpty
-        ? null
-        : _aiProviders
-              .firstWhere(
-                (provider) => provider.id == _topicProviderId,
-                orElse: () => _aiProviders.first,
-              )
-              .id;
+    int? providerId = _aiProviders
+        .firstWhere(
+          (provider) => provider.id == _topicProviderId,
+          orElse: () => _aiProviders.first,
+        )
+        .id;
     return showDialog<_TopicRunChoice>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -479,80 +424,31 @@ class _TopicsPageState extends State<TopicsPage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    models.isEmpty
-                        ? '选择本次话题生成的执行方式。当前使用 WindBlog 本地话题池，定时自动发现需 Codex Creator。'
-                        : '选择本次话题生成的执行方式。定时任务仍按原有配置运行。',
-                  ),
+                  const Text('选择本次话题生成使用的 AI 提供商或轮询组。生成在后台执行，完成后自动刷新。'),
                   const SizedBox(height: 12),
-                  SegmentedButton<String>(
-                    segments: [
-                      ButtonSegment(
-                        value: 'provider',
-                        icon: const Icon(Icons.cloud_outlined, size: 16),
-                        label: const Text('API 提供商'),
-                        enabled: _aiProviders.isNotEmpty,
-                      ),
-                      ButtonSegment(
-                        value: 'codex',
-                        icon: const Icon(Icons.auto_awesome, size: 16),
-                        label: const Text('Codex Creator'),
-                        enabled: models.isNotEmpty,
-                      ),
-                    ],
-                    selected: {mode},
-                    onSelectionChanged: (values) =>
-                        setDialogState(() => mode = values.first),
-                  ),
-                  const SizedBox(height: 12),
-                  if (mode == 'codex')
-                    DropdownButtonFormField<String>(
-                      initialValue: profileId,
-                      decoration: const InputDecoration(
-                        labelText: 'Codex 模型',
-                        prefixIcon: Icon(Icons.model_training),
-                      ),
-                      items: models
-                          .map(
-                            (model) => DropdownMenuItem<String>(
-                              value: model['profileId']?.toString(),
-                              child: Text(
-                                model['displayName']?.toString() ??
-                                    model['modelId']?.toString() ??
-                                    '未命名模型',
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) =>
-                          setDialogState(() => profileId = value),
-                    )
-                  else if (_loadingAiProviders)
-                    const LinearProgressIndicator()
-                  else
-                    DropdownButtonFormField<int>(
-                      initialValue: providerId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'AI 提供商 / 轮询组',
-                        prefixIcon: Icon(Icons.cloud_outlined),
-                        helperText: '支持单个提供商和轮询组；轮询组会按算法选择节点并在失败时自动切换。',
-                      ),
-                      items: _aiProviders
-                          .map(
-                            (provider) => DropdownMenuItem<int>(
-                              value: provider.id,
-                              child: Text(
-                                '${provider.name}（'
-                                '${provider.type == 'POLLING_GROUP' ? '轮询组' : provider.provider}）',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) =>
-                          setDialogState(() => providerId = value),
+                  DropdownButtonFormField<int>(
+                    initialValue: providerId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'AI 提供商 / 轮询组',
+                      prefixIcon: Icon(Icons.cloud_outlined),
+                      helperText: '支持单个提供商和轮询组；轮询组会按算法选择节点并在失败时自动切换。',
                     ),
+                    items: _aiProviders
+                        .map(
+                          (provider) => DropdownMenuItem<int>(
+                            value: provider.id,
+                            child: Text(
+                              '${provider.name}（'
+                              '${provider.type == 'POLLING_GROUP' ? '轮询组' : provider.provider}）',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) =>
+                        setDialogState(() => providerId = value),
+                  ),
                 ],
               ),
             ),
@@ -563,19 +459,12 @@ class _TopicsPageState extends State<TopicsPage>
               child: const Text('取消'),
             ),
             FilledButton(
-              onPressed: mode == 'codex'
-                  ? (profileId == null
-                        ? null
-                        : () => Navigator.pop(
-                            dialogContext,
-                            _TopicRunChoice(profileId: profileId),
-                          ))
-                  : (providerId == null
-                        ? null
-                        : () => Navigator.pop(
-                            dialogContext,
-                            _TopicRunChoice(providerId: providerId),
-                          )),
+              onPressed: providerId == null
+                  ? null
+                  : () => Navigator.pop(
+                      dialogContext,
+                      _TopicRunChoice(providerId: providerId),
+                    ),
               child: const Text('开始生成'),
             ),
           ],
@@ -595,8 +484,8 @@ class _TopicsPageState extends State<TopicsPage>
     try {
       final id = _intValue(seed?['id']);
       final saved = id == null
-          ? await widget.api.createCodexCreatorTopicSeed(result)
-          : await widget.api.updateCodexCreatorTopicSeed(id, result);
+          ? await widget.api.createAiTopicSeed(result)
+          : await widget.api.updateAiTopicSeed(id, result);
       if (!mounted) return;
       final savedId = _intValue(saved['id']);
       if (savedId == null) {
@@ -654,7 +543,7 @@ class _TopicsPageState extends State<TopicsPage>
 
     setState(() => _saving = true);
     try {
-      await widget.api.deleteCodexCreatorTopicSeed(id);
+      await widget.api.deleteAiTopicSeed(id);
       if (!mounted) return;
       setState(() {
         _seeds = _seeds.where((item) => _intValue(item['id']) != id).toList();
@@ -678,7 +567,7 @@ class _TopicsPageState extends State<TopicsPage>
     if (id == null) return;
     setState(() => _saving = true);
     try {
-      final updated = await widget.api.reviewCodexCreatorTopic(id, decision);
+      final updated = await widget.api.reviewAiTopic(id, decision);
       if (!mounted) return;
       if (updated.isEmpty) {
         await _reloadTopics();
@@ -702,50 +591,71 @@ class _TopicsPageState extends State<TopicsPage>
   Future<void> _assignDraft(Map<String, dynamic> topic) async {
     final topicId = _intValue(topic['id']);
     if (topicId == null) return;
-    final mode = await _chooseDraftMode();
-    if (mode == null || !mounted) return;
-    if (mode == 'provider') {
-      await _assignDraftWithProvider(topicId);
+    await _assignDraftWithProvider(topicId);
+  }
+
+  RepostPolicyItem _fallbackRepostPolicy() => const RepostPolicyItem(
+    code: RepostPolicyItem.defaultCode,
+    name: '转载前需申请授权',
+    nameEn: 'Request authorization before reposting',
+    licenseUrl: null,
+    requiresApplication: true,
+    summary: '转载前需要申请授权，并保留授权码、原文地址和文中 go/affiliate 链接。',
+    summaryEn:
+        'Request authorization before reposting and retain the license code, original URL, and go/affiliate links.',
+    conditions: ['转载前申请授权', '保留授权码、原文地址和文中 go/affiliate 链接'],
+    conditionsEn: [
+      'Authorization is required before reposting',
+      'Keep the license code, original URL, and go/affiliate links on the reposted page',
+    ],
+  );
+
+  Future<void> _assignDraftWithProvider(
+    int topicId, {
+    bool regenerate = false,
+  }) async {
+    if (_aiProviders.isEmpty) {
+      if (mounted) AdminFeedback.error(context, '没有可用的 AI 提供商或轮询组');
       return;
     }
-
-    List<Map<String, dynamic>> servers = const [];
     List<RepostPolicyItem> policies = const [];
     try {
-      final results = await Future.wait<Object>([
-        widget.api.codexCreatorTestServers(),
-        widget.api.listRepostPolicies(),
-      ]);
-      servers = results[0] as List<Map<String, dynamic>>;
-      policies = results[1] as List<RepostPolicyItem>;
+      policies = await widget.api.listRepostPolicies();
     } catch (_) {}
     if (policies.isEmpty) {
       policies = [_fallbackRepostPolicy()];
     }
     if (!mounted) return;
-
-    final request = await showDialog<_DraftRequest>(
+    final request = await showDialog<_ApiDraftRequest>(
       context: context,
-      builder: (_) => _DraftRequestDialog(
-        models: _modelOptions('article'),
-        servers: servers,
+      builder: (_) => _ApiDraftDialog(
+        providers: _aiProviders,
         policies: policies,
+        initialProviderId: _topicProviderId,
       ),
     );
     if (request == null || !mounted) return;
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _pollingMessage = 'AI 提供商正在生成文章草稿，请稍候…';
+    });
     try {
-      final job = await widget.api.startCodexCreatorDraft(
-        topicId,
-        language: request.language,
-        instructions: request.instructions,
-        profileId: request.profileId,
-        reasoningEffort: request.reasoningEffort,
-        repostPolicyCode: request.repostPolicyCode,
-        requiresPracticalVerification: request.practicalVerification,
-        testServerIds: request.testServerIds,
-      );
+      final job = regenerate
+          ? await widget.api.regenerateAiTopicDraft(
+              topicId,
+              providerId: request.providerId,
+              language: request.language,
+              instructions: request.instructions,
+              repostPolicyCode: request.repostPolicyCode,
+            )
+          : await widget.api.startAiTopicDraft(
+              topicId,
+              providerId: request.providerId,
+              language: request.language,
+              instructions: request.instructions,
+              repostPolicyCode: request.repostPolicyCode,
+            );
       final jobId = _intValue(job['id']);
       if (jobId == null) throw Exception('服务器没有返回草稿任务编号');
       if (!mounted) return;
@@ -753,6 +663,7 @@ class _TopicsPageState extends State<TopicsPage>
       notifications?.trackDraftGeneration(
         api: widget.api,
         job: job,
+        regeneration: regenerate,
         onCompleted: () {
           if (mounted) unawaited(_loadAssignedTopics());
         },
@@ -777,345 +688,16 @@ class _TopicsPageState extends State<TopicsPage>
     }
   }
 
-  RepostPolicyItem _fallbackRepostPolicy() => const RepostPolicyItem(
-    code: RepostPolicyItem.defaultCode,
-    name: '转载前需申请授权',
-    nameEn: 'Request authorization before reposting',
-    licenseUrl: null,
-    requiresApplication: true,
-    summary: '转载前需要申请授权，并保留授权码、原文地址和文中 go/affiliate 链接。',
-    summaryEn:
-        'Request authorization before reposting and retain the license code, original URL, and go/affiliate links.',
-    conditions: ['转载前申请授权', '保留授权码、原文地址和文中 go/affiliate 链接'],
-    conditionsEn: [
-      'Authorization is required before reposting',
-      'Keep the license code, original URL, and go/affiliate links on the reposted page',
-    ],
-  );
-
-  Future<String?> _chooseDraftMode() async {
-    final hasModels = _modelOptions('article').isNotEmpty;
-    final hasProviders = _aiProviders.isNotEmpty;
-    if (!hasModels) return 'provider';
-    if (!hasProviders) return 'codex';
-    var mode = 'provider';
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('选择文章生成方式'),
-          content: SizedBox(
-            width: 460,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'API 提供商使用 WindBlog 已配置的提供商或轮询组直接生成草稿；Codex Creator 使用其模型配置与质量校验。',
-                ),
-                const SizedBox(height: 12),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'provider',
-                      icon: Icon(Icons.cloud_outlined, size: 16),
-                      label: Text('API 提供商'),
-                    ),
-                    ButtonSegment(
-                      value: 'codex',
-                      icon: Icon(Icons.auto_awesome, size: 16),
-                      label: Text('Codex Creator'),
-                    ),
-                  ],
-                  selected: {mode},
-                  onSelectionChanged: (values) =>
-                      setDialogState(() => mode = values.first),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, mode),
-              child: const Text('继续'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _assignDraftWithProvider(int topicId) async {
-    List<RepostPolicyItem> policies = const [];
-    try {
-      policies = await widget.api.listRepostPolicies();
-    } catch (_) {}
-    if (policies.isEmpty) {
-      policies = [_fallbackRepostPolicy()];
-    }
-    if (!mounted) return;
-    final request = await showDialog<_ApiDraftRequest>(
-      context: context,
-      builder: (_) => _ApiDraftDialog(
-        providers: _aiProviders,
-        policies: policies,
-        initialProviderId: _topicProviderId,
-      ),
-    );
-    if (request == null || !mounted) return;
-
-    setState(() {
-      _saving = true;
-      _pollingMessage = 'AI 提供商正在生成文章草稿，请稍候…';
-    });
-    try {
-      final result = await widget.api.generateArticleWithAi(
-        topicId,
-        providerId: request.providerId,
-        language: request.language,
-        instructions: request.instructions,
-        repostPolicyCode: request.repostPolicyCode,
-      );
-      if (!mounted) return;
-      final postId = _intValue(result['postId']);
-      final warning = result['warning']?.toString().trim() ?? '';
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('草稿已生成'),
-          content: Text(
-            [
-              result['title']?.toString() ?? '文章草稿',
-              '',
-              warning,
-            ].where((value) => value.isNotEmpty).join('\n'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('稍后处理'),
-            ),
-            if (postId != null)
-              FilledButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  unawaited(_openPostEditor(postId));
-                },
-                child: const Text('打开文章'),
-              ),
-          ],
-        ),
-      );
-      if (!mounted) return;
-      if (postId != null) {
-        _applyTopicUpdate(topicId, {
-          'status': 'DRAFT_CREATED',
-          'postId': postId,
-          'articleJobStatus': 'DRAFT_CREATED',
-          'external': true,
-        });
-      } else {
-        await _reloadTopics();
-      }
-      await _loadAssignedTopics();
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (error) {
-      if (mounted) {
-        AdminFeedback.showSnackBar(
-          context,
-          SnackBar(content: Text('AI 生成草稿失败：$error')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _pollingMessage = null;
-        });
-      }
-    }
-  }
-
   Future<void> _regenerateDraft(Map<String, dynamic> topic) async {
     final topicId = _intValue(topic['id']);
     if (topicId == null) return;
-    final mode = await _chooseDraftMode();
-    if (mode == null || !mounted) return;
-    if (mode == 'provider') {
-      await _assignDraftWithProvider(topicId);
-      return;
-    }
-    final choice = await _chooseArticleGeneration(
-      title: '重新生成文章草稿',
-      description: '选择本次重新生成使用的模型和思考级别。新内容会写入同一篇草稿的新修订，旧修订仍保留。',
-    );
-    if (choice == null || !mounted) return;
-
-    setState(() => _saving = true);
-    try {
-      final job = await widget.api.regenerateCodexCreatorDraft(
-        topicId,
-        profileId: choice.profileId,
-        reasoningEffort: choice.reasoningEffort,
-      );
-      final jobId = _intValue(job['id']);
-      if (jobId == null) throw Exception('服务器没有返回草稿任务编号');
-      if (!mounted) return;
-      final notifications = AdminNotificationScope.maybeOf(context);
-      notifications?.trackDraftGeneration(
-        api: widget.api,
-        job: job,
-        regeneration: true,
-        onCompleted: () {
-          if (mounted) unawaited(_loadAssignedTopics());
-        },
-      );
-      if (notifications == null) await _pollDraft(jobId);
-    } on UnauthorizedException {
-      widget.onAuthError();
-    } catch (error) {
-      if (mounted) {
-        AdminFeedback.showSnackBar(
-          context,
-          SnackBar(content: Text('重新生成草稿失败：$error')),
-        );
-        await _loadAssignedTopics();
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _pollingMessage = null;
-        });
-      }
-    }
-  }
-
-  List<Map<String, dynamic>> _modelOptions(String operation) {
-    final values = _models[operation];
-    return _mapList(values);
-  }
-
-  Future<_ArticleGenerationChoice?> _chooseArticleGeneration({
-    required String title,
-    required String description,
-  }) async {
-    final models = _modelOptions('article');
-    if (models.isEmpty) {
-      if (mounted) AdminFeedback.error(context, '没有可用于文章生成的模型');
-      return null;
-    }
-    final saved = await StorageService.getLastArticleGenerationChoice();
-    if (!mounted) return null;
-    var profileId =
-        models.any(
-          (model) => model['profileId']?.toString() == saved['profileId'],
-        )
-        ? saved['profileId']
-        : models
-              .firstWhere(
-                (model) => model['isDefault'] == true,
-                orElse: () => models.first,
-              )['profileId']
-              ?.toString();
-    var reasoningEffort =
-        const {
-          'low',
-          'medium',
-          'high',
-          'xhigh',
-        }.contains(saved['reasoningEffort'])
-        ? saved['reasoningEffort']!
-        : 'high';
-    return showDialog<_ArticleGenerationChoice>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(title),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(description),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: profileId,
-                  decoration: const InputDecoration(
-                    labelText: '模型',
-                    prefixIcon: Icon(Icons.model_training),
-                  ),
-                  items: models
-                      .map(
-                        (model) => DropdownMenuItem<String>(
-                          value: model['profileId']?.toString(),
-                          child: Text(
-                            model['displayName']?.toString() ??
-                                model['modelId']?.toString() ??
-                                '',
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setDialogState(() => profileId = value),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: reasoningEffort,
-                  decoration: const InputDecoration(
-                    labelText: '思考级别',
-                    prefixIcon: Icon(Icons.psychology_outlined),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'low', child: Text('低')),
-                    DropdownMenuItem(value: 'medium', child: Text('中')),
-                    DropdownMenuItem(value: 'high', child: Text('高')),
-                    DropdownMenuItem(value: 'xhigh', child: Text('极高')),
-                  ],
-                  onChanged: (value) =>
-                      setDialogState(() => reasoningEffort = value ?? 'high'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: profileId == null
-                  ? null
-                  : () async {
-                      await StorageService.saveLastArticleGenerationChoice(
-                        profileId!,
-                        reasoningEffort,
-                      );
-                      if (dialogContext.mounted) {
-                        Navigator.pop(
-                          dialogContext,
-                          _ArticleGenerationChoice(profileId!, reasoningEffort),
-                        );
-                      }
-                    },
-              child: const Text('继续'),
-            ),
-          ],
-        ),
-      ),
-    );
+    await _assignDraftWithProvider(topicId, regenerate: true);
   }
 
   Future<void> _pollDraft(int jobId) async {
     try {
       for (var attempt = 0; attempt < 60; attempt++) {
-        final job = await widget.api.codexCreatorDraftJob(jobId);
+        final job = await widget.api.aiTopicDraftJob(jobId);
         final status = job['status']?.toString() ?? '';
         if (status == 'DRAFT_CREATED') {
           await _showDraftCompleted(job);
@@ -1150,7 +732,7 @@ class _TopicsPageState extends State<TopicsPage>
         title: const Text('草稿已生成'),
         content: Text(
           postId == null
-              ? 'Codex Creator 已完成文章生成，WindBlog 草稿正在同步。'
+              ? 'AI 提供商已完成文章生成，WindBlog 草稿正在同步。'
               : '草稿已保存为文章 #$postId，状态仍为草稿，可以继续编辑。',
         ),
         actions: [
@@ -1402,7 +984,7 @@ class _TopicsPageState extends State<TopicsPage>
       'DRAFT_CREATED' =>
         external ? '草稿由 AI 提供商生成并保存，可在文章管理中继续编辑。' : '草稿已生成并保存，可在文章管理中继续编辑。',
       'FAILED' => error.isEmpty ? '草稿生成失败，可调整模型后重新生成。' : '草稿生成失败：$error',
-      _ => 'Codex 正在生成草稿，请稍后刷新任务。',
+      _ => 'AI 提供商正在生成草稿，请稍后刷新任务。',
     };
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1494,7 +1076,7 @@ class _TopicsPageState extends State<TopicsPage>
             _sectionHeader(
               '主题自动化',
               localTopicPool
-                  ? '当前使用 WindBlog 本地话题池：以下参数用于“立即运行”，固定周期自动搜索仍由 Codex Creator 执行。'
+                  ? '以下参数用于“立即运行”；话题发现会在后台使用所选 AI 提供商执行。'
                   : '默认关闭。手动立即运行不会改变定时开关；每次运行只使用启用的主题查询种子。',
               icon: Icons.schedule,
               action: FilledButton.icon(
@@ -1509,7 +1091,7 @@ class _TopicsPageState extends State<TopicsPage>
               title: const Text('启用固定周期自动搜索'),
               subtitle: Text(
                 localTopicPool
-                    ? '本地话题池模式下不可用；请使用 Codex Creator 话题池启用定时自动搜索。'
+                    ? '定时自动搜索由 WindBlog 后台调度执行。'
                     : '调度器会在服务端使用 Redis 锁和数据库幂等键避免多实例重复执行。',
               ),
               value: enabled && !localTopicPool,
@@ -2100,7 +1682,7 @@ class _TopicsPageState extends State<TopicsPage>
             ),
             const SizedBox(height: 5),
             if (latestEvents.isEmpty)
-              const Text('任务已排队，等待 Codex 开始执行。')
+              const Text('任务已排队，等待后台开始执行。')
             else
               ...latestEvents.map((event) {
                 final message = event['message']?.toString() ?? '正在执行';
@@ -2200,7 +1782,7 @@ class _TopicsPageState extends State<TopicsPage>
       child: const Padding(
         padding: EdgeInsets.all(18),
         child: Text(
-          '说明：主题搜索只保存标题、理由、关键词、来源 URL 和检索证据，不保存整页网页内容；文章只有管理员在本页确认后才会生成，生成结果始终是 DRAFT。浏览器不会接触 Codex Creator 管理 token，父子服务之间继续使用签名内部请求。',
+          '说明：主题搜索只保存标题、理由、关键词、来源 URL 和检索证据，不保存整页网页内容；文章只有管理员在本页确认后才会生成，生成结果始终是 DRAFT。所有生成请求都由 WindBlog 配置的 AI 提供商执行。',
         ),
       ),
     );
@@ -2556,328 +2138,8 @@ class _TopicSeedDialogState extends State<_TopicSeedDialog> {
   }
 }
 
-class _DraftRequest {
-  const _DraftRequest({
-    required this.language,
-    required this.instructions,
-    required this.profileId,
-    required this.reasoningEffort,
-    required this.repostPolicyCode,
-    required this.practicalVerification,
-    required this.testServerIds,
-  });
-
-  final String language;
-  final String instructions;
-  final String profileId;
-  final String reasoningEffort;
-  final String repostPolicyCode;
-  final bool practicalVerification;
-  final List<int> testServerIds;
-}
-
-class _ArticleGenerationChoice {
-  const _ArticleGenerationChoice(this.profileId, this.reasoningEffort);
-
-  final String profileId;
-  final String reasoningEffort;
-}
-
-class _DraftRequestDialog extends StatefulWidget {
-  const _DraftRequestDialog({
-    required this.models,
-    required this.servers,
-    required this.policies,
-  });
-
-  final List<Map<String, dynamic>> models;
-  final List<Map<String, dynamic>> servers;
-  final List<RepostPolicyItem> policies;
-
-  @override
-  State<_DraftRequestDialog> createState() => _DraftRequestDialogState();
-}
-
-class _DraftRequestDialogState extends State<_DraftRequestDialog> {
-  late final TextEditingController _languageController;
-  late final TextEditingController _instructionsController;
-  String? _profileId;
-  String _reasoningEffort = 'high';
-  String _repostPolicyCode = RepostPolicyItem.defaultCode;
-  String? _error;
-  bool _practicalVerification = false;
-  final Set<int> _testServerIds = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _languageController = TextEditingController(text: 'zh-CN');
-    _instructionsController = TextEditingController();
-    if (widget.models.isNotEmpty) {
-      _profileId = widget.models
-          .firstWhere(
-            (model) => model['isDefault'] == true,
-            orElse: () => widget.models.first,
-          )['profileId']
-          ?.toString();
-    }
-    _restoreLastGenerationChoice();
-  }
-
-  Future<void> _restoreLastGenerationChoice() async {
-    final saved = await StorageService.getLastArticleGenerationChoice();
-    if (!mounted) return;
-    final savedProfileId = saved['profileId'];
-    final exists = widget.models.any(
-      (model) => model['profileId']?.toString() == savedProfileId,
-    );
-    setState(() {
-      if (exists) _profileId = savedProfileId;
-      final savedEffort = saved['reasoningEffort'];
-      if (const {'low', 'medium', 'high', 'xhigh'}.contains(savedEffort)) {
-        _reasoningEffort = savedEffort!;
-      }
-      final savedPolicy = saved['repostPolicyCode'];
-      if (widget.policies.any((policy) => policy.code == savedPolicy)) {
-        _repostPolicyCode = savedPolicy!;
-      } else if (widget.policies.any(
-        (policy) => policy.code == RepostPolicyItem.defaultCode,
-      )) {
-        _repostPolicyCode = RepostPolicyItem.defaultCode;
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _languageController.dispose();
-    _instructionsController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final language = _languageController.text.trim();
-    if (language.isEmpty) {
-      setState(() => _error = '请填写文章语言');
-      return;
-    }
-    if (_profileId == null) {
-      setState(() => _error = '请选择生成模型');
-      return;
-    }
-    if (_practicalVerification && _testServerIds.isEmpty) {
-      setState(() => _error = '请选择至少一台验证用服务器');
-      return;
-    }
-    StorageService.saveLastArticleGenerationChoice(
-      _profileId!,
-      _reasoningEffort,
-      _repostPolicyCode,
-    );
-    Navigator.pop(
-      context,
-      _DraftRequest(
-        language: language,
-        instructions: _instructionsController.text.trim(),
-        profileId: _profileId!,
-        reasoningEffort: _reasoningEffort,
-        repostPolicyCode: _repostPolicyCode,
-        practicalVerification: _practicalVerification,
-        testServerIds: _testServerIds.toList(),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('指派并生成文章草稿'),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('分类由 Codex 自动选择或创建；如果没有合适分类，将归入“未分类”。'),
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('需要实操验证'),
-                subtitle: const Text('让 Codex 在验证用服务器执行命令，并将脱敏的真实结果自然写入文章。'),
-                value: _practicalVerification,
-                onChanged: (value) =>
-                    setState(() => _practicalVerification = value),
-              ),
-              if (_practicalVerification) ...[
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('验证用服务器（可多选）'),
-                ),
-                if (widget.servers
-                    .where((server) => server['enabled'] == true)
-                    .isEmpty)
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '暂无可用服务器，请先到 Codex Creator 添加。',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ...widget.servers.where((server) => server['enabled'] == true).map((
-                  server,
-                ) {
-                  final id = int.tryParse(server['id']?.toString() ?? '');
-                  if (id == null) return const SizedBox.shrink();
-                  return CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _testServerIds.contains(id),
-                    title: Text(server['name']?.toString() ?? '未命名服务器'),
-                    subtitle: Text(
-                      '${server['sshUser'] ?? 'root'}@${server['host']}:${server['sshPort'] ?? 22}',
-                    ),
-                    onChanged: (checked) => setState(() {
-                      if (checked == true) {
-                        _testServerIds.add(id);
-                      } else {
-                        _testServerIds.remove(id);
-                      }
-                    }),
-                  );
-                }),
-              ],
-              TextField(
-                controller: _languageController,
-                decoration: const InputDecoration(
-                  labelText: '文章语言',
-                  hintText: 'zh-CN',
-                ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: ValueKey('article-repost-policy-$_repostPolicyCode'),
-                initialValue: _repostPolicyCode,
-                decoration: const InputDecoration(
-                  labelText: '转载协议',
-                  prefixIcon: Icon(Icons.copyright_outlined),
-                ),
-                items: widget.policies
-                    .map(
-                      (policy) => DropdownMenuItem<String>(
-                        value: policy.code,
-                        child: Text(
-                          Localizations.localeOf(context).languageCode == 'en'
-                              ? policy.nameEn
-                              : policy.name,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() {
-                  _repostPolicyCode = value ?? RepostPolicyItem.defaultCode;
-                }),
-              ),
-              Builder(
-                builder: (context) {
-                  final policy = widget.policies.firstWhere(
-                    (item) => item.code == _repostPolicyCode,
-                    orElse: () => widget.policies.first,
-                  );
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        Localizations.localeOf(context).languageCode == 'en'
-                            ? policy.summaryEn
-                            : policy.summary,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: ValueKey('article-model-$_profileId'),
-                initialValue: _profileId,
-                decoration: const InputDecoration(
-                  labelText: '生成模型',
-                  prefixIcon: Icon(Icons.model_training),
-                ),
-                items: widget.models
-                    .map(
-                      (model) => DropdownMenuItem<String>(
-                        value: model['profileId']?.toString(),
-                        child: Text(
-                          model['displayName']?.toString() ??
-                              model['modelId']?.toString() ??
-                              '未命名模型',
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _profileId = value),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: ValueKey('article-effort-$_reasoningEffort'),
-                initialValue: _reasoningEffort,
-                decoration: const InputDecoration(
-                  labelText: '思考级别',
-                  prefixIcon: Icon(Icons.psychology_alt_outlined),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'low', child: Text('低：更快')),
-                  DropdownMenuItem(value: 'medium', child: Text('中：平衡')),
-                  DropdownMenuItem(value: 'high', child: Text('高：更深入')),
-                  DropdownMenuItem(value: 'xhigh', child: Text('极高：最深入')),
-                ],
-                onChanged: (value) =>
-                    setState(() => _reasoningEffort = value ?? 'high'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _instructionsController,
-                maxLines: 5,
-                maxLength: 4000,
-                decoration: const InputDecoration(
-                  labelText: '写作要求（可选）',
-                  hintText: '例如：面向开发者，保留引用来源，使用小标题。',
-                ),
-              ),
-              if (_error != null)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.auto_awesome),
-          label: const Text('开始生成'),
-        ),
-      ],
-    );
-  }
-}
-
 class _TopicRunChoice {
-  const _TopicRunChoice({this.profileId, this.providerId});
-  final String? profileId;
+  const _TopicRunChoice({this.providerId});
   final int? providerId;
 }
 

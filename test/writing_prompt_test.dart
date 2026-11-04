@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:windblog_admin_flutter/services/local_codex/writing_prompt.dart';
+import 'package:windblog_admin_flutter/services/writing_prompt.dart';
 
 void main() {
   String build(String template, {String task = '润色', bool html = false}) =>

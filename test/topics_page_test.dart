@@ -54,14 +54,8 @@ void main() {
 
     await tester.tap(find.text('指派并生成草稿'));
     await tester.pumpAndSettle();
-    expect(find.text('选择文章生成方式'), findsOneWidget);
-    await tester.tap(find.text('Codex Creator'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('继续'));
-    await tester.pumpAndSettle();
-    expect(find.text('生成模型'), findsOneWidget);
-    expect(find.text('Codex 自动'), findsOneWidget);
-    expect(find.text('high'), findsNothing);
+    expect(find.text('使用 API 提供商生成草稿'), findsOneWidget);
+    expect(find.textContaining('话题轮询组'), findsOneWidget);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
 
@@ -158,11 +152,6 @@ void main() {
     await tester.ensureVisible(find.text('立即运行'));
     await tester.tap(find.text('立即运行'));
     await tester.pumpAndSettle();
-    expect(find.text('Codex Creator'), findsOneWidget);
-    expect(find.text('API 提供商'), findsOneWidget);
-
-    await tester.tap(find.text('API 提供商'));
-    await tester.pumpAndSettle();
     expect(find.textContaining('话题轮询组'), findsOneWidget);
 
     await tester.tap(find.text('开始生成'));
@@ -195,22 +184,14 @@ void main() {
 
     await tester.tap(find.text('重新生成'));
     await tester.pumpAndSettle();
-    expect(find.text('Codex Creator'), findsOneWidget);
-    expect(find.text('API 提供商'), findsOneWidget);
-
-    await tester.tap(find.text('API 提供商'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('继续'));
-    await tester.pumpAndSettle();
-
     expect(find.text('使用 API 提供商生成草稿'), findsOneWidget);
     expect(find.textContaining('话题轮询组'), findsOneWidget);
 
     await tester.tap(find.text('开始生成'));
     await tester.pumpAndSettle();
 
-    expect(api.generateArticleCalls, 1);
-    expect(api.lastGenerateArticleProviderId, 21);
+    expect(api.regenerateArticleCalls, 1);
+    expect(api.lastRegenerateArticleProviderId, 21);
   });
 
   testWidgets('添加种子后只更新本地状态，不触发整页重载', (WidgetTester tester) async {
@@ -262,8 +243,9 @@ class _TopicsApiStub extends AdminApiClient {
   int? requestedPostId;
   int discoverCalls = 0;
   int? lastDiscoveryProviderId;
-  int generateArticleCalls = 0;
-  int? lastGenerateArticleProviderId;
+  int startDraftCalls = 0;
+  int regenerateArticleCalls = 0;
+  int? lastRegenerateArticleProviderId;
   int automationCalls = 0;
   int createSeedCalls = 0;
   int startTopicRunCalls = 0;
@@ -272,17 +254,71 @@ class _TopicsApiStub extends AdminApiClient {
   int lastStartTopicRunSeedCount = 0;
 
   @override
-  Future<Map<String, dynamic>> generateArticleWithAi(
+  Future<Map<String, dynamic>> startAiTopicDraft(
+    int topicId, {
+    int? providerId,
+    String language = 'zh-CN',
+    String instructions = '',
+    String? repostPolicyCode,
+    String? stepUpToken,
+  }) async {
+    startDraftCalls++;
+    return {
+      'id': 41,
+      'topicId': topicId,
+      'status': 'QUEUED',
+      'postId': null,
+      'error': '',
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> regenerateAiTopicDraft(
     int topicId, {
     int? providerId,
     String? language,
     String? instructions,
     String? repostPolicyCode,
+    String? stepUpToken,
   }) async {
-    generateArticleCalls++;
-    lastGenerateArticleProviderId = providerId;
-    return {'postId': 9, 'title': '已重新生成文章草稿', 'slug': 'regenerated-article'};
+    regenerateArticleCalls++;
+    lastRegenerateArticleProviderId = providerId;
+    return {
+      'id': 42,
+      'topicId': topicId,
+      'status': 'QUEUED',
+      'postId': null,
+      'error': '',
+    };
   }
+
+  @override
+  Future<Map<String, dynamic>> aiTopicDraftJob(int id) async => {
+    'id': id,
+    'topicId': 1,
+    'status': 'DRAFT_CREATED',
+    'postId': 9,
+    'title': '已重新生成文章草稿',
+    'summary': '',
+    'error': '',
+  };
+
+  @override
+  Future<Map<String, dynamic>> aiTopicRun(int id) async => {
+    'id': id,
+    'trigger': 'MANUAL',
+    'status': 'SUCCEEDED',
+    'seedCount': 0,
+    'topicCount': 0,
+    'error': '',
+  };
+
+  @override
+  Future<Map<String, dynamic>> aiTopic(int id) async => {
+    'id': id,
+    'title': '测试话题',
+    'status': 'SUGGESTED',
+  };
 
   @override
   Future<List<RepostPolicyItem>> listRepostPolicies() async => [
@@ -310,29 +346,9 @@ class _TopicsApiStub extends AdminApiClient {
   ];
 
   @override
-  Future<Map<String, dynamic>> discoverTopicsWithAi({
-    int? providerId,
-    int maxTopics = 10,
-    String language = 'zh-CN',
-    List<Map<String, dynamic>> seeds = const [],
-  }) async {
-    discoverCalls++;
-    lastDiscoveryProviderId = providerId;
-    return {
-      'success': true,
-      'created': 1,
-      'updated': 0,
-      'total': 1,
-      'topics': [],
-    };
-  }
-
-  @override
-  Future<Map<String, dynamic>> startCodexCreatorTopicRun({
+  Future<Map<String, dynamic>> startAiTopicRun({
     String? stepUpToken,
     String? idempotencyKey,
-    String? profileId,
-    bool forceQuota = false,
     int? providerId,
     int? maxTopics,
     List<Map<String, dynamic>> seeds = const [],
@@ -353,29 +369,7 @@ class _TopicsApiStub extends AdminApiClient {
   }
 
   @override
-  Future<Map<String, dynamic>> codexCreatorModels() async => {
-    'topic': [
-      {
-        'profileId': 'codex-default',
-        'modelId': 'auto',
-        'displayName': 'Codex 自动',
-        'reasoningEffort': 'high',
-        'isDefault': true,
-      },
-    ],
-    'article': [
-      {
-        'profileId': 'codex-default',
-        'modelId': 'auto',
-        'displayName': 'Codex 自动',
-        'reasoningEffort': 'high',
-        'isDefault': true,
-      },
-    ],
-  };
-
-  @override
-  Future<Map<String, dynamic>> createCodexCreatorTopicSeed(
+  Future<Map<String, dynamic>> createAiTopicSeed(
     Map<String, dynamic> body, {
     String? stepUpToken,
   }) async {
@@ -384,7 +378,7 @@ class _TopicsApiStub extends AdminApiClient {
   }
 
   @override
-  Future<Map<String, dynamic>> codexCreatorTopicAutomation() async {
+  Future<Map<String, dynamic>> aiTopicAutomation() async {
     automationCalls++;
     return {
       'settings': {
@@ -414,7 +408,7 @@ class _TopicsApiStub extends AdminApiClient {
   }
 
   @override
-  Future<Map<String, dynamic>> codexCreatorTopics({
+  Future<Map<String, dynamic>> aiTopics({
     String? status,
     int page = 1,
     int pageSize = 20,
@@ -485,7 +479,7 @@ class _TopicsApiStub extends AdminApiClient {
   }
 
   @override
-  Future<Map<String, dynamic>> codexCreatorTopicRuns({
+  Future<Map<String, dynamic>> aiTopicRuns({
     int page = 1,
     int pageSize = 20,
   }) async => {

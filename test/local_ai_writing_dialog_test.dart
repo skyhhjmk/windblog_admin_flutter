@@ -24,24 +24,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('select custom model and edit/reset full prompt', (tester) async {
+  testWidgets('edit and reset the custom prompt template', (tester) async {
     tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
-          body: LocalAiWritingDialog(title: '测试', content: '正文', html: false),
+          body: LocalAiWritingDialog(
+            title: '测试',
+            content: '正文',
+            html: false,
+            api: _WritingApi(),
+          ),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('跟随 Codex 默认配置'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('自定义模型…').last);
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(TextField, '模型 ID'), findsOneWidget);
     await tester.ensureVisible(find.text('高级选项 · 自定义提示词'));
     await tester.tap(find.text('高级选项 · 自定义提示词'));
     await tester.pumpAndSettle();
@@ -122,8 +122,6 @@ void _registerProviderModeTest() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('API 提供商'));
-    await tester.pumpAndSettle();
     expect(find.textContaining('主写作轮询组'), findsOneWidget);
 
     await tester.tap(find.text('生成'));

@@ -135,178 +135,112 @@ class AdminApiClient {
     return _map(jsonDecode(res.body));
   }
 
-  Future<Map<String, dynamic>> codexCreatorStatus() async {
-    final res = await _get('/api/admin/codex-creator/status');
-    return _map(jsonDecode(res.body));
+  Future<Map<String, dynamic>> aiTopicAutomation() async {
+    final res = await _get('/api/admin/ai/topics/automation');
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<Map<String, dynamic>> codexCreatorQuota() async {
-    final res = await _get('/api/admin/codex-creator/quota');
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
-  }
-
-  Future<Map<String, dynamic>> codexCreatorConfig() async {
-    final res = await _get('/api/admin/codex-creator/config');
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
-  }
-
-  Future<Map<String, dynamic>> updateCodexCreatorConfig({
-    required String endpoint,
-    required bool enabled,
-    String? sharedSecret,
-    String? model,
-    String? stepUpToken,
-  }) async {
-    final body = <String, dynamic>{'endpoint': endpoint, 'enabled': enabled};
-    if (sharedSecret != null) {
-      body['sharedSecret'] = sharedSecret;
-    }
-    if (model != null) {
-      body['model'] = model;
-    }
-    final res = await _put(
-      '/api/admin/codex-creator/config',
-      body: body,
-      stepUpToken: stepUpToken,
-      idempotencyKey: _newIdempotencyKey(),
-    );
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
-  }
-
-  Future<Map<String, dynamic>> codexCreatorTopicAutomation() async {
-    final res = await _get('/api/admin/codex-creator/topic-automation');
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
-  }
-
-  Future<Map<String, dynamic>> updateCodexCreatorTopicAutomation(
+  Future<Map<String, dynamic>> updateAiTopicAutomation(
     Map<String, dynamic> body, {
     String? stepUpToken,
   }) async {
     final res = await _put(
-      '/api/admin/codex-creator/topic-automation',
+      '/api/admin/ai/topics/automation',
       body: body,
       stepUpToken: stepUpToken,
       idempotencyKey: _newIdempotencyKey(),
     );
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<Map<String, dynamic>> createCodexCreatorTopicSeed(
+  Future<Map<String, dynamic>> createAiTopicSeed(
     Map<String, dynamic> body, {
     String? stepUpToken,
   }) async {
     final res = await _post(
-      '/api/admin/codex-creator/topic-seeds',
+      '/api/admin/ai/topics/seeds',
       body: body,
       stepUpToken: stepUpToken,
       idempotencyKey: _newIdempotencyKey(),
     );
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<Map<String, dynamic>> updateCodexCreatorTopicSeed(
+  Future<Map<String, dynamic>> updateAiTopicSeed(
     int id,
     Map<String, dynamic> body, {
     String? stepUpToken,
   }) async {
     final res = await _put(
-      '/api/admin/codex-creator/topic-seeds/$id',
+      '/api/admin/ai/topics/seeds/$id',
       body: body,
       stepUpToken: stepUpToken,
       idempotencyKey: _newIdempotencyKey(),
     );
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<void> deleteCodexCreatorTopicSeed(
-    int id, {
-    String? stepUpToken,
-  }) async {
-    await _delete(
-      '/api/admin/codex-creator/topic-seeds/$id',
-      stepUpToken: stepUpToken,
-      idempotencyKey: _newIdempotencyKey(),
-    );
-  }
+  Future<void> deleteAiTopicSeed(int id, {String? stepUpToken}) => _delete(
+    '/api/admin/ai/topics/seeds/$id',
+    stepUpToken: stepUpToken,
+    idempotencyKey: _newIdempotencyKey(),
+  );
 
-  Future<Map<String, dynamic>> startCodexCreatorTopicRun({
+  Future<Map<String, dynamic>> startAiTopicRun({
     String? stepUpToken,
     String? idempotencyKey,
-    String? profileId,
-    bool forceQuota = false,
     int? providerId,
     int? maxTopics,
     List<Map<String, dynamic>> seeds = const [],
     String language = 'zh-CN',
   }) async {
-    final body = <String, dynamic>{'forceQuota': forceQuota};
-    if (profileId != null && profileId.isNotEmpty) {
-      body['profileId'] = profileId;
-    }
+    final body = <String, dynamic>{};
     if (providerId != null) body['providerId'] = providerId;
     if (maxTopics != null) body['maxTopics'] = maxTopics;
     if (seeds.isNotEmpty) body['seeds'] = seeds;
     if (language.isNotEmpty) body['language'] = language;
     final res = await _post(
-      '/api/admin/codex-creator/topic-runs',
+      '/api/admin/ai/topics/runs',
       body: body,
       stepUpToken: stepUpToken,
       idempotencyKey: idempotencyKey ?? _newIdempotencyKey(),
     );
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<Map<String, dynamic>> codexCreatorModels() async {
-    final res = await _get('/api/admin/codex-creator/models');
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
-  }
-
-  Future<Map<String, dynamic>> codexCreatorTopicRuns({
+  Future<Map<String, dynamic>> aiTopicRuns({
     int page = 1,
     int pageSize = 20,
   }) async {
     final res = await _get(
-      '/api/admin/codex-creator/topic-runs',
+      '/api/admin/ai/topics/runs',
       query: {'page': '$page', 'pageSize': '$pageSize'},
     );
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<Map<String, dynamic>> codexCreatorTopicRun(int id) async {
-    final res = await _get('/api/admin/codex-creator/topic-runs/$id');
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
+  Future<Map<String, dynamic>> aiTopicRun(int id) async {
+    final res = await _get('/api/admin/ai/topics/runs/$id');
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<Map<String, dynamic>> codexCreatorTopics({
+  Future<Map<String, dynamic>> aiTopics({
     String? status,
     int page = 1,
     int pageSize = 20,
   }) async {
     final query = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
     if (status != null && status.isNotEmpty) query['status'] = status;
-    final res = await _get('/api/admin/codex-creator/topics', query: query);
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
+    final res = await _get('/api/admin/ai/topics', query: query);
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<Map<String, dynamic>> codexCreatorTopic(int id) async {
-    final res = await _get('/api/admin/codex-creator/topics/$id');
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
+  Future<Map<String, dynamic>> aiTopic(int id) async {
+    final res = await _get('/api/admin/ai/topics/$id');
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<Map<String, dynamic>> reviewCodexCreatorTopic(
+  Future<Map<String, dynamic>> reviewAiTopic(
     int id,
     String decision, {
     String? note,
@@ -315,130 +249,67 @@ class AdminApiClient {
     final body = <String, dynamic>{'decision': decision};
     if (note != null && note.trim().isNotEmpty) body['note'] = note.trim();
     final res = await _post(
-      '/api/admin/codex-creator/topics/$id/review',
+      '/api/admin/ai/topics/$id/review',
       body: body,
       stepUpToken: stepUpToken,
       idempotencyKey: _newIdempotencyKey(),
     );
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
+    return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<Map<String, dynamic>> startCodexCreatorDraft(
+  Future<Map<String, dynamic>> startAiTopicDraft(
     int topicId, {
-    int? categoryId,
+    int? providerId,
     String language = 'zh-CN',
     String instructions = '',
-    String? profileId,
-    String? reasoningEffort,
     String? repostPolicyCode,
-    bool requiresPracticalVerification = false,
-    List<int> testServerIds = const [],
-    bool forceQuota = false,
     String? stepUpToken,
   }) async {
-    final body = <String, dynamic>{
-      'language': language,
-      'instructions': instructions,
-      'requiresPracticalVerification': requiresPracticalVerification,
-      'testServerIds': testServerIds,
-      'forceQuota': forceQuota,
-    };
-    if (categoryId != null) body['categoryId'] = categoryId;
-    if (profileId != null && profileId.isNotEmpty) {
-      body['profileId'] = profileId;
+    final body = <String, dynamic>{'language': language};
+    if (providerId != null) body['providerId'] = providerId;
+    if (instructions.isNotEmpty) body['instructions'] = instructions;
+    if (repostPolicyCode != null && repostPolicyCode.isNotEmpty) {
+      body['repostPolicyCode'] = repostPolicyCode;
     }
-    if (reasoningEffort != null && reasoningEffort.isNotEmpty) {
-      body['reasoningEffort'] = reasoningEffort;
+    final res = await _post(
+      '/api/admin/ai/topics/$topicId/draft',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    return _map(_map(jsonDecode(res.body))['data']);
+  }
+
+  Future<Map<String, dynamic>> regenerateAiTopicDraft(
+    int topicId, {
+    int? providerId,
+    String? language,
+    String? instructions,
+    String? repostPolicyCode,
+    String? stepUpToken,
+  }) async {
+    final body = <String, dynamic>{};
+    if (providerId != null) body['providerId'] = providerId;
+    if (language != null && language.isNotEmpty) body['language'] = language;
+    if (instructions != null && instructions.isNotEmpty) {
+      body['instructions'] = instructions;
     }
     if (repostPolicyCode != null && repostPolicyCode.isNotEmpty) {
       body['repostPolicyCode'] = repostPolicyCode;
     }
     final res = await _post(
-      '/api/admin/codex-creator/topics/$topicId/draft',
+      '/api/admin/ai/topics/$topicId/draft/regenerate',
       body: body,
       stepUpToken: stepUpToken,
       idempotencyKey: _newIdempotencyKey(),
     );
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
-  }
-
-  Future<Map<String, dynamic>> regenerateCodexCreatorDraft(
-    int topicId, {
-    String? profileId,
-    String? reasoningEffort,
-    bool forceQuota = false,
-    String? stepUpToken,
-  }) async {
-    final body = <String, dynamic>{};
-    body['forceQuota'] = forceQuota;
-    if (profileId != null && profileId.isNotEmpty) {
-      body['profileId'] = profileId;
-    }
-    if (reasoningEffort != null && reasoningEffort.isNotEmpty) {
-      body['reasoningEffort'] = reasoningEffort;
-    }
-    final res = await _post(
-      '/api/admin/codex-creator/topics/$topicId/draft/regenerate',
-      body: body,
-      stepUpToken: stepUpToken,
-      idempotencyKey: _newIdempotencyKey(),
-    );
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
-  }
-
-  Future<Map<String, dynamic>> codexCreatorDraftJob(int id) async {
-    final res = await _get('/api/admin/codex-creator/draft-jobs/$id');
-    final map = _map(jsonDecode(res.body));
-    return _map(map['data']);
-  }
-
-  Future<List<Map<String, dynamic>>> codexCreatorTestServers() async {
-    final map = _map(
-      jsonDecode((await _get('/api/admin/codex-creator/test-servers')).body),
-    );
-    final items = (_map(map['data'])['items'] as List<dynamic>? ?? const []);
-    return items.map((item) => _map(item)).toList();
-  }
-
-  Future<Map<String, dynamic>> codexCreatorTestServerGuide() async {
-    final map = _map(
-      jsonDecode(
-        (await _get('/api/admin/codex-creator/test-servers/setup-guide')).body,
-      ),
-    );
-    return _map(map['data']);
-  }
-
-  Future<Map<String, dynamic>> saveCodexCreatorTestServer(
-    Map<String, dynamic> body, {
-    int? id,
-    String? stepUpToken,
-  }) async {
-    final res = id == null
-        ? await _post(
-            '/api/admin/codex-creator/test-servers',
-            body: body,
-            stepUpToken: stepUpToken,
-            idempotencyKey: _newIdempotencyKey(),
-          )
-        : await _put(
-            '/api/admin/codex-creator/test-servers/$id',
-            body: body,
-            stepUpToken: stepUpToken,
-            idempotencyKey: _newIdempotencyKey(),
-          );
     return _map(_map(jsonDecode(res.body))['data']);
   }
 
-  Future<void> deleteCodexCreatorTestServer(int id, {String? stepUpToken}) =>
-      _delete(
-        '/api/admin/codex-creator/test-servers/$id',
-        stepUpToken: stepUpToken,
-        idempotencyKey: _newIdempotencyKey(),
-      );
+  Future<Map<String, dynamic>> aiTopicDraftJob(int id) async {
+    final res = await _get('/api/admin/ai/topics/draft-jobs/$id');
+    return _map(_map(jsonDecode(res.body))['data']);
+  }
 
   Future<List<AiProviderConfig>> listAiProviders() async {
     final res = await _get('/api/admin/ai/providers');
@@ -1059,28 +930,6 @@ class AdminApiClient {
         'language': language,
         'seeds': seeds,
       },
-    );
-    return _map(jsonDecode(res.body));
-  }
-
-  Future<Map<String, dynamic>> generateArticleWithAi(
-    int topicId, {
-    int? providerId,
-    String language = 'zh-CN',
-    String? instructions,
-    String? repostPolicyCode,
-  }) async {
-    final res = await _post(
-      '/api/admin/ai/topics/$topicId/draft',
-      body: {
-        'providerId': ?providerId,
-        'language': language,
-        if (instructions != null && instructions.isNotEmpty)
-          'instructions': instructions,
-        if (repostPolicyCode != null && repostPolicyCode.isNotEmpty)
-          'repostPolicyCode': repostPolicyCode,
-      },
-      idempotencyKey: _newIdempotencyKey(),
     );
     return _map(jsonDecode(res.body));
   }

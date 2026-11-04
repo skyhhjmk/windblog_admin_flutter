@@ -168,10 +168,6 @@ class _AiProvidersPageState extends State<AiProvidersPage>
       'endpoint': 'http://localhost:11434',
     },
     'Custom (OpenAI Compatible)': {'provider': 'OPENAI', 'endpoint': ''},
-    'Codex Creator (内部)': {
-      'provider': 'CODEX_CREATOR',
-      'endpoint': 'http://codex-creator:8681',
-    },
   };
 
   void _showConfigDialog(AiProviderConfig? existing, String type) {
