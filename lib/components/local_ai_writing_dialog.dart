@@ -96,6 +96,7 @@ class _LocalAiWritingDialogState extends State<LocalAiWritingDialog> {
       _busy = true;
       _error = null;
       _ready = false;
+      _output.text = '';
     });
     try {
       final fullPrompt = buildWritingPrompt(
@@ -106,22 +107,44 @@ class _LocalAiWritingDialogState extends State<LocalAiWritingDialog> {
         content: widget.content,
         html: widget.html,
       );
-      final completion = await widget.api!.completeAi(
+      final stream = widget.api!.completeAiStream(
         providerId: _providerId,
         prompt: fullPrompt,
         systemPrompt:
             '你是严谨的中文技术博客写作助手。只输出可直接放入文章的正文，'
             '保留 Markdown 结构与代码块，不要解释你的思考过程。',
       );
-      final result = completion.text;
-      if (mounted) {
+      final buffer = StringBuffer();
+      await for (final chunk in stream) {
+        if (!mounted) break;
+        buffer.write(chunk);
         setState(() {
-          _output.text = result;
+          _output.text = buffer.toString();
           _ready = true;
         });
       }
+      if (mounted) {
+        if (buffer.isEmpty && _output.text.isEmpty) {
+          final completion = await widget.api!.completeAi(
+            providerId: _providerId,
+            prompt: fullPrompt,
+            systemPrompt:
+                '你是严谨的中文技术博客写作助手。只输出可直接放入文章的正文，'
+                '保留 Markdown 结构与代码块，不要解释你的思考过程。',
+          );
+          _output.text = completion.text;
+        }
+        setState(() {
+          _ready = _output.text.isNotEmpty;
+        });
+      }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() {
+          _error = error.toString().replaceFirst('Exception: ', '');
+          if (_output.text.isEmpty) _ready = false;
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

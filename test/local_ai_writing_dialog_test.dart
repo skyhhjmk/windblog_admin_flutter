@@ -85,6 +85,17 @@ class _WritingApi extends AdminApiClient {
   ];
 
   @override
+  Stream<String> completeAiStream({
+    int? providerId,
+    required String prompt,
+    String? systemPrompt,
+  }) async* {
+    calls++;
+    lastProviderId = providerId;
+    yield 'API 模式生成的正文';
+  }
+
+  @override
   Future<AiCompletionResult> completeAi({
     int? providerId,
     required String prompt,

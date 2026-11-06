@@ -934,11 +934,101 @@ class AdminApiClient {
     return _map(jsonDecode(res.body));
   }
 
+  Stream<String> completeAiStream({
+    int? providerId,
+    required String prompt,
+    String? systemPrompt,
+  }) async* {
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse('$requestBaseUrl/api/admin/ai/complete/stream');
+    final client = http.Client();
+    try {
+      final response = await _sendStreamWithSessionRecovery(
+        requestBaseUrl: requestBaseUrl,
+        send: () {
+          final request = http.Request('POST', uri);
+          final headers = _headers(true);
+          headers['Accept'] = 'text/event-stream';
+          request.headers.addAll(headers);
+          request.body = jsonEncode({
+            'providerId': ?providerId,
+            'prompt': prompt,
+            if (systemPrompt != null && systemPrompt.isNotEmpty)
+              'systemPrompt': systemPrompt,
+          });
+          return client.send(request);
+        },
+      );
+      if (response.statusCode >= 400) {
+        final body = await response.stream.bytesToString();
+        throw Exception('AI 写作失败: $body');
+      }
+      await for (final line
+          in response.stream
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty || trimmed.startsWith(':')) continue;
+
+        String data = trimmed;
+        if (trimmed.startsWith('data:')) {
+          data = trimmed.substring(5).trim();
+        }
+        if (data.isEmpty || data == '[DONE]') continue;
+        try {
+          final decoded = jsonDecode(data);
+          if (decoded is Map<String, dynamic>) {
+            final type = decoded['type'];
+            if (type == 'error') {
+              throw Exception(decoded['content'] ?? 'AI 写作失败');
+            }
+            if (type == 'content' || type == 'text') {
+              final content = decoded['content'] ?? decoded['text'] ?? '';
+              if (content.isNotEmpty) {
+                yield content.toString();
+              }
+              continue;
+            }
+            // Ignore other events such as 'start', 'ping', 'reasoning'
+            continue;
+          }
+        } catch (e) {
+          if (e is Exception && e.toString().contains('AI 写作失败')) {
+            rethrow;
+          }
+          yield data;
+        }
+      }
+    } finally {
+      client.close();
+    }
+  }
+
   Future<AiCompletionResult> completeAi({
     int? providerId,
     required String prompt,
     String? systemPrompt,
   }) async {
+    final buffer = StringBuffer();
+    try {
+      await for (final chunk in completeAiStream(
+        providerId: providerId,
+        prompt: prompt,
+        systemPrompt: systemPrompt,
+      )) {
+        buffer.write(chunk);
+      }
+      final text = buffer.toString();
+      if (text.isNotEmpty) {
+        return AiCompletionResult(
+          text: text,
+          provider: 'AI',
+          modelId: '',
+        );
+      }
+    } catch (_) {
+      if (buffer.isNotEmpty) rethrow;
+    }
     final res = await _post(
       '/api/admin/ai/complete',
       body: {
