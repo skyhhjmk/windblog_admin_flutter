@@ -424,6 +424,7 @@ class PostEditRequest {
     this.repostPolicyCode = RepostPolicyItem.defaultCode,
     this.pointsPrice,
     this.freeLines,
+    this.force = false,
   });
 
   final String slug;
@@ -443,6 +444,7 @@ class PostEditRequest {
   final int editorType;
   final int aiSummaryStatus;
   final int version;
+  final bool force;
   final int? categoryId;
   final List<int> categoryIds;
   final List<int> tagIds;
@@ -502,6 +504,7 @@ class PostEditRequest {
       'editorType': editorType,
       'aiSummaryStatus': aiSummaryStatus,
       'version': version,
+      if (force) 'force': true,
       'categoryId': categoryId,
       'categoryIds': categoryIds,
       'tagIds': tagIds,
@@ -520,6 +523,7 @@ class PostEditRequest {
     List<int>? tagIds,
     String? password,
     String? repostPolicyCode,
+    bool? force,
   }) {
     return PostEditRequest(
       slug: slug,
@@ -527,9 +531,14 @@ class PostEditRequest {
       summary: summary,
       aiSummary: aiSummary,
       contentMarkdown: contentMarkdown,
+      contentBlocks: contentBlocks,
+      tutorialLevelDefs: tutorialLevelDefs,
       status: status,
       visibility: visibility,
       password: password ?? this.password,
+      seoTitle: seoTitle,
+      seoDescription: seoDescription,
+      seoKeywords: seoKeywords,
       renderType: renderType,
       editorType: editorType,
       aiSummaryStatus: aiSummaryStatus,
@@ -542,6 +551,7 @@ class PostEditRequest {
       repostPolicyCode: repostPolicyCode ?? this.repostPolicyCode,
       pointsPrice: pointsPrice,
       freeLines: freeLines,
+      force: force ?? this.force,
     );
   }
 }

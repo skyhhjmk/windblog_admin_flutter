@@ -96,6 +96,9 @@ class _PostEditorPageState extends State<PostEditorPage>
   Map<String, String> _initialContents = {};
 
   PostDetail? _currentDetail;
+  PostDetail? _conflictingServerDetail;
+  StreamSubscription<Map<String, dynamic>>? _postEventsSubscription;
+  bool _isShowingConflictDialog = false;
 
   @override
   void initState() {
@@ -172,6 +175,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     _loadRepostPolicies();
     if (_currentDetail != null) {
       _loadRevisions();
+      _subscribePostEvents(_currentDetail!.id);
     }
 
     titleCtrl.addListener(_onTitleChanged);
@@ -776,6 +780,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _unsubscribePostEvents();
     _slugDebounce?.cancel();
     _persistDraftBeforeDispose();
     FlutterMcpServer.instance.clearActiveEditor(this);
@@ -928,7 +933,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     _scheduleDraftSave();
   }
 
-  Future<bool> _save() async {
+  Future<bool> _save({bool force = false}) async {
     final priorPostId = _currentDetail?.id;
     final finalContent = contentCtrl.text.trim();
     _titles['zh-cn'] = titleCtrl.text.trim();
@@ -965,6 +970,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         editorType: editorType,
         aiSummaryStatus: aiSummaryStatus,
         version: _currentDetail?.version ?? 0,
+        force: force,
         pointsPrice: int.tryParse(pointsPriceCtrl.text.trim()),
         freeLines: int.tryParse(freeLinesCtrl.text.trim()),
         categoryId: categoryId,
@@ -985,6 +991,7 @@ class _PostEditorPageState extends State<PostEditorPage>
       if (mounted) {
         setState(() {
           _currentDetail = savedDetail;
+          _conflictingServerDetail = null;
           _titles = Map<String, String>.from(savedDetail.title);
           _summaries = Map<String, String>.from(savedDetail.summary);
           _contents = Map<String, String>.from(savedDetail.contentMarkdown);
@@ -996,6 +1003,9 @@ class _PostEditorPageState extends State<PostEditorPage>
           _isSaving = false;
           _isDirty = false;
         });
+        if (priorPostId != savedDetail.id) {
+          _subscribePostEvents(savedDetail.id);
+        }
         _lastDraftPersistAt = DateTime.now();
         final baseUrl = widget.api.normalizeBaseUrl(widget.api.baseUrl);
         unawaited(
@@ -1038,6 +1048,9 @@ class _PostEditorPageState extends State<PostEditorPage>
     PostEditRequest request,
   ) async {
     final detail = _currentDetail!;
+    if (request.force) {
+      return await widget.api.updatePost(detail.id, request);
+    }
     try {
       return await widget.api.updatePost(
         detail.id,
@@ -1051,12 +1064,14 @@ class _PostEditorPageState extends State<PostEditorPage>
       }
       if (latest.currentRevisionNumber != detail.currentRevisionNumber) {
         if (mounted) {
+          setState(() => _conflictingServerDetail = latest);
           AdminFeedback.showSnackBar(
             context,
             const SnackBar(
               content: Text('文章已在其他会话被修改，已加载最新版本；请确认内容后重新保存，避免覆盖他人修改'),
             ),
           );
+          _showConflictResolutionDialog(latest);
         }
         rethrow;
       }
@@ -1067,7 +1082,622 @@ class _PostEditorPageState extends State<PostEditorPage>
     }
   }
 
-  bool _isVersionConflict(Object error) => error.toString().contains('版本冲突');
+  bool _isVersionConflict(Object error) {
+    final str = error.toString();
+    return str.contains('版本冲突') || str.contains('409');
+  }
+
+  void _subscribePostEvents(int postId) {
+    _unsubscribePostEvents();
+    _postEventsSubscription = widget.api.postEvents(postId).listen(
+      (event) {
+        if (!mounted) return;
+        _handleServerPostEvent(event);
+      },
+      onError: (_) {},
+      cancelOnError: false,
+    );
+  }
+
+  void _unsubscribePostEvents() {
+    _postEventsSubscription?.cancel();
+    _postEventsSubscription = null;
+  }
+
+  Future<void> _handleServerPostEvent(Map<String, dynamic> event) async {
+    final type = event['type']?.toString();
+    if (type != 'POST_UPDATED') return;
+
+    final eventPostId = (event['postId'] as num?)?.toInt();
+    final newVersion = (event['version'] as num?)?.toInt();
+
+    if (_currentDetail == null || eventPostId != _currentDetail!.id) return;
+    if (newVersion == null || newVersion <= _currentDetail!.version) return;
+
+    try {
+      final latest = await widget.api.postDetail(_currentDetail!.id);
+      if (!mounted) return;
+
+      final bool isDirty = _checkIfDirty();
+      final bool serverRevisionChanged =
+          latest.currentRevisionNumber != _currentDetail!.currentRevisionNumber;
+
+      if (!isDirty) {
+        // 本地无未保存修改：无感更新至最新服务端版本
+        _discardLocalAndReload(latest, showNotice: false);
+      } else if (!serverRevisionChanged) {
+        // 服务端仅更新了元数据/AI摘要/翻译等，正文修订版本未改变：
+        // 无感刷新更新本地持有的 version 凭据，不干扰用户正在进行的输入！
+        setState(() {
+          _currentDetail = latest;
+          if (latest.aiSummary.isNotEmpty) {
+            aiSummary = Map<String, String>.from(latest.aiSummary);
+          }
+        });
+      } else {
+        // 服务端正文修订版本已变更，且本地有脏修改：检测到真实冲突！
+        setState(() {
+          _conflictingServerDetail = latest;
+        });
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(
+            content: Text('检测到服务端文章已经被更新 (v${latest.version})'),
+            action: SnackBarAction(
+              label: '处理冲突',
+              onPressed: () => _showConflictResolutionDialog(latest),
+            ),
+            duration: const Duration(seconds: 10),
+          ),
+        );
+        _showConflictResolutionDialog(latest);
+      }
+    } catch (_) {
+      // 容错忽略
+    }
+  }
+
+  Widget _buildConflictBanner() {
+    final conflict = _conflictingServerDetail!;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade100,
+        border: Border(
+          bottom: BorderSide(color: Colors.amber.shade400, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '检测到服务端文章已经被更新 (v${conflict.version})，本地有未保存的修改。',
+              style: TextStyle(
+                color: Colors.amber.shade900,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade200,
+              foregroundColor: Colors.amber.shade900,
+            ),
+            onPressed: () => _showConflictResolutionDialog(conflict),
+            child: const Text('处理冲突'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showConflictResolutionDialog(PostDetail latest) async {
+    if (_isShowingConflictDialog || !mounted) return;
+    _isShowingConflictDialog = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.sync_problem, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('检测到服务端文章已经被更新'),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '服务端文章版本已更新至 v${latest.version}，且本地存在未保存的修改。\n请选择冲突处理方式：',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.redAccent,
+                      child: Icon(Icons.restore, color: Colors.white, size: 20),
+                    ),
+                    title: const Text('放弃当前内容重载', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('丢弃本地未保存修改，重新载入服务端最新内容'),
+                    onTap: () {
+                      Navigator.of(dialogContext).pop();
+                      _discardLocalAndReload(latest);
+                    },
+                  ),
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.blueAccent,
+                      child: Icon(Icons.difference, color: Colors.white, size: 20),
+                    ),
+                    title: const Text('diff 服务端', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('比对本地修改与服务端版本的逐行差异'),
+                    onTap: () {
+                      Navigator.of(dialogContext).pop();
+                      _showDiffDialog(latest);
+                    },
+                  ),
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.green,
+                      child: Icon(Icons.merge_type, color: Colors.white, size: 20),
+                    ),
+                    title: const Text('自动冲突合并', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('基于 3-Way Merge 算法自动合并双方修改'),
+                    onTap: () {
+                      Navigator.of(dialogContext).pop();
+                      _autoMergeConflict(latest);
+                    },
+                  ),
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.purple,
+                      child: Icon(Icons.edit_note, color: Colors.white, size: 20),
+                    ),
+                    title: const Text('手动合并', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('对照服务端内容，在编辑框中精细调整合并结果'),
+                    onTap: () {
+                      Navigator.of(dialogContext).pop();
+                      _showManualMergeDialog(latest);
+                    },
+                  ),
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.deepOrange,
+                      child: Icon(Icons.cloud_upload, color: Colors.white, size: 20),
+                    ),
+                    title: const Text('覆盖服务端', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('强制用当前本地内容覆盖服务端最新版本'),
+                    onTap: () {
+                      Navigator.of(dialogContext).pop();
+                      _forceOverwriteServer(latest);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('稍后处理'),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      _isShowingConflictDialog = false;
+    }
+  }
+
+  void _discardLocalAndReload(PostDetail latest, {bool showNotice = true}) {
+    setState(() {
+      _currentDetail = latest;
+      _conflictingServerDetail = null;
+      titleCtrl.text = latest.zhTitle;
+      summaryCtrl.text = latest.zhSummary;
+      contentCtrl.text = latest.zhContent;
+      slugCtrl.text = latest.slug;
+      seoTitleCtrl.text = latest.seoTitle ?? '';
+      seoDescriptionCtrl.text = latest.seoDescription ?? '';
+      seoKeywordsCtrl.text = latest.seoKeywords ?? '';
+      status = latest.status;
+      visibility = latest.visibility;
+      renderType = latest.renderType;
+      editorType = latest.editorType;
+      aiSummaryStatus = latest.aiSummaryStatus;
+      aiSummary = Map<String, String>.from(latest.aiSummary);
+      _titles = Map<String, String>.from(latest.title);
+      _summaries = Map<String, String>.from(latest.summary);
+      _contents = Map<String, String>.from(latest.contentMarkdown);
+      pointsPriceCtrl.text = latest.pointsPrice?.toString() ?? '';
+      freeLinesCtrl.text = latest.freeLines?.toString() ?? '';
+      categoryId = latest.categoryId;
+      categoryIds = List<int>.from(latest.categoryIds);
+      tagIds = List<int>.from(latest.tagIds);
+      visibilityRegions = List<String>.from(latest.visibilityRegions);
+      contentDeclarations = List<String>.from(latest.contentDeclarations);
+      repostPolicyCode = latest.repostPolicyCode;
+      _captureBaseline();
+      _isDirty = false;
+    });
+    if (showNotice) {
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(content: Text('已放弃本地修改并重新载入服务端最新内容')),
+      );
+    }
+  }
+
+  Future<void> _showDiffDialog(PostDetail latest) async {
+    final localContent = contentCtrl.text;
+    final serverContent = latest.zhContent;
+    final localTitle = titleCtrl.text;
+    final serverTitle = latest.zhTitle;
+
+    await showDialog<void>(
+      context: context,
+      builder: (diffContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900, maxHeight: 750),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.difference, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      Text(
+                        '差异比对：服务端 (v${latest.version}) vs 本地修改',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(diffContext).pop(),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (localTitle != serverTitle) ...[
+                            DiffViewer(
+                              title: '标题比对 (红: 服务端, 绿: 本地)',
+                              oldText: serverTitle,
+                              newText: localTitle,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          DiffViewer(
+                            title: '正文比对 (红: 服务端, 绿: 本地)',
+                            oldText: serverContent,
+                            newText: localContent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(diffContext).pop();
+                          _showConflictResolutionDialog(latest);
+                        },
+                        child: const Text('返回选项'),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: () {
+                          Navigator.of(diffContext).pop();
+                          _autoMergeConflict(latest);
+                        },
+                        child: const Text('自动冲突合并'),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: () {
+                          Navigator.of(diffContext).pop();
+                          _showManualMergeDialog(latest);
+                        },
+                        child: const Text('手动合并'),
+                      ),
+                      FilledButton(
+                        onPressed: () {
+                          Navigator.of(diffContext).pop();
+                          _forceOverwriteServer(latest);
+                        },
+                        child: const Text('覆盖服务端'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _autoMergeConflict(PostDetail latest) {
+    final baseText = _initialContent ?? '';
+    final serverText = latest.zhContent;
+    final localText = contentCtrl.text;
+
+    final dmp = diff_match_patch.DiffMatchPatch();
+    final patches = dmp.patch(baseText, localText);
+    final results = dmp.patch_apply(patches, serverText);
+    final mergedText = results[0] as String;
+    final patchSuccess = (results[1] as List).cast<bool>();
+    final bool allClean = patchSuccess.isEmpty || patchSuccess.every((ok) => ok);
+
+    if (allClean) {
+      setState(() {
+        contentCtrl.text = mergedText;
+        _contents['zh-cn'] = mergedText;
+        _currentDetail = latest;
+        _initialContent = latest.zhContent;
+        _conflictingServerDetail = null;
+        _isDirty = _checkIfDirty();
+      });
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(
+          content: Text('自动合并成功！已融入服务端变更并保留本地修改，请检查后保存。'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(
+          content: Text('部分修改存在重叠冲突，无法完全自动合并，已进入手动合并。'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      _showManualMergeDialog(latest, prefilledText: mergedText);
+    }
+  }
+
+  Future<void> _showManualMergeDialog(
+    PostDetail latest, {
+    String? prefilledText,
+  }) async {
+    final serverText = latest.zhContent;
+    final localText = contentCtrl.text;
+    final mergeCtrl = TextEditingController(
+      text: prefilledText ?? localText,
+    );
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isPhone = AdminBreakpoints.isPhone(context);
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100, maxHeight: 850),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.edit_note, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Text(
+                            '手动合并冲突 (服务端 v${latest.version})',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          ActionChip(
+                            avatar: const Icon(Icons.arrow_downward, size: 16),
+                            label: const Text('采用服务端版本'),
+                            onPressed: () {
+                              setDialogState(() {
+                                mergeCtrl.text = serverText;
+                              });
+                            },
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.arrow_downward, size: 16),
+                            label: const Text('采用本地未保存修改'),
+                            onPressed: () {
+                              setDialogState(() {
+                                mergeCtrl.text = localText;
+                              });
+                            },
+                          ),
+                          if (prefilledText != null)
+                            ActionChip(
+                              avatar: const Icon(Icons.merge_type, size: 16),
+                              label: const Text('重置为自动合并结果'),
+                              onPressed: () {
+                                setDialogState(() {
+                                  mergeCtrl.text = prefilledText;
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: isPhone
+                            ? TextField(
+                                controller: mergeCtrl,
+                                maxLines: null,
+                                expands: true,
+                                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                                decoration: const InputDecoration(
+                                  labelText: '合并后内容 (可在此直接编辑)',
+                                  border: OutlineInputBorder(),
+                                ),
+                              )
+                            : Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    flex: 1,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('服务端最新内容 (只读)', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 4),
+                                        Expanded(
+                                          child: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              border: Border.all(color: Colors.grey.shade400),
+                                              borderRadius: BorderRadius.circular(4),
+                                              color: Colors.grey.shade100,
+                                            ),
+                                            child: SingleChildScrollView(
+                                              child: SelectableText(
+                                                serverText,
+                                                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 1,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('合并后内容 (可在此编辑)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                                        const SizedBox(height: 4),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: mergeCtrl,
+                                            maxLines: null,
+                                            expands: true,
+                                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                                            decoration: const InputDecoration(
+                                              border: OutlineInputBorder(),
+                                              contentPadding: EdgeInsets.all(8),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text('取消'),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton(
+                            onPressed: () {
+                              final finalMerged = mergeCtrl.text;
+                              Navigator.of(dialogContext).pop();
+                              setState(() {
+                                contentCtrl.text = finalMerged;
+                                _contents['zh-cn'] = finalMerged;
+                                _currentDetail = latest;
+                                _initialContent = latest.zhContent;
+                                _conflictingServerDetail = null;
+                                _isDirty = _checkIfDirty();
+                              });
+                              AdminFeedback.showSnackBar(
+                                context,
+                                const SnackBar(
+                                  content: Text('已应用手动合并结果，请复核后保存。'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            },
+                            child: const Text('应用合并结果'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _forceOverwriteServer(PostDetail latest) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (confirmContext) {
+        return AlertDialog(
+          title: const Text('确认强制覆盖服务端？'),
+          content: const Text(
+            '这将忽略服务端的更新（包括其他管理员或后台任务所做的修改），直接用当前编辑器的内容覆盖服务端。\n\n此操作不可撤销，确定继续吗？',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(confirmContext).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.of(confirmContext).pop(true),
+              child: const Text('确认覆盖'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true || !mounted) return;
+
+    setState(() {
+      _conflictingServerDetail = null;
+    });
+
+    await _save(force: true);
+  }
 
   Future<void> _publishLatestDraft() async {
     if (_currentDetail == null) return;
@@ -1554,7 +2184,15 @@ class _PostEditorPageState extends State<PostEditorPage>
             const SizedBox(width: 8),
           ],
         ),
-        body: isPhone ? _buildEditorPane() : _buildWideEditorLayout(),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_conflictingServerDetail != null) _buildConflictBanner(),
+            Expanded(
+              child: isPhone ? _buildEditorPane() : _buildWideEditorLayout(),
+            ),
+          ],
+        ),
         floatingActionButton: isPhone
             ? FloatingActionButton.extended(
                 onPressed: _openMobileSidebar,

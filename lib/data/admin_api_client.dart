@@ -479,6 +479,48 @@ class AdminApiClient {
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Stream<Map<String, dynamic>> postEvents(int postId) async* {
+    final requestBaseUrl = baseUrl;
+    final uri = Uri.parse('$requestBaseUrl/api/admin/posts/$postId/events');
+
+    final client = http.Client();
+    try {
+      final response = await _sendStreamWithSessionRecovery(
+        requestBaseUrl: requestBaseUrl,
+        send: () {
+          final request = http.Request('GET', uri);
+          request.headers.addAll(_headers(true, json: false));
+          request.headers['Accept'] = 'text/event-stream';
+          return client.send(request);
+        },
+      );
+      if (response.statusCode >= 400) {
+        return;
+      }
+      await for (final line
+          in response.stream
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty || trimmed.startsWith(':')) continue;
+
+        if (trimmed.startsWith('data:')) {
+          final data = trimmed.substring(5).trim();
+          try {
+            final decoded = jsonDecode(data);
+            if (decoded is Map<String, dynamic>) {
+              yield decoded;
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {
+      // Stream ended or connection lost
+    } finally {
+      client.close();
+    }
+  }
+
   /// Generates a URL-safe slug from a title on the server, so non-Latin
   /// titles are transliterated (CJK -> pinyin) with the same rules the API
   /// applies when a post is saved without an explicit slug.

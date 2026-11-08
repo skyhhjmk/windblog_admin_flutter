@@ -14,7 +14,7 @@ EditorDraft _draft({
   return EditorDraft(
     baseUrl: baseUrl,
     postId: postId,
-    savedAt: savedAt ?? DateTime(2026, 10, 30, 12),
+    savedAt: savedAt ?? DateTime.now().subtract(const Duration(hours: 1)),
     slug: 'slug',
     title: title,
     summary: '摘要',
@@ -78,14 +78,15 @@ void main() {
   });
 
   test('store keeps one draft per article and returns the newest', () async {
+    final now = DateTime.now();
     await EditorDraftStore.save(
-      _draft(postId: 7, title: '旧标题', savedAt: DateTime(2026, 10, 30, 9)),
+      _draft(postId: 7, title: '旧标题', savedAt: now.subtract(const Duration(hours: 3))),
     );
     await EditorDraftStore.save(
-      _draft(postId: 8, title: '另一篇', savedAt: DateTime(2026, 10, 30, 10)),
+      _draft(postId: 8, title: '另一篇', savedAt: now.subtract(const Duration(hours: 2))),
     );
     await EditorDraftStore.save(
-      _draft(postId: 7, title: '新标题', savedAt: DateTime(2026, 10, 30, 11)),
+      _draft(postId: 7, title: '新标题', savedAt: now.subtract(const Duration(hours: 1))),
     );
 
     final sameArticle = await EditorDraftStore.load(
