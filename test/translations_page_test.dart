@@ -79,8 +79,24 @@ class _TranslationApi extends AdminApiClient {
           'translated': true,
           'updatedAt': '2026-10-02T08:00:00Z',
         }),
+        TranslationItem.fromMap({
+          'id': 3,
+          'slug': 'outdated-post',
+          'title': {'zh-cn': '已过时文章测试'},
+          'status': 1,
+          'hasPublishedRevision': true,
+          'currentRevisionPublished': true,
+          'revisionNumber': 5,
+          'languages': ['zh-cn', 'en-US'],
+          'sourceLanguage': 'zh-cn',
+          'translated': true,
+          'outdated': true,
+          'outdatedParagraphs': 2,
+          'totalParagraphs': 5,
+          'updatedAt': '2026-10-03T08:00:00Z',
+        }),
       ],
-      total: 2,
+      total: 3,
       page: page,
       pageSize: pageSize,
       targetLanguage: targetLanguage,
@@ -252,5 +268,21 @@ void main() {
     expect(api.setAutoCalls, 1);
     expect(api.autoEnabled, isTrue);
     expect(find.textContaining('自动翻译运行中'), findsOneWidget);
+  });
+
+  testWidgets('翻译管理展示已过时状态徽章和增量补翻操作', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final api = _TranslationApi();
+    await tester.pumpWidget(
+      _wrap(TranslationsPage(api: api, onAuthError: () {})),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('已过时 2/5'), findsOneWidget);
+    expect(find.text('增量补翻'), findsOneWidget);
   });
 }

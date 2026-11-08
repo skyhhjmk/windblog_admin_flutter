@@ -171,8 +171,8 @@ class _TranslationsPageState extends State<TranslationsPage> {
                 const SizedBox(height: 8),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('覆盖已有译本'),
-                  subtitle: const Text('重新翻译并生成新修订；已发布文章会同步更新公开版本。'),
+                  title: const Text('强制全篇重翻'),
+                  subtitle: const Text('默认仅对未翻译与已过时段落增量补翻；开启后将强制重新翻译全文所有段落。'),
                   value: overwrite,
                   onChanged: (value) => setDialogState(() => overwrite = value),
                 ),
@@ -437,11 +437,18 @@ class _TranslationsPageState extends State<TranslationsPage> {
 
   Widget _statusChip(TranslationItem item) {
     final translated = item.translated;
+    final outdated = item.outdated;
     final pendingPublish = translated && !item.currentRevisionPublished;
-    final color = pendingPublish
-        ? Colors.blue
-        : (translated ? Colors.green : Colors.orange);
-    final label = pendingPublish ? '待发布' : (translated ? '已翻译' : '待翻译');
+    final color = outdated
+        ? Colors.amber
+        : (pendingPublish
+            ? Colors.blue
+            : (translated ? Colors.green : Colors.orange));
+    final label = outdated
+        ? (item.outdatedParagraphs > 0
+            ? '已过时 ${item.outdatedParagraphs}/${item.totalParagraphs}'
+            : '已过时')
+        : (pendingPublish ? '待发布' : (translated ? '已翻译' : '待翻译'));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -452,7 +459,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
       child: Text(
         label,
         style: TextStyle(
-          color: color.shade700,
+          color: color.shade800,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -561,6 +568,52 @@ class _TranslationsPageState extends State<TranslationsPage> {
             : () => _translateOne(item, overwrite: task.overwrite),
         icon: const Icon(Icons.refresh, size: 17),
         label: const Text('重试'),
+      );
+    }
+    if (item.outdated) {
+      return PopupMenuButton<String>(
+        tooltip: '过时操作',
+        onSelected: (value) {
+          if (value == 'incremental') _translateOne(item, overwrite: false);
+          if (value == 'retranslate') _translateOne(item, overwrite: true);
+          if (value == 'open') _openEditor(item);
+          if (value == 'publish') _publishTranslation(item);
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: 'incremental',
+            child: Text('增量补翻为$_targetLabel'),
+          ),
+          PopupMenuItem(
+            value: 'retranslate',
+            child: Text('强制全篇重翻为$_targetLabel'),
+          ),
+          if (!item.currentRevisionPublished)
+            const PopupMenuItem(value: 'publish', child: Text('发布最新草稿')),
+          const PopupMenuItem(value: 'open', child: Text('编辑文章')),
+        ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.update,
+                size: 17,
+                color: Colors.amber.shade700,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '增量补翻',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.amber.shade800,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
     if (item.translated) {
@@ -718,7 +771,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
               ),
             ),
             const SizedBox(width: 12),
-            SizedBox(width: 78, child: _statusChip(item)),
+            SizedBox(width: 104, child: _statusChip(item)),
             const SizedBox(width: 8),
             SizedBox(
               width: 140,
@@ -758,7 +811,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
           ),
           const SizedBox(width: 12),
           const SizedBox(
-            width: 78,
+            width: 104,
             child: Text('状态', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 8),
@@ -1039,6 +1092,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
         decoration: const InputDecoration(labelText: '翻译状态', isDense: true),
         items: const [
           DropdownMenuItem(value: 'missing', child: Text('待翻译')),
+          DropdownMenuItem(value: 'outdated', child: Text('已过时')),
           DropdownMenuItem(value: 'translated', child: Text('已翻译')),
           DropdownMenuItem(value: 'all', child: Text('全部')),
         ],

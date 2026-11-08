@@ -4089,6 +4089,9 @@ class TranslationItem {
     required this.languages,
     required this.sourceLanguage,
     required this.translated,
+    this.outdated = false,
+    this.outdatedParagraphs = 0,
+    this.totalParagraphs = 0,
     this.publishedAt,
     this.updatedAt,
   });
@@ -4103,6 +4106,9 @@ class TranslationItem {
   final List<String> languages;
   final String sourceLanguage;
   final bool translated;
+  final bool outdated;
+  final int outdatedParagraphs;
+  final int totalParagraphs;
   final DateTime? publishedAt;
   final DateTime? updatedAt;
 
@@ -4129,6 +4135,9 @@ class TranslationItem {
           .toList(),
       sourceLanguage: map['sourceLanguage']?.toString() ?? '',
       translated: map['translated'] == true,
+      outdated: map['outdated'] == true,
+      outdatedParagraphs: toInt(map['outdatedParagraphs']) ?? 0,
+      totalParagraphs: toInt(map['totalParagraphs']) ?? 0,
       publishedAt: map['publishedAt'] == null
           ? null
           : DateTime.tryParse(map['publishedAt'].toString()),
