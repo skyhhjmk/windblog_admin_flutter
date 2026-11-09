@@ -69,6 +69,9 @@ class _PostEditorPageState extends State<PostEditorPage>
   List<String> visibilityRegions = [];
   List<String> contentDeclarations = [];
   String repostPolicyCode = RepostPolicyItem.defaultCode;
+  int? _selectedUserId;
+  late final TextEditingController authorNameCtrl;
+  List<UserListItem> _availableUsers = [];
   List<CategoryItem> _categories = [];
   List<TagItem> _tags = [];
   List<RepostPolicyItem> _repostPolicies = [];
@@ -106,6 +109,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   String? _initialRepostPolicyCode;
   String? _initialPointsPrice;
   String? _initialFreeLines;
+  int? _initialUserId;
+  String? _initialAuthorName;
   Map<String, String> _initialTitles = {};
   Map<String, String> _initialSummaries = {};
   Map<String, String> _initialContents = {};
@@ -162,6 +167,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     );
     freeLinesCtrl = TextEditingController(text: d?.freeLines?.toString() ?? '');
     passwordCtrl = TextEditingController();
+    _selectedUserId = d?.userId;
+    authorNameCtrl = TextEditingController(text: d?.authorName ?? '');
     categoryId = d?.categoryId;
     categoryIds = List<int>.from(
       d?.categoryIds.isNotEmpty == true
@@ -243,6 +250,7 @@ class _PostEditorPageState extends State<PostEditorPage>
 
     _loadCategoriesAndTags();
     _loadRepostPolicies();
+    _loadUsers();
     if (_currentDetail != null) {
       _loadRevisions();
       _subscribePostEvents(_currentDetail!.id);
@@ -258,6 +266,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     pointsPriceCtrl.addListener(_markDirty);
     freeLinesCtrl.addListener(_markDirty);
     passwordCtrl.addListener(_markDirty);
+    authorNameCtrl.addListener(_markDirty);
     tutorialDifficultyCtrl.addListener(_markDirty);
     tutorialMinutesCtrl.addListener(_markDirty);
     tutorialPrereqsCtrl.addListener(_markDirty);
@@ -662,6 +671,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     _initialRepostPolicyCode = repostPolicyCode;
     _initialPointsPrice = pointsPriceCtrl.text.trim();
     _initialFreeLines = freeLinesCtrl.text.trim();
+    _initialUserId = _selectedUserId;
+    _initialAuthorName = authorNameCtrl.text.trim();
     _initialTitles = Map<String, String>.from(_titles)
       ..['zh-cn'] = _initialTitle!;
     _initialSummaries = Map<String, String>.from(_summaries)
@@ -687,6 +698,8 @@ class _PostEditorPageState extends State<PostEditorPage>
         currentTitle != _initialTitle ||
         currentSummary != _initialSummary ||
         currentContent != _initialContent ||
+        _selectedUserId != _initialUserId ||
+        authorNameCtrl.text.trim() != _initialAuthorName ||
         status != _initialStatus ||
         visibility != _initialVisibility ||
         passwordCtrl.text.trim().isNotEmpty ||
@@ -751,6 +764,17 @@ class _PostEditorPageState extends State<PostEditorPage>
         }
       }
     }
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final res = await widget.api.listUsers(pageSize: 100);
+      if (mounted) {
+        setState(() {
+          _availableUsers = res.items;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadCategoriesAndTags() async {
@@ -870,6 +894,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     _contentScrollController.dispose();
     slugCtrl.dispose();
     titleCtrl.dispose();
+    authorNameCtrl.dispose();
     summaryCtrl.dispose();
     seoTitleCtrl.dispose();
     seoDescriptionCtrl.dispose();
@@ -1071,6 +1096,10 @@ class _PostEditorPageState extends State<PostEditorPage>
         visibilityRegions: visibilityRegions,
         contentDeclarations: contentDeclarations,
         repostPolicyCode: repostPolicyCode,
+        userId: _selectedUserId,
+        authorName: authorNameCtrl.text.trim().isEmpty
+            ? null
+            : authorNameCtrl.text.trim(),
         articleMode: articleMode,
         tutorialMeta: articleMode == 1
             ? {
@@ -2584,6 +2613,8 @@ class _PostEditorPageState extends State<PostEditorPage>
           _buildSlugCard(),
           const SizedBox(height: 16),
           _buildPublishSettingsCard(),
+          const SizedBox(height: 16),
+          _buildAuthorCard(),
           if (articleMode == 1) ...[
             const SizedBox(height: 16),
             _buildTutorialSettingsCard(),
@@ -3035,6 +3066,51 @@ class _PostEditorPageState extends State<PostEditorPage>
             code: 'AUTOMATION_USE_ALLOWED',
             label: '可用于自动化程序',
             helpText: '选择后表示允许自动化程序使用内容，不将爬虫排除在外。',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuthorCard() {
+    return SectionCard(
+      icon: Icons.person_outline,
+      title: t(context, 'author'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_availableUsers.isNotEmpty) ...[
+            _buildDropdownRow<int?>(
+              label: t(context, 'author_account'),
+              value: _selectedUserId,
+              items: [
+                DropdownMenuItem<int?>(
+                  value: null,
+                  child: Text(t(context, 'please_select')),
+                ),
+                ..._availableUsers.map(
+                  (u) => DropdownMenuItem<int?>(
+                    value: u.id,
+                    child: Text(u.username),
+                  ),
+                ),
+              ],
+              onChanged: (v) {
+                setState(() {
+                  _selectedUserId = v;
+                  _markDirty();
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+          TextField(
+            controller: authorNameCtrl,
+            decoration: InputDecoration(
+              labelText: t(context, 'custom_author_name'),
+              helperText: t(context, 'custom_author_name_hint'),
+              prefixIcon: const Icon(Icons.badge_outlined, size: 18),
+            ),
           ),
         ],
       ),

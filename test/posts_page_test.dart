@@ -78,6 +78,59 @@ class _PostsApi extends AdminApiClient {
       'postCount': 1,
     }),
   ];
+
+  PostQuickEditRequest? lastQuickEditRequest;
+  int? lastQuickEditId;
+
+  @override
+  Future<PostItem> quickEditPost(int id, PostQuickEditRequest req) async {
+    lastQuickEditId = id;
+    lastQuickEditRequest = req;
+    return PostItem.fromMap({
+      'id': id,
+      'slug': req.slug,
+      'title': {'zh-cn': req.title},
+      'status': req.status,
+      'visibility': req.visibility,
+      'renderType': req.articleMode,
+      'aiSummaryStatus': 0,
+      'version': 1,
+      'categoryId': (req.categoryIds != null && req.categoryIds!.isNotEmpty)
+          ? req.categoryIds!.first
+          : null,
+      'categoryIds': req.categoryIds,
+      'authorName': req.authorName,
+      'allowComment': req.allowComment,
+      'userName': 'BiliWind',
+      'publishedRevisionNumber': 2,
+      'hasPublishedRevision': true,
+      'updatedAt': '2026-10-01T08:00:00Z',
+    });
+  }
+
+  @override
+  Future<List<TagItem>> listTags() async => [];
+
+  @override
+  Future<PageResult<UserListItem>> listUsers({
+    int page = 1,
+    int pageSize = 20,
+    String? keyword,
+  }) async => PageResult<UserListItem>(
+    items: [
+      UserListItem.fromMap({
+        'id': 1,
+        'username': 'admin',
+        'displayName': 'Admin User',
+        'role': 'ADMIN',
+        'status': 1,
+        'createdAt': '2026-01-01T00:00:00Z',
+      }),
+    ],
+    total: 1,
+    page: page,
+    pageSize: pageSize,
+  );
 }
 
 Widget _wrap(Widget child) => MaterialApp(
@@ -138,6 +191,33 @@ void main() {
     expect(find.text('Quarkus 原生镜像实践'), findsOneWidget);
     expect(find.text('已发布'), findsWidgets);
     expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('点击快捷编辑打开对话框并提交修改', (tester) async {
+    tester.view.physicalSize = const Size(1500, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final api = _PostsApi();
+    await tester.pumpWidget(_wrap(PostsPage(api: api, onAuthError: () {})));
+    await tester.pumpAndSettle();
+
+    final quickEditBtn = find.byIcon(Icons.bolt).first;
+    expect(quickEditBtn, findsOneWidget);
+    await tester.tap(quickEditBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QuickEditPostDialog), findsOneWidget);
+
+    final saveBtn = find.widgetWithText(ElevatedButton, 'save');
+    expect(saveBtn, findsOneWidget);
+    await tester.tap(saveBtn);
+    await tester.pumpAndSettle();
+
+    expect(api.lastQuickEditId, 1);
+    expect(api.lastQuickEditRequest?.title?['zh-cn'], 'Quarkus 原生镜像实践');
     expect(tester.takeException(), isNull);
   });
 }

@@ -61,7 +61,10 @@ class PostItem {
     required this.version,
     this.categoryId,
     this.categoryIds = const [],
+    this.userId,
     this.userName,
+    this.authorName,
+    this.allowComment = true,
     this.tagIds = const [],
     required this.publishedRevisionNumber,
     required this.hasPublishedRevision,
@@ -81,7 +84,10 @@ class PostItem {
   final int version;
   final int? categoryId;
   final List<int> categoryIds;
+  final int? userId;
   final String? userName;
+  final String? authorName;
+  final bool allowComment;
   final List<int> tagIds;
   final int publishedRevisionNumber;
   final bool hasPublishedRevision;
@@ -120,7 +126,10 @@ class PostItem {
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
           .toList(),
+      userId: toInt(map['userId']),
       userName: map['userName']?.toString(),
+      authorName: map['authorName']?.toString(),
+      allowComment: map['allowComment'] == null ? true : map['allowComment'] == true,
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
@@ -165,7 +174,10 @@ class PostDetail {
     required this.version,
     this.categoryId,
     this.categoryIds = const [],
+    this.userId,
     this.userName,
+    this.authorName,
+    this.allowComment = true,
     this.tagIds = const [],
     this.visibilityRegions = const [],
     this.contentDeclarations = const [],
@@ -204,7 +216,10 @@ class PostDetail {
   final int version;
   final int? categoryId;
   final List<int> categoryIds;
+  final int? userId;
   final String? userName;
+  final String? authorName;
+  final bool allowComment;
   final List<int> tagIds;
   final List<String> visibilityRegions;
   final List<String> contentDeclarations;
@@ -261,7 +276,10 @@ class PostDetail {
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
           .toList(),
+      userId: toInt(map['userId']),
       userName: map['userName']?.toString(),
+      authorName: map['authorName']?.toString(),
+      allowComment: map['allowComment'] == null ? true : map['allowComment'] == true,
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
@@ -444,6 +462,10 @@ class PostEditRequest {
     this.articleMode = 0,
     this.tutorialMeta,
     this.resourceMeta,
+    this.userId,
+    this.authorName,
+    this.allowComment,
+    this.publishedAt,
   });
 
   final String slug;
@@ -475,6 +497,10 @@ class PostEditRequest {
   final int articleMode;
   final Map<String, dynamic>? tutorialMeta;
   final Map<String, dynamic>? resourceMeta;
+  final int? userId;
+  final String? authorName;
+  final bool? allowComment;
+  final DateTime? publishedAt;
 
   Map<String, dynamic> toCreateBody() {
     return {
@@ -506,6 +532,10 @@ class PostEditRequest {
       'articleMode': articleMode,
       if (tutorialMeta != null) 'tutorialMeta': tutorialMeta,
       if (resourceMeta != null) 'resourceMeta': resourceMeta,
+      if (userId != null) 'userId': userId,
+      if (authorName != null) 'authorName': authorName,
+      if (allowComment != null) 'allowComment': allowComment,
+      if (publishedAt != null) 'publishedAt': publishedAt!.toIso8601String(),
     };
   }
 
@@ -541,6 +571,10 @@ class PostEditRequest {
       'articleMode': articleMode,
       if (tutorialMeta != null) 'tutorialMeta': tutorialMeta,
       if (resourceMeta != null) 'resourceMeta': resourceMeta,
+      if (userId != null) 'userId': userId,
+      if (authorName != null) 'authorName': authorName,
+      if (allowComment != null) 'allowComment': allowComment,
+      if (publishedAt != null) 'publishedAt': publishedAt!.toIso8601String(),
     };
   }
 
@@ -555,6 +589,10 @@ class PostEditRequest {
     int? articleMode,
     Map<String, dynamic>? tutorialMeta,
     Map<String, dynamic>? resourceMeta,
+    int? userId,
+    String? authorName,
+    bool? allowComment,
+    DateTime? publishedAt,
   }) {
     return PostEditRequest(
       slug: slug,
@@ -586,7 +624,64 @@ class PostEditRequest {
       articleMode: articleMode ?? this.articleMode,
       tutorialMeta: tutorialMeta ?? this.tutorialMeta,
       resourceMeta: resourceMeta ?? this.resourceMeta,
+      userId: userId ?? this.userId,
+      authorName: authorName ?? this.authorName,
+      allowComment: allowComment ?? this.allowComment,
+      publishedAt: publishedAt ?? this.publishedAt,
     );
+  }
+}
+
+class PostQuickEditRequest {
+  PostQuickEditRequest({
+    this.slug,
+    this.title,
+    this.status,
+    this.visibility,
+    this.password,
+    this.categoryId,
+    this.categoryIds,
+    this.tagIds,
+    this.authorName,
+    this.userId,
+    this.publishedAt,
+    this.articleMode,
+    this.allowComment,
+    required this.version,
+  });
+
+  final String? slug;
+  final Map<String, String>? title;
+  final int? status;
+  final int? visibility;
+  final String? password;
+  final int? categoryId;
+  final List<int>? categoryIds;
+  final List<int>? tagIds;
+  final String? authorName;
+  final int? userId;
+  final DateTime? publishedAt;
+  final int? articleMode;
+  final bool? allowComment;
+  final int version;
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (slug != null) 'slug': slug,
+      if (title != null) 'title': title,
+      if (status != null) 'status': status,
+      if (visibility != null) 'visibility': visibility,
+      if (password != null) 'password': password,
+      if (categoryId != null) 'categoryId': categoryId,
+      if (categoryIds != null) 'categoryIds': categoryIds,
+      if (tagIds != null) 'tagIds': tagIds,
+      if (authorName != null) 'authorName': authorName,
+      if (userId != null) 'userId': userId,
+      if (publishedAt != null) 'publishedAt': publishedAt!.toIso8601String(),
+      if (articleMode != null) 'articleMode': articleMode,
+      if (allowComment != null) 'allowComment': allowComment,
+      'version': version,
+    };
   }
 }
 

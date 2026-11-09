@@ -479,6 +479,11 @@ class AdminApiClient {
     return PostDetail.fromMap(_map(jsonDecode(res.body)));
   }
 
+  Future<PostItem> quickEditPost(int id, PostQuickEditRequest req) async {
+    final res = await _patch('/api/admin/posts/$id/quick-edit', body: req.toJson());
+    return PostItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
   Stream<Map<String, dynamic>> postEvents(int postId) async* {
     final requestBaseUrl = baseUrl;
     final uri = Uri.parse('$requestBaseUrl/api/admin/posts/$postId/events');
