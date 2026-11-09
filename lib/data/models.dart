@@ -552,6 +552,9 @@ class PostEditRequest {
     String? password,
     String? repostPolicyCode,
     bool? force,
+    int? articleMode,
+    Map<String, dynamic>? tutorialMeta,
+    Map<String, dynamic>? resourceMeta,
   }) {
     return PostEditRequest(
       slug: slug,
@@ -580,6 +583,9 @@ class PostEditRequest {
       pointsPrice: pointsPrice,
       freeLines: freeLines,
       force: force ?? this.force,
+      articleMode: articleMode ?? this.articleMode,
+      tutorialMeta: tutorialMeta ?? this.tutorialMeta,
+      resourceMeta: resourceMeta ?? this.resourceMeta,
     );
   }
 }

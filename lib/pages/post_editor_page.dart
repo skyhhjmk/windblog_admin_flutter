@@ -96,6 +96,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   int? _initialVisibility;
   int? _initialRenderType;
   int? _initialEditorType;
+  int? _initialArticleMode;
   int? _initialAiSummaryStatus;
   int? _initialCategoryId;
   List<int>? _initialCategoryIds;
@@ -651,6 +652,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     _initialVisibility = visibility;
     _initialRenderType = renderType;
     _initialEditorType = editorType;
+    _initialArticleMode = articleMode;
     _initialAiSummaryStatus = aiSummaryStatus;
     _initialCategoryId = categoryId;
     _initialCategoryIds = List<int>.from(categoryIds);
@@ -692,6 +694,7 @@ class _PostEditorPageState extends State<PostEditorPage>
         freeLinesCtrl.text.trim() != _initialFreeLines ||
         renderType != _initialRenderType ||
         editorType != _initialEditorType ||
+        articleMode != _initialArticleMode ||
         aiSummaryStatus != _initialAiSummaryStatus ||
         categoryId != _initialCategoryId ||
         !_listEquals(categoryIds, _initialCategoryIds) ||
@@ -1126,6 +1129,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           _summaries = Map<String, String>.from(savedDetail.summary);
           _contents = Map<String, String>.from(savedDetail.contentMarkdown);
           repostPolicyCode = savedDetail.repostPolicyCode;
+          articleMode = savedDetail.articleMode;
           _setSlugText(savedDetail.slug);
           _slugFollowsTitle = false;
           passwordCtrl.clear();
