@@ -29,6 +29,7 @@ class _PostsApi extends AdminApiClient {
         'version': 1,
         'categoryId': 3,
         'categoryIds': [3],
+        'userId': 1,
         'userName': 'BiliWind',
         'publishedRevisionNumber': 2,
         'hasPublishedRevision': true,
@@ -116,21 +117,24 @@ class _PostsApi extends AdminApiClient {
     int page = 1,
     int pageSize = 20,
     String? keyword,
-  }) async => PageResult<UserListItem>(
-    items: [
-      UserListItem.fromMap({
-        'id': 1,
-        'username': 'admin',
-        'displayName': 'Admin User',
-        'role': 'ADMIN',
-        'status': 1,
-        'createdAt': '2026-01-01T00:00:00Z',
-      }),
-    ],
-    total: 1,
-    page: page,
-    pageSize: pageSize,
-  );
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 20));
+    return PageResult<UserListItem>(
+      items: [
+        UserListItem.fromMap({
+          'id': 1,
+          'username': 'admin',
+          'displayName': 'Admin User',
+          'role': 'ADMIN',
+          'status': 1,
+          'createdAt': '2026-01-01T00:00:00Z',
+        }),
+      ],
+      total: 1,
+      page: page,
+      pageSize: pageSize,
+    );
+  }
 }
 
 Widget _wrap(Widget child) => MaterialApp(

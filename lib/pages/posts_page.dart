@@ -1874,10 +1874,37 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
   }
 
   Widget _buildAuthorSection() {
+    final hasSelectedUserInList =
+        selectedUserId == null || allUsers.any((u) => u.id == selectedUserId);
+
+    final userItems = <DropdownMenuItem<int?>>[
+      DropdownMenuItem<int?>(
+        value: null,
+        child: Text(t(context, 'please_select')),
+      ),
+      if (selectedUserId != null && !hasSelectedUserInList)
+        DropdownMenuItem<int?>(
+          value: selectedUserId,
+          child: Text(
+            widget.item.userName?.isNotEmpty == true
+                ? widget.item.userName!
+                : '用户 #$selectedUserId',
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ...allUsers.map(
+        (u) => DropdownMenuItem<int?>(
+          value: u.id,
+          child: Text(u.username, overflow: TextOverflow.ellipsis),
+        ),
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DropdownButtonFormField<int?>(
+          key: ValueKey('author_${selectedUserId}_${allUsers.length}'),
           initialValue: selectedUserId,
           isExpanded: true,
           decoration: InputDecoration(
@@ -1885,18 +1912,7 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
             border: const OutlineInputBorder(),
             isDense: true,
           ),
-          items: [
-            DropdownMenuItem<int?>(
-              value: null,
-              child: Text(t(context, 'please_select')),
-            ),
-            ...allUsers.map(
-              (u) => DropdownMenuItem<int?>(
-                value: u.id,
-                child: Text(u.username, overflow: TextOverflow.ellipsis),
-              ),
-            ),
-          ],
+          items: userItems,
           onChanged: (v) => setState(() => selectedUserId = v),
         ),
         const SizedBox(height: 10),
@@ -1914,6 +1930,10 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
   }
 
   Widget _buildStatusAndModeSection() {
+    final safeStatus = [0, 1, 2].contains(status) ? status : 0;
+    final safeArticleMode = [0, 1, 2].contains(articleMode) ? articleMode : 0;
+    final safeVisibility = [0, 1, 2].contains(visibility) ? visibility : 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1921,7 +1941,8 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
           children: [
             Expanded(
               child: DropdownButtonFormField<int>(
-                initialValue: status,
+                key: ValueKey('status_$status'),
+                initialValue: safeStatus,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: t(context, 'status'),
@@ -1941,7 +1962,8 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
             const SizedBox(width: 10),
             Expanded(
               child: DropdownButtonFormField<int>(
-                initialValue: articleMode,
+                key: ValueKey('mode_$articleMode'),
+                initialValue: safeArticleMode,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: '文章模式',
@@ -1962,7 +1984,8 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
         ),
         const SizedBox(height: 10),
         DropdownButtonFormField<int>(
-          initialValue: visibility,
+          key: ValueKey('vis_$visibility'),
+          initialValue: safeVisibility,
           isExpanded: true,
           decoration: InputDecoration(
             labelText: t(context, 'visibility_label'),

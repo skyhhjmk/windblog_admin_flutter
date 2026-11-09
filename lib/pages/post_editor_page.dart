@@ -3073,6 +3073,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Widget _buildAuthorCard() {
+    final hasSelected = _selectedUserId == null ||
+        _availableUsers.any((u) => u.id == _selectedUserId);
     return SectionCard(
       icon: Icons.person_outline,
       title: t(context, 'author'),
@@ -3088,6 +3090,15 @@ class _PostEditorPageState extends State<PostEditorPage>
                   value: null,
                   child: Text(t(context, 'please_select')),
                 ),
+                if (_selectedUserId != null && !hasSelected)
+                  DropdownMenuItem<int?>(
+                    value: _selectedUserId,
+                    child: Text(
+                      _currentDetail?.userName?.isNotEmpty == true
+                          ? _currentDetail!.userName!
+                          : 'ID: $_selectedUserId',
+                    ),
+                  ),
                 ..._availableUsers.map(
                   (u) => DropdownMenuItem<int?>(
                     value: u.id,
