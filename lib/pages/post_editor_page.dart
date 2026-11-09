@@ -43,11 +43,25 @@ class _PostEditorPageState extends State<PostEditorPage>
   int visibility = 0;
   int renderType = 0;
   int editorType = 0;
+  int articleMode = 0;
   int aiSummaryStatus = 0;
   Map<String, String> aiSummary = {};
   Map<String, String> _titles = {};
   Map<String, String> _summaries = {};
   Map<String, String> _contents = {};
+
+  late final TextEditingController tutorialDifficultyCtrl;
+  late final TextEditingController tutorialMinutesCtrl;
+  late final TextEditingController tutorialPrereqsCtrl;
+  late final TextEditingController tutorialAudienceCtrl;
+
+  late final TextEditingController resourceVersionCtrl;
+  late final TextEditingController resourceFileSizeCtrl;
+  late final TextEditingController resourcePlatformsCtrl;
+  late final TextEditingController resourceOfficialUrlCtrl;
+  late final TextEditingController resourceLicenseCtrl;
+  late final TextEditingController resourceChecksumSha256Ctrl;
+  List<Map<String, dynamic>> resourceMirrors = [];
 
   int? categoryId;
   List<int> categoryIds = [];
@@ -157,6 +171,61 @@ class _PostEditorPageState extends State<PostEditorPage>
     visibilityRegions = d?.visibilityRegions ?? [];
     contentDeclarations = List<String>.from(d?.contentDeclarations ?? []);
     repostPolicyCode = d?.repostPolicyCode ?? RepostPolicyItem.defaultCode;
+    articleMode = d?.articleMode ?? 0;
+
+    final tMeta = d?.tutorialMeta;
+    final rMeta = d?.resourceMeta;
+
+    final diffMap = tMeta?['difficulty'];
+    String diffVal = '';
+    if (diffMap is Map) {
+      diffVal = diffMap['zh-cn']?.toString() ??
+          (diffMap.isNotEmpty ? diffMap.values.first.toString() : '');
+    }
+    tutorialDifficultyCtrl = TextEditingController(text: diffVal);
+    tutorialMinutesCtrl = TextEditingController(
+      text: tMeta?['estimatedMinutes']?.toString() ?? '',
+    );
+    final prereqsMap = tMeta?['prerequisites'];
+    List<dynamic>? prereqsList;
+    if (prereqsMap is Map) {
+      prereqsList = (prereqsMap['zh-cn'] as List<dynamic>?) ??
+          (prereqsMap.isNotEmpty ? prereqsMap.values.first as List<dynamic>? : null);
+    }
+    tutorialPrereqsCtrl = TextEditingController(
+      text: prereqsList != null ? prereqsList.join('\n') : '',
+    );
+    final audMap = tMeta?['targetAudience'];
+    String audVal = '';
+    if (audMap is Map) {
+      audVal = audMap['zh-cn']?.toString() ??
+          (audMap.isNotEmpty ? audMap.values.first.toString() : '');
+    }
+    tutorialAudienceCtrl = TextEditingController(text: audVal);
+
+    resourceVersionCtrl = TextEditingController(
+      text: rMeta?['version']?.toString() ?? '',
+    );
+    resourceFileSizeCtrl = TextEditingController(
+      text: rMeta?['fileSize']?.toString() ?? '',
+    );
+    final platList = rMeta?['platforms'] as List<dynamic>?;
+    resourcePlatformsCtrl = TextEditingController(
+      text: platList != null ? platList.join(', ') : '',
+    );
+    resourceOfficialUrlCtrl = TextEditingController(
+      text: rMeta?['officialUrl']?.toString() ?? '',
+    );
+    resourceLicenseCtrl = TextEditingController(
+      text: rMeta?['license']?.toString() ?? '',
+    );
+    resourceChecksumSha256Ctrl = TextEditingController(
+      text: rMeta?['checksumSha256']?.toString() ?? '',
+    );
+    final mirrs = rMeta?['mirrors'] as List<dynamic>?;
+    resourceMirrors = mirrs != null
+        ? mirrs.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+        : [];
 
     _captureBaseline();
 
@@ -188,6 +257,16 @@ class _PostEditorPageState extends State<PostEditorPage>
     pointsPriceCtrl.addListener(_markDirty);
     freeLinesCtrl.addListener(_markDirty);
     passwordCtrl.addListener(_markDirty);
+    tutorialDifficultyCtrl.addListener(_markDirty);
+    tutorialMinutesCtrl.addListener(_markDirty);
+    tutorialPrereqsCtrl.addListener(_markDirty);
+    tutorialAudienceCtrl.addListener(_markDirty);
+    resourceVersionCtrl.addListener(_markDirty);
+    resourceFileSizeCtrl.addListener(_markDirty);
+    resourcePlatformsCtrl.addListener(_markDirty);
+    resourceOfficialUrlCtrl.addListener(_markDirty);
+    resourceLicenseCtrl.addListener(_markDirty);
+    resourceChecksumSha256Ctrl.addListener(_markDirty);
 
     if (_restoredDraftApplied) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -796,6 +875,16 @@ class _PostEditorPageState extends State<PostEditorPage>
     passwordCtrl.dispose();
     pointsPriceCtrl.dispose();
     freeLinesCtrl.dispose();
+    tutorialDifficultyCtrl.dispose();
+    tutorialMinutesCtrl.dispose();
+    tutorialPrereqsCtrl.dispose();
+    tutorialAudienceCtrl.dispose();
+    resourceVersionCtrl.dispose();
+    resourceFileSizeCtrl.dispose();
+    resourcePlatformsCtrl.dispose();
+    resourceOfficialUrlCtrl.dispose();
+    resourceLicenseCtrl.dispose();
+    resourceChecksumSha256Ctrl.dispose();
     _sidebarTabController.dispose();
     _slugSpinController.dispose();
     super.dispose();
@@ -979,6 +1068,47 @@ class _PostEditorPageState extends State<PostEditorPage>
         visibilityRegions: visibilityRegions,
         contentDeclarations: contentDeclarations,
         repostPolicyCode: repostPolicyCode,
+        articleMode: articleMode,
+        tutorialMeta: articleMode == 1
+            ? {
+                if (tutorialDifficultyCtrl.text.trim().isNotEmpty)
+                  'difficulty': {'zh-cn': tutorialDifficultyCtrl.text.trim()},
+                if (int.tryParse(tutorialMinutesCtrl.text.trim()) != null)
+                  'estimatedMinutes': int.parse(tutorialMinutesCtrl.text.trim()),
+                if (tutorialPrereqsCtrl.text.trim().isNotEmpty)
+                  'prerequisites': {
+                    'zh-cn': tutorialPrereqsCtrl.text
+                        .split('\n')
+                        .map((s) => s.trim())
+                        .where((s) => s.isNotEmpty)
+                        .toList(),
+                  },
+                if (tutorialAudienceCtrl.text.trim().isNotEmpty)
+                  'targetAudience': {'zh-cn': tutorialAudienceCtrl.text.trim()},
+              }
+            : null,
+        resourceMeta: articleMode == 2
+            ? {
+                if (resourceVersionCtrl.text.trim().isNotEmpty)
+                  'version': resourceVersionCtrl.text.trim(),
+                if (resourceFileSizeCtrl.text.trim().isNotEmpty)
+                  'fileSize': resourceFileSizeCtrl.text.trim(),
+                if (resourcePlatformsCtrl.text.trim().isNotEmpty)
+                  'platforms': resourcePlatformsCtrl.text
+                      .split(RegExp(r'[,，]'))
+                      .map((s) => s.trim())
+                      .where((s) => s.isNotEmpty)
+                      .toList(),
+                if (resourceOfficialUrlCtrl.text.trim().isNotEmpty)
+                  'officialUrl': resourceOfficialUrlCtrl.text.trim(),
+                if (resourceLicenseCtrl.text.trim().isNotEmpty)
+                  'license': resourceLicenseCtrl.text.trim(),
+                if (resourceChecksumSha256Ctrl.text.trim().isNotEmpty)
+                  'checksumSha256': resourceChecksumSha256Ctrl.text.trim(),
+                if (resourceMirrors.isNotEmpty)
+                  'mirrors': resourceMirrors,
+              }
+            : null,
       );
 
       PostDetail savedDetail;
@@ -2450,6 +2580,13 @@ class _PostEditorPageState extends State<PostEditorPage>
           _buildSlugCard(),
           const SizedBox(height: 16),
           _buildPublishSettingsCard(),
+          if (articleMode == 1) ...[
+            const SizedBox(height: 16),
+            _buildTutorialSettingsCard(),
+          ] else if (articleMode == 2) ...[
+            const SizedBox(height: 16),
+            _buildResourceSettingsCard(),
+          ],
           const SizedBox(height: 16),
           _buildRepostPolicyCard(),
           const SizedBox(height: 16),
@@ -2818,6 +2955,24 @@ class _PostEditorPageState extends State<PostEditorPage>
           ),
           const SizedBox(height: 12),
           _buildDropdownRow(
+            label: '文章模式',
+            value: articleMode,
+            items: const [
+              DropdownMenuItem(value: 0, child: Text('常规博客')),
+              DropdownMenuItem(value: 1, child: Text('教程模式')),
+              DropdownMenuItem(value: 2, child: Text('资源模式')),
+            ],
+            onChanged: (v) {
+              if (v != null) {
+                setState(() {
+                  articleMode = v;
+                  _markDirty();
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildDropdownRow(
             label: t(context, 'visibility_label'),
             value: visibility,
             items: [
@@ -2877,6 +3032,221 @@ class _PostEditorPageState extends State<PostEditorPage>
             label: '可用于自动化程序',
             helpText: '选择后表示允许自动化程序使用内容，不将爬虫排除在外。',
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTutorialSettingsCard() {
+    return SectionCard(
+      icon: Icons.school_outlined,
+      title: '教程模式专属设置',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: tutorialDifficultyCtrl,
+            decoration: const InputDecoration(
+              labelText: '教程难度',
+              hintText: '如：入门 / 进阶 / 专家',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: tutorialMinutesCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '预计学习耗时 (分钟)',
+              hintText: '如：25',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: tutorialAudienceCtrl,
+            decoration: const InputDecoration(
+              labelText: '适用人群',
+              hintText: '如：后端开发工程师 / 初学者',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: tutorialPrereqsCtrl,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: '前置依赖与环境要求 (每行一项)',
+              hintText: 'JDK 21+\nDocker 24+\n掌握基本 SQL',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResourceSettingsCard() {
+    return SectionCard(
+      icon: Icons.inventory_2_outlined,
+      title: '资源模式专属设置',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: resourceVersionCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '资源/软件版本',
+                    hintText: '如：v2.5.0',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: resourceFileSizeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '文件大小',
+                    hintText: '如：128 MB',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: resourcePlatformsCtrl,
+            decoration: const InputDecoration(
+              labelText: '适配平台 (逗号分隔)',
+              hintText: 'Windows, macOS, Linux, Docker',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: resourceLicenseCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '开源/授权协议',
+                    hintText: '如：MIT / Apache 2.0 / 免费版',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: resourceOfficialUrlCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '官网 / 源码主页',
+                    hintText: 'https://...',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: resourceChecksumSha256Ctrl,
+            decoration: const InputDecoration(
+              labelText: 'SHA-256 完整性哈希',
+              hintText: '64 位十六进制散列值',
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '下载镜像与渠道 (${resourceMirrors.length})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('添加镜像'),
+                onPressed: () {
+                  setState(() {
+                    resourceMirrors.add({
+                      'name': '下载通道 ${resourceMirrors.length + 1}',
+                      'url': '',
+                      'extractionCode': '',
+                      'requiresUnlock': false,
+                    });
+                    _markDirty();
+                  });
+                },
+              ),
+            ],
+          ),
+          for (int i = 0; i < resourceMirrors.length; i++) ...[
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: resourceMirrors[i]['name']?.toString() ?? '',
+                          decoration: const InputDecoration(labelText: '镜像名称', isDense: true),
+                          onChanged: (val) {
+                            resourceMirrors[i]['name'] = val;
+                            _markDirty();
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        onPressed: () {
+                          setState(() {
+                            resourceMirrors.removeAt(i);
+                            _markDirty();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  TextFormField(
+                    initialValue: resourceMirrors[i]['url']?.toString() ?? '',
+                    decoration: const InputDecoration(labelText: '下载链接 URL', isDense: true),
+                    onChanged: (val) {
+                      resourceMirrors[i]['url'] = val;
+                      _markDirty();
+                    },
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: resourceMirrors[i]['extractionCode']?.toString() ?? '',
+                          decoration: const InputDecoration(labelText: '提取码 / 解压密码 (可选)', isDense: true),
+                          onChanged: (val) {
+                            resourceMirrors[i]['extractionCode'] = val;
+                            _markDirty();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Checkbox(
+                        value: resourceMirrors[i]['requiresUnlock'] == true,
+                        onChanged: (val) {
+                          setState(() {
+                            resourceMirrors[i]['requiresUnlock'] = val == true;
+                            _markDirty();
+                          });
+                        },
+                      ),
+                      const Text('跟随文章锁', style: TextStyle(fontSize: 12)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -68,6 +68,7 @@ class PostItem {
     this.publishedAt,
     this.createdAt,
     this.updatedAt,
+    this.articleMode = 0,
   });
   final int id;
   final String slug;
@@ -87,6 +88,7 @@ class PostItem {
   final DateTime? publishedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final int articleMode;
 
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
@@ -134,6 +136,7 @@ class PostItem {
       updatedAt: map['updatedAt'] == null
           ? null
           : DateTime.tryParse(map['updatedAt'].toString()),
+      articleMode: toInt(map['articleMode']) ?? 0,
     );
   }
 }
@@ -174,6 +177,9 @@ class PostDetail {
     this.publishedAt,
     this.createdAt,
     this.updatedAt,
+    this.articleMode = 0,
+    this.tutorialMeta,
+    this.resourceMeta,
   });
 
   final int id;
@@ -210,6 +216,9 @@ class PostDetail {
   final DateTime? publishedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final int articleMode;
+  final Map<String, dynamic>? tutorialMeta;
+  final Map<String, dynamic>? resourceMeta;
 
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
@@ -270,6 +279,13 @@ class PostDetail {
       publishedAt: parseDate(map['publishedAt']),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
+      articleMode: toInt(map['articleMode']) ?? 0,
+      tutorialMeta: map['tutorialMeta'] is Map
+          ? Map<String, dynamic>.from(map['tutorialMeta'] as Map)
+          : null,
+      resourceMeta: map['resourceMeta'] is Map
+          ? Map<String, dynamic>.from(map['resourceMeta'] as Map)
+          : null,
     );
   }
 }
@@ -425,6 +441,9 @@ class PostEditRequest {
     this.pointsPrice,
     this.freeLines,
     this.force = false,
+    this.articleMode = 0,
+    this.tutorialMeta,
+    this.resourceMeta,
   });
 
   final String slug;
@@ -453,6 +472,9 @@ class PostEditRequest {
   final String repostPolicyCode;
   final int? pointsPrice;
   final int? freeLines;
+  final int articleMode;
+  final Map<String, dynamic>? tutorialMeta;
+  final Map<String, dynamic>? resourceMeta;
 
   Map<String, dynamic> toCreateBody() {
     return {
@@ -481,6 +503,9 @@ class PostEditRequest {
       'repostPolicyCode': repostPolicyCode,
       if (pointsPrice != null) 'pointsPrice': pointsPrice,
       if (freeLines != null) 'freeLines': freeLines,
+      'articleMode': articleMode,
+      if (tutorialMeta != null) 'tutorialMeta': tutorialMeta,
+      if (resourceMeta != null) 'resourceMeta': resourceMeta,
     };
   }
 
@@ -513,6 +538,9 @@ class PostEditRequest {
       'repostPolicyCode': repostPolicyCode,
       if (pointsPrice != null) 'pointsPrice': pointsPrice,
       if (freeLines != null) 'freeLines': freeLines,
+      'articleMode': articleMode,
+      if (tutorialMeta != null) 'tutorialMeta': tutorialMeta,
+      if (resourceMeta != null) 'resourceMeta': resourceMeta,
     };
   }
 

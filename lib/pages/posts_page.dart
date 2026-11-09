@@ -438,6 +438,27 @@ class _PostsPageState extends State<PostsPage> {
                           ),
                         ),
                       ),
+                      if (it.articleMode == 1) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('教程', style: TextStyle(color: Colors.indigo, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ] else if (it.articleMode == 2) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('资源', style: TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
                       if (it.aiSummaryStatus != 0) ...[
                         const SizedBox(width: 6),
                         Tooltip(
