@@ -1062,11 +1062,7 @@ class AdminApiClient {
       }
       final text = buffer.toString();
       if (text.isNotEmpty) {
-        return AiCompletionResult(
-          text: text,
-          provider: 'AI',
-          modelId: '',
-        );
+        return AiCompletionResult(text: text, provider: 'AI', modelId: '');
       }
     } catch (_) {
       if (buffer.isNotEmpty) rethrow;
@@ -1893,6 +1889,45 @@ class AdminApiClient {
   Future<SystemMonitorInfo> getSystemMonitor() async {
     final res = await _get('/api/admin/system/monitor');
     return SystemMonitorInfo.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  // ==================== CDN 缓存诊断 API ====================
+
+  Future<Map<String, dynamic>> getCdnCacheStatus({
+    String? targetBaseUrl,
+  }) async {
+    final response = await _get(
+      '/api/admin/system/cdn-cache/status',
+      query: (targetBaseUrl != null && targetBaseUrl.trim().isNotEmpty)
+          ? {'baseUrl': targetBaseUrl.trim()}
+          : null,
+    );
+    final map = _map(jsonDecode(response.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> getCdnCacheRecommendations() async {
+    final response = await _get('/api/admin/system/cdn-cache/recommendations');
+    final map = _map(jsonDecode(response.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> probeCdnCachePath({
+    String? targetBaseUrl,
+    required String path,
+    Map<String, String>? headers,
+  }) async {
+    final response = await _post(
+      '/api/admin/system/cdn-cache/probe',
+      body: {
+        if (targetBaseUrl != null && targetBaseUrl.trim().isNotEmpty)
+          'baseUrl': targetBaseUrl.trim(),
+        'path': path,
+        'headers': headers ?? {},
+      },
+    );
+    final map = _map(jsonDecode(response.body));
+    return _map(map['data']);
   }
 
   Future<Map<String, dynamic>> seoGet(String path) async {

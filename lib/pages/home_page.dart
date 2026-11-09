@@ -319,6 +319,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.account_tree,
         submenuParent: '内容管理',
       ),
+      _AdminNavigationItem(
+        labelKey: null,
+        fallbackLabel: 'CDN 缓存',
+        icon: Icons.cached_outlined,
+        selectedIcon: Icons.cached,
+        submenuParent: '边缘集群',
+      ),
     ];
     if (widget.user?.roleName == 'SUPER_ADMIN') {
       items.add(
@@ -1460,6 +1467,8 @@ class _HomePageState extends State<HomePage> {
       case 33:
         return ArticleMapPage(api: widget.api, onAuthError: widget.onAuthError);
       case 34:
+        return CdnCachePage(api: widget.api, onAuthError: widget.onAuthError);
+      case 35:
         return HoneypotPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);

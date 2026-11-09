@@ -9,12 +9,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:windblog_admin_flutter/data/admin_api_client.dart';
 import 'package:windblog_admin_flutter/l10n/app_localizations.dart';
 import 'package:windblog_admin_flutter/main.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
   test(
     'notification controller updates one persistent task and evicts transient tasks',
     () {
