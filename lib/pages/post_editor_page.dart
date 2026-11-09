@@ -1089,14 +1089,16 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   void _subscribePostEvents(int postId) {
     _unsubscribePostEvents();
-    _postEventsSubscription = widget.api.postEvents(postId).listen(
-      (event) {
-        if (!mounted) return;
-        _handleServerPostEvent(event);
-      },
-      onError: (_) {},
-      cancelOnError: false,
-    );
+    _postEventsSubscription = widget.api
+        .postEvents(postId)
+        .listen(
+          (event) {
+            if (!mounted) return;
+            _handleServerPostEvent(event);
+          },
+          onError: (_) {},
+          cancelOnError: false,
+        );
   }
 
   void _unsubscribePostEvents() {
@@ -1226,7 +1228,10 @@ class _PostEditorPageState extends State<PostEditorPage>
                       backgroundColor: Colors.redAccent,
                       child: Icon(Icons.restore, color: Colors.white, size: 20),
                     ),
-                    title: const Text('放弃当前内容重载', style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: const Text(
+                      '放弃当前内容重载',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: const Text('丢弃本地未保存修改，重新载入服务端最新内容'),
                     onTap: () {
                       Navigator.of(dialogContext).pop();
@@ -1236,9 +1241,16 @@ class _PostEditorPageState extends State<PostEditorPage>
                   ListTile(
                     leading: const CircleAvatar(
                       backgroundColor: Colors.blueAccent,
-                      child: Icon(Icons.difference, color: Colors.white, size: 20),
+                      child: Icon(
+                        Icons.difference,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    title: const Text('diff 服务端', style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: const Text(
+                      'diff 服务端',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: const Text('比对本地修改与服务端版本的逐行差异'),
                     onTap: () {
                       Navigator.of(dialogContext).pop();
@@ -1248,9 +1260,16 @@ class _PostEditorPageState extends State<PostEditorPage>
                   ListTile(
                     leading: const CircleAvatar(
                       backgroundColor: Colors.green,
-                      child: Icon(Icons.merge_type, color: Colors.white, size: 20),
+                      child: Icon(
+                        Icons.merge_type,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    title: const Text('自动冲突合并', style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: const Text(
+                      '自动冲突合并',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: const Text('基于 3-Way Merge 算法自动合并双方修改'),
                     onTap: () {
                       Navigator.of(dialogContext).pop();
@@ -1260,9 +1279,16 @@ class _PostEditorPageState extends State<PostEditorPage>
                   ListTile(
                     leading: const CircleAvatar(
                       backgroundColor: Colors.purple,
-                      child: Icon(Icons.edit_note, color: Colors.white, size: 20),
+                      child: Icon(
+                        Icons.edit_note,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    title: const Text('手动合并', style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: const Text(
+                      '手动合并',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: const Text('对照服务端内容，在编辑框中精细调整合并结果'),
                     onTap: () {
                       Navigator.of(dialogContext).pop();
@@ -1272,9 +1298,16 @@ class _PostEditorPageState extends State<PostEditorPage>
                   ListTile(
                     leading: const CircleAvatar(
                       backgroundColor: Colors.deepOrange,
-                      child: Icon(Icons.cloud_upload, color: Colors.white, size: 20),
+                      child: Icon(
+                        Icons.cloud_upload,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    title: const Text('覆盖服务端', style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: const Text(
+                      '覆盖服务端',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: const Text('强制用当前本地内容覆盖服务端最新版本'),
                     onTap: () {
                       Navigator.of(dialogContext).pop();
@@ -1347,7 +1380,10 @@ class _PostEditorPageState extends State<PostEditorPage>
       context: context,
       builder: (diffContext) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 900, maxHeight: 750),
             child: Padding(
@@ -1361,7 +1397,10 @@ class _PostEditorPageState extends State<PostEditorPage>
                       const SizedBox(width: 8),
                       Text(
                         '差异比对：服务端 (v${latest.version}) vs 本地修改',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
@@ -1448,7 +1487,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     final results = dmp.patch_apply(patches, serverText);
     final mergedText = results[0] as String;
     final patchSuccess = (results[1] as List).cast<bool>();
-    final bool allClean = patchSuccess.isEmpty || patchSuccess.every((ok) => ok);
+    final bool allClean =
+        patchSuccess.isEmpty || patchSuccess.every((ok) => ok);
 
     if (allClean) {
       setState(() {
@@ -1484,9 +1524,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   }) async {
     final serverText = latest.zhContent;
     final localText = contentCtrl.text;
-    final mergeCtrl = TextEditingController(
-      text: prefilledText ?? localText,
-    );
+    final mergeCtrl = TextEditingController(text: prefilledText ?? localText);
 
     await showDialog<void>(
       context: context,
@@ -1496,9 +1534,15 @@ class _PostEditorPageState extends State<PostEditorPage>
           builder: (context, setDialogState) {
             final isPhone = AdminBreakpoints.isPhone(context);
             return Dialog(
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100, maxHeight: 850),
+                constraints: const BoxConstraints(
+                  maxWidth: 1100,
+                  maxHeight: 850,
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
@@ -1510,7 +1554,10 @@ class _PostEditorPageState extends State<PostEditorPage>
                           const SizedBox(width: 8),
                           Text(
                             '手动合并冲突 (服务端 v${latest.version})',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const Spacer(),
                           IconButton(
@@ -1561,7 +1608,10 @@ class _PostEditorPageState extends State<PostEditorPage>
                                 controller: mergeCtrl,
                                 maxLines: null,
                                 expands: true,
-                                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 13,
+                                ),
                                 decoration: const InputDecoration(
                                   labelText: '合并后内容 (可在此直接编辑)',
                                   border: OutlineInputBorder(),
@@ -1573,22 +1623,34 @@ class _PostEditorPageState extends State<PostEditorPage>
                                   Expanded(
                                     flex: 1,
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        const Text('服务端最新内容 (只读)', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        const Text(
+                                          '服务端最新内容 (只读)',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                         const SizedBox(height: 4),
                                         Expanded(
                                           child: Container(
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
-                                              border: Border.all(color: Colors.grey.shade400),
-                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: Colors.grey.shade400,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
                                               color: Colors.grey.shade100,
                                             ),
                                             child: SingleChildScrollView(
                                               child: SelectableText(
                                                 serverText,
-                                                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                                                style: const TextStyle(
+                                                  fontFamily: 'monospace',
+                                                  fontSize: 12,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -1600,16 +1662,26 @@ class _PostEditorPageState extends State<PostEditorPage>
                                   Expanded(
                                     flex: 1,
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        const Text('合并后内容 (可在此编辑)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                                        const Text(
+                                          '合并后内容 (可在此编辑)',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue,
+                                          ),
+                                        ),
                                         const SizedBox(height: 4),
                                         Expanded(
                                           child: TextField(
                                             controller: mergeCtrl,
                                             maxLines: null,
                                             expands: true,
-                                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
                                             decoration: const InputDecoration(
                                               border: OutlineInputBorder(),
                                               contentPadding: EdgeInsets.all(8),
@@ -2470,7 +2542,7 @@ class _PostEditorPageState extends State<PostEditorPage>
           prefixText: '/post/',
           isDense: true,
           helperMaxLines: 3,
-          helperText: '只保留小写字母、数字和连字符；留空保存时按标题自动生成（中文转为拼音）',
+          helperText: '只保留小写字母、数字和连字符；留空保存时按标题自动生成（优先 AI，失败回退拼音）',
           suffixIcon: IconButton(
             tooltip: '根据标题自动生成',
             onPressed: _regenerateSlugFromTitle,
