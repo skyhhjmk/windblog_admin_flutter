@@ -1591,6 +1591,8 @@ class SystemSetting {
     this.description,
     required this.version,
     required this.isFrozen,
+    this.settingLevel = 'NORMAL',
+    this.requiresVerification = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -1604,8 +1606,12 @@ class SystemSetting {
   final String? description;
   final int version;
   final bool isFrozen;
+  final String settingLevel;
+  final bool requiresVerification;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  bool get isCritical => settingLevel.toUpperCase() == 'CRITICAL' || requiresVerification;
 
   factory SystemSetting.fromMap(Map<String, dynamic> map) {
     return SystemSetting(
@@ -1622,6 +1628,9 @@ class SystemSetting {
       description: map['description']?.toString(),
       version: toInt(map['version']) ?? 1,
       isFrozen: toBool(map['isFrozen']) ?? false,
+      settingLevel: map['settingLevel']?.toString() ?? 'NORMAL',
+      requiresVerification: toBool(map['requiresVerification']) ??
+          (map['settingLevel']?.toString().toUpperCase() == 'CRITICAL'),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
     );

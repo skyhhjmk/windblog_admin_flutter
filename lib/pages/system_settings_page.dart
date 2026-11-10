@@ -86,29 +86,55 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       return _buildPhoneLayout(groups);
     }
 
+    final isTablet = AdminBreakpoints.isTablet(context);
+    final isWide = MediaQuery.sizeOf(context).width >= 1600;
+    final navWidth = isTablet ? 190.0 : (isWide ? 240.0 : 220.0);
+
     return AdminPageScaffold(
       title: t(context, 'system_settings'),
       body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Card(
+            margin: EdgeInsets.zero,
             child: SizedBox(
-              width: AdminBreakpoints.isTablet(context) ? 180 : 220,
+              width: navWidth,
               child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                 children: groups.map((g) {
-                  return ListTile(
-                    title: Text(_getGroupLabel(g)),
-                    selected: _selectedGroup == g,
-                    onTap: () {
-                      setState(() {
-                        _selectedGroup = g;
-                      });
-                    },
+                  final isSelected = _selectedGroup == g;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: ListTile(
+                      dense: true,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      title: Text(
+                        _getGroupLabel(g),
+                        style: TextStyle(
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedTileColor: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.1),
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      onTap: () {
+                        setState(() {
+                          _selectedGroup = g;
+                        });
+                      },
+                    ),
                   );
                 }).toList(),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(child: _buildSettingsContent()),
         ],
       ),
@@ -116,48 +142,64 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   }
 
   Widget _buildPhoneLayout(List<String> groups) {
-    String? selectedGroupValue;
-    if (groups.contains(_selectedGroup)) {
-      selectedGroupValue = _selectedGroup;
-    }
-
     return AdminPageScaffold(
       title: t(context, 'system_settings'),
       filters: groups.isEmpty
           ? null
-          : AdminToolbar(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: selectedGroupValue,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.tune),
-                    ),
-                    isExpanded: true,
-                    items: groups.map((groupName) {
-                      return DropdownMenuItem<String>(
-                        value: groupName,
-                        child: Text(
+          : SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                child: Row(
+                  children: groups.map((groupName) {
+                    final isSelected = _selectedGroup == groupName;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(
                           _getGroupLabel(groupName),
-                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
                         ),
-                      );
-                    }).toList(),
-                    onChanged: (groupName) {
-                      if (groupName == null) {
-                        return;
-                      }
-                      setState(() {
-                        _selectedGroup = groupName;
-                      });
-                    },
-                  ),
+                        selected: isSelected,
+                        visualDensity: VisualDensity.compact,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _selectedGroup = groupName;
+                            });
+                          }
+                        },
+                      ),
+                    );
+                  }).toList(),
                 ),
-              ],
+              ),
             ),
       body: _buildSettingsContent(),
     );
+  }
+
+  double _resolveMaxContentWidth(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (AdminBreakpoints.isPhone(context)) {
+      return double.infinity;
+    }
+    if (AdminBreakpoints.isTablet(context)) {
+      return 1000;
+    }
+    if (width < 1440) {
+      return 1200;
+    }
+    if (width < 1800) {
+      return 1400;
+    }
+    return 1600;
   }
 
   Widget _buildSettingsContent() {
@@ -180,25 +222,37 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       return const AdminStatusView.empty(title: '暂无配置项');
     }
 
+    final isPhone = AdminBreakpoints.isPhone(context);
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 860),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                _getGroupLabel(_selectedGroup!),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 20),
-              for (SystemSetting setting in selectedSettings)
-                _buildSettingItem(setting),
-            ],
+          constraints: BoxConstraints(
+            maxWidth: _resolveMaxContentWidth(context),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isPhone ? 2 : 8,
+              vertical: isPhone ? 4 : 8,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!isPhone) ...[
+                  Text(
+                    _getGroupLabel(_selectedGroup!),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+                for (SystemSetting setting in selectedSettings)
+                  _buildSettingItem(setting),
+              ],
+            ),
           ),
         ),
       ),
@@ -208,45 +262,129 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   Widget _buildSettingItem(SystemSetting setting) {
     final title = setting.description ?? setting.configKey;
     final subtitle = setting.description != null ? setting.configKey : null;
+    final isPhone = AdminBreakpoints.isPhone(context);
+
+    final titleWidget = Text(
+      title,
+      style: (isPhone
+              ? Theme.of(context).textTheme.titleMedium
+              : Theme.of(context).textTheme.titleLarge)
+          ?.copyWith(fontWeight: FontWeight.bold),
+    );
+
+    final badgesWidget = Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (setting.isCritical)
+          Chip(
+            avatar: const Icon(Icons.shield_outlined,
+                size: 14, color: Colors.deepOrange),
+            label: Text(
+              t(context, 'setting_level_critical'),
+              style: const TextStyle(fontSize: 12, color: Colors.deepOrange),
+            ),
+            backgroundColor: Colors.deepOrange.withValues(alpha: 0.08),
+            side: BorderSide(color: Colors.deepOrange.withValues(alpha: 0.3)),
+            visualDensity:
+                isPhone ? VisualDensity.compact : VisualDensity.standard,
+          )
+        else
+          Chip(
+            avatar: const Icon(Icons.tune, size: 14, color: Colors.blueGrey),
+            label: Text(
+              t(context, 'setting_level_normal'),
+              style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+            ),
+            backgroundColor: Colors.blueGrey.withValues(alpha: 0.08),
+            side: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.2)),
+            visualDensity:
+                isPhone ? VisualDensity.compact : VisualDensity.standard,
+          ),
+        Chip(
+          label: Text(
+            '${t(context, 'config_version')}: ${setting.version}',
+            style: const TextStyle(fontSize: 12),
+          ),
+          visualDensity:
+              isPhone ? VisualDensity.compact : VisualDensity.standard,
+        ),
+      ],
+    );
+
+    final cardPadding = isPhone
+        ? const EdgeInsets.all(14)
+        : (MediaQuery.sizeOf(context).width >= 1600
+            ? const EdgeInsets.all(28)
+            : const EdgeInsets.all(22));
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
+      padding: EdgeInsets.only(bottom: isPhone ? 20 : 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            alignment: WrapAlignment.spaceBetween,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 620),
-                child: Text(
-                  title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Chip(
-                label: Text(
-                  '${t(context, 'config_version')}: ${setting.version}',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
-          ),
+          if (isPhone)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                titleWidget,
+                const SizedBox(height: 6),
+                badgesWidget,
+              ],
+            )
+          else
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.spaceBetween,
+              children: [
+                titleWidget,
+                badgesWidget,
+              ],
+            ),
           if (subtitle != null)
             Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 16),
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
               child: Text(
                 subtitle,
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             )
           else
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+          if (setting.isCritical)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border:
+                      Border.all(color: Colors.orange.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline,
+                        size: 16, color: Colors.orange.shade800),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        t(context, 'critical_setting_hint'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade900,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -254,9 +392,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Padding(
-              padding: EdgeInsets.all(
-                AdminBreakpoints.isPhone(context) ? 16 : 24,
-              ),
+              padding: cardPadding,
               child: setting.configKey == 'analytics_tracking'
                   ? AnalyticsRegionTrackingEditor(
                       schema: setting.uiSchema,
@@ -304,15 +440,16 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
               OutlinedButton.icon(
                 onPressed: () => _copySetting(setting),
-                icon: const Icon(Icons.copy, size: 18),
+                icon: const Icon(Icons.copy, size: 16),
                 label: const Text('复制到剪贴板'),
               ),
               OutlinedButton.icon(
                 onPressed: () => _importSettingFromClipboard(setting),
-                icon: const Icon(Icons.content_paste_go, size: 18),
+                icon: const Icon(Icons.content_paste_go, size: 16),
                 label: const Text('从剪贴板导入'),
               ),
             ],
@@ -330,8 +467,11 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           ],
           if (setting.isFrozen) ...[
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 TextButton.icon(
                   onPressed: () => _rollbackSetting(setting.configKey),
@@ -341,7 +481,6 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                     style: const TextStyle(fontSize: 13),
                   ),
                 ),
-                const SizedBox(width: 12),
                 FilledButton.icon(
                   onPressed: () => _confirmSetting(setting.configKey),
                   icon: const Icon(Icons.check, size: 18),
@@ -529,20 +668,30 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     final stepUpToken = await _stepUpTokenFor(key);
     if (_requiresStepUp(key) && stepUpToken == null) return;
     try {
-      await widget.api.updateSystemSetting(
+      final updated = await widget.api.updateSystemSetting(
         key,
         values,
         reason: '管理员在后台手动修改',
         stepUpToken: stepUpToken,
       );
       if (mounted) {
-        AdminFeedback.showSnackBar(
-          context,
-          SnackBar(
-            content: Text(t(context, 'config_save_success_verifying')),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        if (updated.isFrozen) {
+          AdminFeedback.showSnackBar(
+            context,
+            SnackBar(
+              content: Text(t(context, 'config_save_success_verifying')),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        } else {
+          AdminFeedback.showSnackBar(
+            context,
+            SnackBar(
+              content: Text(t(context, 'save_success')),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
         _load();
       }
     } catch (e) {

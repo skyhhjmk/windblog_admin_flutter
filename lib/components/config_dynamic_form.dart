@@ -83,13 +83,15 @@ class _ConfigDynamicFormState extends State<ConfigDynamicForm> {
   Future<void> _pickMedia(UISchemaField field) async {
     final api = widget.api;
     if (api == null) return;
+    final isPhone = AdminBreakpoints.isPhone(context);
+    final screenSize = MediaQuery.sizeOf(context);
     final items = await showDialog<List<MediaItem>>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('选择${field.label}'),
         content: SizedBox(
-          width: 800,
-          height: 600,
+          width: isPhone ? screenSize.width * 0.95 : 800,
+          height: isPhone ? screenSize.height * 0.8 : 600,
           child: MediaLibraryPicker(api: api, imageOnly: true),
         ),
         actions: [
