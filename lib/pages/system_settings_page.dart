@@ -278,6 +278,16 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                       onSave: (values) =>
                           _saveSetting(setting.configKey, values),
                     )
+                  : setting.configKey == 'sidebar_layout'
+                  ? SidebarLayoutSettingsEditor(
+                      key: ValueKey(setting.configKey),
+                      initialValues: Map<String, dynamic>.from(
+                        setting.configValue is Map ? setting.configValue : {},
+                      ),
+                      isFrozen: setting.isFrozen,
+                      onSave: (values) =>
+                          _saveSetting(setting.configKey, values),
+                    )
                   : ConfigDynamicForm(
                       key: ValueKey(setting.configKey),
                       schema: setting.uiSchema,
@@ -354,10 +364,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         : <String, dynamic>{};
     await Clipboard.setData(
       ClipboardData(
-        text: const JsonEncoder.withIndent('  ').convert({
-          'configKey': setting.configKey,
-          'configValue': value,
-        }),
+        text: const JsonEncoder.withIndent(
+          '  ',
+        ).convert({'configKey': setting.configKey, 'configValue': value}),
       ),
     );
     if (mounted) {
@@ -386,13 +395,12 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       final decoded = jsonDecode(text);
       if (decoded is! Map) throw const FormatException('JSON 顶层必须是对象');
       final object = Map<String, dynamic>.from(decoded);
-      final isEnvelope = object['configKey'] != null &&
-          object.containsKey('configValue');
+      final isEnvelope =
+          object['configKey'] != null && object.containsKey('configValue');
       if (isEnvelope && object['configKey'].toString() != setting.configKey) {
         throw const FormatException('剪贴板中的配置项与当前配置项不匹配');
       }
-      final legacyEnvelope = object.length == 1 &&
-          object['configValue'] is Map;
+      final legacyEnvelope = object.length == 1 && object['configValue'] is Map;
       final payload = isEnvelope || legacyEnvelope
           ? object['configValue']
           : object;

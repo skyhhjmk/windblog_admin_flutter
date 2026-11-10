@@ -76,6 +76,7 @@ part 'pages/system_monitor_page.dart';
 
 part 'pages/system_settings_page.dart';
 part 'components/google_adsense_settings_editor.dart';
+part 'components/sidebar_layout_settings_editor.dart';
 
 part 'pages/email_center_page.dart';
 part 'pages/elasticsearch_settings_page.dart';

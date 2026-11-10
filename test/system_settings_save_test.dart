@@ -77,6 +77,58 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     },
   );
+
+  testWidgets(
+    'SidebarLayoutSettingsEditor supports multi-area switching, custom HTML widgets, and saving',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 1400));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+
+      Map<String, dynamic>? savedPayload;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: SidebarLayoutSettingsEditor(
+                initialValues: const <String, dynamic>{},
+                isFrozen: false,
+                onSave: (values) {
+                  savedPayload = values;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('首页侧边栏'), findsWidgets);
+      expect(find.text('新增自定义 HTML'), findsOneWidget);
+
+      await tester.tap(find.text('新增自定义 HTML'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('HTML 或公告内容'), findsOneWidget);
+
+      await tester.tap(find.textContaining('文章详情页侧边栏'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('文章目录 (TOC)'), findsWidgets);
+
+      final saveButton = find.text('保存侧边栏配置');
+      await tester.ensureVisible(saveButton);
+      await tester.pumpAndSettle();
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      expect(savedPayload, isNotNull);
+      final areas = savedPayload!['areas'] as Map<String, dynamic>;
+      expect((areas['home'] as List).length, 5);
+      expect((areas['post'] as List).length, 8);
+    },
+  );
 }
 
 class _SystemSettingsApiStub extends AdminApiClient {
