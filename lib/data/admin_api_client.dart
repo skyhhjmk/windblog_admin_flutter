@@ -358,6 +358,13 @@ class AdminApiClient {
     return list.map((e) => e.toString()).toList();
   }
 
+  Future<AiUsageSummary> getAiUsageSummary({int days = 30}) async {
+    final res = await _get('/api/admin/ai/providers/usage?days=$days');
+    return AiUsageSummary.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
   Stream<String> testAiStream(
     int id, {
     required String prompt,

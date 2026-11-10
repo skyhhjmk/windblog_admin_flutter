@@ -30,10 +30,21 @@ class _AiProvidersPageState extends State<AiProvidersPage>
   bool _testing = false;
   bool _testStream = true;
 
+  // 用量统计相关
+  AiUsageSummary? _usageSummary;
+  bool _loadingUsage = false;
+  String? _usageError;
+  int _usageDays = 30;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.index == 3 && _usageSummary == null && !_loadingUsage) {
+        _loadUsage();
+      }
+    });
     _load();
   }
 
@@ -721,6 +732,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
             Tab(text: t(context, 'ai_providers_config')),
             Tab(text: t(context, 'ai_polling_groups')),
             Tab(text: t(context, 'ai_test_api')),
+            Tab(text: t(context, 'ai_usage_stats')),
           ],
         ),
         Expanded(
@@ -734,6 +746,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     _buildConfigsList('PROVIDER'),
                     _buildConfigsList('POLLING_GROUP'),
                     _buildTestTab(),
+                    _buildUsageTab(),
                   ],
                 ),
         ),
@@ -935,5 +948,328 @@ class _AiProvidersPageState extends State<AiProvidersPage>
         ],
       ),
     );
+  }
+
+  Future<void> _loadUsage() async {
+    setState(() {
+      _loadingUsage = true;
+      _usageError = null;
+    });
+    try {
+      final summary = await widget.api.getAiUsageSummary(days: _usageDays);
+      if (mounted) {
+        setState(() {
+          _usageSummary = summary;
+        });
+      }
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (e) {
+      if (mounted) setState(() => _usageError = '$e');
+    } finally {
+      if (mounted) setState(() => _loadingUsage = false);
+    }
+  }
+
+  Widget _buildUsageTab() {
+    if (_loadingUsage && _usageSummary == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_usageError != null && _usageSummary == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${t(context, 'error')}: $_usageError'),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _loadUsage,
+              icon: const Icon(Icons.refresh),
+              label: Text(t(context, 'retry')),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final summary = _usageSummary;
+    if (summary == null) {
+      return Center(
+        child: FilledButton.icon(
+          onPressed: _loadUsage,
+          icon: const Icon(Icons.refresh),
+          label: Text(t(context, 'ai_usage_stats')),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                t(context, 'ai_usage_stats'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              DropdownButton<int>(
+                value: _usageDays,
+                items: const [
+                  DropdownMenuItem(value: 7, child: Text('最近 7 天 (7 Days)')),
+                  DropdownMenuItem(value: 30, child: Text('最近 30 天 (30 Days)')),
+                  DropdownMenuItem(value: 90, child: Text('最近 90 天 (90 Days)')),
+                  DropdownMenuItem(value: 365, child: Text('最近 1 年 (1 Year)')),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _usageDays = v);
+                    _loadUsage();
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _loadingUsage ? null : _loadUsage,
+                icon: _loadingUsage
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                tooltip: t(context, 'refresh'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double cardWidth = constraints.maxWidth > 700
+                  ? (constraints.maxWidth - 48) / 4
+                  : (constraints.maxWidth - 16) / 2;
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  _buildKpiCard(
+                    cardWidth,
+                    t(context, 'ai_total_requests'),
+                    '${summary.totalRequests}',
+                    subtitle: '成功: ${summary.successRequests} / 失败: ${summary.failedRequests}',
+                    icon: Icons.api,
+                    color: Colors.blue,
+                  ),
+                  _buildKpiCard(
+                    cardWidth,
+                    t(context, 'ai_total_tokens'),
+                    _formatTokens(summary.totalTokens),
+                    subtitle: '精确: ${summary.totalTokens}',
+                    icon: Icons.token,
+                    color: Colors.purple,
+                  ),
+                  _buildKpiCard(
+                    cardWidth,
+                    t(context, 'ai_prompt_tokens'),
+                    _formatTokens(summary.promptTokens),
+                    subtitle: '精确: ${summary.promptTokens}',
+                    icon: Icons.input,
+                    color: Colors.teal,
+                  ),
+                  _buildKpiCard(
+                    cardWidth,
+                    t(context, 'ai_completion_tokens'),
+                    _formatTokens(summary.completionTokens),
+                    subtitle: '精确: ${summary.completionTokens}',
+                    icon: Icons.output,
+                    color: Colors.orange,
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+          Text(
+            t(context, 'ai_feature_breakdown'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: summary.features.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(child: Text(t(context, 'no_data'))),
+                  )
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('功能模块 (Feature)')),
+                        DataColumn(label: Text('请求次数 (Requests)')),
+                        DataColumn(label: Text('输入 Token (Prompt)')),
+                        DataColumn(label: Text('输出 Token (Completion)')),
+                        DataColumn(label: Text('总 Token (Total)')),
+                      ],
+                      rows: summary.features.map((f) {
+                        return DataRow(
+                          cells: [
+                            DataCell(Text(_featureLabel(f.feature))),
+                            DataCell(Text('${f.requests}')),
+                            DataCell(Text('${f.promptTokens}')),
+                            DataCell(Text('${f.completionTokens}')),
+                            DataCell(Text('${f.totalTokens}')),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            t(context, 'ai_provider_breakdown'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: summary.providers.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(child: Text(t(context, 'no_data'))),
+                  )
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('提供商 (Provider)')),
+                        DataColumn(label: Text('引擎 (Engine)')),
+                        DataColumn(label: Text('模型 (Model)')),
+                        DataColumn(label: Text('请求 (成功/失败)')),
+                        DataColumn(label: Text('输入 Token')),
+                        DataColumn(label: Text('输出 Token')),
+                        DataColumn(label: Text('总 Token')),
+                        DataColumn(label: Text('最近调用')),
+                      ],
+                      rows: summary.providers.map((p) {
+                        return DataRow(
+                          cells: [
+                            DataCell(Text(p.providerName)),
+                            DataCell(Text(p.providerType)),
+                            DataCell(Text(p.model ?? '-')),
+                            DataCell(Text('${p.requests} (${p.successRequests}/${p.failedRequests})')),
+                            DataCell(Text('${p.promptTokens}')),
+                            DataCell(Text('${p.completionTokens}')),
+                            DataCell(Text('${p.totalTokens}')),
+                            DataCell(Text(p.lastUsedAt != null ? _formatDateTime(p.lastUsedAt!) : '-')),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKpiCard(
+    double width,
+    String title,
+    String value, {
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Card(
+        elevation: 1,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: color, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatTokens(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(2)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
+    }
+    return count.toString();
+  }
+
+  String _featureLabel(String feature) {
+    switch (feature.toLowerCase()) {
+      case 'translate':
+        return '文章翻译 (Translate)';
+      case 'summarize':
+        return '文章摘要 (Summarize)';
+      case 'moderate':
+        return '内容审核 (Moderate)';
+      case 'topic':
+        return '选题灵感 (Topic)';
+      case 'writing':
+      case 'assistant':
+        return '写作助手 (Writing)';
+      case 'slug':
+        return 'Slug 生成 (Slug)';
+      case 'test':
+        return '连通性测试 (Test)';
+      default:
+        return feature;
+    }
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final local = dt.toLocal();
+    final y = local.year.toString().padLeft(4, '0');
+    final m = local.month.toString().padLeft(2, '0');
+    final d = local.day.toString().padLeft(2, '0');
+    final h = local.hour.toString().padLeft(2, '0');
+    final min = local.minute.toString().padLeft(2, '0');
+    return '$y-$m-$d $h:$min';
   }
 }

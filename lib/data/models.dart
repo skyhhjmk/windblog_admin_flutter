@@ -936,6 +936,142 @@ class AiProviderConfigUpdateRequest {
   }
 }
 
+class AiUsageSummary {
+  AiUsageSummary({
+    required this.totalRequests,
+    required this.successRequests,
+    required this.failedRequests,
+    required this.promptTokens,
+    required this.completionTokens,
+    required this.totalTokens,
+    required this.providers,
+    required this.features,
+    required this.dailyStats,
+  });
+
+  final int totalRequests;
+  final int successRequests;
+  final int failedRequests;
+  final int promptTokens;
+  final int completionTokens;
+  final int totalTokens;
+  final List<AiProviderUsageStat> providers;
+  final List<AiFeatureUsageStat> features;
+  final List<AiDailyUsageStat> dailyStats;
+
+  factory AiUsageSummary.fromJson(Map<String, dynamic> json) {
+    return AiUsageSummary(
+      totalRequests: json['totalRequests'] as int? ?? 0,
+      successRequests: json['successRequests'] as int? ?? 0,
+      failedRequests: json['failedRequests'] as int? ?? 0,
+      promptTokens: json['promptTokens'] as int? ?? 0,
+      completionTokens: json['completionTokens'] as int? ?? 0,
+      totalTokens: json['totalTokens'] as int? ?? 0,
+      providers: (json['providers'] as List<dynamic>? ?? [])
+          .map((e) => AiProviderUsageStat.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      features: (json['features'] as List<dynamic>? ?? [])
+          .map((e) => AiFeatureUsageStat.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      dailyStats: (json['dailyStats'] as List<dynamic>? ?? [])
+          .map((e) => AiDailyUsageStat.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class AiProviderUsageStat {
+  AiProviderUsageStat({
+    this.providerConfigId,
+    required this.providerName,
+    required this.providerType,
+    this.model,
+    required this.requests,
+    required this.successRequests,
+    required this.failedRequests,
+    required this.promptTokens,
+    required this.completionTokens,
+    required this.totalTokens,
+    this.lastUsedAt,
+  });
+
+  final int? providerConfigId;
+  final String providerName;
+  final String providerType;
+  final String? model;
+  final int requests;
+  final int successRequests;
+  final int failedRequests;
+  final int promptTokens;
+  final int completionTokens;
+  final int totalTokens;
+  final DateTime? lastUsedAt;
+
+  factory AiProviderUsageStat.fromJson(Map<String, dynamic> json) {
+    return AiProviderUsageStat(
+      providerConfigId: json['providerConfigId'] as int?,
+      providerName: json['providerName'] as String? ?? '',
+      providerType: json['providerType'] as String? ?? '',
+      model: json['model'] as String?,
+      requests: json['requests'] as int? ?? 0,
+      successRequests: json['successRequests'] as int? ?? 0,
+      failedRequests: json['failedRequests'] as int? ?? 0,
+      promptTokens: json['promptTokens'] as int? ?? 0,
+      completionTokens: json['completionTokens'] as int? ?? 0,
+      totalTokens: json['totalTokens'] as int? ?? 0,
+      lastUsedAt: json['lastUsedAt'] != null
+          ? DateTime.tryParse(json['lastUsedAt'].toString())
+          : null,
+    );
+  }
+}
+
+class AiFeatureUsageStat {
+  AiFeatureUsageStat({
+    required this.feature,
+    required this.requests,
+    required this.promptTokens,
+    required this.completionTokens,
+    required this.totalTokens,
+  });
+
+  final String feature;
+  final int requests;
+  final int promptTokens;
+  final int completionTokens;
+  final int totalTokens;
+
+  factory AiFeatureUsageStat.fromJson(Map<String, dynamic> json) {
+    return AiFeatureUsageStat(
+      feature: json['feature'] as String? ?? '',
+      requests: json['requests'] as int? ?? 0,
+      promptTokens: json['promptTokens'] as int? ?? 0,
+      completionTokens: json['completionTokens'] as int? ?? 0,
+      totalTokens: json['totalTokens'] as int? ?? 0,
+    );
+  }
+}
+
+class AiDailyUsageStat {
+  AiDailyUsageStat({
+    required this.date,
+    required this.requests,
+    required this.totalTokens,
+  });
+
+  final String date;
+  final int requests;
+  final int totalTokens;
+
+  factory AiDailyUsageStat.fromJson(Map<String, dynamic> json) {
+    return AiDailyUsageStat(
+      date: json['date'] as String? ?? '',
+      requests: json['requests'] as int? ?? 0,
+      totalTokens: json['totalTokens'] as int? ?? 0,
+    );
+  }
+}
+
 class PageResult<T> {
   PageResult({
     required this.items,
