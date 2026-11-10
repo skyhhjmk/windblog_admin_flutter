@@ -135,6 +135,14 @@ class AdminApiClient {
     return _map(jsonDecode(res.body));
   }
 
+  Future<Map<String, dynamic>> kibanaUrl() async {
+    final res = await _get('/api/admin/system/observability/kibana-url');
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Failed to load Kibana url (${res.statusCode})');
+    }
+    return _map(jsonDecode(res.body));
+  }
+
   Future<Map<String, dynamic>> aiTopicAutomation() async {
     final res = await _get('/api/admin/ai/topics/automation');
     return _map(_map(jsonDecode(res.body))['data']);
@@ -480,7 +488,10 @@ class AdminApiClient {
   }
 
   Future<PostItem> quickEditPost(int id, PostQuickEditRequest req) async {
-    final res = await _patch('/api/admin/posts/$id/quick-edit', body: req.toJson());
+    final res = await _patch(
+      '/api/admin/posts/$id/quick-edit',
+      body: req.toJson(),
+    );
     return PostItem.fromMap(_map(jsonDecode(res.body)));
   }
 
