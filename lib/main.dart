@@ -19,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/admin_api_client.dart';
 import 'data/models.dart';
+import 'components/visibility_regions_selector.dart';
 import 'components/native_clipboard.dart';
 import 'l10n/app_localizations.dart';
 import 'components/web_stub.dart'
@@ -727,15 +728,22 @@ class AdminAuthenticatedWorkspace extends StatelessWidget {
   }
 }
 
-/// Non-dismissible loading indicator shown while an article is being opened in
-/// the post editor. It is only ever dismissed programmatically.
+/// Loading indicator shown while an article is being opened in the post editor.
+/// It can be dismissed programmatically or cancelled by the user.
 class EditorLoadingDialog extends StatelessWidget {
-  const EditorLoadingDialog({super.key});
+  const EditorLoadingDialog({super.key, this.onCancel});
+
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && onCancel != null) {
+          onCancel!();
+        }
+      },
       child: Center(
         child: Card(
           elevation: 8,
@@ -754,6 +762,13 @@ class EditorLoadingDialog extends StatelessWidget {
                 ),
                 const SizedBox(width: 16),
                 Text(t(context, 'opening_editor')),
+                if (onCancel != null) ...[
+                  const SizedBox(width: 16),
+                  TextButton(
+                    onPressed: onCancel,
+                    child: Text(t(context, 'cancel')),
+                  ),
+                ],
               ],
             ),
           ),
@@ -764,8 +779,8 @@ class EditorLoadingDialog extends StatelessWidget {
 }
 
 /// The single entry point every "open article editor" action goes through so
-/// the loading feedback is consistent. Shows a non-dismissible indicator while
-/// the article detail and local draft are fetched, then pushes the editor.
+/// the loading feedback is consistent. Shows an indicator while the article
+/// detail and local draft are fetched, with a cancel button, then pushes the editor.
 Future<bool> openPostEditor({
   required BuildContext context,
   required AdminApiClient api,
@@ -777,12 +792,27 @@ Future<bool> openPostEditor({
   bool Function()? shouldCancel,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
+  bool cancelled = false;
+  bool dialogOpen = true;
+
+  void closeDialog() {
+    if (dialogOpen) {
+      dialogOpen = false;
+      navigator.pop();
+    }
+  }
+
   unawaited(
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       useRootNavigator: true,
-      builder: (_) => const EditorLoadingDialog(),
+      builder: (_) => EditorLoadingDialog(
+        onCancel: () {
+          cancelled = true;
+          closeDialog();
+        },
+      ),
     ),
   );
 
@@ -792,29 +822,43 @@ Future<bool> openPostEditor({
     if (postId != null && resolvedDetail == null) {
       resolvedDetail = await api.postDetail(postId);
     }
+    if (cancelled) {
+      closeDialog();
+      return false;
+    }
     resolvedDraft ??= await EditorDraftStore.load(
       baseUrl: api.normalizeBaseUrl(api.baseUrl),
       postId: postId,
     );
+    if (cancelled) {
+      closeDialog();
+      return false;
+    }
   } on UnauthorizedException {
-    navigator.pop();
-    onAuthError?.call();
+    closeDialog();
+    if (!cancelled) {
+      onAuthError?.call();
+    }
     return false;
   } catch (error) {
-    navigator.pop();
-    if (onLoadError != null) {
-      onLoadError(error);
-    } else if (context.mounted) {
-      AdminFeedback.showSnackBar(
-        context,
-        SnackBar(content: Text('打开文章编辑器失败：$error')),
-      );
+    closeDialog();
+    if (!cancelled) {
+      if (onLoadError != null) {
+        onLoadError(error);
+      } else if (context.mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('打开文章编辑器失败：$error')),
+        );
+      }
     }
     return false;
   }
 
-  navigator.pop();
-  if (!context.mounted || (shouldCancel?.call() ?? false)) return false;
+  closeDialog();
+  if (cancelled || !context.mounted || (shouldCancel?.call() ?? false)) {
+    return false;
+  }
   final notifications = AdminNotificationScope.maybeOf(context);
   await navigator.push<void>(
     MaterialPageRoute(

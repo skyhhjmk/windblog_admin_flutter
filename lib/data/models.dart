@@ -66,6 +66,7 @@ class PostItem {
     this.authorName,
     this.allowComment = true,
     this.tagIds = const [],
+    this.visibilityRegions = const [],
     required this.publishedRevisionNumber,
     required this.hasPublishedRevision,
     this.publishedAt,
@@ -89,6 +90,7 @@ class PostItem {
   final String? authorName;
   final bool allowComment;
   final List<int> tagIds;
+  final List<String> visibilityRegions;
   final int publishedRevisionNumber;
   final bool hasPublishedRevision;
   final DateTime? publishedAt;
@@ -129,11 +131,14 @@ class PostItem {
       userId: toInt(map['userId']),
       userName: map['userName']?.toString(),
       authorName: map['authorName']?.toString(),
-      allowComment: map['allowComment'] == null ? true : map['allowComment'] == true,
+      allowComment: map['allowComment'] == null
+          ? true
+          : map['allowComment'] == true,
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
           .toList(),
+      visibilityRegions: toStringList(map['visibilityRegions']) ?? [],
       publishedRevisionNumber: toInt(map['publishedRevisionNumber']) ?? 0,
       hasPublishedRevision: map['hasPublishedRevision'] == true,
       publishedAt: map['publishedAt'] == null
@@ -279,7 +284,9 @@ class PostDetail {
       userId: toInt(map['userId']),
       userName: map['userName']?.toString(),
       authorName: map['authorName']?.toString(),
-      allowComment: map['allowComment'] == null ? true : map['allowComment'] == true,
+      allowComment: map['allowComment'] == null
+          ? true
+          : map['allowComment'] == true,
       tagIds: (asDynamicList(map['tagIds']) ?? [])
           .map((e) => toInt(e) ?? 0)
           .where((id) => id > 0)
@@ -638,6 +645,7 @@ class PostQuickEditRequest {
     this.title,
     this.status,
     this.visibility,
+    this.visibilityRegions,
     this.password,
     this.categoryId,
     this.categoryIds,
@@ -654,6 +662,7 @@ class PostQuickEditRequest {
   final Map<String, String>? title;
   final int? status;
   final int? visibility;
+  final List<String>? visibilityRegions;
   final String? password;
   final int? categoryId;
   final List<int>? categoryIds;
@@ -671,6 +680,7 @@ class PostQuickEditRequest {
       if (title != null) 'title': title,
       if (status != null) 'status': status,
       if (visibility != null) 'visibility': visibility,
+      if (visibilityRegions != null) 'visibilityRegions': visibilityRegions,
       if (password != null) 'password': password,
       if (categoryId != null) 'categoryId': categoryId,
       if (categoryIds != null) 'categoryIds': categoryIds,
@@ -1747,7 +1757,8 @@ class SystemSetting {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  bool get isCritical => settingLevel.toUpperCase() == 'CRITICAL' || requiresVerification;
+  bool get isCritical =>
+      settingLevel.toUpperCase() == 'CRITICAL' || requiresVerification;
 
   factory SystemSetting.fromMap(Map<String, dynamic> map) {
     return SystemSetting(
@@ -1765,7 +1776,8 @@ class SystemSetting {
       version: toInt(map['version']) ?? 1,
       isFrozen: toBool(map['isFrozen']) ?? false,
       settingLevel: map['settingLevel']?.toString() ?? 'NORMAL',
-      requiresVerification: toBool(map['requiresVerification']) ??
+      requiresVerification:
+          toBool(map['requiresVerification']) ??
           (map['settingLevel']?.toString().toUpperCase() == 'CRITICAL'),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),

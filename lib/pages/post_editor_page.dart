@@ -76,6 +76,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   List<TagItem> _tags = [];
   List<RepostPolicyItem> _repostPolicies = [];
   bool _isLoadingRepostPolicies = false;
+  List<RegionRule> _regionRules = [];
+  bool _loadingRegionRules = false;
   List<PostRevisionItem> _revisions = [];
   bool _isLoadingRevisions = false;
 
@@ -187,7 +189,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     final diffMap = tMeta?['difficulty'];
     String diffVal = '';
     if (diffMap is Map) {
-      diffVal = diffMap['zh-cn']?.toString() ??
+      diffVal =
+          diffMap['zh-cn']?.toString() ??
           (diffMap.isNotEmpty ? diffMap.values.first.toString() : '');
     }
     tutorialDifficultyCtrl = TextEditingController(text: diffVal);
@@ -197,8 +200,11 @@ class _PostEditorPageState extends State<PostEditorPage>
     final prereqsMap = tMeta?['prerequisites'];
     List<dynamic>? prereqsList;
     if (prereqsMap is Map) {
-      prereqsList = (prereqsMap['zh-cn'] as List<dynamic>?) ??
-          (prereqsMap.isNotEmpty ? prereqsMap.values.first as List<dynamic>? : null);
+      prereqsList =
+          (prereqsMap['zh-cn'] as List<dynamic>?) ??
+          (prereqsMap.isNotEmpty
+              ? prereqsMap.values.first as List<dynamic>?
+              : null);
     }
     tutorialPrereqsCtrl = TextEditingController(
       text: prereqsList != null ? prereqsList.join('\n') : '',
@@ -206,7 +212,8 @@ class _PostEditorPageState extends State<PostEditorPage>
     final audMap = tMeta?['targetAudience'];
     String audVal = '';
     if (audMap is Map) {
-      audVal = audMap['zh-cn']?.toString() ??
+      audVal =
+          audMap['zh-cn']?.toString() ??
           (audMap.isNotEmpty ? audMap.values.first.toString() : '');
     }
     tutorialAudienceCtrl = TextEditingController(text: audVal);
@@ -251,6 +258,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     _loadCategoriesAndTags();
     _loadRepostPolicies();
     _loadUsers();
+    _loadRegionRules();
     if (_currentDetail != null) {
       _loadRevisions();
       _subscribePostEvents(_currentDetail!.id);
@@ -777,6 +785,23 @@ class _PostEditorPageState extends State<PostEditorPage>
     } catch (_) {}
   }
 
+  Future<void> _loadRegionRules() async {
+    setState(() => _loadingRegionRules = true);
+    try {
+      final rules = await widget.api.listRegionRules();
+      if (mounted) {
+        setState(() {
+          _regionRules = rules;
+          _loadingRegionRules = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loadingRegionRules = false);
+      }
+    }
+  }
+
   Future<void> _loadCategoriesAndTags() async {
     try {
       final cats = await widget.api.listCategories();
@@ -1106,7 +1131,9 @@ class _PostEditorPageState extends State<PostEditorPage>
                 if (tutorialDifficultyCtrl.text.trim().isNotEmpty)
                   'difficulty': {'zh-cn': tutorialDifficultyCtrl.text.trim()},
                 if (int.tryParse(tutorialMinutesCtrl.text.trim()) != null)
-                  'estimatedMinutes': int.parse(tutorialMinutesCtrl.text.trim()),
+                  'estimatedMinutes': int.parse(
+                    tutorialMinutesCtrl.text.trim(),
+                  ),
                 if (tutorialPrereqsCtrl.text.trim().isNotEmpty)
                   'prerequisites': {
                     'zh-cn': tutorialPrereqsCtrl.text
@@ -1137,8 +1164,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                   'license': resourceLicenseCtrl.text.trim(),
                 if (resourceChecksumSha256Ctrl.text.trim().isNotEmpty)
                   'checksumSha256': resourceChecksumSha256Ctrl.text.trim(),
-                if (resourceMirrors.isNotEmpty)
-                  'mirrors': resourceMirrors,
+                if (resourceMirrors.isNotEmpty) 'mirrors': resourceMirrors,
               }
             : null,
       );
@@ -3039,6 +3065,35 @@ class _PostEditorPageState extends State<PostEditorPage>
               }
             },
           ),
+          if (visibility == 2) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: passwordCtrl,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: '访问密码',
+                hintText: (_currentDetail?.hasPassword == true)
+                    ? '留空保留原密码'
+                    : '设置访问密码',
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          const Divider(),
+          const SizedBox(height: 8),
+          VisibilityRegionsSelector(
+            selectedRegions: visibilityRegions,
+            regionRules: _regionRules,
+            isLoading: _loadingRegionRules,
+            onChanged: (newRegions) {
+              setState(() {
+                visibilityRegions = newRegions;
+                _markDirty();
+              });
+            },
+          ),
           const SizedBox(height: 12),
           const Divider(),
           const SizedBox(height: 12),
@@ -3073,7 +3128,8 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Widget _buildAuthorCard() {
-    final hasSelected = _selectedUserId == null ||
+    final hasSelected =
+        _selectedUserId == null ||
         _availableUsers.any((u) => u.id == _selectedUserId);
     return SectionCard(
       icon: Icons.person_outline,
@@ -3249,7 +3305,10 @@ class _PostEditorPageState extends State<PostEditorPage>
             children: [
               Text(
                 '下载镜像与渠道 (${resourceMirrors.length})',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
               TextButton.icon(
                 icon: const Icon(Icons.add, size: 16),
@@ -3282,8 +3341,12 @@ class _PostEditorPageState extends State<PostEditorPage>
                     children: [
                       Expanded(
                         child: TextFormField(
-                          initialValue: resourceMirrors[i]['name']?.toString() ?? '',
-                          decoration: const InputDecoration(labelText: '镜像名称', isDense: true),
+                          initialValue:
+                              resourceMirrors[i]['name']?.toString() ?? '',
+                          decoration: const InputDecoration(
+                            labelText: '镜像名称',
+                            isDense: true,
+                          ),
                           onChanged: (val) {
                             resourceMirrors[i]['name'] = val;
                             _markDirty();
@@ -3291,7 +3354,11 @@ class _PostEditorPageState extends State<PostEditorPage>
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.red,
+                        ),
                         onPressed: () {
                           setState(() {
                             resourceMirrors.removeAt(i);
@@ -3303,7 +3370,10 @@ class _PostEditorPageState extends State<PostEditorPage>
                   ),
                   TextFormField(
                     initialValue: resourceMirrors[i]['url']?.toString() ?? '',
-                    decoration: const InputDecoration(labelText: '下载链接 URL', isDense: true),
+                    decoration: const InputDecoration(
+                      labelText: '下载链接 URL',
+                      isDense: true,
+                    ),
                     onChanged: (val) {
                       resourceMirrors[i]['url'] = val;
                       _markDirty();
@@ -3313,8 +3383,14 @@ class _PostEditorPageState extends State<PostEditorPage>
                     children: [
                       Expanded(
                         child: TextFormField(
-                          initialValue: resourceMirrors[i]['extractionCode']?.toString() ?? '',
-                          decoration: const InputDecoration(labelText: '提取码 / 解压密码 (可选)', isDense: true),
+                          initialValue:
+                              resourceMirrors[i]['extractionCode']
+                                  ?.toString() ??
+                              '',
+                          decoration: const InputDecoration(
+                            labelText: '提取码 / 解压密码 (可选)',
+                            isDense: true,
+                          ),
                           onChanged: (val) {
                             resourceMirrors[i]['extractionCode'] = val;
                             _markDirty();

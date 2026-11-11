@@ -88,18 +88,15 @@ void main() {
   });
 
   test('PageResult.fromMap preserves dynamic types including booleans', () {
-    final pageResult = PageResult<Map<String, dynamic>>.fromMap(
-      {
-        'items': [
-          {'id': 1, 'username': 'admin', 'repostBanned': true, 'count': 5},
-          {'id': 2, 'username': 'user2', 'repostBanned': false, 'count': 0},
-        ],
-        'total': 2,
-        'page': 1,
-        'pageSize': 20,
-      },
-      (item) => item,
-    );
+    final pageResult = PageResult<Map<String, dynamic>>.fromMap({
+      'items': [
+        {'id': 1, 'username': 'admin', 'repostBanned': true, 'count': 5},
+        {'id': 2, 'username': 'user2', 'repostBanned': false, 'count': 0},
+      ],
+      'total': 2,
+      'page': 1,
+      'pageSize': 20,
+    }, (item) => item);
 
     expect(pageResult.items[0]['repostBanned'], isTrue);
     expect(pageResult.items[0]['repostBanned'], isA<bool>());
@@ -139,6 +136,7 @@ void main() {
       of: find.byKey(const Key('repostPolicyDropdown')),
       matching: find.byType(DropdownButton<String>),
     );
+    await tester.ensureVisible(policyDropdown);
     await tester.tap(policyDropdown);
     await tester.pumpAndSettle();
     await tester.tap(find.text('CC BY-NC 4.0').last);

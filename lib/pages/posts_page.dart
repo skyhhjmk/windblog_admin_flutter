@@ -465,22 +465,42 @@ class _PostsPageState extends State<PostsPage> {
                       if (it.articleMode == 1) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.indigo.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text('教程', style: TextStyle(color: Colors.indigo, fontSize: 11, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            '教程',
+                            style: TextStyle(
+                              color: Colors.indigo,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ] else if (it.articleMode == 2) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.teal.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text('资源', style: TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            '资源',
+                            style: TextStyle(
+                              color: Colors.teal,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                       if (it.aiSummaryStatus != 0) ...[
@@ -549,11 +569,18 @@ class _PostsPageState extends State<PostsPage> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.bolt, size: 18, color: Color(0xFFF59E0B)),
+                    icon: const Icon(
+                      Icons.bolt,
+                      size: 18,
+                      color: Color(0xFFF59E0B),
+                    ),
                     tooltip: t(context, 'quick_edit'),
                     onPressed: () => _openQuickEdit(it),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
                   _buildPostActions(it),
                 ],
@@ -1486,6 +1513,7 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
   late final TextEditingController passwordCtrl;
   late int status;
   late int visibility;
+  late List<String> visibilityRegions;
   late int articleMode;
   late bool allowComment;
   late DateTime? publishedAt;
@@ -1495,6 +1523,7 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
 
   List<TagItem> allTags = [];
   List<UserListItem> allUsers = [];
+  List<RegionRule> regionRules = [];
   bool loadingData = true;
   bool isSaving = false;
   String? errorMessage;
@@ -1509,6 +1538,7 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
     passwordCtrl = TextEditingController();
     status = it.status;
     visibility = it.visibility;
+    visibilityRegions = List<String>.from(it.visibilityRegions);
     articleMode = it.articleMode;
     allowComment = it.allowComment;
     publishedAt = it.publishedAt ?? it.createdAt;
@@ -1525,11 +1555,13 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
       final results = await Future.wait([
         widget.api.listTags(),
         widget.api.listUsers(pageSize: 100),
+        widget.api.listRegionRules(),
       ]);
       if (mounted) {
         setState(() {
           allTags = results[0] as List<TagItem>;
           allUsers = (results[1] as PageResult<UserListItem>).items;
+          regionRules = results[2] as List<RegionRule>;
           loadingData = false;
         });
       }
@@ -1596,7 +1628,10 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
         userId: selectedUserId,
         status: status,
         visibility: visibility,
-        password: passwordCtrl.text.trim().isEmpty ? null : passwordCtrl.text.trim(),
+        visibilityRegions: visibilityRegions,
+        password: passwordCtrl.text.trim().isEmpty
+            ? null
+            : passwordCtrl.text.trim(),
         categoryIds: selectedCategoryIds.toList(),
         tagIds: selectedTagIds.toList(),
         publishedAt: publishedAt,
@@ -1668,7 +1703,9 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: isSaving ? null : () => Navigator.of(context).pop(),
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   tooltip: t(context, 'close'),
                 ),
               ],
@@ -1684,12 +1721,19 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         errorMessage!,
-                        style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.red.shade800,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ],
@@ -1746,7 +1790,10 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                                 labelText: t(context, 'published_at'),
                                 border: const OutlineInputBorder(),
                                 isDense: true,
-                                suffixIcon: const Icon(Icons.calendar_today, size: 16),
+                                suffixIcon: const Icon(
+                                  Icons.calendar_today,
+                                  size: 16,
+                                ),
                               ),
                               child: Text(
                                 publishedAt != null
@@ -1774,13 +1821,19 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                     const SizedBox(height: 16),
                     Text(
                       t(context, 'categories'),
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     if (widget.categories.isEmpty)
                       Text(
                         '暂无分类',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 12,
+                        ),
                       )
                     else
                       Wrap(
@@ -1789,7 +1842,10 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                         children: widget.categories.map((c) {
                           final selected = selectedCategoryIds.contains(c.id);
                           return FilterChip(
-                            label: Text(c.displayName, style: const TextStyle(fontSize: 12)),
+                            label: Text(
+                              c.displayName,
+                              style: const TextStyle(fontSize: 12),
+                            ),
                             selected: selected,
                             onSelected: (val) {
                               setState(() {
@@ -1806,15 +1862,26 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                     const SizedBox(height: 16),
                     Text(
                       t(context, 'tags'),
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     if (loadingData)
-                      const SizedBox(height: 24, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                      const SizedBox(
+                        height: 24,
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
                     else if (allTags.isEmpty)
                       Text(
                         '暂无标签',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 12,
+                        ),
                       )
                     else
                       Wrap(
@@ -1823,7 +1890,10 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                         children: allTags.map((tag) {
                           final selected = selectedTagIds.contains(tag.id);
                           return FilterChip(
-                            label: Text(tag.zhName, style: const TextStyle(fontSize: 12)),
+                            label: Text(
+                              tag.zhName,
+                              style: const TextStyle(fontSize: 12),
+                            ),
                             selected: selected,
                             onSelected: (val) {
                               setState(() {
@@ -1837,6 +1907,17 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                           );
                         }).toList(),
                       ),
+                    const SizedBox(height: 16),
+                    VisibilityRegionsSelector(
+                      selectedRegions: visibilityRegions,
+                      regionRules: regionRules,
+                      isLoading: loadingData,
+                      onChanged: (newRegions) {
+                        setState(() {
+                          visibilityRegions = newRegions;
+                        });
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -1846,7 +1927,9 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: isSaving ? null : () => Navigator.of(context).pop(),
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: Text(t(context, 'cancel')),
                 ),
                 const SizedBox(width: 12),
@@ -1856,7 +1939,10 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.check, size: 18),
                   label: Text(t(context, 'save')),
@@ -1951,8 +2037,14 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                 ),
                 items: [
                   DropdownMenuItem(value: 0, child: Text(t(context, 'draft'))),
-                  DropdownMenuItem(value: 1, child: Text(t(context, 'published'))),
-                  DropdownMenuItem(value: 2, child: Text(t(context, 'archived'))),
+                  DropdownMenuItem(
+                    value: 1,
+                    child: Text(t(context, 'published')),
+                  ),
+                  DropdownMenuItem(
+                    value: 2,
+                    child: Text(t(context, 'archived')),
+                  ),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => status = v);
@@ -1993,9 +2085,18 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
             isDense: true,
           ),
           items: [
-            DropdownMenuItem(value: 0, child: Text(t(context, 'public_visibility'))),
-            DropdownMenuItem(value: 1, child: Text(t(context, 'private_visibility'))),
-            DropdownMenuItem(value: 2, child: Text(t(context, 'password_protected'))),
+            DropdownMenuItem(
+              value: 0,
+              child: Text(t(context, 'public_visibility')),
+            ),
+            DropdownMenuItem(
+              value: 1,
+              child: Text(t(context, 'private_visibility')),
+            ),
+            DropdownMenuItem(
+              value: 2,
+              child: Text(t(context, 'password_protected')),
+            ),
           ],
           onChanged: (v) {
             if (v != null) setState(() => visibility = v);
