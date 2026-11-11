@@ -2254,6 +2254,17 @@ class AdminApiClient {
     return _map(jsonDecode(response.body));
   }
 
+  Future<Map<String, dynamic>> updateElasticsearchSynonyms(
+    dynamic synonyms,
+  ) async {
+    final response = await _put(
+      '/api/admin/elasticsearch/synonyms',
+      body: {'synonyms': synonyms},
+      authFailureAsSessionExpired: false,
+    );
+    return _map(jsonDecode(response.body));
+  }
+
   Future<Map<String, dynamic>> rebuildElasticsearchIndex() async {
     final response = await _post(
       '/api/admin/elasticsearch/rebuild',

@@ -191,7 +191,7 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
                           ?.copyWith(fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 4),
-                    const Text('在这里维护词条关系，保存后仍然沿用 Elasticsearch 主配置的确认和回滚流程。'),
+                    const Text('维护同义词词条关系。保存后将自动更新索引模板并全量重建文章索引，无需输入密码与二次确认。'),
                   ],
                 ),
               ],
@@ -515,13 +515,13 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '配置操作',
+              '配置与索引操作',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
-            const Text('同义词改动保存后，仍需回到 Elasticsearch 主配置完成确认，必要时也可以直接回滚。'),
+            const Text('同义词修改已支持保存后自动应用并重建索引。若需手动触发，也可在此刷新状态或单独重建文章索引。'),
             const SizedBox(height: 16),
             Wrap(
               spacing: 10,
@@ -532,16 +532,23 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
                   icon: const Icon(Icons.refresh),
                   label: const Text('刷新状态'),
                 ),
-                OutlinedButton.icon(
-                  onPressed: _actionRunning ? null : _rollbackSetting,
-                  icon: const Icon(Icons.history),
-                  label: const Text('回滚设置'),
-                ),
                 FilledButton.icon(
-                  onPressed: _actionRunning ? null : _confirmSetting,
-                  icon: const Icon(Icons.check),
-                  label: const Text('确认生效'),
+                  onPressed: _actionRunning ? null : _rebuildIndex,
+                  icon: const Icon(Icons.build),
+                  label: const Text('重新构建索引'),
                 ),
+                if (_setting != null && _setting!.isFrozen) ...[
+                  OutlinedButton.icon(
+                    onPressed: _actionRunning ? null : _confirmSetting,
+                    icon: const Icon(Icons.check),
+                    label: const Text('解除主配置锁定'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _actionRunning ? null : _rollbackSetting,
+                    icon: const Icon(Icons.history),
+                    label: const Text('回滚主配置'),
+                  ),
+                ],
               ],
             ),
             if (_actionRunning) ...[
@@ -554,17 +561,19 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
     );
   }
 
-  Future<void> _saveSynonymRules(Map<String, dynamic> values) async {
-    final stepUpToken = await _obtainStepUp();
-    if (stepUpToken == null) return;
+  Future<void> _rebuildIndex() async {
     await _runAction(() async {
-      await widget.api.updateSystemSetting(
-        settingKey,
-        values,
-        reason: '管理员修改 Elasticsearch 同义词规则',
-        stepUpToken: stepUpToken,
-      );
-      return '同义词规则已保存，等待确认后生效';
+      final response = await widget.api.rebuildElasticsearchIndex();
+      return response['message']?.toString() ?? '文章索引已重建';
+    }, reloadAfterSuccess: true);
+  }
+
+  Future<void> _saveSynonymRules(Map<String, dynamic> values) async {
+    await _runAction(() async {
+      final dynamic synonymsData = values['synonyms'] ?? values;
+      final Map<String, dynamic> response = await widget.api
+          .updateElasticsearchSynonyms(synonymsData);
+      return response['message']?.toString() ?? '同义词规则已保存并自动完成索引重建';
     }, reloadAfterSuccess: true);
   }
 
