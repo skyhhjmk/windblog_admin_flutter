@@ -41,6 +41,10 @@ Map<String, MarkdownElementBuilder> markdownEditorBuilders({
   'store-item': StoreItemBuilder(),
 };
 
+Map<String, MarkdownPaddingBuilder> markdownEditorPaddingBuilders() => {
+  'blockquote': BlockquotePaddingBuilder(),
+};
+
 /// Custom Container Syntax (::: `<name>`)
 class CustomContainerSyntax extends md.BlockSyntax {
   @override
@@ -238,6 +242,27 @@ class HideContentSyntax extends md.BlockSyntax {
     if (showText != null) el.attributes['show'] = showText;
     el.attributes['foundEnd'] = foundEnd.toString();
     return el;
+  }
+}
+
+/// Padding Builders
+class BlockquotePaddingBuilder extends MarkdownPaddingBuilder {
+  int _paragraphIndex = 0;
+  int _paragraphCount = 0;
+
+  @override
+  void visitElementBefore(md.Element element) {
+    _paragraphIndex = 0;
+    _paragraphCount = element.children?.whereType<md.Element>().length ?? 0;
+  }
+
+  @override
+  EdgeInsets getPadding() {
+    _paragraphIndex++;
+    if (_paragraphCount > 1 && _paragraphIndex < _paragraphCount) {
+      return const EdgeInsets.only(bottom: 16);
+    }
+    return EdgeInsets.zero;
   }
 }
 
@@ -487,15 +512,13 @@ class ErrorBlockBuilder extends MarkdownElementBuilder {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color:
-            isDark
-                ? const Color(0xFF7F1D1D).withValues(alpha: 0.3)
-                : Colors.red.withValues(alpha: 0.1),
+        color: isDark
+            ? const Color(0xFF7F1D1D).withValues(alpha: 0.3)
+            : Colors.red.withValues(alpha: 0.1),
         border: Border.all(
-          color:
-              isDark
-                  ? Colors.red.shade400.withValues(alpha: 0.5)
-                  : Colors.red.withValues(alpha: 0.5),
+          color: isDark
+              ? Colors.red.shade400.withValues(alpha: 0.5)
+              : Colors.red.withValues(alpha: 0.5),
         ),
         borderRadius: BorderRadius.circular(4),
       ),

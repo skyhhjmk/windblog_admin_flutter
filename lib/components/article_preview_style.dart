@@ -124,6 +124,7 @@ class ArticlePreviewMarkdown extends StatelessWidget {
       onLinkTap: onLinkTap,
       onImageTap: onImageTap,
     ),
+    paddingBuilders: markdownEditorPaddingBuilders(),
     onTapLink: (_, href, _) {
       if (href != null) onLinkTap?.call(href);
     },

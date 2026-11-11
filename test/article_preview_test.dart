@@ -103,4 +103,185 @@ void main() {
     controller.dispose();
     await tester.binding.setSurfaceSize(null);
   });
+
+  testWidgets(
+    'blockquote maintains spacing and does not squeeze with following content or paragraphs',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      final controller = MarkdownSyntaxController(
+        text: '''> 引用第一段
+>
+> 引用第二段
+
+正文内容''',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AdminTheme.build(),
+          home: Scaffold(
+            body: MarkdownPlusEditor(
+              controller: controller,
+              api: AdminApiClient(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final quote1Finder = find.text('引用第一段', findRichText: true);
+      final quote2Finder = find.text('引用第二段', findRichText: true);
+      final textFinder = find.text('正文内容', findRichText: true);
+
+      expect(quote1Finder, findsOneWidget);
+      expect(quote2Finder, findsOneWidget);
+      expect(textFinder, findsOneWidget);
+
+      // Verify quote1 and quote2 have vertical spacing between them (not squeezed)
+      final quote1Bottom = tester.getBottomLeft(quote1Finder).dy;
+      final quote2Top = tester.getTopLeft(quote2Finder).dy;
+      expect(quote2Top - quote1Bottom, greaterThanOrEqualTo(16.0));
+
+      // Verify quote box and regular text have vertical spacing between them
+      final quote2Bottom = tester.getBottomLeft(quote2Finder).dy;
+      final textTop = tester.getTopLeft(textFinder).dy;
+      expect(textTop - quote2Bottom, greaterThanOrEqualTo(32.0));
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+      await tester.binding.setSurfaceSize(null);
+    },
+  );
+
+  testWidgets('blockquote preserves extra blank lines spacing in preview', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    final singleBlankController = MarkdownSyntaxController(
+      text: '''> 引用内容\n\n正文内容''',
+    );
+    final doubleBlankController = MarkdownSyntaxController(
+      text: '''> 引用内容\n\n\n正文内容''',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AdminTheme.build(),
+        home: Scaffold(
+          body: MarkdownPlusEditor(
+            controller: singleBlankController,
+            api: AdminApiClient(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final singleQuote = tester
+        .getBottomLeft(find.text('引用内容', findRichText: true))
+        .dy;
+    final singleText = tester
+        .getTopLeft(find.text('正文内容', findRichText: true))
+        .dy;
+    final singleGap = singleText - singleQuote;
+
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AdminTheme.build(),
+        home: Scaffold(
+          body: MarkdownPlusEditor(
+            controller: doubleBlankController,
+            api: AdminApiClient(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final doubleQuote = tester
+        .getBottomLeft(find.text('引用内容', findRichText: true))
+        .dy;
+    final doubleText = tester
+        .getTopLeft(find.text('正文内容', findRichText: true))
+        .dy;
+    final doubleGap = doubleText - doubleQuote;
+
+    expect(doubleGap, greaterThan(singleGap));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    singleBlankController.dispose();
+    doubleBlankController.dispose();
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets(
+    'cursor movement within preview viewport does not scroll preview or trigger highlight flash',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      final controller = MarkdownSyntaxController(
+        text: '''段落一
+
+段落二
+
+段落三''',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AdminTheme.build(),
+          home: Scaffold(
+            body: MarkdownPlusEditor(
+              controller: controller,
+              api: AdminApiClient(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('段落一', findRichText: true), findsWidgets);
+      expect(find.text('段落二', findRichText: true), findsWidgets);
+      expect(find.text('段落三', findRichText: true), findsWidgets);
+
+      final scrollable = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(MarkdownPlusEditor),
+              matching: find.byType(Scrollable),
+            )
+            .last,
+      );
+      final initialOffset = scrollable.position.pixels;
+
+      // Move cursor to "段落二" in the editor
+      controller.selection = const TextSelection.collapsed(offset: 6);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+
+      expect(scrollable.position.pixels, equals(initialOffset));
+
+      final wrappers = tester
+          .widgetList<MarkdownBlockWrapper>(find.byType(MarkdownBlockWrapper))
+          .toList();
+      for (final wrapper in wrappers) {
+        expect(wrapper.isHighlighted, isFalse);
+      }
+
+      // Move cursor to "段落三" in the editor
+      controller.selection = const TextSelection.collapsed(offset: 12);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+
+      expect(scrollable.position.pixels, equals(initialOffset));
+      for (final wrapper in tester.widgetList<MarkdownBlockWrapper>(
+        find.byType(MarkdownBlockWrapper),
+      )) {
+        expect(wrapper.isHighlighted, isFalse);
+      }
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+      await tester.binding.setSurfaceSize(null);
+    },
+  );
 }

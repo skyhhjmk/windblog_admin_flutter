@@ -225,6 +225,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   _selectionGestureDetectorBuilder;
   ScrollController? _internalScrollController;
   final ScrollController _previewScrollController = SmoothScrollController();
+  final GlobalKey _previewListKey = GlobalKey();
   dynamic _pasteSubscription;
   int _pasteMarkerSequence = 0;
 
@@ -1009,8 +1010,58 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     });
   }
 
+  int _targetBlockIndexForLine(int line) {
+    for (int i = 0; i < _previewBlocks.length; i++) {
+      final block = _previewBlocks[i];
+      final nextStart = (i + 1 < _previewBlocks.length)
+          ? _previewBlocks[i + 1].startLine
+          : 1000000;
+      if (line >= block.startLine && line < nextStart) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  bool _isBlockInPreviewViewport(int blockIndex) {
+    if (!_previewScrollController.hasClients) return false;
+    if (blockIndex < 0 || blockIndex >= _previewBlocks.length) return false;
+
+    final block = _previewBlocks[blockIndex];
+    final blockContext = block.key.currentContext;
+    if (blockContext == null) return false;
+
+    final blockBox = blockContext.findRenderObject() as RenderBox?;
+    if (blockBox == null || !blockBox.attached) return false;
+
+    final viewportBox =
+        _previewListKey.currentContext?.findRenderObject() as RenderBox?;
+    if (viewportBox == null || !viewportBox.attached) return false;
+
+    final topLeft = blockBox.localToGlobal(Offset.zero, ancestor: viewportBox);
+    final blockTop = topLeft.dy;
+    final blockBottom = blockTop + blockBox.size.height;
+    final viewportHeight = viewportBox.size.height;
+
+    final overlapTop = max(0.0, blockTop);
+    final overlapBottom = min(viewportHeight, blockBottom);
+    final visibleHeight = max(0.0, overlapBottom - overlapTop);
+
+    if (blockBox.size.height <= viewportHeight) {
+      return visibleHeight >= blockBox.size.height - 2.0;
+    } else {
+      return visibleHeight >= viewportHeight * 0.5;
+    }
+  }
+
   void _syncPreview({required int line, bool shouldHighlight = true}) {
     if (!_previewScrollController.hasClients) return;
+
+    final targetIndex = _targetBlockIndexForLine(line);
+    if (targetIndex != -1 && _isBlockInPreviewViewport(targetIndex)) {
+      _lastSyncedLine = line;
+      return;
+    }
 
     final text = widget.controller.text;
     final lines = text.split('\n');
@@ -1026,11 +1077,22 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
 
     final target = ratio * _previewScrollController.position.maxScrollExtent;
 
-    _previewScrollController.animateTo(
-      target,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutCubic,
-    );
+    if (targetIndex != -1 &&
+        targetIndex < _previewBlocks.length &&
+        _previewBlocks[targetIndex].key.currentContext != null) {
+      Scrollable.ensureVisible(
+        _previewBlocks[targetIndex].key.currentContext!,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        alignment: 0.3,
+      );
+    } else {
+      _previewScrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+      );
+    }
 
     // Identify and highlight the current block only if it was a navigation action
     if (shouldHighlight) {
@@ -1039,18 +1101,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   }
 
   void _highlightCurrentBlock(int line) {
-    int targetIndex = -1;
-
-    for (int i = 0; i < _previewBlocks.length; i++) {
-      final block = _previewBlocks[i];
-      final nextStart = (i + 1 < _previewBlocks.length)
-          ? _previewBlocks[i + 1].startLine
-          : 1000000;
-      if (line >= block.startLine && line < nextStart) {
-        targetIndex = i;
-        break;
-      }
-    }
+    final targetIndex = _targetBlockIndexForLine(line);
 
     if (targetIndex != -1 && targetIndex != _activeHighlightIndex) {
       _highlightTimer?.cancel();
@@ -1980,6 +2031,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
             Expanded(
               child: SelectionArea(
                 child: ListView.builder(
+                  key: _previewListKey,
                   controller: _previewScrollController,
                   scrollCacheExtent: const ScrollCacheExtent.pixels(800),
                   padding: EdgeInsets.fromLTRB(
@@ -2133,7 +2185,7 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
 
   Widget _buildPreviewBlock(MarkdownBlock block, int index) {
     return MarkdownBlockWrapper(
-      key: ValueKey('block-$index-${block.content.hashCode}'),
+      key: block.key,
       block: block,
       isHighlighted: _activeHighlightIndex == index,
       onJumpToSource: () => _jumpToEditorLine(block.startLine),
@@ -2286,9 +2338,21 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
         }
         if (currentBlockLines.isNotEmpty) {
           blocks.add(
-            MarkdownBlock(blockStartLine, currentBlockLines.join('\n')),
+            MarkdownBlock(
+              blockStartLine,
+              currentBlockLines.join('\n'),
+              trailingEmptyLines: 1,
+            ),
           );
           currentBlockLines = [];
+        } else if (blocks.isNotEmpty) {
+          final last = blocks.last;
+          blocks[blocks.length - 1] = MarkdownBlock(
+            last.startLine,
+            last.content,
+            trailingEmptyLines: last.trailingEmptyLines + 1,
+            key: last.key,
+          );
         }
         blockStartLine = i + 2;
       } else {
@@ -2631,10 +2695,25 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
   }
 }
 
+bool _isBlockquote(String content) {
+  final trimmed = content.trim();
+  if (trimmed.startsWith('>')) return true;
+  final lines = content.trimRight().split('\n');
+  return lines.isNotEmpty && lines.last.trimLeft().startsWith('>');
+}
+
 class MarkdownBlock {
   final int startLine;
   final String content;
-  MarkdownBlock(this.startLine, this.content);
+  final int trailingEmptyLines;
+  final GlobalKey key;
+
+  MarkdownBlock(
+    this.startLine,
+    this.content, {
+    this.trailingEmptyLines = 0,
+    GlobalKey? key,
+  }) : key = key ?? GlobalKey();
 }
 
 class MarkdownBlockWrapper extends StatefulWidget {
@@ -2725,12 +2804,25 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
                 ? _flashAnimation.value
                 : hoverColor;
 
+            final bool isBlockquote = _isBlockquote(widget.block.content);
+            double bottomMargin = 0.0;
+            if (isBlockquote) {
+              if (widget.block.trailingEmptyLines > 0) {
+                bottomMargin =
+                    16.0 + (widget.block.trailingEmptyLines - 1) * 24.0;
+              } else {
+                bottomMargin = 16.0;
+              }
+            } else if (widget.block.trailingEmptyLines > 1) {
+              bottomMargin = (widget.block.trailingEmptyLines - 1) * 24.0;
+            }
+
             return Container(
               decoration: BoxDecoration(
                 color: color,
                 borderRadius: BorderRadius.circular(4),
               ),
-              margin: EdgeInsets.zero,
+              margin: EdgeInsets.only(bottom: bottomMargin),
               padding: EdgeInsets.zero,
               child: child,
             );
@@ -2794,6 +2886,7 @@ class _MarkdownBlockWrapperState extends State<MarkdownBlockWrapper>
               onLinkTap: widget.onLinkTap,
               onImageTap: widget.onImageTap,
             ),
+            paddingBuilders: markdownEditorPaddingBuilders(),
           ),
         ),
       ),
