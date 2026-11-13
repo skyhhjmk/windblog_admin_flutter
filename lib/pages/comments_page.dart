@@ -92,6 +92,11 @@ class _CommentsPageState extends State<CommentsPage> {
       aiReviewData: comment.aiReviewData,
       isReviewing: isReviewing ?? comment.isReviewing,
       createdAt: comment.createdAt,
+      quoteId: comment.quoteId,
+      quoteType: comment.quoteType,
+      quoteText: comment.quoteText,
+      quoteAnchorData: comment.quoteAnchorData,
+      quoteStatus: comment.quoteStatus,
     );
   }
 
@@ -335,6 +340,8 @@ class _CommentsPageState extends State<CommentsPage> {
                         dialogComment.content,
                         style: const TextStyle(fontSize: 14, height: 1.5),
                       ),
+                      if (dialogComment.hasQuote)
+                        _buildQuoteCard(dialogComment),
                       const SizedBox(height: 20),
                       Text(
                         t(context, 'ai_audit_suggestion'),
@@ -462,6 +469,70 @@ class _CommentsPageState extends State<CommentsPage> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildQuoteCard(CommentItem comment) {
+    final isCorrection = comment.quoteType == 'CORRECTION';
+    final color = isCorrection ? Colors.orange : Colors.blueGrey;
+    final paragraphIndex = comment.quoteAnchorData?['paragraphIndex'];
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isCorrection
+                    ? Icons.report_problem_outlined
+                    : Icons.format_quote,
+                size: 14,
+                color: color,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                comment.quoteTypeText,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (isCorrection) ...[
+                const SizedBox(width: 10),
+                Text(
+                  '状态：${comment.quoteStatusText}',
+                  style: TextStyle(color: color, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '“${comment.quoteText ?? ''}”',
+            style: const TextStyle(
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+              height: 1.4,
+            ),
+          ),
+          if (paragraphIndex is num) ...[
+            const SizedBox(height: 4),
+            Text(
+              '定位段落 #${paragraphIndex.toInt() + 1}',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -599,6 +670,42 @@ class _CommentTile extends StatelessWidget {
                 height: 1.4,
               ),
             ),
+            if (comment.hasQuote) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(
+                    comment.quoteType == 'CORRECTION'
+                        ? Icons.report_problem_outlined
+                        : Icons.format_quote,
+                    size: 12,
+                    color: Colors.orange,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    comment.quoteTypeText,
+                    style: const TextStyle(
+                      color: Colors.orange,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '“${comment.quoteText ?? ''}”',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

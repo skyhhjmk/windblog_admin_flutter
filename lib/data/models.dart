@@ -2237,6 +2237,11 @@ class CommentItem {
     this.aiReviewData,
     required this.isReviewing,
     required this.createdAt,
+    this.quoteId,
+    this.quoteType,
+    this.quoteText,
+    this.quoteAnchorData,
+    this.quoteStatus,
   });
 
   final int id;
@@ -2251,6 +2256,37 @@ class CommentItem {
   final Map<String, dynamic>? aiReviewData;
   final bool isReviewing;
   final DateTime createdAt;
+  final int? quoteId;
+  final String? quoteType;
+  final String? quoteText;
+  final Map<String, dynamic>? quoteAnchorData;
+  final int? quoteStatus;
+
+  bool get hasQuote => quoteType != null && quoteType!.isNotEmpty;
+
+  String get quoteTypeText {
+    switch (quoteType) {
+      case 'CORRECTION':
+        return '纠错';
+      case 'QUOTE':
+        return '引用';
+      default:
+        return quoteType ?? '';
+    }
+  }
+
+  String get quoteStatusText {
+    switch (quoteStatus) {
+      case 0:
+        return '待处理';
+      case 1:
+        return '已采纳';
+      case 2:
+        return '已驳回';
+      default:
+        return '未知';
+    }
+  }
 
   String get statusText {
     switch (status) {
@@ -2303,6 +2339,13 @@ class CommentItem {
       aiReviewData: map['aiReviewData'] as Map<String, dynamic>?,
       isReviewing: toBool(map['isReviewing']) ?? false,
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
+      quoteId: toInt(map['quoteId']),
+      quoteType: map['quoteType']?.toString(),
+      quoteText: map['quoteText']?.toString(),
+      quoteAnchorData: map['quoteAnchorData'] is Map<String, dynamic>
+          ? map['quoteAnchorData'] as Map<String, dynamic>
+          : null,
+      quoteStatus: toInt(map['quoteStatus']),
     );
   }
 }
