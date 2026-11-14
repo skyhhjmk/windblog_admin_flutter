@@ -41,7 +41,9 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
-      if (_tabController.index == 3 && _usageSummary == null && !_loadingUsage) {
+      if (_tabController.index == 3 &&
+          _usageSummary == null &&
+          !_loadingUsage) {
         _loadUsage();
       }
     });
@@ -198,6 +200,8 @@ class _AiProvidersPageState extends State<AiProvidersPage>
     String proxyType = 'HTTP';
     String proxyHost = '127.0.0.1';
     int proxyPort = 7890;
+    final Map<String, Map<String, dynamic>> modelCapabilities = {};
+    const supportedModalities = ['TEXT', 'IMAGE', 'AUDIO', 'VIDEO'];
 
     try {
       if (configText.isNotEmpty) {
@@ -219,9 +223,44 @@ class _AiProvidersPageState extends State<AiProvidersPage>
             proxyPort =
                 int.tryParse(map['proxy_port']?.toString() ?? '7890') ?? 7890;
           }
+          final rawCaps = map['modelCapabilities'];
+          if (rawCaps is Map) {
+            rawCaps.forEach((k, v) {
+              if (k != null && v is Map) {
+                modelCapabilities[k.toString()] = {
+                  'contextWindow': v['contextWindow'],
+                  'inputModalities': (v['inputModalities'] is List)
+                      ? List<String>.from(
+                          (v['inputModalities'] as List).map(
+                            (e) => e.toString(),
+                          ),
+                        )
+                      : <String>['TEXT'],
+                  'outputModalities': (v['outputModalities'] is List)
+                      ? List<String>.from(
+                          (v['outputModalities'] as List).map(
+                            (e) => e.toString(),
+                          ),
+                        )
+                      : <String>['TEXT'],
+                };
+              }
+            });
+          }
         }
       }
     } catch (_) {}
+
+    String capabilityTargetModel = model;
+    Map<String, dynamic> ensureCapabilityFor(String target) {
+      return modelCapabilities.putIfAbsent(target, () {
+        return {
+          'contextWindow': null,
+          'inputModalities': <String>['TEXT'],
+          'outputModalities': <String>['TEXT'],
+        };
+      });
+    }
 
     // 尝试匹配预设选项
     String? selectedPreset;
@@ -523,6 +562,176 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                         const SizedBox(height: 12),
                         const Divider(),
                         const SizedBox(height: 8),
+                        Builder(
+                          builder: (context) {
+                            final candidateModels = <String>{
+                              if (model.trim().isNotEmpty) model.trim(),
+                              ...fetchedModels,
+                              ...modelCapabilities.keys,
+                            }.toList();
+                            if (capabilityTargetModel.isEmpty &&
+                                candidateModels.isNotEmpty) {
+                              capabilityTargetModel = candidateModels.first;
+                            }
+                            final currentCap = capabilityTargetModel.isNotEmpty
+                                ? ensureCapabilityFor(capabilityTargetModel)
+                                : null;
+                            final inputMods = currentCap != null
+                                ? List<String>.from(
+                                    currentCap['inputModalities'] ?? ['TEXT'],
+                                  )
+                                : <String>['TEXT'];
+                            final outputMods = currentCap != null
+                                ? List<String>.from(
+                                    currentCap['outputModalities'] ?? ['TEXT'],
+                                  )
+                                : <String>['TEXT'];
+                            final ctxVal =
+                                currentCap?['contextWindow']?.toString() ?? '';
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '模型能力设置（上下文与模态）',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                if (candidateModels.isEmpty)
+                                  const Text(
+                                    '请先填写或拉取模型名称后再配置上下文与模态。',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  )
+                                else ...[
+                                  DropdownButtonFormField<String>(
+                                    decoration: const InputDecoration(
+                                      labelText: '配置目标模型',
+                                    ),
+                                    initialValue:
+                                        candidateModels.contains(
+                                          capabilityTargetModel,
+                                        )
+                                        ? capabilityTargetModel
+                                        : candidateModels.first,
+                                    items: candidateModels
+                                        .map(
+                                          (m) => DropdownMenuItem(
+                                            value: m,
+                                            child: Text(m),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() {
+                                          capabilityTargetModel = v;
+                                          ensureCapabilityFor(v);
+                                        });
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    key: ValueKey('ctx_$capabilityTargetModel'),
+                                    initialValue: ctxVal,
+                                    decoration: const InputDecoration(
+                                      labelText: '上下文大小 (Tokens)',
+                                      hintText: '例如 128000',
+                                    ),
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (v) {
+                                      final cap = ensureCapabilityFor(
+                                        capabilityTargetModel,
+                                      );
+                                      cap['contextWindow'] = int.tryParse(
+                                        v.trim(),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 10),
+                                  const Text(
+                                    '输入模态 (Input Modalities)',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 6,
+                                    children: supportedModalities.map((mod) {
+                                      final selected = inputMods.contains(mod);
+                                      return FilterChip(
+                                        label: Text(mod),
+                                        selected: selected,
+                                        onSelected: (on) {
+                                          setState(() {
+                                            final cap = ensureCapabilityFor(
+                                              capabilityTargetModel,
+                                            );
+                                            final next = List<String>.from(
+                                              cap['inputModalities'] ??
+                                                  ['TEXT'],
+                                            );
+                                            if (on) {
+                                              if (!next.contains(mod)) {
+                                                next.add(mod);
+                                              }
+                                            } else {
+                                              next.remove(mod);
+                                            }
+                                            cap['inputModalities'] = next;
+                                          });
+                                        },
+                                      );
+                                    }).toList(),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  const Text(
+                                    '输出模态 (Output Modalities)',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 6,
+                                    children: supportedModalities.map((mod) {
+                                      final selected = outputMods.contains(mod);
+                                      return FilterChip(
+                                        label: Text(mod),
+                                        selected: selected,
+                                        onSelected: (on) {
+                                          setState(() {
+                                            final cap = ensureCapabilityFor(
+                                              capabilityTargetModel,
+                                            );
+                                            final next = List<String>.from(
+                                              cap['outputModalities'] ??
+                                                  ['TEXT'],
+                                            );
+                                            if (on) {
+                                              if (!next.contains(mod)) {
+                                                next.add(mod);
+                                              }
+                                            } else {
+                                              next.remove(mod);
+                                            }
+                                            cap['outputModalities'] = next;
+                                          });
+                                        },
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 8),
                         SwitchListTile(
                           title: const Text(
                             '启用代理 (Enable Proxy)',
@@ -640,6 +849,11 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     extraConfig['proxy_type'] = proxyType;
                     extraConfig['proxy_host'] = proxyHost;
                     extraConfig['proxy_port'] = proxyPort;
+                    if (modelCapabilities.isNotEmpty) {
+                      extraConfig['modelCapabilities'] = modelCapabilities;
+                    } else {
+                      extraConfig.remove('modelCapabilities');
+                    }
 
                     final req = AiProviderConfigUpdateRequest(
                       type: type,
@@ -1012,7 +1226,10 @@ class _AiProvidersPageState extends State<AiProvidersPage>
             children: [
               Text(
                 t(context, 'ai_usage_stats'),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Spacer(),
               DropdownButton<int>(
@@ -1058,7 +1275,8 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                     cardWidth,
                     t(context, 'ai_total_requests'),
                     '${summary.totalRequests}',
-                    subtitle: '成功: ${summary.successRequests} / 失败: ${summary.failedRequests}',
+                    subtitle:
+                        '成功: ${summary.successRequests} / 失败: ${summary.failedRequests}',
                     icon: Icons.api,
                     color: Colors.blue,
                   ),
@@ -1159,11 +1377,21 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                             DataCell(Text(p.providerName)),
                             DataCell(Text(p.providerType)),
                             DataCell(Text(p.model ?? '-')),
-                            DataCell(Text('${p.requests} (${p.successRequests}/${p.failedRequests})')),
+                            DataCell(
+                              Text(
+                                '${p.requests} (${p.successRequests}/${p.failedRequests})',
+                              ),
+                            ),
                             DataCell(Text('${p.promptTokens}')),
                             DataCell(Text('${p.completionTokens}')),
                             DataCell(Text('${p.totalTokens}')),
-                            DataCell(Text(p.lastUsedAt != null ? _formatDateTime(p.lastUsedAt!) : '-')),
+                            DataCell(
+                              Text(
+                                p.lastUsedAt != null
+                                    ? _formatDateTime(p.lastUsedAt!)
+                                    : '-',
+                              ),
+                            ),
                           ],
                         );
                       }).toList(),
@@ -1220,10 +1448,7 @@ class _AiProvidersPageState extends State<AiProvidersPage>
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
             ],
           ),

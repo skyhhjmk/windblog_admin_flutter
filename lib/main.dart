@@ -56,6 +56,7 @@ part 'components/article_preview_style.dart';
 part 'components/article_reference_picker.dart';
 part 'components/markdown_plus_editor.dart';
 part 'pages/user_management_page.dart';
+part 'pages/user_profile_reviews_page.dart';
 part 'pages/permission_management_page.dart';
 part 'pages/user_wallet_page.dart';
 part 'pages/categories_page.dart';

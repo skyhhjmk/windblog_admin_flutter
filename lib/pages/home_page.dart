@@ -326,6 +326,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.cached,
         submenuParent: '边缘集群',
       ),
+      const _AdminNavigationItem(
+        labelKey: 'user_profile_reviews',
+        fallbackLabel: '信息审核',
+        icon: Icons.verified_user_outlined,
+        selectedIcon: Icons.verified_user,
+        submenuParent: '运营管理',
+      ),
     ];
     if (widget.user?.roleName == 'SUPER_ADMIN') {
       items.add(
@@ -1488,6 +1495,11 @@ class _HomePageState extends State<HomePage> {
       case 34:
         return CdnCachePage(api: widget.api, onAuthError: widget.onAuthError);
       case 35:
+        return UserProfileReviewsPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
+      case 36:
         return HoneypotPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);

@@ -3284,6 +3284,92 @@ class AdminApiClient {
     return normalized;
   }
 
+  // ==================== 用户资料审核 API ====================
+
+  Future<Map<String, dynamic>> fetchUserProfileReviews({
+    String status = 'PENDING',
+    String? keyword,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final res = await _get(
+      '/api/admin/user-profile-reviews',
+      query: {
+        'status': status,
+        if (keyword != null && keyword.trim().isNotEmpty)
+          'keyword': keyword.trim(),
+        'page': page.toString(),
+        'pageSize': pageSize.toString(),
+      },
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> fetchUserProfileReviewSummary() async {
+    final res = await _get('/api/admin/user-profile-reviews/summary');
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Uint8List?> fetchPendingAvatarBytes(int reviewId) async {
+    try {
+      final res = await _get(
+        '/api/admin/user-profile-reviews/$reviewId/pending-avatar',
+      );
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return res.bodyBytes;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> approveUserProfileReview(
+    int id, {
+    String? note,
+  }) async {
+    final res = await _post(
+      '/api/admin/user-profile-reviews/$id/approve',
+      body: {if (note != null && note.trim().isNotEmpty) 'note': note.trim()},
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> rejectUserProfileReview(
+    int id, {
+    required String reason,
+  }) async {
+    final res = await _post(
+      '/api/admin/user-profile-reviews/$id/reject',
+      body: {'reason': reason.trim()},
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> aiAuditUserProfileReview(int id) async {
+    final res = await _post(
+      '/api/admin/user-profile-reviews/$id/ai-audit',
+      body: const {},
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> batchUserProfileReviews({
+    required List<int> ids,
+    required String action,
+    String? reason,
+  }) async {
+    final res = await _post(
+      '/api/admin/user-profile-reviews/batch',
+      body: {
+        'ids': ids,
+        'action': action,
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+      },
+    );
+    return _map(jsonDecode(res.body));
+  }
+
   String normalizeUrl(String? rawUrl) {
     if (rawUrl == null || rawUrl.trim().isEmpty) {
       return '';
