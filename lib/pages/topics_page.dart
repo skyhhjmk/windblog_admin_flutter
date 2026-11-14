@@ -885,14 +885,20 @@ class _TopicsPageState extends State<TopicsPage>
               controller: _tabController,
               isScrollable: true,
               tabs: [
-                const Tab(icon: Icon(Icons.lightbulb_outline), text: '话题列表'),
+                Tab(
+                  icon: const Icon(Icons.lightbulb_outline),
+                  text: t(context, 'topics_tab_list', fallback: '话题列表'),
+                ),
                 Tab(
                   icon: const Icon(Icons.assignment_outlined),
                   text: _assignedTotal == 0
-                      ? '已指派任务'
-                      : '已指派任务（$_assignedTotal）',
+                      ? t(context, 'topics_tab_assigned', fallback: '已指派任务')
+                      : '${t(context, 'topics_tab_assigned', fallback: '已指派任务')}（$_assignedTotal）',
                 ),
-                const Tab(icon: Icon(Icons.settings_outlined), text: '设置与记录'),
+                Tab(
+                  icon: const Icon(Icons.settings_outlined),
+                  text: t(context, 'topics_tab_settings', fallback: '设置与记录'),
+                ),
               ],
             ),
           ),

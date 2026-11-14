@@ -87,7 +87,11 @@ class _GrafanaEmbedState extends State<GrafanaEmbed> {
       if (mounted) {
         AdminFeedback.showSnackBar(
           context,
-          SnackBar(content: Text('打开 Kibana 失败: $e')),
+          SnackBar(
+            content: Text(
+              '${t(context, 'open_kibana_failed', fallback: '打开 Kibana 失败')}: $e',
+            ),
+          ),
         );
       }
     }
@@ -102,9 +106,13 @@ class _GrafanaEmbedState extends State<GrafanaEmbed> {
       children: [
         Icon(Icons.insights_outlined, color: primaryColor, size: 20),
         const SizedBox(width: 8),
-        const Text(
-          '系统监控与日志 / Observability',
-          style: TextStyle(
+        Text(
+          t(
+            context,
+            'observability_title',
+            fallback: '系统监控与日志 / Observability',
+          ),
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
             color: Color(0xFF1E293B),
@@ -121,13 +129,15 @@ class _GrafanaEmbedState extends State<GrafanaEmbed> {
         FilledButton.tonalIcon(
           onPressed: _openKibana,
           icon: const Icon(Icons.open_in_new, size: 16),
-          label: const Text('快捷打开 Kibana'),
+          label: Text(t(context, 'open_kibana', fallback: '快捷打开 Kibana')),
         ),
         if (kIsWeb && _url != null)
           OutlinedButton.icon(
             onPressed: () => web_helper.openUrl(_url!),
             icon: const Icon(Icons.open_in_new, size: 16),
-            label: const Text('在浏览器中打开 Grafana'),
+            label: Text(
+              t(context, 'open_grafana_browser', fallback: '在浏览器中打开 Grafana'),
+            ),
           ),
       ],
     );
@@ -168,7 +178,9 @@ class _GrafanaEmbedState extends State<GrafanaEmbed> {
                 color: Color(0xFF94A3B8),
               ),
               const SizedBox(height: 8),
-              const Text('Grafana 观测面板暂不可用'),
+              Text(
+                t(context, 'grafana_unavailable', fallback: 'Grafana 观测面板暂不可用'),
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -177,13 +189,15 @@ class _GrafanaEmbedState extends State<GrafanaEmbed> {
                   TextButton.icon(
                     onPressed: _load,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('重试'),
+                    label: Text(t(context, 'retry', fallback: '重试')),
                   ),
                   if (!kIsWeb)
                     FilledButton.tonalIcon(
                       onPressed: _openKibana,
                       icon: const Icon(Icons.open_in_new, size: 16),
-                      label: const Text('快捷打开 Kibana'),
+                      label: Text(
+                        t(context, 'open_kibana', fallback: '快捷打开 Kibana'),
+                      ),
                     ),
                 ],
               ),
@@ -221,12 +235,24 @@ class _GrafanaEmbedState extends State<GrafanaEmbed> {
                   FilledButton.icon(
                     onPressed: () => web_helper.openUrl(url),
                     icon: const Icon(Icons.open_in_new),
-                    label: const Text('在浏览器中打开 Grafana Dashboard'),
+                    label: Text(
+                      t(
+                        context,
+                        'open_grafana_dashboard',
+                        fallback: '在浏览器中打开 Grafana Dashboard',
+                      ),
+                    ),
                   ),
                   FilledButton.tonalIcon(
                     onPressed: _openKibana,
                     icon: const Icon(Icons.open_in_new),
-                    label: const Text('快捷打开 Kibana 控制台'),
+                    label: Text(
+                      t(
+                        context,
+                        'open_kibana_console',
+                        fallback: '快捷打开 Kibana 控制台',
+                      ),
+                    ),
                   ),
                 ],
               ),

@@ -3016,12 +3016,25 @@ class _PostEditorPageState extends State<PostEditorPage>
           ),
           const SizedBox(height: 12),
           _buildDropdownRow(
-            label: '文章模式',
+            label: t(context, 'article_mode', fallback: '文章模式'),
             value: articleMode,
-            items: const [
-              DropdownMenuItem(value: 0, child: Text('常规博客')),
-              DropdownMenuItem(value: 1, child: Text('教程模式')),
-              DropdownMenuItem(value: 2, child: Text('资源模式')),
+            items: [
+              DropdownMenuItem(
+                value: 0,
+                child: Text(t(context, 'article_mode_blog', fallback: '常规博客')),
+              ),
+              DropdownMenuItem(
+                value: 1,
+                child: Text(
+                  t(context, 'article_mode_tutorial_mode', fallback: '教程模式'),
+                ),
+              ),
+              DropdownMenuItem(
+                value: 2,
+                child: Text(
+                  t(context, 'article_mode_resource_mode', fallback: '资源模式'),
+                ),
+              ),
             ],
             onChanged: (v) {
               if (v != null) {
@@ -3187,41 +3200,61 @@ class _PostEditorPageState extends State<PostEditorPage>
   Widget _buildTutorialSettingsCard() {
     return SectionCard(
       icon: Icons.school_outlined,
-      title: '教程模式专属设置',
+      title: t(context, 'tutorial_settings_title', fallback: '教程模式专属设置'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           TextField(
             controller: tutorialDifficultyCtrl,
-            decoration: const InputDecoration(
-              labelText: '教程难度',
-              hintText: '如：入门 / 进阶 / 专家',
+            decoration: InputDecoration(
+              labelText: t(context, 'tutorial_difficulty', fallback: '教程难度'),
+              hintText: t(
+                context,
+                'tutorial_difficulty_hint',
+                fallback: '如：入门 / 进阶 / 专家',
+              ),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: tutorialMinutesCtrl,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '预计学习耗时 (分钟)',
-              hintText: '如：25',
+            decoration: InputDecoration(
+              labelText: t(
+                context,
+                'tutorial_duration',
+                fallback: '预计学习耗时 (分钟)',
+              ),
+              hintText: t(context, 'tutorial_duration_hint', fallback: '如：25'),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: tutorialAudienceCtrl,
-            decoration: const InputDecoration(
-              labelText: '适用人群',
-              hintText: '如：后端开发工程师 / 初学者',
+            decoration: InputDecoration(
+              labelText: t(context, 'tutorial_audience', fallback: '适用人群'),
+              hintText: t(
+                context,
+                'tutorial_audience_hint',
+                fallback: '如：后端开发工程师 / 初学者',
+              ),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: tutorialPrereqsCtrl,
             maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: '前置依赖与环境要求 (每行一项)',
-              hintText: 'JDK 21+\nDocker 24+\n掌握基本 SQL',
+            decoration: InputDecoration(
+              labelText: t(
+                context,
+                'tutorial_prerequisites',
+                fallback: '前置依赖与环境要求 (每行一项)',
+              ),
+              hintText: t(
+                context,
+                'tutorial_prerequisites_hint',
+                fallback: 'JDK 21+\nDocker 24+\n掌握基本 SQL',
+              ),
             ),
           ),
         ],
@@ -3232,7 +3265,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   Widget _buildResourceSettingsCard() {
     return SectionCard(
       icon: Icons.inventory_2_outlined,
-      title: '资源模式专属设置',
+      title: t(context, 'resource_settings_title', fallback: '资源模式专属设置'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3241,9 +3274,17 @@ class _PostEditorPageState extends State<PostEditorPage>
               Expanded(
                 child: TextField(
                   controller: resourceVersionCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '资源/软件版本',
-                    hintText: '如：v2.5.0',
+                  decoration: InputDecoration(
+                    labelText: t(
+                      context,
+                      'resource_version',
+                      fallback: '资源/软件版本',
+                    ),
+                    hintText: t(
+                      context,
+                      'resource_version_hint',
+                      fallback: '如：v2.5.0',
+                    ),
                   ),
                 ),
               ),
@@ -3251,9 +3292,17 @@ class _PostEditorPageState extends State<PostEditorPage>
               Expanded(
                 child: TextField(
                   controller: resourceFileSizeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '文件大小',
-                    hintText: '如：128 MB',
+                  decoration: InputDecoration(
+                    labelText: t(
+                      context,
+                      'resource_file_size',
+                      fallback: '文件大小',
+                    ),
+                    hintText: t(
+                      context,
+                      'resource_file_size_hint',
+                      fallback: '如：128 MB',
+                    ),
                   ),
                 ),
               ),
@@ -3262,9 +3311,17 @@ class _PostEditorPageState extends State<PostEditorPage>
           const SizedBox(height: 12),
           TextField(
             controller: resourcePlatformsCtrl,
-            decoration: const InputDecoration(
-              labelText: '适配平台 (逗号分隔)',
-              hintText: 'Windows, macOS, Linux, Docker',
+            decoration: InputDecoration(
+              labelText: t(
+                context,
+                'resource_platforms',
+                fallback: '适配平台 (逗号分隔)',
+              ),
+              hintText: t(
+                context,
+                'resource_platforms_hint',
+                fallback: 'Windows, macOS, Linux, Docker',
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -3273,9 +3330,17 @@ class _PostEditorPageState extends State<PostEditorPage>
               Expanded(
                 child: TextField(
                   controller: resourceLicenseCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '开源/授权协议',
-                    hintText: '如：MIT / Apache 2.0 / 免费版',
+                  decoration: InputDecoration(
+                    labelText: t(
+                      context,
+                      'resource_license',
+                      fallback: '开源/授权协议',
+                    ),
+                    hintText: t(
+                      context,
+                      'resource_license_hint',
+                      fallback: '如：MIT / Apache 2.0 / 免费版',
+                    ),
                   ),
                 ),
               ),
@@ -3283,9 +3348,17 @@ class _PostEditorPageState extends State<PostEditorPage>
               Expanded(
                 child: TextField(
                   controller: resourceOfficialUrlCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '官网 / 源码主页',
-                    hintText: 'https://...',
+                  decoration: InputDecoration(
+                    labelText: t(
+                      context,
+                      'resource_official_url',
+                      fallback: '官网 / 源码主页',
+                    ),
+                    hintText: t(
+                      context,
+                      'resource_official_url_hint',
+                      fallback: 'https://...',
+                    ),
                   ),
                 ),
               ),
@@ -3294,9 +3367,17 @@ class _PostEditorPageState extends State<PostEditorPage>
           const SizedBox(height: 12),
           TextField(
             controller: resourceChecksumSha256Ctrl,
-            decoration: const InputDecoration(
-              labelText: 'SHA-256 完整性哈希',
-              hintText: '64 位十六进制散列值',
+            decoration: InputDecoration(
+              labelText: t(
+                context,
+                'resource_checksum',
+                fallback: 'SHA-256 完整性哈希',
+              ),
+              hintText: t(
+                context,
+                'resource_checksum_hint',
+                fallback: '64 位十六进制散列值',
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -3304,7 +3385,11 @@ class _PostEditorPageState extends State<PostEditorPage>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '下载镜像与渠道 (${resourceMirrors.length})',
+                t(
+                  context,
+                  'resource_mirrors_title',
+                  fallback: '下载镜像与渠道 (%d)',
+                ).replaceAll('%d', resourceMirrors.length.toString()),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -3312,7 +3397,9 @@ class _PostEditorPageState extends State<PostEditorPage>
               ),
               TextButton.icon(
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('添加镜像'),
+                label: Text(
+                  t(context, 'resource_add_mirror', fallback: '添加镜像'),
+                ),
                 onPressed: () {
                   setState(() {
                     resourceMirrors.add({
@@ -3343,8 +3430,12 @@ class _PostEditorPageState extends State<PostEditorPage>
                         child: TextFormField(
                           initialValue:
                               resourceMirrors[i]['name']?.toString() ?? '',
-                          decoration: const InputDecoration(
-                            labelText: '镜像名称',
+                          decoration: InputDecoration(
+                            labelText: t(
+                              context,
+                              'resource_mirror_name',
+                              fallback: '镜像名称',
+                            ),
                             isDense: true,
                           ),
                           onChanged: (val) {
@@ -3370,8 +3461,12 @@ class _PostEditorPageState extends State<PostEditorPage>
                   ),
                   TextFormField(
                     initialValue: resourceMirrors[i]['url']?.toString() ?? '',
-                    decoration: const InputDecoration(
-                      labelText: '下载链接 URL',
+                    decoration: InputDecoration(
+                      labelText: t(
+                        context,
+                        'resource_mirror_url',
+                        fallback: '下载链接 URL',
+                      ),
                       isDense: true,
                     ),
                     onChanged: (val) {
@@ -3387,8 +3482,12 @@ class _PostEditorPageState extends State<PostEditorPage>
                               resourceMirrors[i]['extractionCode']
                                   ?.toString() ??
                               '',
-                          decoration: const InputDecoration(
-                            labelText: '提取码 / 解压密码 (可选)',
+                          decoration: InputDecoration(
+                            labelText: t(
+                              context,
+                              'resource_mirror_code',
+                              fallback: '提取码 / 解压密码 (可选)',
+                            ),
                             isDense: true,
                           ),
                           onChanged: (val) {

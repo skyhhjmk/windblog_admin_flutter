@@ -264,7 +264,9 @@ class _CommentsPageState extends State<CommentsPage> {
         ],
       ),
       body: loading
-          ? const AdminStatusView.loading(title: '正在加载评论')
+          ? AdminStatusView.loading(
+              title: t(context, 'loading_comments', fallback: '正在加载评论'),
+            )
           : comments.isEmpty
           ? AdminStatusView.empty(title: t(context, 'no_comments'))
           : Card(
@@ -279,7 +281,7 @@ class _CommentsPageState extends State<CommentsPage> {
                     statusColor: _getStatusColor(comment.status),
                     dateText: _formatDate(comment.createdAt),
                     onOpenDetails: () => _showCommentDetails(comment),
-                    t: (key) => t(context, key),
+                    t: (key, {fallback}) => t(context, key, fallback: fallback),
                   );
                 },
               ),
@@ -473,6 +475,30 @@ class _CommentsPageState extends State<CommentsPage> {
     );
   }
 
+  String _quoteTypeText(BuildContext context, CommentItem comment) {
+    switch (comment.quoteType) {
+      case 'CORRECTION':
+        return t(context, 'quote_type_correction', fallback: '纠错');
+      case 'QUOTE':
+        return t(context, 'quote_type_quote', fallback: '引用');
+      default:
+        return comment.quoteType ?? '';
+    }
+  }
+
+  String _quoteStatusText(BuildContext context, CommentItem comment) {
+    switch (comment.quoteStatus) {
+      case 0:
+        return t(context, 'quote_status_pending', fallback: '待处理');
+      case 1:
+        return t(context, 'quote_status_accepted', fallback: '已采纳');
+      case 2:
+        return t(context, 'quote_status_rejected', fallback: '已驳回');
+      default:
+        return t(context, 'quote_status_unknown', fallback: '未知');
+    }
+  }
+
   Widget _buildQuoteCard(CommentItem comment) {
     final isCorrection = comment.quoteType == 'CORRECTION';
     final color = isCorrection ? Colors.orange : Colors.blueGrey;
@@ -500,7 +526,7 @@ class _CommentsPageState extends State<CommentsPage> {
               ),
               const SizedBox(width: 6),
               Text(
-                comment.quoteTypeText,
+                _quoteTypeText(context, comment),
                 style: TextStyle(
                   color: color,
                   fontSize: 12,
@@ -510,7 +536,11 @@ class _CommentsPageState extends State<CommentsPage> {
               if (isCorrection) ...[
                 const SizedBox(width: 10),
                 Text(
-                  '状态：${comment.quoteStatusText}',
+                  t(
+                    context,
+                    'quote_status_label',
+                    fallback: '状态：%s',
+                  ).replaceFirst('%s', _quoteStatusText(context, comment)),
                   style: TextStyle(color: color, fontSize: 12),
                 ),
               ],
@@ -528,7 +558,11 @@ class _CommentsPageState extends State<CommentsPage> {
           if (paragraphIndex is num) ...[
             const SizedBox(height: 4),
             Text(
-              '定位段落 #${paragraphIndex.toInt() + 1}',
+              t(
+                context,
+                'quote_anchor_paragraph',
+                fallback: '定位段落 #%d',
+              ).replaceFirst('%d', (paragraphIndex.toInt() + 1).toString()),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
             ),
           ],
@@ -581,7 +615,7 @@ class _CommentTile extends StatelessWidget {
   final Color statusColor;
   final String dateText;
   final VoidCallback onOpenDetails;
-  final String Function(String) t;
+  final String Function(String key, {String? fallback}) t;
 
   const _CommentTile({
     required this.comment,
@@ -632,10 +666,9 @@ class _CommentTile extends StatelessWidget {
                 'AI: ${comment.aiResultText}',
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color:
-                      Theme.of(context).brightness == Brightness.dark
-                          ? Colors.indigo.shade200
-                          : Colors.indigo,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.indigo.shade200
+                      : Colors.indigo,
                   fontSize: 10,
                 ),
               ),
@@ -683,7 +716,11 @@ class _CommentTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    comment.quoteTypeText,
+                    comment.quoteType == 'CORRECTION'
+                        ? t('quote_type_correction', fallback: '纠错')
+                        : (comment.quoteType == 'QUOTE'
+                              ? t('quote_type_quote', fallback: '引用')
+                              : comment.quoteTypeText),
                     style: const TextStyle(
                       color: Colors.orange,
                       fontSize: 11,

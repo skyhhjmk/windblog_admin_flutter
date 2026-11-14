@@ -848,7 +848,11 @@ Future<bool> openPostEditor({
       } else if (context.mounted) {
         AdminFeedback.showSnackBar(
           context,
-          SnackBar(content: Text('打开文章编辑器失败：$error')),
+          SnackBar(
+            content: Text(
+              '${t(context, 'open_editor_failed', fallback: '打开文章编辑器失败')}：$error',
+            ),
+          ),
         );
       }
     }

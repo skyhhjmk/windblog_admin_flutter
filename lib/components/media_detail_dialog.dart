@@ -153,10 +153,16 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         _draftVisibilityRegions = List<String>.from(updated.visibilityRegions);
         _draftHiddenRegions = List<String>.from(updated.hiddenRegions);
       });
-      AdminFeedback.success(context, '区域约束更新成功');
+      AdminFeedback.success(
+        context,
+        t(context, 'region_constraint_update_success', fallback: '区域约束更新成功'),
+      );
     } catch (error) {
       if (mounted) {
-        AdminFeedback.error(context, '区域约束更新失败: $error');
+        AdminFeedback.error(
+          context,
+          '${t(context, 'region_constraint_update_failed', fallback: '区域约束更新失败')}: $error',
+        );
       }
     } finally {
       if (mounted) {
@@ -181,8 +187,14 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         });
         AdminFeedback.showSnackBar(
           context,
-          const SnackBar(
-            content: Text('存储类同步策略更新成功'),
+          SnackBar(
+            content: Text(
+              t(
+                context,
+                'storage_class_sync_update_success',
+                fallback: '存储类同步策略更新成功',
+              ),
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -191,7 +203,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
       if (mounted) {
         AdminFeedback.showSnackBar(
           context,
-          SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('${t(context, 'update_failed')}: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -727,12 +742,20 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
 
   Widget _buildVisibilityRegionsSection() {
     return _buildRegionConstraintSelector(
-      title: '可见性区域约束',
+      title: t(context, 'media_constraint_title', fallback: '可见性区域约束'),
       selectedRegions: _draftVisibilityRegions,
-      selectedSummary: '已选择',
-      emptySummary: '全部区域可见',
-      clearLabel: '清除所有可见限制',
-      description: '默认所有区域均可访问；选择后仅在匹配所选区域的访问环境下可见',
+      selectedSummary: t(context, 'selected', fallback: '已选择'),
+      emptySummary: t(context, 'visibility_regions_all', fallback: '全部区域可见'),
+      clearLabel: t(
+        context,
+        'clear_all_visibility_restrictions',
+        fallback: '清除所有可见限制',
+      ),
+      description: t(
+        context,
+        'visibility_regions_desc',
+        fallback: '默认所有区域均可访问；选择后仅在匹配所选区域的访问环境下可见',
+      ),
       onRegionChanged: (region, selected) => _toggleDraftRegion(
         target: _draftVisibilityRegions,
         region: region,
@@ -744,12 +767,20 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
 
   Widget _buildHiddenRegionsSection() {
     return _buildRegionConstraintSelector(
-      title: '不可见区域',
+      title: t(context, 'invisible_regions', fallback: '不可见区域'),
       selectedRegions: _draftHiddenRegions,
-      selectedSummary: '已排除',
-      emptySummary: '未排除任何区域',
-      clearLabel: '清除所有排除区域',
-      description: '不可见区域优先级高于可见区域；可见区域包含 Global 时，表示除不可见区域外均可访问',
+      selectedSummary: t(context, 'excluded', fallback: '已排除'),
+      emptySummary: t(context, 'no_excluded_regions', fallback: '未排除任何区域'),
+      clearLabel: t(
+        context,
+        'clear_all_invisible_regions',
+        fallback: '清除所有排除区域',
+      ),
+      description: t(
+        context,
+        'invisible_regions_desc',
+        fallback: '不可见区域优先级高于可见区域；可见区域包含 Global 时，表示除不可见区域外均可访问',
+      ),
       onRegionChanged: (region, selected) => _toggleDraftRegion(
         target: _draftHiddenRegions,
         region: region,
@@ -778,9 +809,9 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         if (_loadingRegions)
           const LinearProgressIndicator()
         else if (availableRegions.isEmpty)
-          const Text(
-            '暂无可用区域',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          Text(
+            t(context, 'no_regions_available', fallback: '暂无可用区域'),
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           )
         else ...[
           Row(
@@ -836,7 +867,11 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.save, size: 18),
-        label: Text(_savingRegionConstraints ? '保存中...' : '保存区域约束更改'),
+        label: Text(
+          _savingRegionConstraints
+              ? t(context, 'saving', fallback: '保存中...')
+              : t(context, 'save_region_constraints', fallback: '保存区域约束更改'),
+        ),
       ),
     );
   }
@@ -845,7 +880,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('存储类同步', style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          t(context, 'storage_class_sync', fallback: '存储类同步'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         if (_loadingStorageClasses)
           const LinearProgressIndicator()
@@ -853,22 +891,36 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('同步到', style: TextStyle(fontSize: 12)),
+              Text(
+                t(context, 'sync_to', fallback: '同步到'),
+                style: const TextStyle(fontSize: 12),
+              ),
               const SizedBox(height: 4),
               _buildStorageClassChips(
                 selectedNames: _item.syncStorageClasses,
                 disabledNames: _item.skipStorageClasses,
-                emptyText: '默认同步所有启用的非主存储类',
+                emptyText: t(
+                  context,
+                  'storage_sync_default_desc',
+                  fallback: '默认同步所有启用的非主存储类',
+                ),
                 onChanged: (names) =>
                     _updateStorageSync(syncStorageClasses: names),
               ),
               const SizedBox(height: 12),
-              const Text('不同步到', style: TextStyle(fontSize: 12)),
+              Text(
+                t(context, 'do_not_sync_to', fallback: '不同步到'),
+                style: const TextStyle(fontSize: 12),
+              ),
               const SizedBox(height: 4),
               _buildStorageClassChips(
                 selectedNames: _item.skipStorageClasses,
                 disabledNames: const [],
-                emptyText: '未排除存储类',
+                emptyText: t(
+                  context,
+                  'no_excluded_storage_classes',
+                  fallback: '未排除存储类',
+                ),
                 onChanged: (names) =>
                     _updateStorageSync(skipStorageClasses: names),
               ),

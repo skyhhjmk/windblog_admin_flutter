@@ -112,7 +112,7 @@ class _HomePageState extends State<HomePage> {
         submenuParent: '内容管理',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'topics',
         fallbackLabel: '话题',
         icon: Icons.lightbulb_outline,
         selectedIcon: Icons.lightbulb,
@@ -156,21 +156,21 @@ class _HomePageState extends State<HomePage> {
         submenuParent: '媒体与存储',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'storage_classes',
         fallbackLabel: '存储类',
         icon: Icons.cloud_outlined,
         selectedIcon: Icons.cloud,
         submenuParent: '媒体与存储',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'image_processing',
         fallbackLabel: '图片处理',
         icon: Icons.image_outlined,
         selectedIcon: Icons.image,
         submenuParent: '媒体与存储',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'storage_sync',
         fallbackLabel: '同步监控',
         icon: Icons.sync_outlined,
         selectedIcon: Icons.sync,
@@ -178,21 +178,21 @@ class _HomePageState extends State<HomePage> {
       ),
       // 边缘集群
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'edge_nodes',
         fallbackLabel: '边缘节点',
         icon: Icons.hub_outlined,
         selectedIcon: Icons.hub,
         submenuParent: '边缘集群',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'region_rules',
         fallbackLabel: '区域规则',
         icon: Icons.language_outlined,
         selectedIcon: Icons.language,
         submenuParent: '边缘集群',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'edge_monitor',
         fallbackLabel: '边缘监控',
         icon: Icons.public_outlined,
         selectedIcon: Icons.public,
@@ -207,7 +207,7 @@ class _HomePageState extends State<HomePage> {
         submenuParent: '系统运维',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'dead_letter_queue',
         fallbackLabel: '死信队列',
         icon: Icons.warning_outlined,
         selectedIcon: Icons.warning,
@@ -236,21 +236,21 @@ class _HomePageState extends State<HomePage> {
       ),
       // 系统设置
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'feature_settings',
         fallbackLabel: '功能设置',
         icon: Icons.tune_outlined,
         selectedIcon: Icons.tune,
         submenuParent: '系统设置',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'elasticsearch',
         fallbackLabel: 'Elasticsearch',
         icon: Icons.manage_search_outlined,
         selectedIcon: Icons.manage_search,
         submenuParent: '系统设置',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'synonym_rules',
         fallbackLabel: '同义词规则',
         icon: Icons.account_tree_outlined,
         selectedIcon: Icons.account_tree,
@@ -271,56 +271,56 @@ class _HomePageState extends State<HomePage> {
         submenuParent: '系统设置',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'email_center',
         fallbackLabel: '邮件中心',
         icon: Icons.mail_outline,
         selectedIcon: Icons.mail,
         submenuParent: '系统设置',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'outbox_audit',
         fallbackLabel: 'Outbox 审计',
         icon: Icons.fact_check_outlined,
         selectedIcon: Icons.fact_check,
         submenuParent: '系统运维',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'security_services',
         fallbackLabel: '安全服务',
         icon: Icons.policy_outlined,
         selectedIcon: Icons.policy,
         submenuParent: '系统运维',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'amp_seo',
         fallbackLabel: 'AMP / SEO',
         icon: Icons.speed_outlined,
         selectedIcon: Icons.speed,
         submenuParent: '系统设置',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'local_app_settings',
         fallbackLabel: '本地应用设置',
         icon: Icons.settings_suggest_outlined,
         selectedIcon: Icons.settings_suggest,
         submenuParent: '系统设置',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'translations',
         fallbackLabel: '翻译',
         icon: Icons.translate_outlined,
         selectedIcon: Icons.translate,
         submenuParent: '内容管理',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'article_map',
         fallbackLabel: '文章地图',
         icon: Icons.account_tree_outlined,
         selectedIcon: Icons.account_tree,
         submenuParent: '内容管理',
       ),
       _AdminNavigationItem(
-        labelKey: null,
+        labelKey: 'cdn_cache',
         fallbackLabel: 'CDN 缓存',
         icon: Icons.cached_outlined,
         selectedIcon: Icons.cached,
@@ -330,7 +330,7 @@ class _HomePageState extends State<HomePage> {
     if (widget.user?.roleName == 'SUPER_ADMIN') {
       items.add(
         const _AdminNavigationItem(
-          labelKey: null,
+          labelKey: 'honeypot_monitor',
           fallbackLabel: '蜜罐监控',
           icon: Icons.shield_outlined,
           selectedIcon: Icons.shield,
@@ -926,7 +926,7 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Tooltip(
-          message: submenuName,
+          message: _submenuLabel(context, submenuName),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: () {
@@ -947,7 +947,7 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        submenuName,
+                        _submenuLabel(context, submenuName),
                         style: TextStyle(
                           color: parentColor,
                           fontWeight: childSelected
@@ -1183,7 +1183,7 @@ class _HomePageState extends State<HomePage> {
     return ExpansionTile(
       initiallyExpanded: initiallyExpanded || childSelected,
       leading: Icon(submenuIcon),
-      title: Text(submenuName),
+      title: Text(_submenuLabel(context, submenuName)),
       onExpansionChanged: (expanded) {
         submenuExpandedStates[submenuName] = expanded;
       },
@@ -1308,6 +1308,25 @@ class _HomePageState extends State<HomePage> {
         }
       }
     });
+  }
+
+  String _submenuLabel(BuildContext context, String submenuName) {
+    switch (submenuName) {
+      case '内容管理':
+        return t(context, 'nav_content_management', fallback: '内容管理');
+      case '运营管理':
+        return t(context, 'nav_operations_management', fallback: '运营管理');
+      case '媒体与存储':
+        return t(context, 'nav_media_and_storage', fallback: '媒体与存储');
+      case '边缘集群':
+        return t(context, 'nav_edge_clusters', fallback: '边缘集群');
+      case '系统运维':
+        return t(context, 'nav_system_ops', fallback: '系统运维');
+      case '系统设置':
+        return t(context, 'nav_system_settings', fallback: '系统设置');
+      default:
+        return submenuName;
+    }
   }
 
   String _itemLabel(BuildContext context, _AdminNavigationItem item) {

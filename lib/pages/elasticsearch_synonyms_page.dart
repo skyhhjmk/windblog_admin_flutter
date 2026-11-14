@@ -515,7 +515,7 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '配置与索引操作',
+              t(context, 'synonyms_config_operations', fallback: '配置与索引操作'),
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -535,18 +535,24 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
                 FilledButton.icon(
                   onPressed: _actionRunning ? null : _rebuildIndex,
                   icon: const Icon(Icons.build),
-                  label: const Text('重新构建索引'),
+                  label: Text(
+                    t(context, 'synonyms_rebuild_index', fallback: '重新构建索引'),
+                  ),
                 ),
                 if (_setting != null && _setting!.isFrozen) ...[
                   OutlinedButton.icon(
                     onPressed: _actionRunning ? null : _confirmSetting,
                     icon: const Icon(Icons.check),
-                    label: const Text('解除主配置锁定'),
+                    label: Text(
+                      t(context, 'synonyms_unlock_master', fallback: '解除主配置锁定'),
+                    ),
                   ),
                   OutlinedButton.icon(
                     onPressed: _actionRunning ? null : _rollbackSetting,
                     icon: const Icon(Icons.history),
-                    label: const Text('回滚主配置'),
+                    label: Text(
+                      t(context, 'synonyms_rollback_master', fallback: '回滚主配置'),
+                    ),
                   ),
                 ],
               ],
@@ -562,18 +568,28 @@ class _ElasticsearchSynonymsPageState extends State<ElasticsearchSynonymsPage> {
   }
 
   Future<void> _rebuildIndex() async {
+    final fallbackMsg = t(
+      context,
+      'synonyms_index_rebuilt',
+      fallback: '文章索引已重建',
+    );
     await _runAction(() async {
       final response = await widget.api.rebuildElasticsearchIndex();
-      return response['message']?.toString() ?? '文章索引已重建';
+      return response['message']?.toString() ?? fallbackMsg;
     }, reloadAfterSuccess: true);
   }
 
   Future<void> _saveSynonymRules(Map<String, dynamic> values) async {
+    final fallbackMsg = t(
+      context,
+      'synonyms_save_and_rebuild_success',
+      fallback: '同义词规则已保存并自动完成索引重建',
+    );
     await _runAction(() async {
       final dynamic synonymsData = values['synonyms'] ?? values;
       final Map<String, dynamic> response = await widget.api
           .updateElasticsearchSynonyms(synonymsData);
-      return response['message']?.toString() ?? '同义词规则已保存并自动完成索引重建';
+      return response['message']?.toString() ?? fallbackMsg;
     }, reloadAfterSuccess: true);
   }
 

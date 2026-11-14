@@ -442,7 +442,11 @@ class _SidebarLayoutSettingsEditorState
             FilledButton.icon(
               onPressed: widget.isFrozen ? null : _saveLayout,
               icon: const Icon(Icons.save_outlined, size: 18),
-              label: Text(widget.isFrozen ? '配置验证锁定中' : '保存侧边栏配置'),
+              label: Text(
+                widget.isFrozen
+                    ? '配置验证锁定中'
+                    : t(context, 'sidebar_save_config', fallback: '保存侧边栏配置'),
+              ),
             ),
           ],
         ),
@@ -775,7 +779,13 @@ class _SidebarLayoutSettingsEditorState
                             ? null
                             : () => _addWidgetToCurrentArea('custom_html'),
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('新增自定义 HTML'),
+                        label: Text(
+                          t(
+                            context,
+                            'sidebar_add_custom_html',
+                            fallback: '新增自定义 HTML',
+                          ),
+                        ),
                       ),
                       TextButton.icon(
                         onPressed: widget.isFrozen

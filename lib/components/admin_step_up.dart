@@ -50,7 +50,9 @@ class AdminStepUpAuthorization {
         AdminFeedback.showSnackBar(
           context,
           SnackBar(
-            content: Text('高风险操作授权失败：$error'),
+            content: Text(
+              '${t(context, 'step_up_auth_failed', fallback: '高风险操作授权失败')}：$error',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -93,7 +95,9 @@ class _AdminStepUpDialogState extends State<_AdminStepUpDialog> {
         controller: _password,
         obscureText: true,
         autofocus: true,
-        decoration: const InputDecoration(labelText: '管理员密码'),
+        decoration: InputDecoration(
+          labelText: t(context, 'admin_password', fallback: '管理员密码'),
+        ),
         onSubmitted: (_) => _submit(context),
       ),
       actions: [

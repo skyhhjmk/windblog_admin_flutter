@@ -343,7 +343,7 @@ class _PostsPageState extends State<PostsPage> {
         title: t(context, 'no_posts'),
         message: keywordCtrl.text.trim().isEmpty && _statusFilter == null
             ? null
-            : '当前筛选条件下没有文章。',
+            : t(context, 'no_posts_under_filter', fallback: '当前筛选条件下没有文章。'),
       );
     }
     final isPhone = AdminBreakpoints.isPhone(context);
@@ -759,7 +759,7 @@ class _PostsPageState extends State<PostsPage> {
               ),
             TextButton(
               onPressed: _bulkRunning ? null : () => setState(_selected.clear),
-              child: const Text('取消选择'),
+              child: Text(t(context, 'cancel_selection', fallback: '取消选择')),
             ),
             OutlinedButton.icon(
               onPressed: _bulkRunning ? null : _bulkPublish,
@@ -785,8 +785,14 @@ class _PostsPageState extends State<PostsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('批量发布'),
-        content: Text('将发布所选 ${_selected.length} 篇文章的最新草稿，确定继续吗？'),
+        title: Text(t(context, 'batch_publish', fallback: '批量发布')),
+        content: Text(
+          t(
+            dialogContext,
+            'batch_publish_confirm',
+            fallback: '将发布所选 ${_selected.length} 篇文章的最新草稿，确定继续吗？',
+          ).replaceAll('%d', _selected.length.toString()),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -823,8 +829,14 @@ class _PostsPageState extends State<PostsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('批量删除'),
-        content: Text('将删除所选 ${_selected.length} 篇文章，此操作不可撤销。确定继续吗？'),
+        title: Text(t(context, 'batch_delete', fallback: '批量删除')),
+        content: Text(
+          t(
+            dialogContext,
+            'batch_delete_confirm',
+            fallback: '将删除所选 ${_selected.length} 篇文章，此操作不可撤销。确定继续吗？',
+          ).replaceAll('%d', _selected.length.toString()),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -1290,7 +1302,9 @@ class _PostsPageState extends State<PostsPage> {
         ],
         Expanded(
           child: _loading && items.isEmpty
-              ? const AdminStatusView.loading(title: '正在加载文章')
+              ? AdminStatusView.loading(
+                  title: t(context, 'loading_posts', fallback: '正在加载文章'),
+                )
               : _isTreeView
               ? _buildTreeView()
               : _buildListView(),
@@ -1757,9 +1771,13 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: slugCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Slug (别名)',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: t(
+                          context,
+                          'slug_alias',
+                          fallback: 'Slug (别名)',
+                        ),
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                     ),
@@ -2057,15 +2075,30 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
                 key: ValueKey('mode_$articleMode'),
                 initialValue: safeArticleMode,
                 isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: '文章模式',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: t(context, 'article_mode', fallback: '文章模式'),
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('常规')),
-                  DropdownMenuItem(value: 1, child: Text('教程')),
-                  DropdownMenuItem(value: 2, child: Text('资源')),
+                items: [
+                  DropdownMenuItem(
+                    value: 0,
+                    child: Text(
+                      t(context, 'article_mode_normal', fallback: '常规'),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 1,
+                    child: Text(
+                      t(context, 'article_mode_tutorial', fallback: '教程'),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 2,
+                    child: Text(
+                      t(context, 'article_mode_resource', fallback: '资源'),
+                    ),
+                  ),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => articleMode = v);
@@ -2107,10 +2140,14 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
           TextField(
             controller: passwordCtrl,
             obscureText: true,
-            decoration: const InputDecoration(
-              labelText: '访问密码',
-              helperText: '留空保留原密码',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: t(context, 'access_password', fallback: '访问密码'),
+              helperText: t(
+                context,
+                'keep_existing_password_hint',
+                fallback: '留空保留原密码',
+              ),
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
           ),
