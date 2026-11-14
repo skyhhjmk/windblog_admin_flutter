@@ -6,6 +6,10 @@ import 'package:windblog_admin_flutter/data/admin_api_client.dart';
 import 'package:windblog_admin_flutter/data/models.dart';
 import 'package:windblog_admin_flutter/services/mcp/mcp_server.dart';
 
+Map<String, String> _authHeaders() => {
+  'Authorization': 'Bearer ${FlutterMcpServer.instance.accessToken}',
+};
+
 class MockEditorState implements PostEditorStateInterface {
   @override
   int? currentPostId = 101;
@@ -53,7 +57,11 @@ void main() {
       email: 'admin@example.com',
       roleName: 'ADMIN',
     );
-    await FlutterMcpServer.instance.init(api, user: user, autoStartServer: false);
+    await FlutterMcpServer.instance.init(
+      api,
+      user: user,
+      autoStartServer: false,
+    );
     await FlutterMcpServer.instance.start(host: '127.0.0.1', port: testPort);
   });
 
@@ -66,7 +74,10 @@ void main() {
     expect(FlutterMcpServer.instance.host, equals('127.0.0.1'));
     expect(FlutterMcpServer.instance.port, equals(testPort));
 
-    final res = await http.get(Uri.parse('http://127.0.0.1:$testPort/status'));
+    final res = await http.get(
+      Uri.parse('http://127.0.0.1:$testPort/status'),
+      headers: _authHeaders(),
+    );
     expect(res.statusCode, equals(200));
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     expect(body['status'], equals('running'));
@@ -74,6 +85,36 @@ void main() {
     expect(body['port'], equals(testPort));
     expect(body['server'], equals('windblog-flutter-admin-mcp'));
     expect(body['user'], equals('admin'));
+  });
+
+  test('rejects requests without the access token', () async {
+    expect(FlutterMcpServer.instance.accessToken, isNotNull);
+    expect(FlutterMcpServer.instance.accessToken!.length, equals(32));
+
+    final res = await http.get(Uri.parse('http://127.0.0.1:$testPort/status'));
+    expect(res.statusCode, equals(401));
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    expect(body['error'], isNotNull);
+  });
+
+  test('rejects requests with a non-loopback Origin', () async {
+    final res = await http.get(
+      Uri.parse('http://127.0.0.1:$testPort/status'),
+      headers: {..._authHeaders(), 'Origin': 'http://evil.example'},
+    );
+    expect(res.statusCode, equals(403));
+  });
+
+  test('accepts a loopback Origin without wildcard CORS', () async {
+    final origin = 'http://127.0.0.1:$testPort';
+    final res = await http.get(
+      Uri.parse('http://127.0.0.1:$testPort/status'),
+      headers: {..._authHeaders(), 'Origin': origin},
+    );
+    expect(res.statusCode, equals(200));
+    expect(res.headers['access-control-allow-origin'], equals(origin));
+    expect(res.headers['access-control-allow-origin'], isNot(equals('*')));
+    expect(res.headers['vary'], contains('Origin'));
   });
 
   test('FlutterMcpServer saves host, port, and autoStart settings', () async {
@@ -87,9 +128,7 @@ void main() {
     expect(FlutterMcpServer.instance.autoStart, isTrue);
 
     // Switch back to testPort
-    await FlutterMcpServer.instance.saveSettings(
-      port: testPort,
-    );
+    await FlutterMcpServer.instance.saveSettings(port: testPort);
     expect(FlutterMcpServer.instance.port, equals(testPort));
   });
 
@@ -97,7 +136,7 @@ void main() {
     // 1. initialize
     final initRes = await http.post(
       Uri.parse('http://127.0.0.1:$testPort/mcp'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {..._authHeaders(), 'Content-Type': 'application/json'},
       body: jsonEncode({
         'jsonrpc': '2.0',
         'id': 1,
@@ -110,12 +149,15 @@ void main() {
     );
     expect(initRes.statusCode, equals(200));
     final initBody = jsonDecode(initRes.body) as Map<String, dynamic>;
-    expect(initBody['result']['serverInfo']['name'], equals('windblog-flutter-admin-mcp'));
+    expect(
+      initBody['result']['serverInfo']['name'],
+      equals('windblog-flutter-admin-mcp'),
+    );
 
     // 2. tools/list
     final listRes = await http.post(
       Uri.parse('http://127.0.0.1:$testPort/mcp'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {..._authHeaders(), 'Content-Type': 'application/json'},
       body: jsonEncode({
         'jsonrpc': '2.0',
         'id': 2,
@@ -138,86 +180,99 @@ void main() {
     expect(toolNames, contains('windblog_apply_translation_to_editor'));
   });
 
-  test('tools/call windblog_get_session_status returns admin credentials info', () async {
-    final res = await http.post(
-      Uri.parse('http://127.0.0.1:$testPort/mcp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'jsonrpc': '2.0',
-        'id': 3,
-        'method': 'tools/call',
-        'params': {
-          'name': 'windblog_get_session_status',
-          'arguments': {},
-        },
-      }),
-    );
-    expect(res.statusCode, equals(200));
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    expect(body['result']['content'], isNotEmpty);
-    final text = body['result']['content'][0]['text'] as String;
-    final data = jsonDecode(text) as Map<String, dynamic>;
-    expect(data['isLoggedIn'], isTrue);
-    expect(data['username'], equals('admin'));
-    expect(data['roleName'], equals('ADMIN'));
-    expect(data['baseUrl'], equals('https://blog.example.com'));
-  });
+  test(
+    'tools/call windblog_get_session_status returns admin credentials info',
+    () async {
+      final res = await http.post(
+        Uri.parse('http://127.0.0.1:$testPort/mcp'),
+        headers: {..._authHeaders(), 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 3,
+          'method': 'tools/call',
+          'params': {'name': 'windblog_get_session_status', 'arguments': {}},
+        }),
+      );
+      expect(res.statusCode, equals(200));
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      expect(body['result']['content'], isNotEmpty);
+      final text = body['result']['content'][0]['text'] as String;
+      final data = jsonDecode(text) as Map<String, dynamic>;
+      expect(data['isLoggedIn'], isTrue);
+      expect(data['username'], equals('admin'));
+      expect(data['roleName'], equals('ADMIN'));
+      expect(data['baseUrl'], equals('https://blog.example.com'));
+    },
+  );
 
-  test('tools/call active editor inspection and translation injection', () async {
-    final mockEditor = MockEditorState();
-    FlutterMcpServer.instance.setActiveEditor(mockEditor);
+  test(
+    'tools/call active editor inspection and translation injection',
+    () async {
+      final mockEditor = MockEditorState();
+      FlutterMcpServer.instance.setActiveEditor(mockEditor);
 
-    // 1. Get active editor post
-    final getRes = await http.post(
-      Uri.parse('http://127.0.0.1:$testPort/mcp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'jsonrpc': '2.0',
-        'id': 4,
-        'method': 'tools/call',
-        'params': {
-          'name': 'windblog_get_active_editor_post',
-          'arguments': {},
-        },
-      }),
-    );
-    expect(getRes.statusCode, equals(200));
-    final getBody = jsonDecode(getRes.body) as Map<String, dynamic>;
-    final getData = jsonDecode(getBody['result']['content'][0]['text']) as Map<String, dynamic>;
-    expect(getData['hasActiveEditor'], isTrue);
-    expect(getData['postId'], equals(101));
-    expect(getData['titles']['zh-cn'], equals('测试文章标题'));
-
-    // 2. Apply translation into active editor
-    final applyRes = await http.post(
-      Uri.parse('http://127.0.0.1:$testPort/mcp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'jsonrpc': '2.0',
-        'id': 5,
-        'method': 'tools/call',
-        'params': {
-          'name': 'windblog_apply_translation_to_editor',
-          'arguments': {
-            'targetLanguage': 'en-us',
-            'title': 'Test Article Title in English',
-            'summary': 'English Summary',
-            'contentMarkdown': 'Translated English Markdown Content',
+      // 1. Get active editor post
+      final getRes = await http.post(
+        Uri.parse('http://127.0.0.1:$testPort/mcp'),
+        headers: {..._authHeaders(), 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 4,
+          'method': 'tools/call',
+          'params': {
+            'name': 'windblog_get_active_editor_post',
+            'arguments': {},
           },
-        },
-      }),
-    );
-    expect(applyRes.statusCode, equals(200));
-    final applyBody = jsonDecode(applyRes.body) as Map<String, dynamic>;
-    final applyData = jsonDecode(applyBody['result']['content'][0]['text']) as Map<String, dynamic>;
-    expect(applyData['success'], isTrue);
+        }),
+      );
+      expect(getRes.statusCode, equals(200));
+      final getBody = jsonDecode(getRes.body) as Map<String, dynamic>;
+      final getData =
+          jsonDecode(getBody['result']['content'][0]['text'])
+              as Map<String, dynamic>;
+      expect(getData['hasActiveEditor'], isTrue);
+      expect(getData['postId'], equals(101));
+      expect(getData['titles']['zh-cn'], equals('测试文章标题'));
 
-    // Verify mock editor received the translation
-    expect(mockEditor.titles['en-us'], equals('Test Article Title in English'));
-    expect(mockEditor.summaries['en-us'], equals('English Summary'));
-    expect(mockEditor.contents['en-us'], equals('Translated English Markdown Content'));
-    expect(mockEditor.isDirty, isTrue);
+      // 2. Apply translation into active editor
+      final applyRes = await http.post(
+        Uri.parse('http://127.0.0.1:$testPort/mcp'),
+        headers: {..._authHeaders(), 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 5,
+          'method': 'tools/call',
+          'params': {
+            'name': 'windblog_apply_translation_to_editor',
+            'arguments': {
+              'targetLanguage': 'en-us',
+              'title': 'Test Article Title in English',
+              'summary': 'English Summary',
+              'contentMarkdown': 'Translated English Markdown Content',
+            },
+          },
+        }),
+      );
+      expect(applyRes.statusCode, equals(200));
+      final applyBody = jsonDecode(applyRes.body) as Map<String, dynamic>;
+      final applyData =
+          jsonDecode(applyBody['result']['content'][0]['text'])
+              as Map<String, dynamic>;
+      expect(applyData['success'], isTrue);
 
-    FlutterMcpServer.instance.clearActiveEditor(mockEditor);
-  });
+      // Verify mock editor received the translation
+      expect(
+        mockEditor.titles['en-us'],
+        equals('Test Article Title in English'),
+      );
+      expect(mockEditor.summaries['en-us'], equals('English Summary'));
+      expect(
+        mockEditor.contents['en-us'],
+        equals('Translated English Markdown Content'),
+      );
+      expect(mockEditor.isDirty, isTrue);
+
+      FlutterMcpServer.instance.clearActiveEditor(mockEditor);
+    },
+  );
 }

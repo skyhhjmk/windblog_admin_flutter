@@ -16,20 +16,25 @@ class FlutterMcpServer {
   static const String keyMcpHost = 'admin_mcp_host';
   static const String keyMcpPort = 'admin_mcp_port';
   static const String keyMcpAutoStart = 'admin_mcp_auto_start';
+  static const String keyMcpToken = 'admin_mcp_token';
 
   HttpServer? _server;
   String _host = '127.0.0.1';
   int _port = 58180;
   bool _autoStart = true;
   bool _isRunning = false;
+  String? _accessToken;
+  Future<String>? _accessTokenFuture;
 
   AdminApiClient? _api;
   AdminUser? _user;
   PostEditorStateInterface? _activeEditor;
 
   final List<McpLogEntry> _logs = [];
-  final StreamController<McpLogEntry> _logStream = StreamController<McpLogEntry>.broadcast();
-  final StreamController<bool> _statusStream = StreamController<bool>.broadcast();
+  final StreamController<McpLogEntry> _logStream =
+      StreamController<McpLogEntry>.broadcast();
+  final StreamController<bool> _statusStream =
+      StreamController<bool>.broadcast();
 
   final Map<String, HttpResponse> _sseClients = {};
 
@@ -37,6 +42,7 @@ class FlutterMcpServer {
   String get host => _host;
   int get port => _port;
   bool get autoStart => _autoStart;
+  String? get accessToken => _accessToken;
 
   List<McpLogEntry> get logs => List.unmodifiable(_logs);
   Stream<McpLogEntry> get logStream => _logStream.stream;
@@ -49,6 +55,47 @@ class FlutterMcpServer {
       _port = prefs.getInt(keyMcpPort) ?? 58180;
       _autoStart = prefs.getBool(keyMcpAutoStart) ?? true;
     } catch (_) {}
+    await _ensureAccessToken();
+  }
+
+  static String _generateAccessToken() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  Future<String> _ensureAccessToken() async {
+    final existing = _accessToken;
+    if (existing != null && existing.isNotEmpty) return existing;
+    final pending = _accessTokenFuture;
+    if (pending != null) return pending;
+
+    final future = _loadOrCreateAccessToken();
+    _accessTokenFuture = future;
+    try {
+      return await future;
+    } finally {
+      _accessTokenFuture = null;
+    }
+  }
+
+  Future<String> _loadOrCreateAccessToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(keyMcpToken);
+      if (stored != null && stored.isNotEmpty) {
+        _accessToken = stored;
+        return stored;
+      }
+      final generated = _generateAccessToken();
+      _accessToken = generated;
+      await prefs.setString(keyMcpToken, generated);
+      return generated;
+    } catch (_) {
+      final generated = _accessToken ?? _generateAccessToken();
+      _accessToken = generated;
+      return generated;
+    }
   }
 
   Future<void> saveSettings({String? host, int? port, bool? autoStart}) async {
@@ -76,7 +123,11 @@ class FlutterMcpServer {
     } catch (_) {}
   }
 
-  Future<void> init(AdminApiClient api, {AdminUser? user, bool autoStartServer = true}) async {
+  Future<void> init(
+    AdminApiClient api, {
+    AdminUser? user,
+    bool autoStartServer = true,
+  }) async {
     _api = api;
     _user = user;
     await loadSettings();
@@ -88,12 +139,20 @@ class FlutterMcpServer {
   void updateSession({AdminApiClient? api, AdminUser? user}) {
     if (api != null) _api = api;
     if (user != null) _user = user;
-    _addLog('info', 'session', 'Updated admin session bound to MCP: user=${_user?.username ?? "unknown"}, baseUrl=${_api?.baseUrl ?? "none"}');
+    _addLog(
+      'info',
+      'session',
+      'Updated admin session bound to MCP: user=${_user?.username ?? "unknown"}, baseUrl=${_api?.baseUrl ?? "none"}',
+    );
   }
 
   void setActiveEditor(PostEditorStateInterface editor) {
     _activeEditor = editor;
-    _addLog('info', 'editor', 'Active article editor hooked into MCP (postId=${editor.currentPostId})');
+    _addLog(
+      'info',
+      'editor',
+      'Active article editor hooked into MCP (postId=${editor.currentPostId})',
+    );
   }
 
   void clearActiveEditor(PostEditorStateInterface editor) {
@@ -107,7 +166,12 @@ class FlutterMcpServer {
     _logs.clear();
   }
 
-  void _addLog(String level, String method, String message, [Map<String, dynamic>? details]) {
+  void _addLog(
+    String level,
+    String method,
+    String message, [
+    Map<String, dynamic>? details,
+  ]) {
     final entry = McpLogEntry(
       level: level,
       method: method,
@@ -123,6 +187,7 @@ class FlutterMcpServer {
   }
 
   Future<bool> start({String? host, int? port}) async {
+    await _ensureAccessToken();
     if (_isRunning) {
       if ((host != null && host != _host) || (port != null && port != _port)) {
         await stop();
@@ -139,13 +204,18 @@ class FlutterMcpServer {
       } else if (_host == '127.0.0.1' || _host == 'localhost') {
         address = InternetAddress.loopbackIPv4;
       } else {
-        address = InternetAddress.tryParse(_host) ?? InternetAddress.loopbackIPv4;
+        address =
+            InternetAddress.tryParse(_host) ?? InternetAddress.loopbackIPv4;
       }
 
       _server = await HttpServer.bind(address, _port);
       _isRunning = true;
       _statusStream.add(true);
-      _addLog('info', 'server', 'WindBlog Flutter MCP Server started on http://$_host:$_port');
+      _addLog(
+        'info',
+        'server',
+        'WindBlog Flutter MCP Server started on http://$_host:$_port',
+      );
       _listen();
       return true;
     } catch (e) {
@@ -171,45 +241,196 @@ class FlutterMcpServer {
     _addLog('info', 'server', 'MCP Server stopped');
   }
 
-  void _listen() {
-    _server?.listen((HttpRequest request) async {
-      _handleCors(request);
-      if (request.method == 'OPTIONS') {
-        request.response.statusCode = HttpStatus.noContent;
-        await request.response.close();
-        return;
-      }
-
-      final path = request.uri.path;
-      if (request.method == 'GET' && path == '/sse') {
-        await _handleSse(request);
-      } else if (request.method == 'POST' && (path == '/message' || path == '/mcp' || path == '/rpc' || path == '/')) {
-        await _handlePostMessage(request);
-      } else if (request.method == 'GET' && (path == '/' || path == '/status')) {
-        request.response.headers.contentType = ContentType.json;
-        request.response.write(jsonEncode({
-          'server': 'windblog-flutter-admin-mcp',
-          'status': 'running',
-          'host': _host,
-          'port': _port,
-          'hasSession': _api?.token != null && _api!.token!.isNotEmpty,
-          'user': _user?.username,
-          'baseUrl': _api?.baseUrl,
-        }));
-        await request.response.close();
-      } else {
-        request.response.statusCode = HttpStatus.notFound;
-        await request.response.close();
-      }
-    }, onError: (err) {
-      _addLog('error', 'server', 'Server error: $err');
-    });
+  bool get _isLoopbackBind {
+    final bound = _host.toLowerCase();
+    return bound == '127.0.0.1' ||
+        bound == 'localhost' ||
+        bound == '::1' ||
+        bound == '[::1]';
   }
 
-  void _handleCors(HttpRequest request) {
-    request.response.headers.set('Access-Control-Allow-Origin', '*');
-    request.response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    request.response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  /// Extracts the hostname from a Host header value, dropping any port.
+  String? _normalizeHostHeader(String? raw) {
+    if (raw == null) return null;
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    if (value.startsWith('[')) {
+      final end = value.indexOf(']');
+      if (end <= 1) return null;
+      return value.substring(1, end).toLowerCase();
+    }
+    final colon = value.lastIndexOf(':');
+    if (colon > 0) {
+      final portPart = value.substring(colon + 1);
+      final namePart = value.substring(0, colon);
+      if (RegExp(r'^\d+$').hasMatch(portPart) && !namePart.contains(':')) {
+        return namePart.toLowerCase();
+      }
+    }
+    return value.toLowerCase();
+  }
+
+  bool _isAllowedHost(String? hostHeader) {
+    final name = _normalizeHostHeader(hostHeader);
+    if (name == null || name.isEmpty) return false;
+    if (_isLoopbackBind) {
+      return name == '127.0.0.1' || name == 'localhost' || name == '::1';
+    }
+    final configured = _host.toLowerCase();
+    if (name == configured) return true;
+    if (configured.startsWith('[') && configured.endsWith(']')) {
+      return name == configured.substring(1, configured.length - 1);
+    }
+    // A non-loopback bind may be addressed by any IP literal.
+    return InternetAddress.tryParse(name) != null;
+  }
+
+  bool _isAllowedOrigin(String origin) {
+    final uri = Uri.tryParse(origin.trim());
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return false;
+    if (uri.scheme.toLowerCase() != 'http') return false;
+    final originHost = uri.host.toLowerCase();
+    return originHost == '127.0.0.1' ||
+        originHost == 'localhost' ||
+        originHost == '::1';
+  }
+
+  bool _hasValidAccessToken(HttpRequest request) {
+    final expected = _accessToken;
+    if (expected == null || expected.isEmpty) return false;
+    final header = request.headers.value(HttpHeaders.authorizationHeader);
+    if (header == null) return false;
+    final match = RegExp(
+      r'^Bearer\s+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(header.trim());
+    if (match == null) return false;
+    return _constantTimeEquals(match.group(1)!, expected);
+  }
+
+  static bool _constantTimeEquals(String a, String b) {
+    if (a.length != b.length) return false;
+    var diff = 0;
+    for (var i = 0; i < a.length; i++) {
+      diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return diff == 0;
+  }
+
+  Future<void> _rejectRequest(
+    HttpRequest request,
+    int status,
+    String message,
+  ) async {
+    request.response.statusCode = status;
+    request.response.headers.contentType = ContentType.json;
+    if (status == HttpStatus.unauthorized) {
+      request.response.headers.set(HttpHeaders.wwwAuthenticateHeader, 'Bearer');
+    }
+    request.response.write(
+      jsonEncode({
+        'jsonrpc': '2.0',
+        'error': {
+          'code': status == HttpStatus.unauthorized ? -32001 : -32003,
+          'message': message,
+        },
+      }),
+    );
+    await request.response.close();
+  }
+
+  void _listen() {
+    _server?.listen(
+      (HttpRequest request) async {
+        // Reject requests that are not addressed to this server before any
+        // routing happens. This blocks DNS-rebinding style attacks.
+        final hostHeader = request.headers.value(HttpHeaders.hostHeader);
+        if (!_isAllowedHost(hostHeader)) {
+          await _rejectRequest(
+            request,
+            HttpStatus.forbidden,
+            'Forbidden: invalid Host header',
+          );
+          return;
+        }
+
+        final origin = request.headers.value('origin');
+        if (origin != null && !_isAllowedOrigin(origin)) {
+          await _rejectRequest(
+            request,
+            HttpStatus.forbidden,
+            'Forbidden: invalid Origin header',
+          );
+          return;
+        }
+
+        _handleCors(request, origin);
+
+        if (request.method == 'OPTIONS') {
+          // CORS preflight requests cannot carry credentials, so they are
+          // answered after Origin validation but without the bearer token.
+          request.response.statusCode = HttpStatus.noContent;
+          await request.response.close();
+          return;
+        }
+
+        if (!_hasValidAccessToken(request)) {
+          await _rejectRequest(
+            request,
+            HttpStatus.unauthorized,
+            'Unauthorized: missing or invalid MCP access token',
+          );
+          return;
+        }
+
+        final path = request.uri.path;
+        if (request.method == 'GET' && path == '/sse') {
+          await _handleSse(request);
+        } else if (request.method == 'POST' &&
+            (path == '/message' ||
+                path == '/mcp' ||
+                path == '/rpc' ||
+                path == '/')) {
+          await _handlePostMessage(request);
+        } else if (request.method == 'GET' &&
+            (path == '/' || path == '/status')) {
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode({
+              'server': 'windblog-flutter-admin-mcp',
+              'status': 'running',
+              'host': _host,
+              'port': _port,
+              'hasSession': _api?.token != null && _api!.token!.isNotEmpty,
+              'user': _user?.username,
+              'baseUrl': _api?.baseUrl,
+            }),
+          );
+          await request.response.close();
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+          await request.response.close();
+        }
+      },
+      onError: (err) {
+        _addLog('error', 'server', 'Server error: $err');
+      },
+    );
+  }
+
+  void _handleCors(HttpRequest request, String? origin) {
+    request.response.headers.set('Vary', 'Origin');
+    if (origin != null && origin.isNotEmpty && _isAllowedOrigin(origin)) {
+      request.response.headers.set('Access-Control-Allow-Origin', origin);
+    }
+    request.response.headers.set(
+      'Access-Control-Allow-Methods',
+      'GET, POST, OPTIONS',
+    );
+    request.response.headers.set(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, Accept',
+    );
   }
 
   Future<void> _handleSse(HttpRequest request) async {
@@ -218,20 +439,31 @@ class FlutterMcpServer {
     response.headers.set('Cache-Control', 'no-cache, no-transform');
     response.headers.set('Connection', 'keep-alive');
 
-    final sessionId = '${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(99999)}';
+    final sessionId =
+        '${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(99999)}';
     _sseClients[sessionId] = response;
-    _addLog('info', 'sse', 'Client connected to SSE stream (sessionId=$sessionId)');
+    _addLog(
+      'info',
+      'sse',
+      'Client connected to SSE stream (sessionId=$sessionId)',
+    );
 
     // MCP initial event providing the endpoint to post messages to
     response.write('event: endpoint\ndata: /message?sessionId=$sessionId\n\n');
     await response.flush();
 
-    request.response.done.then((_) {
-      _sseClients.remove(sessionId);
-      _addLog('info', 'sse', 'Client disconnected from SSE stream (sessionId=$sessionId)');
-    }).catchError((_) {
-      _sseClients.remove(sessionId);
-    });
+    request.response.done
+        .then((_) {
+          _sseClients.remove(sessionId);
+          _addLog(
+            'info',
+            'sse',
+            'Client disconnected from SSE stream (sessionId=$sessionId)',
+          );
+        })
+        .catchError((_) {
+          _sseClients.remove(sessionId);
+        });
   }
 
   Future<void> _handlePostMessage(HttpRequest request) async {
@@ -261,10 +493,15 @@ class FlutterMcpServer {
       _addLog('error', 'rpc', 'Failed to process RPC: $e');
       request.response.statusCode = HttpStatus.badRequest;
       request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({
-        'jsonrpc': '2.0',
-        'error': {'code': -32700, 'message': 'Parse error or internal exception: $e'},
-      }));
+      request.response.write(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'error': {
+            'code': -32700,
+            'message': 'Parse error or internal exception: $e',
+          },
+        }),
+      );
       await request.response.close();
     }
   }
@@ -283,9 +520,7 @@ class FlutterMcpServer {
           'id': id,
           'result': {
             'protocolVersion': '2024-11-05',
-            'capabilities': {
-              'tools': {},
-            },
+            'capabilities': {'tools': {}},
             'serverInfo': {
               'name': 'windblog-flutter-admin-mcp',
               'version': '1.0.0',
@@ -294,26 +529,16 @@ class FlutterMcpServer {
         };
 
       case 'notifications/initialized':
-        return {
-          'jsonrpc': '2.0',
-          'id': id,
-          'result': {},
-        };
+        return {'jsonrpc': '2.0', 'id': id, 'result': {}};
 
       case 'ping':
-        return {
-          'jsonrpc': '2.0',
-          'id': id,
-          'result': {},
-        };
+        return {'jsonrpc': '2.0', 'id': id, 'result': {}};
 
       case 'tools/list':
         return {
           'jsonrpc': '2.0',
           'id': id,
-          'result': {
-            'tools': _toolDefinitions(),
-          },
+          'result': {'tools': _toolDefinitions()},
         };
 
       case 'tools/call':
@@ -321,16 +546,18 @@ class FlutterMcpServer {
         final args = params['arguments'] as Map<String, dynamic>? ?? {};
         try {
           final resultData = await _executeTool(toolName, args);
-          _addLog('result', toolName, 'Tool execution succeeded: $toolName', resultData);
+          _addLog(
+            'result',
+            toolName,
+            'Tool execution succeeded: $toolName',
+            resultData,
+          );
           return {
             'jsonrpc': '2.0',
             'id': id,
             'result': {
               'content': [
-                {
-                  'type': 'text',
-                  'text': jsonEncode(resultData),
-                }
+                {'type': 'text', 'text': jsonEncode(resultData)},
               ],
             },
           };
@@ -342,10 +569,7 @@ class FlutterMcpServer {
             'result': {
               'isError': true,
               'content': [
-                {
-                  'type': 'text',
-                  'text': 'Tool execution failed: $e',
-                }
+                {'type': 'text', 'text': 'Tool execution failed: $e'},
               ],
             },
           };
@@ -355,10 +579,7 @@ class FlutterMcpServer {
         return {
           'jsonrpc': '2.0',
           'id': id,
-          'error': {
-            'code': -32601,
-            'message': 'Method not found: $method',
-          },
+          'error': {'code': -32601, 'message': 'Method not found: $method'},
         };
     }
   }
@@ -367,28 +588,31 @@ class FlutterMcpServer {
     return [
       {
         'name': 'windblog_get_session_status',
-        'description': 'Check the current login session status of the Flutter admin client, including target blog baseUrl, token presence, and authenticated administrator profile.',
-        'inputSchema': {
-          'type': 'object',
-          'properties': {},
-        },
+        'description':
+            'Check the current login session status of the Flutter admin client, including target blog baseUrl, token presence, and authenticated administrator profile.',
+        'inputSchema': {'type': 'object', 'properties': {}},
       },
       {
         'name': 'windblog_list_posts',
-        'description': 'List articles from WindBlog using the administrator active session. Supports filtering by keyword, status, and pagination.',
+        'description':
+            'List articles from WindBlog using the administrator active session. Supports filtering by keyword, status, and pagination.',
         'inputSchema': {
           'type': 'object',
           'properties': {
             'page': {'type': 'integer', 'default': 1},
             'size': {'type': 'integer', 'default': 10},
             'query': {'type': 'string', 'description': 'Keyword search'},
-            'status': {'type': 'string', 'enum': ['ALL', 'PUBLISHED', 'DRAFT', 'PENDING_REVIEW']},
+            'status': {
+              'type': 'string',
+              'enum': ['ALL', 'PUBLISHED', 'DRAFT', 'PENDING_REVIEW'],
+            },
           },
         },
       },
       {
         'name': 'windblog_get_post',
-        'description': 'Get full details of a WindBlog post by ID, including multi-language titles, summaries, and markdown contents across all languages.',
+        'description':
+            'Get full details of a WindBlog post by ID, including multi-language titles, summaries, and markdown contents across all languages.',
         'inputSchema': {
           'type': 'object',
           'properties': {
@@ -399,53 +623,85 @@ class FlutterMcpServer {
       },
       {
         'name': 'windblog_translate_post',
-        'description': 'Translate an article title, summary, and markdown content from sourceLanguage to targetLanguage using the active administrator credentials and WindBlog AI translation service.',
+        'description':
+            'Translate an article title, summary, and markdown content from sourceLanguage to targetLanguage using the active administrator credentials and WindBlog AI translation service.',
         'inputSchema': {
           'type': 'object',
           'properties': {
-            'postId': {'type': 'integer', 'description': 'Post ID to translate'},
-            'sourceLanguage': {'type': 'string', 'default': 'zh-cn', 'description': 'Source language code, e.g. zh-cn'},
-            'targetLanguage': {'type': 'string', 'description': 'Target language code, e.g. en-us'},
-            'title': {'type': 'string', 'description': 'Optional override of source title'},
-            'summary': {'type': 'string', 'description': 'Optional override of source summary'},
-            'contentMarkdown': {'type': 'string', 'description': 'Optional override of source markdown content'},
+            'postId': {
+              'type': 'integer',
+              'description': 'Post ID to translate',
+            },
+            'sourceLanguage': {
+              'type': 'string',
+              'default': 'zh-cn',
+              'description': 'Source language code, e.g. zh-cn',
+            },
+            'targetLanguage': {
+              'type': 'string',
+              'description': 'Target language code, e.g. en-us',
+            },
+            'title': {
+              'type': 'string',
+              'description': 'Optional override of source title',
+            },
+            'summary': {
+              'type': 'string',
+              'description': 'Optional override of source summary',
+            },
+            'contentMarkdown': {
+              'type': 'string',
+              'description': 'Optional override of source markdown content',
+            },
           },
           'required': ['postId', 'targetLanguage'],
         },
       },
       {
         'name': 'windblog_save_post_translation',
-        'description': 'Save or update a translated edition (targetLanguage, title, summary, contentMarkdown) of an article into WindBlog using the administrator credentials.',
+        'description':
+            'Save or update a translated edition (targetLanguage, title, summary, contentMarkdown) of an article into WindBlog using the administrator credentials.',
         'inputSchema': {
           'type': 'object',
           'properties': {
             'postId': {'type': 'integer', 'description': 'Target post ID'},
-            'targetLanguage': {'type': 'string', 'description': 'Target language code, e.g. en-us'},
+            'targetLanguage': {
+              'type': 'string',
+              'description': 'Target language code, e.g. en-us',
+            },
             'title': {'type': 'string', 'description': 'Translated title'},
             'summary': {'type': 'string', 'description': 'Translated summary'},
-            'contentMarkdown': {'type': 'string', 'description': 'Translated markdown content'},
+            'contentMarkdown': {
+              'type': 'string',
+              'description': 'Translated markdown content',
+            },
           },
           'required': ['postId', 'targetLanguage', 'title', 'contentMarkdown'],
         },
       },
       {
         'name': 'windblog_get_active_editor_post',
-        'description': 'Get the current article being actively edited in the Flutter post editor (if open), including dirty status, title, summary, and content.',
-        'inputSchema': {
-          'type': 'object',
-          'properties': {},
-        },
+        'description':
+            'Get the current article being actively edited in the Flutter post editor (if open), including dirty status, title, summary, and content.',
+        'inputSchema': {'type': 'object', 'properties': {}},
       },
       {
         'name': 'windblog_apply_translation_to_editor',
-        'description': 'Apply a generated translation directly into the active Flutter post editor for the specified target language.',
+        'description':
+            'Apply a generated translation directly into the active Flutter post editor for the specified target language.',
         'inputSchema': {
           'type': 'object',
           'properties': {
-            'targetLanguage': {'type': 'string', 'description': 'Target language code, e.g. en-us'},
+            'targetLanguage': {
+              'type': 'string',
+              'description': 'Target language code, e.g. en-us',
+            },
             'title': {'type': 'string', 'description': 'Translated title'},
             'summary': {'type': 'string', 'description': 'Translated summary'},
-            'contentMarkdown': {'type': 'string', 'description': 'Translated markdown content'},
+            'contentMarkdown': {
+              'type': 'string',
+              'description': 'Translated markdown content',
+            },
           },
           'required': ['targetLanguage', 'title', 'contentMarkdown'],
         },
@@ -453,10 +709,15 @@ class FlutterMcpServer {
     ];
   }
 
-  Future<Map<String, dynamic>> _executeTool(String name, Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> _executeTool(
+    String name,
+    Map<String, dynamic> args,
+  ) async {
     final api = _api;
     if (api == null) {
-      throw Exception('AdminApiClient is not initialized in Flutter MCP Server');
+      throw Exception(
+        'AdminApiClient is not initialized in Flutter MCP Server',
+      );
     }
 
     switch (name) {
@@ -476,22 +737,33 @@ class FlutterMcpServer {
         final page = args['page'] as int? ?? 1;
         final size = args['size'] as int? ?? 10;
         final query = args['query'] as String?;
+        final statusCode = switch (args['status']) {
+          'DRAFT' => 0,
+          'PUBLISHED' => 1,
+          'PENDING_REVIEW' => 3,
+          _ => null,
+        };
         final postsRes = await api.listPosts(
           page: page,
           pageSize: size,
           keyword: query,
+          status: statusCode,
         );
         return {
           'total': postsRes.total,
           'page': postsRes.page,
           'pageSize': postsRes.pageSize,
-          'posts': postsRes.items.map((p) => {
-            'id': p.id,
-            'slug': p.slug,
-            'title': p.title,
-            'status': p.status,
-            'version': p.version,
-          }).toList(),
+          'posts': postsRes.items
+              .map(
+                (p) => {
+                  'id': p.id,
+                  'slug': p.slug,
+                  'title': p.title,
+                  'status': p.status,
+                  'version': p.version,
+                },
+              )
+              .toList(),
         };
 
       case 'windblog_get_post':
@@ -516,11 +788,15 @@ class FlutterMcpServer {
         _requireAuth(api);
         final postId = args['postId'] as int?;
         if (postId == null) throw Exception('postId is required');
-        final targetLanguage = (args['targetLanguage'] as String?)?.trim().toLowerCase();
+        final targetLanguage = (args['targetLanguage'] as String?)
+            ?.trim()
+            .toLowerCase();
         if (targetLanguage == null || targetLanguage.isEmpty) {
           throw Exception('targetLanguage is required');
         }
-        final sourceLanguage = ((args['sourceLanguage'] as String?)?.trim().toLowerCase()) ?? 'zh-cn';
+        final sourceLanguage =
+            ((args['sourceLanguage'] as String?)?.trim().toLowerCase()) ??
+            'zh-cn';
 
         String? title = args['title'] as String?;
         String? summary = args['summary'] as String?;
@@ -528,16 +804,26 @@ class FlutterMcpServer {
 
         if (title == null || contentMarkdown == null) {
           final post = await api.postDetail(postId);
-          title ??= post.title[sourceLanguage] ?? (post.title.isNotEmpty ? post.title.values.first : '');
-          summary ??= post.summary[sourceLanguage] ?? (post.summary.isNotEmpty ? post.summary.values.first : '');
-          contentMarkdown ??= post.contentMarkdown[sourceLanguage] ?? (post.contentMarkdown.isNotEmpty ? post.contentMarkdown.values.first : '');
+          title ??=
+              post.title[sourceLanguage] ??
+              (post.title.isNotEmpty ? post.title.values.first : '');
+          summary ??=
+              post.summary[sourceLanguage] ??
+              (post.summary.isNotEmpty ? post.summary.values.first : '');
+          contentMarkdown ??=
+              post.contentMarkdown[sourceLanguage] ??
+              (post.contentMarkdown.isNotEmpty
+                  ? post.contentMarkdown.values.first
+                  : '');
         }
 
         final effectiveTitle = title;
         final effectiveContent = contentMarkdown;
 
-        if (effectiveTitle.isEmpty) throw Exception('Source article title is empty');
-        if (effectiveContent.isEmpty) throw Exception('Source article content is empty');
+        if (effectiveTitle.isEmpty)
+          throw Exception('Source article title is empty');
+        if (effectiveContent.isEmpty)
+          throw Exception('Source article content is empty');
 
         final translation = await api.translatePost(
           postId,
@@ -561,14 +847,19 @@ class FlutterMcpServer {
         _requireAuth(api);
         final postId = args['postId'] as int?;
         if (postId == null) throw Exception('postId is required');
-        final targetLanguage = (args['targetLanguage'] as String?)?.trim().toLowerCase();
+        final targetLanguage = (args['targetLanguage'] as String?)
+            ?.trim()
+            .toLowerCase();
         final title = (args['title'] as String?)?.trim();
         final summary = args['summary'] as String?;
         final contentMarkdown = (args['contentMarkdown'] as String?)?.trim();
 
-        if (targetLanguage == null || targetLanguage.isEmpty) throw Exception('targetLanguage is required');
-        if (title == null || title.isEmpty) throw Exception('title is required');
-        if (contentMarkdown == null || contentMarkdown.isEmpty) throw Exception('contentMarkdown is required');
+        if (targetLanguage == null || targetLanguage.isEmpty)
+          throw Exception('targetLanguage is required');
+        if (title == null || title.isEmpty)
+          throw Exception('title is required');
+        if (contentMarkdown == null || contentMarkdown.isEmpty)
+          throw Exception('contentMarkdown is required');
 
         final updatedPost = await api.savePostTranslation(
           postId,
@@ -600,26 +891,29 @@ class FlutterMcpServer {
         if (_activeEditor == null) {
           return {
             'hasActiveEditor': false,
-            'message': 'No article is currently being edited in Flutter admin client',
+            'message':
+                'No article is currently being edited in Flutter admin client',
           };
         }
-        return {
-          'hasActiveEditor': true,
-          ..._activeEditor!.getEditorData(),
-        };
+        return {'hasActiveEditor': true, ..._activeEditor!.getEditorData()};
 
       case 'windblog_apply_translation_to_editor':
         if (_activeEditor == null) {
           throw Exception('No active editor is open in Flutter admin client');
         }
-        final targetLanguage = (args['targetLanguage'] as String?)?.trim().toLowerCase();
+        final targetLanguage = (args['targetLanguage'] as String?)
+            ?.trim()
+            .toLowerCase();
         final title = (args['title'] as String?)?.trim();
         final summary = args['summary'] as String?;
         final contentMarkdown = (args['contentMarkdown'] as String?)?.trim();
 
-        if (targetLanguage == null || targetLanguage.isEmpty) throw Exception('targetLanguage is required');
-        if (title == null || title.isEmpty) throw Exception('title is required');
-        if (contentMarkdown == null || contentMarkdown.isEmpty) throw Exception('contentMarkdown is required');
+        if (targetLanguage == null || targetLanguage.isEmpty)
+          throw Exception('targetLanguage is required');
+        if (title == null || title.isEmpty)
+          throw Exception('title is required');
+        if (contentMarkdown == null || contentMarkdown.isEmpty)
+          throw Exception('contentMarkdown is required');
 
         _activeEditor!.applyTranslation(
           targetLanguage: targetLanguage,
@@ -641,7 +935,9 @@ class FlutterMcpServer {
 
   void _requireAuth(AdminApiClient api) {
     if (api.token == null || api.token!.isEmpty) {
-      throw Exception('Flutter admin client is not logged in. Please log in first to use WindBlog MCP tools.');
+      throw Exception(
+        'Flutter admin client is not logged in. Please log in first to use WindBlog MCP tools.',
+      );
     }
   }
 }

@@ -11,6 +11,7 @@ class FlutterMcpServer {
   String get host => '127.0.0.1';
   int get port => 58180;
   bool get autoStart => true;
+  String? get accessToken => null;
   List<McpLogEntry> get logs => const [];
 
   final StreamController<McpLogEntry> _logStream = StreamController<McpLogEntry>.broadcast();

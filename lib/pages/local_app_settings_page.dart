@@ -61,9 +61,13 @@ class _LocalAppSettingsPageState extends State<LocalAppSettingsPage>
     final host = _clientConnectHost;
     final port =
         int.tryParse(_portCtrl.text.trim()) ?? FlutterMcpServer.instance.port;
+    final token = FlutterMcpServer.instance.accessToken ?? '';
     final map = {
       'mcpServers': {
-        'windblog': {'url': 'http://$host:$port/sse'},
+        'windblog': {
+          'url': 'http://$host:$port/sse',
+          'headers': {'Authorization': 'Bearer $token'},
+        },
       },
     };
     return const JsonEncoder.withIndent('  ').convert(map);
@@ -115,6 +119,24 @@ class _LocalAppSettingsPageState extends State<LocalAppSettingsPage>
     AdminFeedback.showSnackBar(
       context,
       const SnackBar(content: Text('已复制 MCP 配置 JSON 到剪贴板')),
+    );
+  }
+
+  Future<void> _copyAccessToken() async {
+    final token = FlutterMcpServer.instance.accessToken;
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      AdminFeedback.showSnackBar(
+        context,
+        const SnackBar(content: Text('访问令牌尚未生成，请重启 MCP 服务后重试')),
+      );
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: token));
+    if (!mounted) return;
+    AdminFeedback.showSnackBar(
+      context,
+      const SnackBar(content: Text('已复制 MCP 访问令牌到剪贴板')),
     );
   }
 
@@ -397,6 +419,71 @@ class _LocalAppSettingsPageState extends State<LocalAppSettingsPage>
                             : _saveMcpSettings,
                         icon: const Icon(Icons.save, size: 18),
                         label: const Text('保存并应用网络设置'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 访问令牌卡片
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: theme.dividerColor.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'MCP 访问令牌',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: _copyAccessToken,
+                            icon: const Icon(Icons.copy, size: 16),
+                            label: const Text('复制令牌'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '外部 AI 客户端必须在每个请求中携带 Authorization: Bearer <令牌>，缺失或错误将被拒绝 (401)。请勿将令牌泄露给不可信的应用。',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.textTheme.bodySmall?.color?.withValues(
+                            alpha: 0.7,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: theme.dividerColor.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: SelectableText(
+                          FlutterMcpServer.instance.accessToken ?? '尚未生成',
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ],
                   ),
