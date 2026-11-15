@@ -648,6 +648,7 @@ class _TopicsPageState extends State<TopicsPage>
               language: request.language,
               instructions: request.instructions,
               repostPolicyCode: request.repostPolicyCode,
+              enableTools: request.enableTools,
             )
           : await widget.api.startAiTopicDraft(
               topicId,
@@ -655,6 +656,7 @@ class _TopicsPageState extends State<TopicsPage>
               language: request.language,
               instructions: request.instructions,
               repostPolicyCode: request.repostPolicyCode,
+              enableTools: request.enableTools,
             );
       final jobId = _intValue(job['id']);
       if (jobId == null) throw Exception('服务器没有返回草稿任务编号');
@@ -692,6 +694,79 @@ class _TopicsPageState extends State<TopicsPage>
     final topicId = _intValue(topic['id']);
     if (topicId == null) return;
     await _assignDraftWithProvider(topicId, regenerate: true);
+  }
+
+  Future<void> _startOneShotDraft() async {
+    if (_aiProviders.isEmpty) {
+      if (mounted) AdminFeedback.error(context, '没有可用的 AI 提供商或轮询组');
+      return;
+    }
+    List<RepostPolicyItem> policies = const [];
+    try {
+      policies = await widget.api.listRepostPolicies();
+    } catch (_) {}
+    if (policies.isEmpty) {
+      policies = [_fallbackRepostPolicy()];
+    }
+    if (!mounted) return;
+    final request = await showDialog<_ApiDraftRequest>(
+      context: context,
+      builder: (_) => _ApiDraftDialog(
+        providers: _aiProviders,
+        policies: policies,
+        initialProviderId: _topicProviderId,
+        oneShot: true,
+      ),
+    );
+    if (request == null || !mounted) return;
+
+    setState(() {
+      _saving = true;
+      _pollingMessage = '正在发起一句话生成任务…';
+    });
+    try {
+      final job = await widget.api.startOneShotAiTopicDraft(
+        prompt: request.prompt,
+        providerId: request.providerId,
+        language: request.language,
+        instructions: request.instructions,
+        repostPolicyCode: request.repostPolicyCode,
+        enableTools: request.enableTools,
+      );
+      final jobId = _intValue(job['id']);
+      if (jobId == null) throw Exception('服务器没有返回草稿任务编号');
+      if (!mounted) return;
+      final notifications = AdminNotificationScope.maybeOf(context);
+      notifications?.trackDraftGeneration(
+        api: widget.api,
+        job: job,
+        regeneration: false,
+        onCompleted: () {
+          if (mounted) {
+            unawaited(_loadAssignedTopics());
+            unawaited(_reloadTopics());
+          }
+        },
+      );
+      unawaited(_loadAssignedTopics());
+      if (notifications == null) await _pollDraft(jobId);
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('发起一句话生成失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _pollingMessage = null;
+        });
+      }
+    }
   }
 
   Future<void> _pollDraft(int jobId) async {
@@ -868,6 +943,12 @@ class _TopicsPageState extends State<TopicsPage>
     return AdminPageScaffold(
       title: '话题',
       actions: [
+        FilledButton.tonalIcon(
+          onPressed: _saving ? null : _startOneShotDraft,
+          icon: const Icon(Icons.auto_awesome, size: 18),
+          label: const Text('一句话生成'),
+        ),
+        const SizedBox(width: 8),
         IconButton(
           onPressed: _loading || _topicsLoading || _assignedLoading
               ? null
@@ -2151,16 +2232,20 @@ class _TopicRunChoice {
 
 class _ApiDraftRequest {
   const _ApiDraftRequest({
+    this.prompt = '',
     required this.providerId,
     required this.language,
     required this.instructions,
     required this.repostPolicyCode,
+    this.enableTools = true,
   });
 
+  final String prompt;
   final int providerId;
   final String language;
   final String instructions;
   final String repostPolicyCode;
+  final bool enableTools;
 }
 
 class _ApiDraftDialog extends StatefulWidget {
@@ -2168,26 +2253,31 @@ class _ApiDraftDialog extends StatefulWidget {
     required this.providers,
     required this.policies,
     this.initialProviderId,
+    this.oneShot = false,
   });
 
   final List<AiProviderConfig> providers;
   final List<RepostPolicyItem> policies;
   final int? initialProviderId;
+  final bool oneShot;
 
   @override
   State<_ApiDraftDialog> createState() => _ApiDraftDialogState();
 }
 
 class _ApiDraftDialogState extends State<_ApiDraftDialog> {
+  late final TextEditingController _promptController;
   late final TextEditingController _languageController;
   late final TextEditingController _instructionsController;
   late int? _providerId;
   late String _repostPolicyCode;
+  bool _enableTools = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _promptController = TextEditingController();
     _languageController = TextEditingController(text: 'zh-CN');
     _instructionsController = TextEditingController();
     _providerId = widget.providers.isEmpty
@@ -2205,12 +2295,18 @@ class _ApiDraftDialogState extends State<_ApiDraftDialog> {
 
   @override
   void dispose() {
+    _promptController.dispose();
     _languageController.dispose();
     _instructionsController.dispose();
     super.dispose();
   }
 
   void _submit() {
+    final prompt = _promptController.text.trim();
+    if (widget.oneShot && prompt.isEmpty) {
+      setState(() => _error = '请填写一句话主题或写作指令');
+      return;
+    }
     final language = _languageController.text.trim();
     if (language.isEmpty) {
       setState(() => _error = '请填写文章语言');
@@ -2223,10 +2319,12 @@ class _ApiDraftDialogState extends State<_ApiDraftDialog> {
     Navigator.pop(
       context,
       _ApiDraftRequest(
+        prompt: prompt,
         providerId: _providerId!,
         language: language,
         instructions: _instructionsController.text.trim(),
         repostPolicyCode: _repostPolicyCode,
+        enableTools: _enableTools,
       ),
     );
   }
@@ -2243,7 +2341,7 @@ class _ApiDraftDialogState extends State<_ApiDraftDialog> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     return AlertDialog(
-      title: const Text('使用 API 提供商生成草稿'),
+      title: Text(widget.oneShot ? '一句话生成文章草稿' : '使用 API 提供商生成草稿'),
       content: SizedBox(
         width: screenWidth < 560 ? screenWidth - 48 : 520,
         child: SingleChildScrollView(
@@ -2251,9 +2349,25 @@ class _ApiDraftDialogState extends State<_ApiDraftDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                '将使用 WindBlog 已配置的 AI 提供商或轮询组直接生成文章草稿。草稿创建后可在文章管理中继续编辑和发布。',
+              Text(
+                widget.oneShot
+                    ? '输入一句话发起一次性话题，AI 将在后台结合可用工具调研并生成文章草稿。'
+                    : '将使用 WindBlog 已配置的 AI 提供商或轮询组直接生成文章草稿。草稿创建后可在文章管理中继续编辑和发布。',
               ),
+              if (widget.oneShot) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _promptController,
+                  minLines: 2,
+                  maxLines: 4,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: '一句话主题 / 写作指令',
+                    hintText: '例如：写一篇 Quarkus 虚拟线程与响应式性能对比的实战指南，配图请转存到媒体库',
+                    prefixIcon: Icon(Icons.auto_awesome_outlined),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
                 initialValue: _providerId,
@@ -2330,6 +2444,14 @@ class _ApiDraftDialogState extends State<_ApiDraftDialog> {
                   labelText: '额外要求（可选）',
                   hintText: '例如：面向初学者，包含可运行示例',
                 ),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _enableTools,
+                onChanged: (value) => setState(() => _enableTools = value),
+                title: const Text('启用 AI 工具与 MCP'),
+                subtitle: const Text('允许 AI 调用 Web 搜索、网页抓取、图片转存媒体库及站内文章检索'),
               ),
               if (_error != null)
                 Padding(

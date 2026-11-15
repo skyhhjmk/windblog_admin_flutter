@@ -271,9 +271,13 @@ class AdminApiClient {
     String language = 'zh-CN',
     String instructions = '',
     String? repostPolicyCode,
+    bool enableTools = true,
     String? stepUpToken,
   }) async {
-    final body = <String, dynamic>{'language': language};
+    final body = <String, dynamic>{
+      'language': language,
+      'enableTools': enableTools,
+    };
     if (providerId != null) body['providerId'] = providerId;
     if (instructions.isNotEmpty) body['instructions'] = instructions;
     if (repostPolicyCode != null && repostPolicyCode.isNotEmpty) {
@@ -288,15 +292,44 @@ class AdminApiClient {
     return _map(_map(jsonDecode(res.body))['data']);
   }
 
+  Future<Map<String, dynamic>> startOneShotAiTopicDraft({
+    required String prompt,
+    int? providerId,
+    String language = 'zh-CN',
+    String instructions = '',
+    String? repostPolicyCode,
+    bool enableTools = true,
+    String? stepUpToken,
+  }) async {
+    final body = <String, dynamic>{
+      'prompt': prompt,
+      'language': language,
+      'enableTools': enableTools,
+    };
+    if (providerId != null) body['providerId'] = providerId;
+    if (instructions.isNotEmpty) body['instructions'] = instructions;
+    if (repostPolicyCode != null && repostPolicyCode.isNotEmpty) {
+      body['repostPolicyCode'] = repostPolicyCode;
+    }
+    final res = await _post(
+      '/api/admin/ai/topics/one-shot/draft',
+      body: body,
+      stepUpToken: stepUpToken,
+      idempotencyKey: _newIdempotencyKey(),
+    );
+    return _map(_map(jsonDecode(res.body))['data']);
+  }
+
   Future<Map<String, dynamic>> regenerateAiTopicDraft(
     int topicId, {
     int? providerId,
     String? language,
     String? instructions,
     String? repostPolicyCode,
+    bool enableTools = true,
     String? stepUpToken,
   }) async {
-    final body = <String, dynamic>{};
+    final body = <String, dynamic>{'enableTools': enableTools};
     if (providerId != null) body['providerId'] = providerId;
     if (language != null && language.isNotEmpty) body['language'] = language;
     if (instructions != null && instructions.isNotEmpty) {
