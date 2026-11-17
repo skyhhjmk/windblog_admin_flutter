@@ -46,3 +46,5 @@ app.*.map.json
 
 # Local checkout override for testing the unreleased SeeRay SDK source.
 pubspec_overrides.yaml
+
+.fvm
