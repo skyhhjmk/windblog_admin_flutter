@@ -464,9 +464,15 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45)
+                      : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 child: SelectableText(
                   _decryptedText!,
@@ -496,7 +502,10 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
             Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
             Text(
               '${percent.toStringAsFixed(1)}% ($sublabel)',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
             ),
           ],
         ),
@@ -505,7 +514,9 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: percent / 100,
-            backgroundColor: Colors.grey.shade200,
+            backgroundColor: Theme.of(context).brightness == Brightness.dark
+                ? Theme.of(context).colorScheme.surfaceContainerHighest
+                : Colors.grey.shade200,
             valueColor: AlwaysStoppedAnimation<Color>(color),
             minHeight: 8,
           ),

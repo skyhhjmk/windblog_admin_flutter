@@ -206,16 +206,29 @@ class _ImageProcessingConfigPageState extends State<ImageProcessingConfigPage> {
                 if (meta.description != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(meta.description!, style: TextStyle(
-                        color: Colors.grey.shade700, fontSize: 13)),
+                    child: Text(
+                      meta.description!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest.withValues(
+                            alpha: 0.45,
+                          )
+                        : Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                   child: Text(
                     config?.configValue ?? '(未配置)',

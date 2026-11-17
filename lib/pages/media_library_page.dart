@@ -782,7 +782,7 @@ class _MediaLibraryPageState extends State<MediaLibraryPage> {
             Expanded(
               child: Container(
                 width: double.infinity,
-                color: Colors.grey.shade100,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 child: item.isImage
                     ? _ProgressiveImage(
                         previewUrl: item.previewUrl,

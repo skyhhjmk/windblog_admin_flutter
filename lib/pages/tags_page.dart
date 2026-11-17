@@ -15,6 +15,9 @@ class TagsPage extends StatefulWidget {
 }
 
 class _TagsPageState extends State<TagsPage> {
+  final AdminPaginationController _pagination = AdminPaginationController(
+    pageSize: 20,
+  );
   List<TagItem> tags = [];
   bool loading = false;
   bool hasLoadedInitialTags = false;
@@ -22,6 +25,12 @@ class _TagsPageState extends State<TagsPage> {
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _pagination.dispose();
+    super.dispose();
   }
 
   @override
@@ -39,6 +48,7 @@ class _TagsPageState extends State<TagsPage> {
     setState(() => loading = true);
     try {
       tags = await widget.api.listTags();
+      _pagination.updateTotal(tags.length);
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
@@ -153,55 +163,79 @@ class _TagsPageState extends State<TagsPage> {
                 : tags.isEmpty
                 ? Center(child: Text(t(context, 'no_tags')))
                 : Card(
-              child: ListView.separated(
-                physics: const BouncingScrollPhysics(),
-                itemCount: tags.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final tag = tags[index];
-                  return ListTile(
-                    leading: const Icon(Icons.label, color: Colors.blue),
-                    title: Row(
-                      children: [
-                        Text(tag.displayName),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${tag.postCount}',
-                            style: TextStyle(
-                              color: Colors.green.shade700,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: Builder(
+                      builder: (context) {
+                        final pagedTags = _pagination.slice(tags);
+                        final isDark =
+                            Theme.of(context).brightness == Brightness.dark;
+                        return ListView.separated(
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: pagedTags.length,
+                          separatorBuilder: (context, index) =>
+                              const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final tag = pagedTags[index];
+                            return ListTile(
+                              leading: const Icon(
+                                Icons.label,
+                                color: Colors.blue,
+                              ),
+                              title: Row(
+                                children: [
+                                  Text(tag.displayName),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? Colors.green.shade900.withValues(
+                                              alpha: 0.45,
+                                            )
+                                          : Colors.green.shade50,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${tag.postCount}',
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.green.shade200
+                                            : Colors.green.shade700,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: Text(tag.slug),
+                              trailing: Wrap(
+                                spacing: 8,
+                                children: [
+                                  TextButton(
+                                    onPressed: () => _editTag(tag),
+                                    child: Text(t(context, 'edit')),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => _deleteTag(tag),
+                                    child: Text(t(context, 'delete')),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
-                    subtitle: Text(tag.slug),
-                    trailing: Wrap(
-                      spacing: 8,
-                      children: [
-                        TextButton(
-                          onPressed: () => _editTag(tag),
-                          child: Text(t(context, 'edit')),
-                        ),
-                        TextButton(
-                          onPressed: () => _deleteTag(tag),
-                          child: Text(t(context, 'delete')),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
+                  ),
           ),
+          if (!loading)
+            PaginationBar(
+              controller: _pagination,
+              onPageChanged: (_) => setState(() {}),
+            ),
         ],
       ),
     );

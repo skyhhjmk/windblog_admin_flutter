@@ -1,19 +1,96 @@
 part of 'package:windblog_admin_flutter/main.dart';
 
+class AdminPaginationController extends ChangeNotifier {
+  AdminPaginationController({
+    int initialPage = 1,
+    int pageSize = 20,
+    int totalItems = 0,
+  }) : _currentPage = initialPage < 1 ? 1 : initialPage,
+       _pageSize = pageSize < 1 ? 20 : pageSize,
+       _totalItems = totalItems < 0 ? 0 : totalItems;
+
+  int _currentPage;
+  int _pageSize;
+  int _totalItems;
+
+  int get currentPage => _currentPage;
+  int get pageSize => _pageSize;
+  int get totalItems => _totalItems;
+
+  int get totalPages =>
+      _totalItems <= 0 ? 1 : ((_totalItems + _pageSize - 1) ~/ _pageSize);
+
+  bool get hasPrevious => _currentPage > 1;
+  bool get hasNext => _currentPage < totalPages;
+
+  void setPage(int page) {
+    final nextPage = _totalItems > 0
+        ? page.clamp(1, totalPages)
+        : (page < 1 ? 1 : page);
+    if (nextPage == _currentPage) return;
+    _currentPage = nextPage;
+    notifyListeners();
+  }
+
+  void resetToFirstPage() {
+    setPage(1);
+  }
+
+  void updateTotal(int total, {int? page, int? pageSize}) {
+    final nextPageSize =
+        (pageSize != null && pageSize > 0) ? pageSize : _pageSize;
+    final nextTotal = total < 0 ? 0 : total;
+    final nextTotalPages =
+        nextTotal <= 0 ? 1 : ((nextTotal + nextPageSize - 1) ~/ nextPageSize);
+    final nextPage = (page ?? _currentPage).clamp(1, nextTotalPages);
+    if (nextTotal == _totalItems &&
+        nextPageSize == _pageSize &&
+        nextPage == _currentPage) {
+      return;
+    }
+    _totalItems = nextTotal;
+    _pageSize = nextPageSize;
+    _currentPage = nextPage;
+    notifyListeners();
+  }
+
+  List<T> slice<T>(List<T> items) {
+    if (items.isEmpty) return const [];
+    final start = (_currentPage - 1) * _pageSize;
+    if (start >= items.length) {
+      return const [];
+    }
+    final end = (start + _pageSize).clamp(0, items.length);
+    return items.sublist(start, end);
+  }
+}
+
 class PaginationBar extends StatefulWidget {
   const PaginationBar({
     super.key,
-    required this.currentPage,
-    required this.totalPages,
-    required this.totalItems,
-    required this.onPageChanged,
+    this.controller,
+    int? currentPage,
+    int? totalPages,
+    int? totalItems,
+    this.onPageChanged,
     this.pageSize,
-  });
+  }) : assert(
+         controller != null ||
+             (currentPage != null &&
+                 totalPages != null &&
+                 totalItems != null &&
+                 onPageChanged != null),
+         'Either controller or explicit pagination parameters must be provided',
+       ),
+       _currentPage = currentPage ?? 1,
+       _totalPages = totalPages ?? 1,
+       _totalItems = totalItems ?? 0;
 
-  final int currentPage;
-  final int totalPages;
-  final int totalItems;
-  final ValueChanged<int> onPageChanged;
+  final AdminPaginationController? controller;
+  final int _currentPage;
+  final int _totalPages;
+  final int _totalItems;
+  final ValueChanged<int>? onPageChanged;
   final int? pageSize;
 
   @override
@@ -23,6 +100,20 @@ class PaginationBar extends StatefulWidget {
 class _PaginationBarState extends State<PaginationBar> {
   late final TextEditingController _jumpCtrl;
   String? _jumpError;
+
+  int get _effectiveCurrentPage =>
+      widget.controller?.currentPage ?? widget._currentPage;
+
+  int get _effectiveTotalPages =>
+      widget.controller?.totalPages ?? widget._totalPages;
+
+  int get _effectiveTotalItems =>
+      widget.controller?.totalItems ?? widget._totalItems;
+
+  void _selectPage(int page) {
+    widget.controller?.setPage(page);
+    widget.onPageChanged?.call(page);
+  }
 
   @override
   void initState() {
@@ -51,10 +142,10 @@ class _PaginationBarState extends State<PaginationBar> {
       return;
     }
     final page = int.tryParse(text);
-    if (page != null && page > 0 && page <= widget.totalPages) {
+    if (page != null && page > 0 && page <= _effectiveTotalPages) {
       updateError(null);
       if (dialogContext != null) Navigator.pop(dialogContext);
-      widget.onPageChanged(page);
+      _selectPage(page);
       _jumpCtrl.clear();
     } else {
       updateError(t(context, 'invalid_page'));
@@ -74,7 +165,7 @@ class _PaginationBarState extends State<PaginationBar> {
             autofocus: true,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-              labelText: '${t(context, 'page')} (1-${widget.totalPages})',
+              labelText: '${t(context, 'page')} (1-$_effectiveTotalPages)',
               isDense: true,
               errorText: _jumpError,
             ),
@@ -107,7 +198,11 @@ class _PaginationBarState extends State<PaginationBar> {
   }
 
   Widget _buildPhonePagination(ColorScheme colorScheme) {
+    final currentPage = _effectiveCurrentPage;
+    final totalPages = _effectiveTotalPages;
+    final totalItems = _effectiveTotalItems;
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: colorScheme.surface,
@@ -117,17 +212,20 @@ class _PaginationBarState extends State<PaginationBar> {
         children: [
           Expanded(
             child: Text(
-              '${t(context, 'total')}: ${widget.totalItems}',
+              '${t(context, 'total')}: $totalItems',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
             ),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
-            onPressed: widget.currentPage <= 1
+            onPressed: currentPage <= 1
                 ? null
-                : () => widget.onPageChanged(widget.currentPage - 1),
+                : () => _selectPage(currentPage - 1),
             icon: const Icon(Icons.chevron_left),
             tooltip: t(context, 'prev_page'),
           ),
@@ -138,7 +236,7 @@ class _PaginationBarState extends State<PaginationBar> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '${widget.currentPage} / ${widget.totalPages}',
+              '$currentPage / $totalPages',
               style: TextStyle(
                 color: colorScheme.onPrimaryContainer,
                 fontWeight: FontWeight.bold,
@@ -148,15 +246,15 @@ class _PaginationBarState extends State<PaginationBar> {
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
-            onPressed: widget.currentPage >= widget.totalPages
+            onPressed: currentPage >= totalPages
                 ? null
-                : () => widget.onPageChanged(widget.currentPage + 1),
+                : () => _selectPage(currentPage + 1),
             icon: const Icon(Icons.chevron_right),
             tooltip: t(context, 'next_page'),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
-            onPressed: widget.totalPages <= 1 ? null : _showPhoneJumpDialog,
+            onPressed: totalPages <= 1 ? null : _showPhoneJumpDialog,
             icon: const Icon(Icons.find_in_page_outlined),
             tooltip: t(context, 'jump_to'),
           ),
@@ -167,30 +265,43 @@ class _PaginationBarState extends State<PaginationBar> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    if (controller == null) {
+      return _buildResponsivePagination(context);
+    }
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => _buildResponsivePagination(context),
+    );
+  }
+
+  Widget _buildResponsivePagination(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     if (AdminBreakpoints.isPhone(context)) {
       return _buildPhonePagination(colorScheme);
     }
 
+    final currentPage = _effectiveCurrentPage;
+    final totalPages = _effectiveTotalPages;
+    final totalItems = _effectiveTotalItems;
+
     final summaryItems = [
       Text(
-        '${t(context, 'total')}: ${widget.totalItems}',
-        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+        '${t(context, 'total')}: $totalItems',
+        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
       ),
       Text(
         t(
           context,
           'total_pages',
-        ).replaceFirst('%d', widget.totalPages.toString()),
-        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+        ).replaceFirst('%d', totalPages.toString()),
+        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
       ),
     ];
 
     final controlItems = [
       IconButton(
-        onPressed: widget.currentPage <= 1
-            ? null
-            : () => widget.onPageChanged(widget.currentPage - 1),
+        onPressed: currentPage <= 1 ? null : () => _selectPage(currentPage - 1),
         icon: const Icon(Icons.chevron_left),
         tooltip: t(context, 'prev_page'),
       ),
@@ -201,7 +312,7 @@ class _PaginationBarState extends State<PaginationBar> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
-          '${widget.currentPage} / ${widget.totalPages}',
+          '$currentPage / $totalPages',
           style: TextStyle(
             color: colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.bold,
@@ -210,15 +321,15 @@ class _PaginationBarState extends State<PaginationBar> {
         ),
       ),
       IconButton(
-        onPressed: widget.currentPage >= widget.totalPages
+        onPressed: currentPage >= totalPages
             ? null
-            : () => widget.onPageChanged(widget.currentPage + 1),
+            : () => _selectPage(currentPage + 1),
         icon: const Icon(Icons.chevron_right),
         tooltip: t(context, 'next_page'),
       ),
       Text(
         t(context, 'jump_to'),
-        style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
       ),
       SizedBox(
         width: _jumpError == null ? 56 : 92,
@@ -242,7 +353,7 @@ class _PaginationBarState extends State<PaginationBar> {
       ),
       Text(
         t(context, 'page'),
-        style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
       ),
       OutlinedButton(
         onPressed: _onJump,
@@ -255,6 +366,7 @@ class _PaginationBarState extends State<PaginationBar> {
     ];
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       decoration: BoxDecoration(
         color: colorScheme.surface,

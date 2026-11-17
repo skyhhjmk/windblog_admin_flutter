@@ -15,6 +15,9 @@ class CategoriesPage extends StatefulWidget {
 }
 
 class _CategoriesPageState extends State<CategoriesPage> {
+  final AdminPaginationController _pagination = AdminPaginationController(
+    pageSize: 20,
+  );
   List<CategoryItem> categories = [];
   bool loading = true;
   bool hasLoadedInitialCategories = false;
@@ -22,6 +25,12 @@ class _CategoriesPageState extends State<CategoriesPage> {
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _pagination.dispose();
+    super.dispose();
   }
 
   @override
@@ -46,6 +55,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
       onAuthError: widget.onAuthError,
       task: () async {
         categories = await widget.api.listCategories();
+        _pagination.updateTotal(_buildTree(categories).length);
       },
       errorMessageBuilder: (error) {
         return '$loadFailedMessage$error';
@@ -241,13 +251,17 @@ class _CategoriesPageState extends State<CategoriesPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.blue.shade900.withValues(alpha: 0.45)
+                      : Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '${category.postCount}',
                   style: TextStyle(
-                    color: Colors.blue.shade700,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.blue.shade200
+                        : Colors.blue.shade700,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -313,14 +327,20 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 : rootCategories.isEmpty
                 ? Center(child: Text(t(context, 'no_categories')))
                 : Card(
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
-                children: rootCategories
-                    .map((cat) => _buildCategoryTree(cat, 0))
-                    .toList(),
-              ),
-            ),
+                    child: ListView(
+                      physics: const BouncingScrollPhysics(),
+                      children: _pagination
+                          .slice(rootCategories)
+                          .map((cat) => _buildCategoryTree(cat, 0))
+                          .toList(),
+                    ),
+                  ),
           ),
+          if (!loading)
+            PaginationBar(
+              controller: _pagination,
+              onPageChanged: (_) => setState(() {}),
+            ),
         ],
       ),
     );

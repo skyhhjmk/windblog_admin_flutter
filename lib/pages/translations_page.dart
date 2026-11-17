@@ -787,11 +787,21 @@ class _TranslationsPageState extends State<TranslationsPage> {
   }
 
   Widget _desktopHeader() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(60, 10, 12, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        color: isDark
+            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+            : const Color(0xFFF1F5F9),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark
+                ? theme.colorScheme.outlineVariant
+                : Colors.grey.shade200,
+          ),
+        ),
       ),
       child: Row(
         children: [

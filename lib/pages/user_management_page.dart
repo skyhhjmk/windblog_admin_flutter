@@ -18,10 +18,12 @@ class UserManagementPage extends StatefulWidget {
 
 class _UserManagementPageState extends State<UserManagementPage> {
   final keywordCtrl = TextEditingController();
+  final AdminPaginationController _pagination = AdminPaginationController(
+    pageSize: 20,
+  );
   PageResult<UserListItem>? pageResult;
   bool loading = true;
   List<PermissionRoleItem> roles = [];
-  int page = 1;
 
   @override
   void initState() {
@@ -33,17 +35,20 @@ class _UserManagementPageState extends State<UserManagementPage> {
   @override
   void dispose() {
     keywordCtrl.dispose();
+    _pagination.dispose();
     super.dispose();
   }
 
   Future<void> _loadUsers() async {
     if (mounted) setState(() => loading = true);
     try {
-      pageResult = await widget.api.listUsers(
-        page: page,
-        pageSize: 20,
+      final result = await widget.api.listUsers(
+        page: _pagination.currentPage,
+        pageSize: _pagination.pageSize,
         keyword: keywordCtrl.text.trim(),
       );
+      pageResult = result;
+      _pagination.updateTotal(result.total, pageSize: result.pageSize);
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (error) {
@@ -130,7 +135,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                     border: const OutlineInputBorder(),
                   ),
                   onSubmitted: (_) {
-                    page = 1;
+                    _pagination.resetToFirstPage();
                     _loadUsers();
                   },
                 ),
@@ -138,7 +143,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: () {
-                  page = 1;
+                  _pagination.resetToFirstPage();
                   _loadUsers();
                 },
                 child: Text(t(context, 'search')),
@@ -227,15 +232,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
           ),
           if (pageResult != null)
             PaginationBar(
-              currentPage: page,
-              totalPages: (pageResult!.total / pageResult!.pageSize)
-                  .ceil()
-                  .clamp(1, 999999),
-              totalItems: pageResult!.total,
-              onPageChanged: (newPage) {
-                setState(() => page = newPage);
-                _loadUsers();
-              },
+              controller: _pagination,
+              onPageChanged: (_) => _loadUsers(),
             ),
         ],
       ),

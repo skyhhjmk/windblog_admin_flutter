@@ -69,7 +69,7 @@ class HtmlSyntaxEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1200),

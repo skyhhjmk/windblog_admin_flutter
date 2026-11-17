@@ -286,9 +286,12 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     '未单独配置的区域继承 global；.cn 与 .com 可分别设置。用户在前台切换语言后会通过 Cookie 覆盖此默认值。',
-                    style: TextStyle(color: Colors.black54, fontSize: 12),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -348,9 +351,12 @@ class _RegionManagementPageState extends State<RegionManagementPage> {
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             '规则类型与匹配模式中的英文字母均不区分大小写。域名规则按完整 Host 精确匹配；语言规则按语言标记包含匹配。',
-            style: TextStyle(color: Colors.black54, fontSize: 13),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(

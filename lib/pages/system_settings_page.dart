@@ -244,7 +244,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                     _getGroupLabel(_selectedGroup!),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                   ),
                   const SizedBox(height: 20),
@@ -388,7 +388,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
-              side: BorderSide(color: Colors.grey.shade200),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Padding(

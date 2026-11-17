@@ -1827,11 +1827,22 @@ class _PostEditorPageState extends State<PostEditorPage>
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
                                               border: Border.all(
-                                                color: Colors.grey.shade400,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.outlineVariant,
                                               ),
                                               borderRadius:
                                                   BorderRadius.circular(4),
-                                              color: Colors.grey.shade100,
+                                              color:
+                                                  Theme.of(
+                                                        context,
+                                                      ).brightness ==
+                                                      Brightness.dark
+                                                  ? Theme.of(context)
+                                                        .colorScheme
+                                                        .surfaceContainerHighest
+                                                        .withValues(alpha: 0.45)
+                                                  : Colors.grey.shade100,
                                             ),
                                             child: SingleChildScrollView(
                                               child: SelectableText(
@@ -2237,9 +2248,15 @@ class _PostEditorPageState extends State<PostEditorPage>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.amber.shade50,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.amber.shade900.withValues(alpha: 0.25)
+                            : Colors.amber.shade50,
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.amber.shade200),
+                        border: Border.all(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.amber.shade700
+                              : Colors.amber.shade200,
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -2255,9 +2272,9 @@ class _PostEditorPageState extends State<PostEditorPage>
                                 context,
                                 'diff_tip',
                               ).replaceAll('%d', revisionNumber.toString()),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.black87,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                           ),
@@ -2525,7 +2542,7 @@ class _PostEditorPageState extends State<PostEditorPage>
                       style: TextStyle(
                         fontSize: isPhone ? 18 : 22,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ),

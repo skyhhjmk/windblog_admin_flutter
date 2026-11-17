@@ -15,11 +15,11 @@ class StoreItemsPage extends StatefulWidget {
 }
 
 class _StoreItemsPageState extends State<StoreItemsPage> {
+  final AdminPaginationController _pagination = AdminPaginationController(
+    pageSize: 20,
+  );
   List<StoreItem> items = [];
   bool loading = false;
-  int currentPage = 1;
-  int totalItems = 0;
-  final int pageSize = 20;
 
   @override
   void initState() {
@@ -27,15 +27,21 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
     _loadItems();
   }
 
+  @override
+  void dispose() {
+    _pagination.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadItems() async {
     setState(() => loading = true);
     try {
       final result = await widget.api.getStoreItems(
-        page: currentPage,
-        pageSize: pageSize,
+        page: _pagination.currentPage,
+        pageSize: _pagination.pageSize,
       );
       items = result.items;
-      totalItems = result.total;
+      _pagination.updateTotal(result.total);
     } on UnauthorizedException {
       widget.onAuthError();
     } catch (e) {
@@ -271,16 +277,10 @@ class _StoreItemsPageState extends State<StoreItemsPage> {
                     ),
                   ),
           ),
-          if (totalItems > pageSize)
-            PaginationBar(
-              currentPage: currentPage,
-              totalPages: (totalItems / pageSize).ceil().clamp(1, 999999),
-              totalItems: totalItems,
-              onPageChanged: (newPage) {
-                setState(() => currentPage = newPage);
-                _loadItems();
-              },
-            ),
+          PaginationBar(
+            controller: _pagination,
+            onPageChanged: (_) => _loadItems(),
+          ),
         ],
       ),
     );

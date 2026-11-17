@@ -890,23 +890,27 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
   }
 
   Widget _buildTargetPreview(Color accentColor) {
+    final theme = Theme.of(context);
     String targetText = targetController.text.trim();
     if (targetText.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: accentColor.withValues(alpha: 0.16)),
         ),
-        child: Text('目标词待填写', style: TextStyle(color: Colors.grey.shade600)),
+        child: Text(
+          '目标词待填写',
+          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+        ),
       );
     }
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.16)),
       ),
@@ -939,7 +943,7 @@ class _SynonymRuleCardState extends State<_SynonymRuleCard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.16)),
       ),

@@ -1114,9 +1114,17 @@ class _AiProvidersPageState extends State<AiProvidersPage>
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
                 borderRadius: BorderRadius.circular(8),
-                color: Colors.grey.shade50,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.45,
+                      )
+                    : Colors.grey.shade50,
               ),
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -1135,17 +1143,24 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                         padding: const EdgeInsets.all(8),
                         margin: const EdgeInsets.only(top: 4, bottom: 12),
                         decoration: BoxDecoration(
-                          color: Colors.indigo.shade50,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.indigo.shade900.withValues(alpha: 0.45)
+                              : Colors.indigo.shade50,
                           border: Border(
                             left: BorderSide(
-                              color: Colors.indigo.shade200,
+                              color:
+                                  Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.indigo.shade700
+                                  : Colors.indigo.shade200,
                               width: 4,
                             ),
                           ),
                         ),
                         child: SelectableText(
                           _testReasoning,
-                          style: const TextStyle(color: Colors.black87),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
                       ),
                     ],

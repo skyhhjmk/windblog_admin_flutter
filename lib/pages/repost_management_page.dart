@@ -18,8 +18,9 @@ class _RepostTabData {
   bool loading = true;
   String? error;
   List<Map<String, dynamic>> items = const [];
-  int page = 1;
-  int total = 0;
+  final AdminPaginationController pagination = AdminPaginationController(
+    pageSize: pageSize,
+  );
   static const int pageSize = 20;
   String statusFilter = 'all';
   String keyword = '';
@@ -62,6 +63,9 @@ class _RepostManagementPageState extends State<RepostManagementPage>
   @override
   void dispose() {
     _tabController.dispose();
+    for (final tab in _tabs) {
+      tab.pagination.dispose();
+    }
     for (final controller in _keywordControllers.values) {
       controller.dispose();
     }
@@ -117,64 +121,66 @@ class _RepostManagementPageState extends State<RepostManagementPage>
     }
     try {
       final PageResult<Map<String, dynamic>> result;
+      final page = data.pagination.currentPage;
+      final pageSize = data.pagination.pageSize;
       switch (index) {
         case _licensesTab:
           result = await widget.api.listRepostLicenses(
-            page: data.page,
-            pageSize: _RepostTabData.pageSize,
+            page: page,
+            pageSize: pageSize,
             status: _statusQuery(data.statusFilter),
             keyword: data.keyword,
           );
           break;
         case _affiliateLinksTab:
           result = await widget.api.listRepostAffiliateLinks(
-            page: data.page,
-            pageSize: _RepostTabData.pageSize,
+            page: page,
+            pageSize: pageSize,
             status: _statusQuery(data.statusFilter),
           );
           break;
         case _tokensTab:
           result = await widget.api.listRepostTokens(
-            page: data.page,
-            pageSize: _RepostTabData.pageSize,
+            page: page,
+            pageSize: pageSize,
             status: _statusQuery(data.statusFilter),
             keyword: data.keyword,
           );
           break;
         case _clickEventsTab:
           result = await widget.api.listRepostClickEvents(
-            page: data.page,
-            pageSize: _RepostTabData.pageSize,
+            page: page,
+            pageSize: pageSize,
           );
           break;
         case _referralsTab:
           result = await widget.api.listRepostReferrals(
-            page: data.page,
-            pageSize: _RepostTabData.pageSize,
+            page: page,
+            pageSize: pageSize,
           );
           break;
         case _suspiciousTab:
           result = await widget.api.listSuspiciousReposts(
-            page: data.page,
-            pageSize: _RepostTabData.pageSize,
+            page: page,
+            pageSize: pageSize,
           );
           break;
         case _blockedDomainsTab:
           result = await widget.api.listRepostBlockedDomains(
-            page: data.page,
-            pageSize: _RepostTabData.pageSize,
+            page: page,
+            pageSize: pageSize,
           );
           break;
         case _riskDevicesTab:
           result = await widget.api.listRepostRiskDevices(
-            page: data.page,
-            pageSize: _RepostTabData.pageSize,
+            page: page,
+            pageSize: pageSize,
           );
           break;
         case _usersTab:
           result = await widget.api.listRepostUsers(
-            page: data.page,
-            pageSize: _RepostTabData.pageSize,
+            page: page,
+            pageSize: pageSize,
             keyword: data.keyword,
             banned: data.statusFilter == 'active'
                 ? false
@@ -187,10 +193,9 @@ class _RepostManagementPageState extends State<RepostManagementPage>
           return;
       }
       if (!mounted) return;
+      data.pagination.updateTotal(result.total, page: result.page);
       setState(() {
         data.items = result.items;
-        data.total = result.total;
-        data.page = result.page;
       });
     } on UnauthorizedException {
       widget.onAuthError();
@@ -209,14 +214,14 @@ class _RepostManagementPageState extends State<RepostManagementPage>
   void _applyFilter(int index, String filter) {
     final data = _tabs[index];
     data.statusFilter = filter;
-    data.page = 1;
+    data.pagination.resetToFirstPage();
     _loadTab(index);
   }
 
   void _search(int index, String keyword) {
     final data = _tabs[index];
     data.keyword = keyword.trim();
-    data.page = 1;
+    data.pagination.resetToFirstPage();
     _loadTab(index);
   }
 
@@ -327,11 +332,6 @@ class _RepostManagementPageState extends State<RepostManagementPage>
 
   Widget _buildTab(int index) {
     final data = _tabs[index];
-    final totalPages = data.total <= 0
-        ? 1
-        : ((data.total + _RepostTabData.pageSize - 1) ~/
-            _RepostTabData.pageSize)
-            .clamp(1, 999999);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -340,14 +340,8 @@ class _RepostManagementPageState extends State<RepostManagementPage>
         const SizedBox(height: 8),
         Expanded(child: _buildList(index, data)),
         PaginationBar(
-          currentPage: data.page,
-          totalPages: totalPages,
-          totalItems: data.total,
-          pageSize: _RepostTabData.pageSize,
-          onPageChanged: (page) {
-            data.page = page;
-            _loadTab(index);
-          },
+          controller: data.pagination,
+          onPageChanged: (_) => _loadTab(index),
         ),
       ],
     );

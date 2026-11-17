@@ -38,13 +38,13 @@ class LinksPage extends StatefulWidget {
 
 class _LinksPageState extends State<LinksPage>
     with SingleTickerProviderStateMixin {
-  static const int _linkPageSize = 20;
+  final AdminPaginationController _pagination = AdminPaginationController(
+    pageSize: 20,
+  );
 
   List<AdminLinkItem> links = [];
   bool loading = false;
   int _activeTab = 0;
-  int _currentPage = 1;
-  int _totalLinks = 0;
   int _loadGeneration = 0;
   final Set<int> _checkingLinkIds = {};
   late final TabController _tabController;
@@ -61,6 +61,7 @@ class _LinksPageState extends State<LinksPage>
   void dispose() {
     _tabController.removeListener(_handleTabChanged);
     _tabController.dispose();
+    _pagination.dispose();
     super.dispose();
   }
 
@@ -75,26 +76,26 @@ class _LinksPageState extends State<LinksPage>
 
   Future<void> _loadLinks({int? page}) async {
     final generation = ++_loadGeneration;
-    final requestedPage = page ?? _currentPage;
+    final requestedPage = page ?? _pagination.currentPage;
     if (mounted) {
       setState(() => loading = true);
     }
     try {
       var result = await widget.api.listLinks(
         page: requestedPage,
-        pageSize: _linkPageSize,
+        pageSize: _pagination.pageSize,
         type: _activeTab == 1 ? 3 : null,
         excludeType: _activeTab == 0 ? 3 : null,
       );
       var effectivePage = requestedPage;
       final totalPages = result.total == 0
           ? 1
-          : (result.total + _linkPageSize - 1) ~/ _linkPageSize;
+          : (result.total + _pagination.pageSize - 1) ~/ _pagination.pageSize;
       if (effectivePage > totalPages) {
         effectivePage = totalPages;
         result = await widget.api.listLinks(
           page: effectivePage,
-          pageSize: _linkPageSize,
+          pageSize: _pagination.pageSize,
           type: _activeTab == 1 ? 3 : null,
           excludeType: _activeTab == 0 ? 3 : null,
         );
@@ -102,10 +103,9 @@ class _LinksPageState extends State<LinksPage>
       if (!mounted || generation != _loadGeneration) {
         return;
       }
+      _pagination.updateTotal(result.total, page: effectivePage);
       setState(() {
         links = result.items;
-        _totalLinks = result.total;
-        _currentPage = effectivePage;
       });
     } on UnauthorizedException {
       widget.onAuthError();
@@ -188,7 +188,7 @@ class _LinksPageState extends State<LinksPage>
       if (!mounted) {
         return;
       }
-      await _loadLinks(page: _currentPage);
+      await _loadLinks(page: _pagination.currentPage);
       if (mounted) {
         final message = switch (job.status) {
           'COMPLETED' => '多节点检测已完成',
@@ -545,12 +545,7 @@ class _LinksPageState extends State<LinksPage>
           ),
           if (!loading)
             PaginationBar(
-              currentPage: _currentPage,
-              totalPages: _totalLinks == 0
-                  ? 1
-                  : (_totalLinks + _linkPageSize - 1) ~/ _linkPageSize,
-              totalItems: _totalLinks,
-              pageSize: _linkPageSize,
+              controller: _pagination,
               onPageChanged: (page) => _loadLinks(page: page),
             ),
         ],

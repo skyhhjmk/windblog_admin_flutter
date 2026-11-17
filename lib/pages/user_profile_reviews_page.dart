@@ -16,6 +16,9 @@ class UserProfileReviewsPage extends StatefulWidget {
 
 class _UserProfileReviewsPageState extends State<UserProfileReviewsPage> {
   final TextEditingController _searchController = TextEditingController();
+  final AdminPaginationController _pagination = AdminPaginationController(
+    pageSize: 20,
+  );
   final Map<int, Future<Uint8List?>> _pendingAvatarFutures = {};
   final Set<int> _selectedIds = {};
 
@@ -23,9 +26,6 @@ class _UserProfileReviewsPageState extends State<UserProfileReviewsPage> {
   bool _busy = false;
   String? _error;
   String _statusFilter = 'PENDING';
-  int _page = 1;
-  final int _pageSize = 20;
-  int _total = 0;
   List<Map<String, dynamic>> _items = [];
   Map<String, dynamic> _summary = const {};
 
@@ -38,6 +38,7 @@ class _UserProfileReviewsPageState extends State<UserProfileReviewsPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _pagination.dispose();
     super.dispose();
   }
 
@@ -51,8 +52,8 @@ class _UserProfileReviewsPageState extends State<UserProfileReviewsPage> {
         widget.api.fetchUserProfileReviews(
           status: _statusFilter,
           keyword: _searchController.text,
-          page: _page,
-          pageSize: _pageSize,
+          page: _pagination.currentPage,
+          pageSize: _pagination.pageSize,
         ),
         widget.api.fetchUserProfileReviewSummary(),
       ]);
@@ -67,9 +68,10 @@ class _UserProfileReviewsPageState extends State<UserProfileReviewsPage> {
           }
         }
       }
+      final total = (listData['total'] as num?)?.toInt() ?? parsed.length;
+      _pagination.updateTotal(total);
       setState(() {
         _items = parsed;
-        _total = (listData['total'] as num?)?.toInt() ?? parsed.length;
         _summary = results[1];
         _selectedIds.clear();
         _pendingAvatarFutures.clear();
@@ -293,9 +295,9 @@ class _UserProfileReviewsPageState extends State<UserProfileReviewsPage> {
                   label: Text(entry.$2),
                   selected: _statusFilter == entry.$1,
                   onSelected: (_) {
+                    _pagination.resetToFirstPage();
                     setState(() {
                       _statusFilter = entry.$1;
-                      _page = 1;
                     });
                     _load();
                   },
@@ -310,7 +312,7 @@ class _UserProfileReviewsPageState extends State<UserProfileReviewsPage> {
                     prefixIcon: Icon(Icons.search, size: 18),
                   ),
                   onSubmitted: (_) {
-                    _page = 1;
+                    _pagination.resetToFirstPage();
                     _load();
                   },
                 ),
@@ -570,16 +572,8 @@ class _UserProfileReviewsPageState extends State<UserProfileReviewsPage> {
                   ),
           ),
           PaginationBar(
-            currentPage: _page,
-            pageSize: _pageSize,
-            totalItems: _total,
-            totalPages: _total == 0
-                ? 1
-                : ((_total + _pageSize - 1) ~/ _pageSize),
-            onPageChanged: (nextPage) {
-              setState(() => _page = nextPage);
-              _load();
-            },
+            controller: _pagination,
+            onPageChanged: (_) => _load(),
           ),
         ],
       ),

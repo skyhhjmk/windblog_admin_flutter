@@ -377,9 +377,13 @@ class _PostsPageState extends State<PostsPage> {
 
   Widget _buildTableHeader() {
     final showAuthor = !AdminBreakpoints.isTablet(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 10, 12, 10),
-      color: const Color(0xFFF1F5F9),
+      color: isDark
+          ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+          : const Color(0xFFF1F5F9),
       child: Row(
         children: [
           SizedBox(

@@ -278,7 +278,7 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
       child: Container(
         width: 1000,
         height: 700,
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         child: Row(
           children: [
             // 左侧预览区
@@ -293,8 +293,12 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   }
 
   Widget _buildPreviewArea() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
-      color: const Color(0xFFF8F9FA),
+      color: isDark
+          ? theme.colorScheme.surfaceContainerLow
+          : const Color(0xFFF8F9FA),
       child: Stack(
         children: [
           Center(child: _buildMediaWidget()),
@@ -344,18 +348,19 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     }
 
     if (_item.isVideo) {
+      final mutedColor = Theme.of(context).colorScheme.onSurfaceVariant;
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.play_circle_outline,
             size: 80,
-            color: Colors.black54,
+            color: mutedColor,
           ),
           const SizedBox(height: 12),
           Text(
             t(context, 'video_file'),
-            style: const TextStyle(color: Colors.black54),
+            style: TextStyle(color: mutedColor),
           ),
         ],
       );
@@ -603,12 +608,17 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Theme.of(context).colorScheme.surfaceContainerHighest
+                        : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: Text(
                     sizeText,
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade800),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],
@@ -673,7 +683,10 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
           const SizedBox(height: 4),
           SelectableText(
             url,
-            style: const TextStyle(fontSize: 12, color: Colors.black87),
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
         ],
       ),
@@ -1106,7 +1119,11 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45)
+                : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Column(
@@ -1158,14 +1175,19 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
           if (isSelectable)
             SelectableText(
               value,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             )
           else
             Text(
               value,
               style: TextStyle(
                 fontSize: 13,
-                color: isColorRed ? Colors.red : Colors.black87,
+                color: isColorRed
+                    ? Colors.red
+                    : Theme.of(context).colorScheme.onSurface,
               ),
             ),
         ],

@@ -207,7 +207,9 @@ class _OverviewPageState extends State<OverviewPage> {
             elevation: 2,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Color(0xFFE2E8F0)),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -226,20 +228,22 @@ class _OverviewPageState extends State<OverviewPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'API Documentation / 接口文档',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: Color(0xFF1E293B),
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 4),
                         SelectableText(
                           '${widget.api.baseUrl}/api/admin/docs',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'monospace',
-                            color: Color(0xFF475569),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -256,7 +260,9 @@ class _OverviewPageState extends State<OverviewPage> {
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Color(0xFFE2E8F0)),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
