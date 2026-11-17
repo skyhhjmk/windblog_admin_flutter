@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=WindBlog Admin
+Comment=WindBlog administration client
+Exec=@WINDBLOG_DESKTOP_EXEC@
+Icon=com.biliwind.blog.admin.windblog_admin_flutter
+Terminal=false
+Type=Application
+Categories=Development;Network;
+StartupWMClass=com.biliwind.blog.admin.windblog_admin_flutter

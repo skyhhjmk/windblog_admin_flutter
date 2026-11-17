@@ -132,3 +132,19 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Desktop entry and hicolor icon aligned with APPLICATION_ID for Wayland/XDG.
+set(WINDBLOG_DESKTOP_EXEC "windblog-admin" CACHE STRING
+  "Executable command written to the generated .desktop file")
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/packaging/${APPLICATION_ID}.desktop.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/${APPLICATION_ID}.desktop"
+  @ONLY
+)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${APPLICATION_ID}.desktop"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/applications"
+  COMPONENT Runtime)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../web/icons/Icon-512.png"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/512x512/apps"
+  RENAME "${APPLICATION_ID}.png"
+  COMPONENT Runtime)
