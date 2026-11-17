@@ -4747,3 +4747,96 @@ class AutoTranslationStatus {
     );
   }
 }
+
+class DatabaseTableStorageItem {
+  const DatabaseTableStorageItem({
+    required this.schema,
+    required this.tableName,
+    required this.totalBytes,
+    required this.dataBytes,
+    required this.indexBytes,
+    required this.toastBytes,
+    required this.estimatedRows,
+    required this.sharePercent,
+  });
+
+  final String schema;
+  final String tableName;
+  final int totalBytes;
+  final int dataBytes;
+  final int indexBytes;
+  final int toastBytes;
+  final int estimatedRows;
+  final double sharePercent;
+
+  String get qualifiedName =>
+      schema.isEmpty || schema == 'public' ? tableName : '$schema.$tableName';
+
+  factory DatabaseTableStorageItem.fromMap(Map<String, dynamic> map) {
+    final rawShare = map['sharePercent'];
+    final sharePercent = rawShare is num
+        ? rawShare.toDouble()
+        : double.tryParse(rawShare?.toString() ?? '') ?? 0.0;
+    return DatabaseTableStorageItem(
+      schema: map['schema']?.toString() ?? 'public',
+      tableName: map['tableName']?.toString() ?? '',
+      totalBytes: toInt(map['totalBytes']) ?? 0,
+      dataBytes: toInt(map['dataBytes']) ?? 0,
+      indexBytes: toInt(map['indexBytes']) ?? 0,
+      toastBytes: toInt(map['toastBytes']) ?? 0,
+      estimatedRows: toInt(map['estimatedRows']) ?? 0,
+      sharePercent: sharePercent,
+    );
+  }
+}
+
+class DatabaseStorageReport {
+  const DatabaseStorageReport({
+    required this.databaseName,
+    required this.databaseTotalBytes,
+    required this.tableTotalBytes,
+    required this.tableDataBytes,
+    required this.tableIndexBytes,
+    required this.tableToastBytes,
+    required this.tableCount,
+    this.collectedAt,
+    required this.tables,
+  });
+
+  final String databaseName;
+  final int databaseTotalBytes;
+  final int tableTotalBytes;
+  final int tableDataBytes;
+  final int tableIndexBytes;
+  final int tableToastBytes;
+  final int tableCount;
+  final DateTime? collectedAt;
+  final List<DatabaseTableStorageItem> tables;
+
+  factory DatabaseStorageReport.fromMap(Map<String, dynamic> map) {
+    final rawTables = map['tables'];
+    final tables = rawTables is List
+        ? rawTables
+            .whereType<Map>()
+            .map(
+              (item) => DatabaseTableStorageItem.fromMap(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList()
+        : <DatabaseTableStorageItem>[];
+    return DatabaseStorageReport(
+      databaseName: map['databaseName']?.toString() ?? '',
+      databaseTotalBytes: toInt(map['databaseTotalBytes']) ?? 0,
+      tableTotalBytes: toInt(map['tableTotalBytes']) ?? 0,
+      tableDataBytes: toInt(map['tableDataBytes']) ?? 0,
+      tableIndexBytes: toInt(map['tableIndexBytes']) ?? 0,
+      tableToastBytes: toInt(map['tableToastBytes']) ?? 0,
+      tableCount: toInt(map['tableCount']) ?? tables.length,
+      collectedAt: map['collectedAt'] != null
+          ? DateTime.tryParse(map['collectedAt'].toString())
+          : null,
+      tables: tables,
+    );
+  }
+}

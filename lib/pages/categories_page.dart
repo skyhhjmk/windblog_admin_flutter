@@ -327,12 +327,15 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 : rootCategories.isEmpty
                 ? Center(child: Text(t(context, 'no_categories')))
                 : Card(
-                    child: ListView(
+                    child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
-                      children: _pagination
-                          .slice(rootCategories)
-                          .map((cat) => _buildCategoryTree(cat, 0))
-                          .toList(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: _pagination
+                            .slice(rootCategories)
+                            .map((cat) => _buildCategoryTree(cat, 0))
+                            .toList(),
+                      ),
                     ),
                   ),
           ),

@@ -364,9 +364,11 @@ class _HoneypotPageState extends State<HoneypotPage>
     if (_statsError != null && _stats.isEmpty) {
       return _tabError(_statsError!, _loadStats);
     }
-    return ListView(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(8),
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -414,7 +416,8 @@ class _HoneypotPageState extends State<HoneypotPage>
                   ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -444,9 +447,11 @@ class _HoneypotPageState extends State<HoneypotPage>
       points.add(_TrendPoint(label, counts[label] ?? 0));
     }
     final hasHits = points.any((point) => point.count > 0);
-    return ListView(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(8),
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
         Card(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -482,7 +487,8 @@ class _HoneypotPageState extends State<HoneypotPage>
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -493,15 +499,18 @@ class _HoneypotPageState extends State<HoneypotPage>
     if (_rulesError != null && _rules.isEmpty) {
       return _tabError(_rulesError!, _loadRules);
     }
-    return ListView(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(8),
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
         Card(
           child: _rules.isEmpty
               ? const AdminStatusView.empty(title: '暂无蜜罐规则')
               : Column(children: _rules.map(_ruleTile).toList()),
         ),
-      ],
+        ],
+      ),
     );
   }
 

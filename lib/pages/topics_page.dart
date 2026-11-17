@@ -1015,16 +1015,19 @@ class _TopicsPageState extends State<TopicsPage>
   Widget _buildTabScroll(List<Widget> children) {
     return RefreshIndicator(
       onRefresh: _refresh,
-      child: ListView(
+      child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(bottom: AdminBreakpoints.pagePadding(context)),
-        children: [
-          if (_error != null) ...[
-            AlertBanner(message: _error!, type: AlertType.error),
-            const SizedBox(height: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_error != null) ...[
+              AlertBanner(message: _error!, type: AlertType.error),
+              const SizedBox(height: 12),
+            ],
+            ...children,
           ],
-          ...children,
-        ],
+        ),
       ),
     );
   }

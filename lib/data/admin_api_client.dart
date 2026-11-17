@@ -1744,6 +1744,26 @@ class AdminApiClient {
     await _delete('/api/admin/tags/$id');
   }
 
+  Future<DatabaseStorageReport> getDatabaseStorage({
+    String? schema,
+    String? search,
+    int limit = 200,
+  }) async {
+    final query = <String, String>{'limit': '$limit'};
+    if (schema != null && schema.trim().isNotEmpty) {
+      query['schema'] = schema.trim();
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      query['search'] = search.trim();
+    }
+    final uri = Uri(
+      path: '/api/admin/database/storage',
+      queryParameters: query,
+    );
+    final res = await _get(uri.toString());
+    return DatabaseStorageReport.fromMap(_map(jsonDecode(res.body)));
+  }
+
   Future<Map<String, dynamic>> databaseMigrate() async {
     final res = await _post('/api/admin/database/migrate', body: {});
     final map = _map(jsonDecode(res.body));

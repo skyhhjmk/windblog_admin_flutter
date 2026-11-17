@@ -379,8 +379,10 @@ class _LinksPageState extends State<LinksPage>
         content: SizedBox(
           width: 660,
           height: 460,
-          child: ListView(
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               detailRow('检测目标', value('targetName', log.linkName)),
               detailRow('实际检测 URL', value('checkedUrl'), selectable: true),
               detailRow('本站站点名', value('siteName'), selectable: true),
@@ -413,7 +415,8 @@ class _LinksPageState extends State<LinksPage>
                   '该节点未返回新版 DOM 检测证据；检测目标和关键词仍来自本次任务。',
                   style: TextStyle(color: Colors.orange),
                 ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [

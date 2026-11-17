@@ -151,9 +151,11 @@ class _OverviewPageState extends State<OverviewPage> {
           label: Text(t(context, 'refresh')),
         ),
       ],
-      body: ListView(
+      body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           LayoutBuilder(
             builder: (context, constraints) {
               final isPhone = AdminBreakpoints.isPhone(context);
@@ -272,7 +274,8 @@ class _OverviewPageState extends State<OverviewPage> {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

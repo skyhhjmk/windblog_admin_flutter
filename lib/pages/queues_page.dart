@@ -114,13 +114,16 @@ class _QueuesPageState extends State<QueuesPage> {
     }
 
     if (AdminBreakpoints.isPhone(context)) {
-      return ListView(
+      return SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        children: [
-          SizedBox(height: 520, child: _buildQueueListCard()),
-          const SizedBox(height: 12),
-          _buildQueueInfoCard(),
-        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(height: 520, child: _buildQueueListCard()),
+            const SizedBox(height: 12),
+            _buildQueueInfoCard(),
+          ],
+        ),
       );
     }
 
