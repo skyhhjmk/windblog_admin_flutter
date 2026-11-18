@@ -73,6 +73,75 @@ String _escapeMarkdownLinkText(String text) {
   return text.replaceAll('[', r'\[').replaceAll(']', r'\]');
 }
 
+/// How a detected `.cast` terminal recording file should be inserted.
+enum CastInsertMode {
+  /// Insert as a `::: asciinema-player` block.
+  asciinemaBlock,
+
+  /// Open in `asciicast_editor` (NLE) first, then upload and insert as a block.
+  editInNleThenBlock,
+
+  /// Insert as a regular Markdown file download link `[name](url)`.
+  normalLink,
+}
+
+/// Returns `true` when [nameOrUrl] has a `.cast` file extension.
+bool isAsciicastFileName(String? nameOrUrl) {
+  if (nameOrUrl == null || nameOrUrl.trim().isEmpty) return false;
+  var clean = nameOrUrl.trim();
+  final hashIdx = clean.indexOf('#');
+  if (hashIdx >= 0) clean = clean.substring(0, hashIdx);
+  final queryIdx = clean.indexOf('?');
+  if (queryIdx >= 0) clean = clean.substring(0, queryIdx);
+  return clean.toLowerCase().endsWith('.cast');
+}
+
+/// Builds a `::: asciinema-player` Markdown block referencing [src].
+String asciinemaBlockMarkdown({
+  required String src,
+  String fallbackName = '',
+  String? title,
+  num idleTimeLimit = 2,
+  num speed = 1,
+  bool pauseOnMarkers = true,
+  bool autoPlay = false,
+  bool loop = false,
+  String? markers,
+}) {
+  final cleanSrc = src.trim();
+  if (cleanSrc.isEmpty) return '';
+
+  var resolvedTitle = (title ?? '').trim();
+  if (resolvedTitle.isEmpty) {
+    resolvedTitle = fallbackName.trim();
+  }
+  if (resolvedTitle.isEmpty) {
+    final segments = Uri.tryParse(cleanSrc)?.pathSegments;
+    if (segments != null && segments.isNotEmpty) {
+      resolvedTitle = segments.last;
+    }
+  }
+  if (resolvedTitle.isEmpty) {
+    resolvedTitle = 'demo.cast';
+  }
+  final safeAttrTitle = resolvedTitle.replaceAll('"', r'\"');
+  final safeLinkTitle = _escapeMarkdownLinkText(resolvedTitle);
+
+  final attrs = <String>[
+    'src="$cleanSrc"',
+    'title="$safeAttrTitle"',
+    'idleTimeLimit=$idleTimeLimit',
+    'pauseOnMarkers=$pauseOnMarkers',
+    if (speed != 1) 'speed=$speed',
+    if (autoPlay) 'autoPlay=true',
+    if (loop) 'loop=true',
+    if (markers != null && markers.trim().isNotEmpty)
+      'markers="${markers.trim().replaceAll('"', r'\"')}"',
+  ];
+
+  return '\n::: asciinema-player {${attrs.join(', ')}}\n[$safeLinkTitle]($cleanSrc)\n::: /asciinema-player\n';
+}
+
 /// Pure document analysis deliberately kept outside the widget state.  `compute`
 /// can run it in a helper isolate on native targets, while the debounce at the
 /// call site still prevents a burst of keystrokes from repeatedly parsing the
@@ -101,8 +170,12 @@ Map<String, Object?> analyzeMarkdownOutline(String text) {
     if (match == null) continue;
 
     final level = match.group(1) ?? 'quick';
-    // Article references are content, not a selectable reading level.
-    if (level == 'article') continue;
+    // Article references and asciinema players are content, not selectable reading levels.
+    if (level == 'article' ||
+        level == 'asciinema-player' ||
+        level == 'asciinema') {
+      continue;
+    }
     String? group;
     String? title;
     var exclude = <String>[];
@@ -644,15 +717,94 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     }
   }
 
+  Future<CastInsertMode?> _promptCastInsertMode(String fileName) {
+    return showDialog<CastInsertMode>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.terminal, color: Colors.cyan, size: 22),
+            const SizedBox(width: 8),
+            Expanded(child: Text('检测到 .cast 录屏文件：$fileName')),
+          ],
+        ),
+        content: const SizedBox(
+          width: 460,
+          child: Text(
+            '检测到插入了 Asciinema (.cast) 格式的终端录屏文件。\n是否将其作为交互式 Asciinema 播放器块插入？',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, CastInsertMode.normalLink),
+            child: const Text('作为普通链接插入'),
+          ),
+          FilledButton.tonalIcon(
+            onPressed: () =>
+                Navigator.pop(ctx, CastInsertMode.editInNleThenBlock),
+            icon: const Icon(Icons.video_settings_outlined, size: 16),
+            label: const Text('剪辑后作为 Asciinema 插入'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, CastInsertMode.asciinemaBlock),
+            icon: const Icon(Icons.terminal, size: 16),
+            label: const Text('作为 Asciinema 块插入'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _uploadPastedFile(
     Uint8List bytes,
     String fileName,
     String mimeType, {
     String? marker,
+    CastInsertMode? forcedCastMode,
   }) async {
     if (!mounted) return;
+
+    var uploadBytes = bytes;
+    var uploadName = fileName;
+    num? editedIdleTimeLimit;
+    var insertAsAsciinema = false;
+
+    if (isAsciicastFileName(uploadName)) {
+      final mode = forcedCastMode ?? await _promptCastInsertMode(uploadName);
+      if (!mounted) return;
+      if (mode == null) {
+        if (marker != null) _replacePasteAnchor(marker, '');
+        return;
+      }
+      if (mode == CastInsertMode.editInNleThenBlock) {
+        final rawText = utf8.decode(uploadBytes, allowMalformed: true);
+        final edited = await AsciicastEditorDialog.show(
+          context,
+          initialCastContent: rawText,
+          initialFileName: uploadName,
+          exportButtonLabel: '上传并作为 Asciinema 块插入',
+        );
+        if (!mounted || edited == null) {
+          if (marker != null) _replacePasteAnchor(marker, '');
+          return;
+        }
+        uploadBytes = Uint8List.fromList(utf8.encode(edited.castContent));
+        uploadName = edited.fileName;
+        editedIdleTimeLimit = edited.header.idleTimeLimit ?? 2;
+        insertAsAsciinema = true;
+      } else if (mode == CastInsertMode.asciinemaBlock) {
+        insertAsAsciinema = true;
+      }
+    }
+
     final isImage = mimeType.toLowerCase().startsWith('image/');
-    final placeholder = isImage ? '（图片上传处理中：$fileName）' : '（文件上传处理中：$fileName）';
+    final placeholder = isImage
+        ? '（图片上传处理中：$uploadName）'
+        : '（文件上传处理中：$uploadName）';
     final pasteMarker = marker ?? _newPasteMarker();
     final uploadAnchor = '$pasteMarker$placeholder\n';
     if (marker == null) {
@@ -665,15 +817,18 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
       final notifications = AdminNotificationScope.of(context);
       await notifications.uploadMediaWithNotification(
         api: widget.api,
-        fileName: fileName,
-        bytes: bytes,
+        fileName: uploadName,
+        bytes: uploadBytes,
         mimeType: mimeType,
         onMediaCompleted: (item) {
           if (!mounted) return;
-          final reference = _markdownReferenceForMedia(
-            item,
-            fallbackName: fileName,
-          );
+          final reference = insertAsAsciinema
+              ? asciinemaBlockMarkdown(
+                  src: markdownMediaUrl(item, preferWebp: false),
+                  fallbackName: uploadName,
+                  idleTimeLimit: editedIdleTimeLimit ?? 2,
+                )
+              : _markdownReferenceForMedia(item, fallbackName: uploadName);
           if (item.processingStatus == 'COMPLETED' && reference.isNotEmpty) {
             _replacePasteAnchor(uploadAnchor, reference);
           } else {
@@ -1265,6 +1420,49 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
 
     if (items != null && items.isNotEmpty) {
       for (final item in items) {
+        if (!mounted) return;
+        if (isAsciicastFileName(item.fileName) ||
+            isAsciicastFileName(item.url)) {
+          final mode = await _promptCastInsertMode(
+            item.fileName.isNotEmpty ? item.fileName : item.url,
+          );
+          if (!mounted || mode == null) continue;
+          if (mode == CastInsertMode.asciinemaBlock) {
+            final block = asciinemaBlockMarkdown(
+              src: markdownMediaUrl(item, preferWebp: false),
+              fallbackName: item.fileName,
+            );
+            if (block.isNotEmpty) _insertText(block, '\n');
+            continue;
+          } else if (mode == CastInsertMode.editInNleThenBlock) {
+            String initialCast = '';
+            try {
+              initialCast = await widget.api.fetchTextResource(item.url);
+            } catch (_) {}
+            if (!mounted) return;
+            final edited = await AsciicastEditorDialog.show(
+              context,
+              initialCastContent: initialCast,
+              initialFileName: item.fileName.isNotEmpty
+                  ? item.fileName
+                  : 'edited.cast',
+              exportButtonLabel: '上传剪辑版本并插入',
+            );
+            if (!mounted || edited == null) continue;
+            final editedBytes = Uint8List.fromList(
+              utf8.encode(edited.castContent),
+            );
+            unawaited(
+              _uploadPastedFile(
+                editedBytes,
+                edited.fileName,
+                'application/x-asciicast',
+                forcedCastMode: CastInsertMode.asciinemaBlock,
+              ),
+            );
+            continue;
+          }
+        }
         final reference = markdownMediaReference(
           item,
           fallbackName: item.fileName,
@@ -1613,6 +1811,289 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
     widget.onChanged?.call();
   }
 
+  Future<void> _openStandaloneAsciicastEditor() async {
+    final result = await AsciicastEditorDialog.show(
+      context,
+      initialFileName: 'terminal_demo.cast',
+      exportButtonLabel: '上传并作为 Asciinema 块插入',
+    );
+    if (!mounted || result == null) return;
+    final bytes = Uint8List.fromList(utf8.encode(result.castContent));
+    unawaited(
+      _uploadPastedFile(
+        bytes,
+        result.fileName,
+        'application/x-asciicast',
+        forcedCastMode: CastInsertMode.asciinemaBlock,
+      ),
+    );
+  }
+
+  Future<void> _insertOrEditAsciinemaBlock() async {
+    final srcCtrl = TextEditingController();
+    final titleCtrl = TextEditingController();
+    final idleCtrl = TextEditingController(text: '2');
+    final speedCtrl = TextEditingController(text: '1');
+    final markersCtrl = TextEditingController();
+    var pauseOnMarkers = true;
+    var autoPlay = false;
+    var loop = false;
+    var uploading = false;
+
+    final notifications = AdminNotificationScope.of(context);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> handleUploadLocalCast() async {
+              final picked = await FilePicker.pickFiles(
+                withData: true,
+                type: FileType.custom,
+                allowedExtensions: const ['cast'],
+              );
+              if (picked == null || picked.files.isEmpty) return;
+              final file = picked.files.first;
+              final bytes = file.bytes;
+              if (bytes == null) return;
+              setDialogState(() => uploading = true);
+              try {
+                await notifications.uploadMediaWithNotification(
+                  api: widget.api,
+                  fileName: file.name,
+                  bytes: bytes,
+                  mimeType: 'application/x-asciicast',
+                  onMediaCompleted: (item) {
+                    if (!context.mounted) return;
+                    setDialogState(() {
+                      srcCtrl.text = markdownMediaUrl(item, preferWebp: false);
+                      if (titleCtrl.text.trim().isEmpty) {
+                        titleCtrl.text = file.name;
+                      }
+                      uploading = false;
+                    });
+                  },
+                );
+              } catch (_) {
+                if (context.mounted) {
+                  setDialogState(() => uploading = false);
+                }
+              }
+            }
+
+            Future<void> handleOpenNle() async {
+              String? initialCast;
+              if (srcCtrl.text.trim().isNotEmpty) {
+                try {
+                  initialCast = await widget.api.fetchTextResource(
+                    srcCtrl.text.trim(),
+                  );
+                } catch (_) {}
+              }
+              if (!context.mounted) return;
+              final edited = await AsciicastEditorDialog.show(
+                context,
+                initialCastContent: initialCast,
+                initialFileName: titleCtrl.text.trim().isNotEmpty
+                    ? titleCtrl.text.trim()
+                    : 'demo.cast',
+                exportButtonLabel: '上传剪辑版本并填入',
+              );
+              if (!context.mounted || edited == null) return;
+              setDialogState(() => uploading = true);
+              try {
+                final bytes = Uint8List.fromList(
+                  utf8.encode(edited.castContent),
+                );
+                await notifications.uploadMediaWithNotification(
+                  api: widget.api,
+                  fileName: edited.fileName,
+                  bytes: bytes,
+                  mimeType: 'application/x-asciicast',
+                  onMediaCompleted: (item) {
+                    if (!context.mounted) return;
+                    setDialogState(() {
+                      srcCtrl.text = markdownMediaUrl(item, preferWebp: false);
+                      if (titleCtrl.text.trim().isEmpty) {
+                        titleCtrl.text = edited.fileName;
+                      }
+                      idleCtrl.text = '${edited.header.idleTimeLimit ?? 2}';
+                      uploading = false;
+                    });
+                  },
+                );
+              } catch (_) {
+                if (context.mounted) {
+                  setDialogState(() => uploading = false);
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.terminal, color: Colors.cyan, size: 22),
+                  SizedBox(width: 8),
+                  Text('插入 Asciinema 终端录屏块'),
+                ],
+              ),
+              content: SizedBox(
+                width: 540,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.tonalIcon(
+                            onPressed: uploading ? null : handleUploadLocalCast,
+                            icon: uploading
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.upload_file, size: 16),
+                            label: Text(uploading ? '上传处理中...' : '上传本地 .cast'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: uploading ? null : handleOpenNle,
+                            icon: const Icon(
+                              Icons.video_settings_outlined,
+                              size: 16,
+                            ),
+                            label: const Text('使用 Asciicast 编辑器剪辑/制作'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: srcCtrl,
+                        decoration: const InputDecoration(
+                          labelText: '.cast 文件路径或 URL *',
+                          hintText: '/uploads/xxx.cast 或 /assets/demo.cast',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: titleCtrl,
+                        decoration: const InputDecoration(
+                          labelText: '标题 (Title - 可选)',
+                          hintText: '例如：Quarkus 原生镜像编译演示',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: idleCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: 'idleTimeLimit (空闲上限秒)',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: speedCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: '默认播放倍速 (speed)',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: markersCtrl,
+                        decoration: const InputDecoration(
+                          labelText: '附加标记 (Markers - 可选)',
+                          hintText: '格式：3.0:安装依赖;8.5:启动服务',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('播放到标记处自动暂停 (pauseOnMarkers)'),
+                        subtitle: const Text('方便读者在关键命令处暂停并框选复制'),
+                        value: pauseOnMarkers,
+                        onChanged: (v) =>
+                            setDialogState(() => pauseOnMarkers = v),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('自动播放 (autoPlay)'),
+                        value: autoPlay,
+                        onChanged: (v) => setDialogState(() => autoPlay = v),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('循环播放 (loop)'),
+                        value: loop,
+                        onChanged: (v) => setDialogState(() => loop = v),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: uploading
+                      ? null
+                      : () => Navigator.pop(context, true),
+                  child: const Text('插入 Asciinema 块'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved != true || !mounted) return;
+    final src = srcCtrl.text.trim().isEmpty
+        ? '/assets/demo.cast'
+        : srcCtrl.text.trim();
+    final idle = num.tryParse(idleCtrl.text.trim()) ?? 2;
+    final spd = num.tryParse(speedCtrl.text.trim()) ?? 1;
+    final block = asciinemaBlockMarkdown(
+      src: src,
+      title: titleCtrl.text.trim(),
+      idleTimeLimit: idle,
+      speed: spd,
+      pauseOnMarkers: pauseOnMarkers,
+      autoPlay: autoPlay,
+      loop: loop,
+      markers: markersCtrl.text.trim(),
+    );
+    if (block.isNotEmpty) {
+      _insertText(block);
+    }
+  }
+
   void _showSyntaxHints() {
     showDialog(
       context: context,
@@ -1640,6 +2121,10 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
                 _buildHintItem(
                   '文章引用卡片',
                   '::: article\n[文章标题](/post/article-slug)\n::: /article\n可通过工具栏“引用文章”搜索插入。',
+                ),
+                _buildHintItem(
+                  'Asciinema 终端录屏块',
+                  '::: asciinema-player {src="/uploads/demo.cast", title="演示", idleTimeLimit=2, pauseOnMarkers=true}\n[演示](/uploads/demo.cast)\n::: /asciinema-player\n支持自动适配深浅色主题、标记自动暂停、倍速控制及一键查看最终结果。',
                 ),
                 _buildHintItem('文本高亮', '==被高亮的文字=='),
                 _buildHintItem('键盘按键', '[[Ctrl]] + [[C]]'),
@@ -2123,6 +2608,16 @@ class _MarkdownPlusEditorState extends State<MarkdownPlusEditor>
             icon: Icons.upload_file,
             tooltip: '上传文件（也可粘贴或拖入）',
             onPressed: _pickFile,
+          ),
+          _ToolbarButton(
+            icon: Icons.terminal,
+            tooltip: '插入 Asciinema 终端录屏块',
+            onPressed: _insertOrEditAsciinemaBlock,
+          ),
+          _ToolbarButton(
+            icon: Icons.video_settings_outlined,
+            tooltip: '打开 Asciicast 非线性编辑器 (NLE)',
+            onPressed: _openStandaloneAsciicastEditor,
           ),
           _ToolbarButton(
             icon: Icons.storefront,

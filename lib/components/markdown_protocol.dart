@@ -48,7 +48,8 @@ Map<String, MarkdownPaddingBuilder> markdownEditorPaddingBuilders() => {
 /// Custom Container Syntax (::: `<name>`)
 class CustomContainerSyntax extends md.BlockSyntax {
   @override
-  RegExp get pattern => RegExp(r'^:::\s+([a-zA-Z0-9_-]+)(?:\s+\{[^}]*\})?\s*$');
+  RegExp get pattern =>
+      RegExp(r'^:::\s+([a-zA-Z0-9_-]+)(?:\s+\{([^}]*)\})?\s*$');
 
   const CustomContainerSyntax();
 
@@ -58,6 +59,7 @@ class CustomContainerSyntax extends md.BlockSyntax {
     if (match == null) return null;
 
     final name = match.group(1)!.trim();
+    final rawAttrStr = match.group(2) ?? '';
     final childLines = <String>[];
 
     parser.advance();
@@ -79,8 +81,20 @@ class CustomContainerSyntax extends md.BlockSyntax {
         ..attributes['name'] = name;
     }
 
-    return md.Element('custom-container', [md.Text(childLines.join('\n'))])
+    final el = md.Element('custom-container', [md.Text(childLines.join('\n'))])
       ..attributes['name'] = name;
+    if (rawAttrStr.isNotEmpty) {
+      el.attributes['raw_attrs'] = rawAttrStr;
+      final attrReg = RegExp(
+        r'''([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^,\s}]+))''',
+      );
+      for (final m in attrReg.allMatches(rawAttrStr)) {
+        final key = m.group(1)!.toLowerCase();
+        final val = m.group(2) ?? m.group(3) ?? m.group(4) ?? '';
+        el.attributes[key] = val.trim();
+      }
+    }
+    return el;
   }
 }
 
@@ -559,7 +573,8 @@ class CustomContainerBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    if (element.attributes['name'] == 'article') {
+    final containerName = (element.attributes['name'] ?? '').toLowerCase();
+    if (containerName == 'article') {
       final colors = ArticlePreviewPalette.of(context);
       return ArticleReferenceCard(
         child: ArticlePreviewMarkdown(
@@ -579,6 +594,9 @@ class CustomContainerBuilder extends MarkdownElementBuilder {
         ),
       );
     }
+    if (containerName == 'asciinema-player' || containerName == 'asciinema') {
+      return AsciinemaPreviewCard(element: element, api: api);
+    }
     return SizedBox(
       width: double.infinity,
       child: ArticlePreviewMarkdown(
@@ -586,6 +604,333 @@ class CustomContainerBuilder extends MarkdownElementBuilder {
         api: api,
         onLinkTap: onLinkTap,
         onImageTap: onImageTap,
+      ),
+    );
+  }
+}
+
+class AsciinemaPreviewCard extends StatefulWidget {
+  const AsciinemaPreviewCard({super.key, required this.element, this.api});
+
+  final md.Element element;
+  final AdminApiClient? api;
+
+  @override
+  State<AsciinemaPreviewCard> createState() => _AsciinemaPreviewCardState();
+}
+
+class _AsciinemaPreviewCardState extends State<AsciinemaPreviewCard> {
+  AsciicastEditorController? _previewController;
+  bool _loadingCast = false;
+  bool _showTerminalPreview = false;
+  String? _loadError;
+  String? _loadedSrc;
+
+  ({
+    String src,
+    String title,
+    String idleTimeLimit,
+    String speed,
+    bool pauseOnMarkers,
+  })
+  _extractConfig() {
+    final attrs = widget.element.attributes;
+    var src = attrs['src'] ?? attrs['url'] ?? '';
+    var title = attrs['title'] ?? '';
+    final idle =
+        attrs['idletimelimit'] ??
+        attrs['idle-time-limit'] ??
+        attrs['idle_time_limit'] ??
+        '2';
+    final speed = attrs['speed'] ?? '1';
+    final pauseOnMarkers =
+        (attrs['pauseonmarkers'] ??
+                attrs['pause-on-markers'] ??
+                attrs['pause_on_markers'] ??
+                'true')
+            .toLowerCase() !=
+        'false';
+
+    final body = widget.element.textContent.trim();
+    if (body.isNotEmpty) {
+      final linkMatch = RegExp(r'\[([^\]]*)\]\(([^)]+)\)').firstMatch(body);
+      if (linkMatch != null) {
+        if (title.isEmpty) title = linkMatch.group(1)!.trim();
+        if (src.isEmpty) src = linkMatch.group(2)!.trim();
+      } else if (src.isEmpty) {
+        for (final rawLine in body.split('\n')) {
+          final line = rawLine.trim();
+          if (line.startsWith('/') ||
+              line.startsWith('http://') ||
+              line.startsWith('https://')) {
+            src = line;
+            break;
+          }
+        }
+      }
+    }
+    if (title.isEmpty) {
+      title = src.isEmpty ? 'Asciinema Recording' : src.split('/').last;
+    }
+    return (
+      src: src,
+      title: title,
+      idleTimeLimit: idle,
+      speed: speed,
+      pauseOnMarkers: pauseOnMarkers,
+    );
+  }
+
+  @override
+  void dispose() {
+    _previewController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleLivePreview(String src) async {
+    if (_showTerminalPreview) {
+      _previewController?.pause();
+      setState(() => _showTerminalPreview = false);
+      return;
+    }
+
+    setState(() {
+      _showTerminalPreview = true;
+      _loadError = null;
+    });
+
+    if (_previewController != null && _loadedSrc == src) {
+      return;
+    }
+
+    setState(() => _loadingCast = true);
+    try {
+      String castText;
+      if (widget.api != null && src.isNotEmpty) {
+        castText = await widget.api!.fetchTextResource(src);
+      } else {
+        castText = '';
+      }
+      if (!mounted) return;
+      _previewController?.dispose();
+      _previewController = AsciicastEditorController(
+        initialCastContent: castText,
+        initialClipName: src.split('/').last,
+      );
+      _loadedSrc = src;
+      setState(() => _loadingCast = false);
+    } catch (e) {
+      if (!mounted) return;
+      _previewController?.dispose();
+      _previewController = AsciicastEditorController();
+      setState(() {
+        _loadingCast = false;
+        _loadError = '加载远程录屏失败，已载入演示预览 ($e)';
+      });
+    }
+  }
+
+  Future<void> _openNleDialog(String src, String title) async {
+    String? initialCast;
+    if (widget.api != null && src.isNotEmpty) {
+      try {
+        initialCast = await widget.api!.fetchTextResource(src);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    await AsciicastEditorDialog.show(
+      context,
+      initialCastContent: initialCast,
+      initialFileName: title.endsWith('.cast') ? title : '$title.cast',
+      exportButtonLabel: '完成预览剪辑',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = ArticlePreviewPalette.of(context);
+    final cfg = _extractConfig();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: colors.input,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            color: colors.hover,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.terminal, size: 16, color: Colors.cyan),
+                    const SizedBox(width: 6),
+                    Text(
+                      cfg.title,
+                      style: TextStyle(
+                        color: colors.main,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'idleTimeLimit: ${cfg.idleTimeLimit}s · ${cfg.speed}x · pauseOnMarkers: ${cfg.pauseOnMarkers}',
+                        style: TextStyle(
+                          color: colors.accent,
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _toggleLivePreview(cfg.src),
+                      icon: Icon(
+                        _showTerminalPreview
+                            ? Icons.visibility_off_outlined
+                            : Icons.play_circle_outline,
+                        size: 15,
+                      ),
+                      label: Text(
+                        _showTerminalPreview
+                            ? '收起 termui_flutter 预览'
+                            : 'termui_flutter 实时预览',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    OutlinedButton.icon(
+                      onPressed: () => _openNleDialog(cfg.src, cfg.title),
+                      icon: const Icon(Icons.video_settings_outlined, size: 14),
+                      label: const Text(
+                        '非线性编辑器',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (cfg.src.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Text(
+                '录屏源: ${cfg.src}',
+                style: TextStyle(
+                  color: colors.body,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          if (_showTerminalPreview)
+            Container(
+              height: 300,
+              padding: const EdgeInsets.all(10),
+              color: const Color(0xFF0B0E14),
+              child: _loadingCast
+                  ? const Center(child: CircularProgressIndicator())
+                  : _previewController == null
+                  ? const SizedBox.shrink()
+                  : Column(
+                      children: [
+                        if (_loadError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              _loadError!,
+                              style: const TextStyle(
+                                color: Colors.amber,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        Expanded(
+                          child: AsciicastTerminalPreview(
+                            controller: _previewController!,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        ListenableBuilder(
+                          listenable: _previewController!,
+                          builder: (context, _) {
+                            final ctrl = _previewController!;
+                            return Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    ctrl.isPlaying
+                                        ? Icons.pause
+                                        : Icons.play_arrow,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  onPressed: ctrl.togglePlay,
+                                ),
+                                Expanded(
+                                  child: Slider(
+                                    value: ctrl.playheadTime.clamp(
+                                      0.0,
+                                      ctrl.totalDuration > 0
+                                          ? ctrl.totalDuration
+                                          : 1.0,
+                                    ),
+                                    min: 0.0,
+                                    max: ctrl.totalDuration > 0
+                                        ? ctrl.totalDuration
+                                        : 1.0,
+                                    onChanged: (v) {
+                                      ctrl.pause();
+                                      ctrl.seek(v);
+                                    },
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: ctrl.jumpToFinalResult,
+                                  child: const Text(
+                                    '查看最终结果',
+                                    style: TextStyle(
+                                      color: Colors.tealAccent,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+            ),
+        ],
       ),
     );
   }

@@ -103,4 +103,31 @@ void main() {
 
     expect(markdownMediaReference(item), isEmpty);
   });
+
+  test('detects .cast files accurately and builds asciinema-player block', () {
+    expect(isAsciicastFileName('demo.cast'), isTrue);
+    expect(isAsciicastFileName('/uploads/session_01.CAST?v=1'), isTrue);
+    expect(isAsciicastFileName('image.png'), isFalse);
+
+    final block = asciinemaBlockMarkdown(
+      src: '/uploads/demo.cast',
+      title: '部署演示',
+      idleTimeLimit: 2,
+      pauseOnMarkers: true,
+      speed: 1.5,
+      markers: '3.0:安装依赖;8.0:完成',
+    );
+    expect(block, contains('::: asciinema-player'));
+    expect(block, contains('src="/uploads/demo.cast"'));
+    expect(block, contains('title="部署演示"'));
+    expect(block, contains('idleTimeLimit=2'));
+    expect(block, contains('pauseOnMarkers=true'));
+    expect(block, contains('speed=1.5'));
+    expect(block, contains('[部署演示](/uploads/demo.cast)'));
+    expect(block, contains('::: /asciinema-player'));
+
+    final outlineAnalysis = analyzeMarkdownOutline(block);
+    final stats = outlineAnalysis['stats'] as Map<String, int>;
+    expect(stats.containsKey('asciinema-player'), isFalse);
+  });
 }

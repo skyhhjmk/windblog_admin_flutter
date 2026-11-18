@@ -14,6 +14,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:mime/mime.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:asciicast_editor/asciicast_editor.dart';
 import 'package:diff_match_patch/diff_match_patch.dart' as diff_match_patch;
 import 'package:shared_preferences/shared_preferences.dart';
 

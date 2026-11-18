@@ -1,0 +1,3 @@
+[submodule "packages/asciicast_editor"]
+	path = packages/asciicast_editor
+	url = https://github.com/GeekCoreLab/asciicast_editor.git

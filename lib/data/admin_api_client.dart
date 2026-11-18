@@ -3435,6 +3435,26 @@ class AdminApiClient {
     final base = Uri.parse(baseUrl);
     return base.resolve(trimmed).toString();
   }
+
+  Future<String> fetchTextResource(String rawUrl) async {
+    final fullUrl = normalizeUrl(rawUrl);
+    if (fullUrl.isEmpty) {
+      throw Exception('空的资源 URL');
+    }
+    final uri = Uri.parse(fullUrl);
+    final client = createAdminHttpClient();
+    try {
+      final response = await client
+          .get(uri, headers: _headers(false, json: false))
+          .timeout(const Duration(seconds: 30));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('加载资源失败 (HTTP ${response.statusCode})');
+      }
+      return utf8.decode(response.bodyBytes, allowMalformed: true);
+    } finally {
+      client.close();
+    }
+  }
 }
 
 class InstallationRequiredException implements Exception {
