@@ -163,9 +163,7 @@ class InstanceVault {
 
   static const _saltKey = 'admin_instance_vault_salt_v1';
   static const _payloadKey = 'admin_instance_vault_payload_v1';
-  static const secureStorage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  static const secureStorage = FlutterSecureStorage(aOptions: AndroidOptions());
   static final _aes = AesGcm.with256bits();
   static final _random = Random.secure();
   static int _lockGeneration = 0;

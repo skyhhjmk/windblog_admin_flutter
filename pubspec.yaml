@@ -47,7 +47,7 @@ dependencies:
   diff_match_patch: ^0.4.1
   url_launcher: ^6.3.2
   shared_preferences: ^2.5.2
-  flutter_secure_storage: ^9.2.4
+  flutter_secure_storage: ^11.2.0
   cryptography: ^2.7.0
   flutter_local_notifications: ^21.0.0
   seeray_analytics_flutter:
@@ -74,6 +74,8 @@ dev_dependencies:
 
 dependency_overrides:
   win32: ^6.0.0
+  win32_registry: ^3.0.3
+  device_info_plus: ^13.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

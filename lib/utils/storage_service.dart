@@ -16,7 +16,7 @@ class StorageService {
       'codex_creator_last_article_repost_policy';
 
   static const _secureStorage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(),
   );
 
   /// 保存会话信息
