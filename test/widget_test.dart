@@ -5,6 +5,7 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:asciicast_editor/asciicast_editor.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -252,6 +253,45 @@ void main() {
 
     expect(selectedLinkType, 0);
   });
+
+  testWidgets(
+    'pressing backquote opens developer options and enters asciicast_editor test menu',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: AdminShortcutHost(
+            child: Scaffold(body: Center(child: Text('Home Screen'))),
+          ),
+        ),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backquote);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('adminDeveloperOptionsDialog')),
+        findsOneWidget,
+      );
+      expect(find.text('开发者选项'), findsOneWidget);
+      expect(
+        find.byKey(const Key('enterDeveloperTestMenuButton')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('enterDeveloperTestMenuButton')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('adminDeveloperTestMenuPage')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('asciicastEditorTestBench')), findsOneWidget);
+      expect(find.byType(AsciicastEditor), findsOneWidget);
+    },
+  );
 }
 
 class _SessionWorkspaceHarness extends StatefulWidget {

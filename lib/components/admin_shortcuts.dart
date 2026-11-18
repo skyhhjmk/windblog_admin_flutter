@@ -9,6 +9,7 @@ class AdminShortcutDefinitions {
   static const Map<String, String> keyByAction = <String, String>{
     'submit': 'Enter',
     'search': 'Ctrl+K',
+    'developer_options': '`',
   };
 }
 
@@ -39,10 +40,73 @@ class AdminFocusSearchIntent extends Intent {
   const AdminFocusSearchIntent();
 }
 
-class AdminShortcutHost extends StatelessWidget {
+class AdminOpenDeveloperOptionsIntent extends Intent {
+  const AdminOpenDeveloperOptionsIntent();
+}
+
+class AdminShortcutHost extends StatefulWidget {
   const AdminShortcutHost({super.key, required this.child});
 
   final Widget child;
+
+  @override
+  State<AdminShortcutHost> createState() => _AdminShortcutHostState();
+}
+
+class _AdminShortcutHostState extends State<AdminShortcutHost> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
+    super.dispose();
+  }
+
+  bool _isFocusedInMultilineEditableText() {
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    if (focusContext == null) return false;
+    EditableText? editable;
+    if (focusContext.widget is EditableText) {
+      editable = focusContext.widget as EditableText;
+    } else {
+      editable = focusContext.findAncestorWidgetOfExactType<EditableText>();
+    }
+    if (editable == null) return false;
+    return editable.maxLines == null || editable.maxLines! > 1;
+  }
+
+  bool _handleHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    final isBackquote =
+        event.logicalKey == LogicalKeyboardKey.backquote ||
+        event.physicalKey == PhysicalKeyboardKey.backquote ||
+        event.character == '`';
+    if (!isBackquote) return false;
+
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+    final isShiftPressed =
+        pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+        pressed.contains(LogicalKeyboardKey.shiftRight);
+    if (isShiftPressed) return false;
+
+    final isControlOrMeta =
+        pressed.contains(LogicalKeyboardKey.controlLeft) ||
+        pressed.contains(LogicalKeyboardKey.controlRight) ||
+        pressed.contains(LogicalKeyboardKey.metaLeft) ||
+        pressed.contains(LogicalKeyboardKey.metaRight);
+
+    if (!isControlOrMeta && _isFocusedInMultilineEditableText()) {
+      return false;
+    }
+
+    if (!mounted || AdminDeveloperOptions.isDialogOpen) return false;
+    AdminDeveloperOptions.show(context);
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +114,8 @@ class AdminShortcutHost extends StatelessWidget {
       shortcuts: <ShortcutActivator, Intent>{
         const SingleActivator(LogicalKeyboardKey.keyK, control: true):
             const AdminFocusSearchIntent(),
+        const SingleActivator(LogicalKeyboardKey.backquote):
+            const AdminOpenDeveloperOptionsIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -59,8 +125,18 @@ class AdminShortcutHost extends StatelessWidget {
               return null;
             },
           ),
+          AdminOpenDeveloperOptionsIntent:
+              CallbackAction<AdminOpenDeveloperOptionsIntent>(
+                onInvoke: (_) {
+                  if (!AdminDeveloperOptions.isDialogOpen &&
+                      !_isFocusedInMultilineEditableText()) {
+                    AdminDeveloperOptions.show(context);
+                  }
+                  return null;
+                },
+              ),
         },
-        child: child,
+        child: widget.child,
       ),
     );
   }
