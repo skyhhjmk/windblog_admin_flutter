@@ -292,6 +292,77 @@ void main() {
       expect(find.byType(AsciicastEditor), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'AsciicastEditor and AsciicastEditorDialog render DropdownButton without MaterialLocalizations error in zh_CN locale',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const sampleCast =
+          '{"version": 2, "width": 80, "height": 24}\n'
+          '[0.1, "o", "hello\\r\\n"]\n';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Column(
+                children: [
+                  TextButton(
+                    onPressed: () => AsciicastEditorDialog.show(
+                      context,
+                      initialCastContent: sampleCast,
+                    ),
+                    child: const Text('OpenDialog'),
+                  ),
+                  const Expanded(
+                    child: AsciicastEditor(initialCastContent: sampleCast),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text('主题: ${TerminalPreviewTheme.termuiDark.label}'),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.text('主题: ${TerminalPreviewTheme.termuiDark.label}'),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(
+        find.text('主题: ${TerminalPreviewTheme.dracula.label}').last,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text('主题: ${TerminalPreviewTheme.dracula.label}'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('OpenDialog'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('关闭'), findsOneWidget);
+    },
+  );
 }
 
 class _SessionWorkspaceHarness extends StatefulWidget {
