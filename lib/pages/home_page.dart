@@ -326,6 +326,13 @@ class _HomePageState extends State<HomePage> {
         selectedIcon: Icons.cached,
         submenuParent: '边缘集群',
       ),
+      _AdminNavigationItem(
+        labelKey: 'static_html_cache',
+        fallbackLabel: '静态缓存',
+        icon: Icons.folder_copy_outlined,
+        selectedIcon: Icons.folder_copy,
+        submenuParent: '边缘集群',
+      ),
       const _AdminNavigationItem(
         labelKey: 'user_profile_reviews',
         fallbackLabel: '信息审核',
@@ -1495,11 +1502,16 @@ class _HomePageState extends State<HomePage> {
       case 34:
         return CdnCachePage(api: widget.api, onAuthError: widget.onAuthError);
       case 35:
-        return UserProfileReviewsPage(
+        return StaticHtmlCachePage(
           api: widget.api,
           onAuthError: widget.onAuthError,
         );
       case 36:
+        return UserProfileReviewsPage(
+          api: widget.api,
+          onAuthError: widget.onAuthError,
+        );
+      case 37:
         return HoneypotPage(api: widget.api, onAuthError: widget.onAuthError);
       default:
         return OverviewPage(api: widget.api, onAuthError: widget.onAuthError);

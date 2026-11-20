@@ -122,6 +122,7 @@ part 'pages/topics_page.dart';
 part 'pages/translations_page.dart';
 part 'pages/article_map_page.dart';
 part 'pages/cdn_cache_page.dart';
+part 'pages/static_html_cache_page.dart';
 part 'pages/developer_test_mode_page.dart';
 
 String _resolveMimeType(PlatformFile file) {

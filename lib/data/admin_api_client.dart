@@ -2006,6 +2006,71 @@ class AdminApiClient {
     return _map(map['data']);
   }
 
+  Future<Map<String, dynamic>> getStaticHtmlCacheStatus() async {
+    final response = await _get('/api/admin/system/cdn-cache/static/status');
+    final map = _map(jsonDecode(response.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> toggleStaticHtmlCache(bool enabled) async {
+    final response = await _post(
+      '/api/admin/system/cdn-cache/static/toggle',
+      body: {'enabled': enabled},
+    );
+    final map = _map(jsonDecode(response.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> purgeStaticHtmlCache({
+    String? key,
+    String? path,
+  }) async {
+    final response = await _post(
+      '/api/admin/system/cdn-cache/static/purge',
+      body: {
+        if (key != null && key.trim().isNotEmpty) 'key': key.trim(),
+        if (path != null && path.trim().isNotEmpty) 'path': path.trim(),
+      },
+    );
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<Map<String, dynamic>> purgeAllStaticHtmlCache() async {
+    final response = await _post(
+      '/api/admin/system/cdn-cache/static/purge-all',
+      body: const {},
+    );
+    return _map(jsonDecode(response.body));
+  }
+
+  Future<Map<String, dynamic>> startStaticCacheWarmup({
+    bool includePjax = true,
+  }) async {
+    final response = await _post(
+      '/api/admin/system/cdn-cache/static/warmup',
+      body: {'includePjax': includePjax},
+    );
+    final map = _map(jsonDecode(response.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> getStaticCacheWarmupStatus() async {
+    final response = await _get(
+      '/api/admin/system/cdn-cache/static/warmup/status',
+    );
+    final map = _map(jsonDecode(response.body));
+    return _map(map['data']);
+  }
+
+  Future<Map<String, dynamic>> cancelStaticCacheWarmup() async {
+    final response = await _post(
+      '/api/admin/system/cdn-cache/static/warmup/cancel',
+      body: const {},
+    );
+    final map = _map(jsonDecode(response.body));
+    return _map(map['data']);
+  }
+
   Future<Map<String, dynamic>> seoGet(String path) async {
     final response = await _get('/api/admin/seo/$path');
     return _map(jsonDecode(response.body));
