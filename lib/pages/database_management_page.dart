@@ -28,7 +28,8 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
   String storageSearch = '';
   String storageSortField = 'totalBytes';
   bool storageSortDesc = true;
-  final TextEditingController _storageSearchController = TextEditingController();
+  final TextEditingController _storageSearchController =
+      TextEditingController();
 
   @override
   void initState() {
@@ -104,7 +105,8 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
       });
 
       if (!success && mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text(lastMigrateResult!)),
         );
       }
@@ -116,7 +118,8 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
         lastMigrateTime = DateTime.now();
       });
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text(lastMigrateResult!)),
         );
       }
@@ -162,7 +165,8 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
       });
 
       if (!success && mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text(lastSeedResult!)),
         );
       }
@@ -174,7 +178,8 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
         lastSeedTime = DateTime.now();
       });
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text(lastSeedResult!)),
         );
       }
@@ -249,265 +254,263 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  t(context, 'migrate_database'),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  t(context, 'migrate_confirm'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: isMigrating ? null : _handleMigrate,
-                  icon: isMigrating
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.sync),
-                  label: Text(isMigrating ? t(context, 'migrating') : t(context, 'migrate_database')),
-                ),
-                if (lastMigrateResult != null) ...[
-                  const SizedBox(height: 12),
-                  Builder(
-                    builder: (context) {
-                      final isDark =
-                          Theme.of(context).brightness == Brightness.dark;
-                      final isSuccess =
-                          lastMigrateResult!.contains('成功') ||
-                          lastMigrateResult!.contains('successfully');
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color:
-                              isSuccess
-                                  ? (isDark
-                                      ? const Color(
-                                        0xFF14532D,
-                                      ).withValues(alpha: 0.35)
-                                      : Colors.green[50])
-                                  : (isDark
-                                      ? const Color(
-                                        0xFF7F1D1D,
-                                      ).withValues(alpha: 0.35)
-                                      : Colors.red[50]),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color:
-                                isSuccess
-                                    ? (isDark
-                                        ? Colors.green.shade800.withValues(
-                                          alpha: 0.5,
-                                        )
-                                        : Colors.green.shade200)
-                                    : (isDark
-                                        ? Colors.red.shade800.withValues(
-                                          alpha: 0.5,
-                                        )
-                                        : Colors.red.shade200),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t(context, 'migrate_database'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          t(context, 'migrate_confirm'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: isMigrating ? null : _handleMigrate,
+                          icon: isMigrating
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.sync),
+                          label: Text(
+                            isMigrating
+                                ? t(context, 'migrating')
+                                : t(context, 'migrate_database'),
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              lastMigrateResult!,
-                              style: TextStyle(
-                                color:
-                                    isSuccess
+                        if (lastMigrateResult != null) ...[
+                          const SizedBox(height: 12),
+                          Builder(
+                            builder: (context) {
+                              final isDark =
+                                  Theme.of(context).brightness ==
+                                  Brightness.dark;
+                              final isSuccess =
+                                  lastMigrateResult!.contains('成功') ||
+                                  lastMigrateResult!.contains('successfully');
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isSuccess
+                                      ? (isDark
+                                            ? const Color(
+                                                0xFF14532D,
+                                              ).withValues(alpha: 0.35)
+                                            : Colors.green[50])
+                                      : (isDark
+                                            ? const Color(
+                                                0xFF7F1D1D,
+                                              ).withValues(alpha: 0.35)
+                                            : Colors.red[50]),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isSuccess
                                         ? (isDark
-                                            ? Colors.green.shade300
-                                            : Colors.green[800])
+                                              ? Colors.green.shade800
+                                                    .withValues(alpha: 0.5)
+                                              : Colors.green.shade200)
                                         : (isDark
-                                            ? Colors.red.shade300
-                                            : Colors.red[800]),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (lastMigrateTime != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                '🕐 ${_formatTime(lastMigrateTime!)}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color:
-                                      isDark
-                                          ? Colors.grey.shade400
-                                          : Colors.grey.shade700,
+                                              ? Colors.red.shade800.withValues(
+                                                  alpha: 0.5,
+                                                )
+                                              : Colors.red.shade200),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-                    },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      lastMigrateResult!,
+                                      style: TextStyle(
+                                        color: isSuccess
+                                            ? (isDark
+                                                  ? Colors.green.shade300
+                                                  : Colors.green[800])
+                                            : (isDark
+                                                  ? Colors.red.shade300
+                                                  : Colors.red[800]),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (lastMigrateTime != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '🕐 ${_formatTime(lastMigrateTime!)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark
+                                              ? Colors.grey.shade400
+                                              : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  t(context, 'seed_database'),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  t(context, 'seed_confirm'),
-                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: isSeeding ? null : _handleSeed,
-                  icon: isSeeding
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.add_circle_outline),
-                  label: Text(isSeeding ? t(context, 'seeding') : t(context, 'seed_database')),
-                ),
-                if (lastSeedResult != null) ...[
-                  const SizedBox(height: 12),
-                  Builder(
-                    builder: (context) {
-                      final isDark =
-                          Theme.of(context).brightness == Brightness.dark;
-                      final isSuccess =
-                          lastSeedResult!.contains('成功') ||
-                          lastSeedResult!.contains('successfully');
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color:
-                              isSuccess
-                                  ? (isDark
-                                      ? const Color(
-                                        0xFF14532D,
-                                      ).withValues(alpha: 0.35)
-                                      : Colors.green[50])
-                                  : (isDark
-                                      ? const Color(
-                                        0xFF7F1D1D,
-                                      ).withValues(alpha: 0.35)
-                                      : Colors.red[50]),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color:
-                                isSuccess
-                                    ? (isDark
-                                        ? Colors.green.shade800.withValues(
-                                          alpha: 0.5,
-                                        )
-                                        : Colors.green.shade200)
-                                    : (isDark
-                                        ? Colors.red.shade800.withValues(
-                                          alpha: 0.5,
-                                        )
-                                        : Colors.red.shade200),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t(context, 'seed_database'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          t(context, 'seed_confirm'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: isSeeding ? null : _handleSeed,
+                          icon: isSeeding
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.add_circle_outline),
+                          label: Text(
+                            isSeeding
+                                ? t(context, 'seeding')
+                                : t(context, 'seed_database'),
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              lastSeedResult!,
-                              style: TextStyle(
-                                color:
-                                    isSuccess
+                        if (lastSeedResult != null) ...[
+                          const SizedBox(height: 12),
+                          Builder(
+                            builder: (context) {
+                              final isDark =
+                                  Theme.of(context).brightness ==
+                                  Brightness.dark;
+                              final isSuccess =
+                                  lastSeedResult!.contains('成功') ||
+                                  lastSeedResult!.contains('successfully');
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isSuccess
+                                      ? (isDark
+                                            ? const Color(
+                                                0xFF14532D,
+                                              ).withValues(alpha: 0.35)
+                                            : Colors.green[50])
+                                      : (isDark
+                                            ? const Color(
+                                                0xFF7F1D1D,
+                                              ).withValues(alpha: 0.35)
+                                            : Colors.red[50]),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isSuccess
                                         ? (isDark
-                                            ? Colors.green.shade300
-                                            : Colors.green[800])
+                                              ? Colors.green.shade800
+                                                    .withValues(alpha: 0.5)
+                                              : Colors.green.shade200)
                                         : (isDark
-                                            ? Colors.red.shade300
-                                            : Colors.red[800]),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (lastSeedTime != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                '🕐 ${_formatTime(lastSeedTime!)}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color:
-                                      isDark
-                                          ? Colors.grey.shade400
-                                          : Colors.grey.shade700,
+                                              ? Colors.red.shade800.withValues(
+                                                  alpha: 0.5,
+                                                )
+                                              : Colors.red.shade200),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-                    },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      lastSeedResult!,
+                                      style: TextStyle(
+                                        color: isSuccess
+                                            ? (isDark
+                                                  ? Colors.green.shade300
+                                                  : Colors.green[800])
+                                            : (isDark
+                                                  ? Colors.red.shade300
+                                                  : Colors.red[800]),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (lastSeedTime != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '🕐 ${_formatTime(lastSeedTime!)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark
+                                              ? Colors.grey.shade400
+                                              : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  t(context, 'data_import'),
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  t(context, 'data_import_desc'),
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .bodySmall,
                 ),
                 const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ImportDataPage(
-                              api: widget.api,
-                              onAuthError: widget.onAuthError,
-                            ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.input),
-                  label: Text(t(context, 'go_to_import')),
-                  style: FilledButton.styleFrom(
-                      backgroundColor: Colors.orange[800]),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t(context, 'data_import'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          t(context, 'data_import_desc'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => ImportDataPage(
+                                  api: widget.api,
+                                  onAuthError: widget.onAuthError,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.input),
+                          label: Text(t(context, 'go_to_import')),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.orange[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ],
-            ),
-          ),
-        ),
               ],
             ),
           ),
@@ -550,7 +553,10 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.storage_rounded, color: theme.colorScheme.primary),
+                    Icon(
+                      Icons.storage_rounded,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       t(
@@ -605,7 +611,9 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer.withValues(alpha: 0.4),
+                  color: theme.colorScheme.errorContainer.withValues(
+                    alpha: 0.4,
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -682,19 +690,39 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                             : null,
                       ),
                       onChanged: (value) {
-                        setState(() => storageSearch = value.trim().toLowerCase());
+                        setState(
+                          () => storageSearch = value.trim().toLowerCase(),
+                        );
                       },
                     ),
                   ),
                   DropdownButton<String>(
                     value: storageSortField,
                     items: const [
-                      DropdownMenuItem(value: 'totalBytes', child: Text('按总占用排序')),
-                      DropdownMenuItem(value: 'dataBytes', child: Text('按表数据排序')),
-                      DropdownMenuItem(value: 'indexBytes', child: Text('按索引占用排序')),
-                      DropdownMenuItem(value: 'toastBytes', child: Text('按 TOAST 排序')),
-                      DropdownMenuItem(value: 'estimatedRows', child: Text('按预估行数排序')),
-                      DropdownMenuItem(value: 'tableName', child: Text('按表名排序')),
+                      DropdownMenuItem(
+                        value: 'totalBytes',
+                        child: Text('按总占用排序'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'dataBytes',
+                        child: Text('按表数据排序'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'indexBytes',
+                        child: Text('按索引占用排序'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'toastBytes',
+                        child: Text('按 TOAST 排序'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'estimatedRows',
+                        child: Text('按预估行数排序'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'tableName',
+                        child: Text('按表名排序'),
+                      ),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
@@ -711,7 +739,9 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
                   IconButton(
                     tooltip: storageSortDesc ? '降序' : '升序',
                     icon: Icon(
-                      storageSortDesc ? Icons.arrow_downward : Icons.arrow_upward,
+                      storageSortDesc
+                          ? Icons.arrow_downward
+                          : Icons.arrow_upward,
                       size: 18,
                     ),
                     onPressed: () {
@@ -724,10 +754,7 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
               if (filteredTables.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    '没有匹配的数据表',
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  child: Text('没有匹配的数据表', style: theme.textTheme.bodyMedium),
                 )
               else if (!isPhone)
                 Container(
@@ -828,7 +855,9 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
   }) {
     final theme = Theme.of(context);
     final ratio = (table.sharePercent / 100).clamp(0.0, 1.0);
-    final borderColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.45);
+    final borderColor = theme.colorScheme.outlineVariant.withValues(
+      alpha: 0.45,
+    );
 
     return Material(
       color: theme.cardColor,
@@ -982,7 +1011,9 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.45,
+        ),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -1070,6 +1101,6 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
   }
 
   String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}';
+    return DateTimeFormatter.formatTimeOnly(context, time);
   }
 }

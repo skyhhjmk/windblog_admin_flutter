@@ -1853,7 +1853,7 @@ class _TopicsPageState extends State<TopicsPage>
                   subtitle: Text(
                     '主题 ${run['topicCount'] ?? 0} 个 · 种子 ${run['seedCount'] ?? 0} 个'
                     '${run['taskId'] == null ? '' : ' · 任务 #${run['taskId']}'}\n'
-                    '${run['error']?.toString().isNotEmpty == true ? run['error'] : (run['createdAt'] ?? '')}',
+                    '${run['error']?.toString().isNotEmpty == true ? run['error'] : DateTimeFormatter.formatHuman(context, run['createdAt'], fallback: '')}',
                   ),
                   isThreeLine: true,
                 ),

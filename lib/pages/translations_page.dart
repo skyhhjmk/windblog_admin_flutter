@@ -428,11 +428,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
   }
 
   String _formatDate(DateTime? date) {
-    if (date == null) return '-';
-    final local = date.toLocal();
-    String two(int value) => value.toString().padLeft(2, '0');
-    return '${local.year}-${two(local.month)}-${two(local.day)} '
-        '${two(local.hour)}:${two(local.minute)}';
+    return DateTimeFormatter.formatDateTime(context, date);
   }
 
   Widget _statusChip(TranslationItem item) {
@@ -442,12 +438,12 @@ class _TranslationsPageState extends State<TranslationsPage> {
     final color = outdated
         ? Colors.amber
         : (pendingPublish
-            ? Colors.blue
-            : (translated ? Colors.green : Colors.orange));
+              ? Colors.blue
+              : (translated ? Colors.green : Colors.orange));
     final label = outdated
         ? (item.outdatedParagraphs > 0
-            ? '已过时 ${item.outdatedParagraphs}/${item.totalParagraphs}'
-            : '已过时')
+              ? '已过时 ${item.outdatedParagraphs}/${item.totalParagraphs}'
+              : '已过时')
         : (pendingPublish ? '待发布' : (translated ? '已翻译' : '待翻译'));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -597,11 +593,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.update,
-                size: 17,
-                color: Colors.amber.shade700,
-              ),
+              Icon(Icons.update, size: 17, color: Colors.amber.shade700),
               const SizedBox(width: 4),
               Text(
                 '增量补翻',

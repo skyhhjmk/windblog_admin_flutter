@@ -923,29 +923,23 @@ class _RepostManagementPageState extends State<RepostManagementPage>
                             ? t(context, 'repost_filter_banned')
                             : t(context, 'repost_filter_normal'),
                         style: TextStyle(
-                          color:
-                              banned
-                                  ? (isDark
-                                      ? Colors.red.shade200
-                                      : Colors.red.shade900)
-                                  : (isDark
-                                      ? Colors.green.shade200
-                                      : Colors.green.shade900),
+                          color: banned
+                              ? (isDark
+                                    ? Colors.red.shade200
+                                    : Colors.red.shade900)
+                              : (isDark
+                                    ? Colors.green.shade200
+                                    : Colors.green.shade900),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      backgroundColor:
-                          banned
-                              ? (isDark
-                                  ? const Color(
-                                    0xFF7F1D1D,
-                                  ).withValues(alpha: 0.4)
-                                  : Colors.red.shade50)
-                              : (isDark
-                                  ? const Color(
-                                    0xFF14532D,
-                                  ).withValues(alpha: 0.4)
-                                  : Colors.green.shade100),
+                      backgroundColor: banned
+                          ? (isDark
+                                ? const Color(0xFF7F1D1D).withValues(alpha: 0.4)
+                                : Colors.red.shade50)
+                          : (isDark
+                                ? const Color(0xFF14532D).withValues(alpha: 0.4)
+                                : Colors.green.shade100),
                     );
                   },
                 ),
@@ -1047,19 +1041,17 @@ class _RepostManagementPageState extends State<RepostManagementPage>
       label: Text(
         active ? t(context, 'repost_filter_active') : t(context, inactiveKey),
         style: TextStyle(
-          color:
-              active
-                  ? (isDark ? Colors.green.shade200 : Colors.green.shade900)
-                  : (isDark ? Colors.grey.shade300 : Colors.grey.shade800),
+          color: active
+              ? (isDark ? Colors.green.shade200 : Colors.green.shade900)
+              : (isDark ? Colors.grey.shade300 : Colors.grey.shade800),
           fontWeight: FontWeight.w600,
         ),
       ),
-      backgroundColor:
-          active
-              ? (isDark
-                  ? const Color(0xFF14532D).withValues(alpha: 0.4)
-                  : Colors.green.shade100)
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
+      backgroundColor: active
+          ? (isDark
+                ? const Color(0xFF14532D).withValues(alpha: 0.4)
+                : Colors.green.shade100)
+          : Theme.of(context).colorScheme.surfaceContainerHighest,
     );
   }
 
@@ -1094,7 +1086,7 @@ class _RepostManagementPageState extends State<RepostManagementPage>
       if (!mounted) return;
       final lines = <String>[
         '${t(context, 'repost_checked_url')}: ${result['checkedUrl'] ?? ''}',
-        '${t(context, 'repost_checked_at')}: ${result['checkedAt'] ?? ''}',
+        '${t(context, 'repost_checked_at')}: ${DateTimeFormatter.formatDateTime(context, result['checkedAt'], includeSeconds: true)}',
         '${t(context, 'repost_has_original_link')}: ${_yesNo(result['hasOriginalLink'])}',
         '${t(context, 'repost_has_license_code')}: ${_yesNo(result['hasLicenseCode'])}',
         '${t(context, 'repost_has_go_link')}: ${_yesNo(result['hasGoLink'])}',
@@ -1304,10 +1296,7 @@ class _RepostManagementPageState extends State<RepostManagementPage>
   }
 
   String _formatDate(Object? value) {
-    if (value == null) return '-';
-    final parsed = DateTime.tryParse(value.toString());
-    if (parsed == null) return value.toString();
-    return parsed.toLocal().toString().split('.').first;
+    return DateTimeFormatter.formatDateTime(context, value);
   }
 }
 

@@ -352,16 +352,9 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.play_circle_outline,
-            size: 80,
-            color: mutedColor,
-          ),
+          Icon(Icons.play_circle_outline, size: 80, color: mutedColor),
           const SizedBox(height: 12),
-          Text(
-            t(context, 'video_file'),
-            style: TextStyle(color: mutedColor),
-          ),
+          Text(t(context, 'video_file'), style: TextStyle(color: mutedColor)),
         ],
       );
     }
@@ -750,7 +743,11 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   }
 
   String _formatVirusScanTime(DateTime value) {
-    return value.toLocal().toString().split('.').first;
+    return DateTimeFormatter.formatDateTime(
+      context,
+      value,
+      includeSeconds: true,
+    );
   }
 
   Widget _buildVisibilityRegionsSection() {

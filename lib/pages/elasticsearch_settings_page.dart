@@ -263,8 +263,12 @@ class _ElasticsearchSettingsPageState extends State<ElasticsearchSettingsPage> {
     }
 
     String formatTimestamp(String value) {
-      DateTime? parsed = DateTime.tryParse(value);
-      return parsed == null ? value : parsed.toLocal().toString().split('.').first;
+      return DateTimeFormatter.formatDateTime(
+        context,
+        value,
+        includeSeconds: true,
+        fallback: value,
+      );
     }
 
     return Card(

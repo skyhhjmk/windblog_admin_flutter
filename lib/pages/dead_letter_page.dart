@@ -39,7 +39,8 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('加载失败: $e')),
         );
       }
@@ -54,7 +55,8 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
     try {
       await widget.api.retryDeadLetterMessage(message.id);
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           const SnackBar(content: Text('重试任务已提交')),
         );
       }
@@ -63,7 +65,8 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('重试失败: $e')),
         );
       }
@@ -73,25 +76,24 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
   Future<void> _deleteMessage(DeadLetterMessageItem message) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: const Text('确认删除'),
-            content: const Text('确定要删除此死信消息吗？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('删除'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定要删除此死信消息吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
     );
 
     if (confirmed != true) {
@@ -105,7 +107,8 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
       widget.onAuthError();
     } catch (e) {
       if (mounted) {
-        AdminFeedback.showSnackBar(context,
+        AdminFeedback.showSnackBar(
+          context,
           SnackBar(content: Text('删除失败: $e')),
         );
       }
@@ -192,7 +195,9 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
                       const SizedBox(height: 8),
                       Text('队列: ${message.queueName}'),
                       Text('重试次数: ${message.retryCount}'),
-                      Text('创建时间: ${message.createdAt.toString()}'),
+                      Text(
+                        '${t(context, 'created_at')}: ${DateTimeFormatter.formatDateTime(context, message.createdAt, includeSeconds: true)}',
+                      ),
                       if (message.errorReason != null &&
                           message.errorReason!.isNotEmpty)
                         Padding(
@@ -215,7 +220,9 @@ class _DeadLetterPageState extends State<DeadLetterPage> {
                             onPressed: () => _deleteMessage(message),
                             icon: const Icon(Icons.delete, color: Colors.red),
                             label: const Text(
-                                '删除', style: TextStyle(color: Colors.red)),
+                              '删除',
+                              style: TextStyle(color: Colors.red),
+                            ),
                           ),
                         ],
                       ),

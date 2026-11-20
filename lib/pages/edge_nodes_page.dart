@@ -956,7 +956,8 @@ class _AddEdgeNodeDialogState extends State<_AddEdgeNodeDialog> {
 String _formatDate(DateTime? dt) {
   if (dt == null) return '从未活跃';
   final localDt = dt.toLocal();
-  return '${localDt.year}-${localDt.month}-${localDt.day} ${localDt.hour.toString().padLeft(2, '0')}:${localDt.minute.toString().padLeft(2, '0')}:${localDt.second.toString().padLeft(2, '0')}';
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${localDt.year}-${two(localDt.month)}-${two(localDt.day)} ${two(localDt.hour)}:${two(localDt.minute)}:${two(localDt.second)}';
 }
 
 String _formatListRate(EdgeNodeAvailabilityRate? rate) {

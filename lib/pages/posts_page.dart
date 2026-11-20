@@ -735,11 +735,7 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   String _formatDate(DateTime? date) {
-    if (date == null) return '-';
-    final local = date.toLocal();
-    String two(int value) => value.toString().padLeft(2, '0');
-    return '${local.year}-${two(local.month)}-${two(local.day)} '
-        '${two(local.hour)}:${two(local.minute)}';
+    return DateTimeFormatter.formatDateTime(context, date);
   }
 
   Widget _bulkActionBar() {
@@ -2161,7 +2157,6 @@ class _QuickEditPostDialogState extends State<QuickEditPostDialog> {
   }
 
   String _formatDateTime(DateTime dt) {
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    return DateTimeFormatter.formatDateTime(context, dt);
   }
 }

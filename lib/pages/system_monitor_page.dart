@@ -171,22 +171,20 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
     final isHealthy = health.isHealthy;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final bgColor =
-        isHealthy
-            ? (isDark
-                ? const Color(0xFF14532D).withValues(alpha: 0.3)
-                : Colors.green.shade50)
-            : (isDark
-                ? const Color(0xFF7F1D1D).withValues(alpha: 0.3)
-                : Colors.red.shade50);
-    final borderColor =
-        isHealthy
-            ? (isDark
-                ? Colors.green.shade800.withValues(alpha: 0.5)
-                : Colors.green.shade200)
-            : (isDark
-                ? Colors.red.shade800.withValues(alpha: 0.5)
-                : Colors.red.shade200);
+    final bgColor = isHealthy
+        ? (isDark
+              ? const Color(0xFF14532D).withValues(alpha: 0.3)
+              : Colors.green.shade50)
+        : (isDark
+              ? const Color(0xFF7F1D1D).withValues(alpha: 0.3)
+              : Colors.red.shade50);
+    final borderColor = isHealthy
+        ? (isDark
+              ? Colors.green.shade800.withValues(alpha: 0.5)
+              : Colors.green.shade200)
+        : (isDark
+              ? Colors.red.shade800.withValues(alpha: 0.5)
+              : Colors.red.shade200);
 
     return Card(
       color: bgColor,
@@ -196,31 +194,30 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child:
-            AdminBreakpoints.isPhone(context)
-                ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      isHealthy ? Icons.check_circle : Icons.error,
-                      color: isHealthy ? Colors.green : Colors.red,
-                      size: 40,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildHealthText(health, isHealthy),
-                  ],
-                )
-                : Row(
-                  children: [
-                    Icon(
-                      isHealthy ? Icons.check_circle : Icons.error,
-                      color: isHealthy ? Colors.green : Colors.red,
-                      size: 48,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildHealthText(health, isHealthy)),
-                  ],
-                ),
+        child: AdminBreakpoints.isPhone(context)
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    isHealthy ? Icons.check_circle : Icons.error,
+                    color: isHealthy ? Colors.green : Colors.red,
+                    size: 40,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildHealthText(health, isHealthy),
+                ],
+              )
+            : Row(
+                children: [
+                  Icon(
+                    isHealthy ? Icons.check_circle : Icons.error,
+                    color: isHealthy ? Colors.green : Colors.red,
+                    size: 48,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildHealthText(health, isHealthy)),
+                ],
+              ),
       ),
     );
   }
@@ -235,60 +232,49 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color:
-                isHealthy
-                    ? (isDark ? Colors.green.shade300 : Colors.green.shade700)
-                    : (isDark ? Colors.red.shade300 : Colors.red.shade700),
+            color: isHealthy
+                ? (isDark ? Colors.green.shade300 : Colors.green.shade700)
+                : (isDark ? Colors.red.shade300 : Colors.red.shade700),
           ),
         ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children:
-              health.components.entries.map((entry) {
-                final component = entry.value;
-                final isComponentHealthy = component.isHealthy;
-                final chipBg =
-                    isComponentHealthy
-                        ? (isDark
-                            ? const Color(0xFF14532D).withValues(alpha: 0.5)
-                            : Colors.green.shade100)
-                        : (isDark
-                            ? const Color(0xFF7F1D1D).withValues(alpha: 0.5)
-                            : Colors.red.shade100);
-                final chipTextColor =
-                    isComponentHealthy
-                        ? (isDark
-                            ? Colors.green.shade200
-                            : Colors.green.shade900)
-                        : (isDark ? Colors.red.shade200 : Colors.red.shade900);
-                return Chip(
-                  avatar: Icon(
-                    isComponentHealthy ? Icons.check : Icons.close,
-                    size: 16,
-                    color: isComponentHealthy ? Colors.green : Colors.red,
-                  ),
-                  label: Text(
-                    entry.key,
-                    style: TextStyle(
-                      color: chipTextColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  backgroundColor: chipBg,
-                  side: BorderSide(
-                    color:
-                        isComponentHealthy
-                            ? (isDark
-                                ? Colors.green.shade800
-                                : Colors.green.shade200)
-                            : (isDark
-                                ? Colors.red.shade800
-                                : Colors.red.shade200),
-                  ),
-                );
-              }).toList(),
+          children: health.components.entries.map((entry) {
+            final component = entry.value;
+            final isComponentHealthy = component.isHealthy;
+            final chipBg = isComponentHealthy
+                ? (isDark
+                      ? const Color(0xFF14532D).withValues(alpha: 0.5)
+                      : Colors.green.shade100)
+                : (isDark
+                      ? const Color(0xFF7F1D1D).withValues(alpha: 0.5)
+                      : Colors.red.shade100);
+            final chipTextColor = isComponentHealthy
+                ? (isDark ? Colors.green.shade200 : Colors.green.shade900)
+                : (isDark ? Colors.red.shade200 : Colors.red.shade900);
+            return Chip(
+              avatar: Icon(
+                isComponentHealthy ? Icons.check : Icons.close,
+                size: 16,
+                color: isComponentHealthy ? Colors.green : Colors.red,
+              ),
+              label: Text(
+                entry.key,
+                style: TextStyle(
+                  color: chipTextColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              backgroundColor: chipBg,
+              side: BorderSide(
+                color: isComponentHealthy
+                    ? (isDark ? Colors.green.shade800 : Colors.green.shade200)
+                    : (isDark ? Colors.red.shade800 : Colors.red.shade200),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
@@ -465,9 +451,8 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Theme.of(context).brightness == Brightness.dark
-                      ? Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45)
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.45)
                       : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
@@ -561,9 +546,7 @@ class _SystemMonitorPageState extends State<SystemMonitorPage> {
   }
 
   String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:'
-        '${time.minute.toString().padLeft(2, '0')}:'
-        '${time.second.toString().padLeft(2, '0')}';
+    return DateTimeFormatter.formatTimeOnly(context, time);
   }
 }
 

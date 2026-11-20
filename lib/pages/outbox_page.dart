@@ -243,7 +243,7 @@ class _OutboxPageState extends State<OutboxPage>
   Widget _buildItem(AdminOutboxItem item) {
     final failed = item.status == 'FAILED';
     final statusColor = failed ? Colors.red : Colors.blue;
-    final createdAt = item.createdAt?.toLocal().toString() ?? '-';
+    final createdAt = DateTimeFormatter.formatHuman(context, item.createdAt);
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: statusColor.withValues(alpha: 0.12),

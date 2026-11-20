@@ -258,26 +258,7 @@ class _StaticHtmlCachePageState extends State<StaticHtmlCachePage> {
   }
 
   String _formatRelativeTime(String? iso) {
-    if (iso == null || iso.trim().isEmpty) return '';
-    final parsed = DateTime.tryParse(iso.trim());
-    if (parsed == null) return iso;
-    final diff = DateTime.now().difference(parsed.toLocal());
-    if (diff.isNegative || diff.inMinutes < 1) {
-      return '刚刚';
-    }
-    if (diff.inMinutes < 60) {
-      return '${diff.inMinutes} 分钟前';
-    }
-    if (diff.inHours < 24) {
-      return '${diff.inHours} 小时前';
-    }
-    if (diff.inDays < 30) {
-      return '${diff.inDays} 天前';
-    }
-    if (diff.inDays < 365) {
-      return '${diff.inDays ~/ 30} 个月前';
-    }
-    return '${diff.inDays ~/ 365} 年前';
+    return DateTimeFormatter.formatHuman(context, iso, fallback: '');
   }
 
   @override
@@ -521,9 +502,8 @@ class _StaticHtmlCachePageState extends State<StaticHtmlCachePage> {
                         final path = item['path']?.toString() ?? '';
                         final lang = item['lang']?.toString() ?? '';
                         final region = item['region']?.toString() ?? '';
-                        final variant =
-                            (item['variant']?.toString() ?? 'full')
-                                .toUpperCase();
+                        final variant = (item['variant']?.toString() ?? 'full')
+                            .toUpperCase();
                         final sizeBytes =
                             (item['sizeBytes'] as num?)?.toInt() ?? 0;
                         final hits = (item['hits'] as num?)?.toInt() ?? 0;

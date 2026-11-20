@@ -967,5 +967,10 @@
   "sidebar_add_custom_html": "Add Custom HTML",
   "topics_tab_list": "Topic List",
   "topics_tab_assigned": "Assigned Tasks",
-  "topics_tab_settings": "Settings & History"
+  "topics_tab_settings": "Settings & History",
+  "time_just_now": "Just now",
+  "time_minutes_ago": "{n}m ago",
+  "time_hours_ago": "{n}h ago",
+  "time_days_ago": "{n}d ago",
+  "checked_at": "Checked At"
 }

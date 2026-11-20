@@ -1119,11 +1119,8 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                 ),
                 borderRadius: BorderRadius.circular(8),
                 color: Theme.of(context).brightness == Brightness.dark
-                    ? Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.45,
-                      )
+                    ? Theme.of(context).colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.45)
                     : Colors.grey.shade50,
               ),
               child: SingleChildScrollView(
@@ -1149,7 +1146,8 @@ class _AiProvidersPageState extends State<AiProvidersPage>
                           border: Border(
                             left: BorderSide(
                               color:
-                                  Theme.of(context).brightness == Brightness.dark
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
                                   ? Colors.indigo.shade700
                                   : Colors.indigo.shade200,
                               width: 4,
@@ -1504,12 +1502,6 @@ class _AiProvidersPageState extends State<AiProvidersPage>
   }
 
   String _formatDateTime(DateTime dt) {
-    final local = dt.toLocal();
-    final y = local.year.toString().padLeft(4, '0');
-    final m = local.month.toString().padLeft(2, '0');
-    final d = local.day.toString().padLeft(2, '0');
-    final h = local.hour.toString().padLeft(2, '0');
-    final min = local.minute.toString().padLeft(2, '0');
-    return '$y-$m-$d $h:$min';
+    return DateTimeFormatter.formatDateTime(context, dt);
   }
 }

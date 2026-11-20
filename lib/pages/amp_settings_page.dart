@@ -366,8 +366,11 @@ class _AmpSettingsPageState extends State<AmpSettingsPage> {
   }
 
   String _formatDate(DateTime? value) {
-    if (value == null) return '-';
-    return value.toLocal().toString().split('.').first;
+    return DateTimeFormatter.formatDateTime(
+      context,
+      value,
+      includeSeconds: true,
+    );
   }
 }
 

@@ -323,8 +323,11 @@ class _LinksPageState extends State<LinksPage>
       'AUTOMATIC' => '自动检测',
       _ => '来源未记录',
     };
-    final checkTime =
-        log.checkTime?.toLocal().toString().split('.').first ?? '-';
+    final checkTime = DateTimeFormatter.formatDateTime(
+      context,
+      log.checkTime,
+      includeSeconds: true,
+    );
     String description =
         '检测来源：$sourceLabel · 检查时间：$checkTime\n节点：${log.nodeId}  状态码：${log.statusCode}  耗时：${log.loadTimeMs}ms';
     if (log.errorMessage != null && log.errorMessage!.isNotEmpty) {
@@ -383,38 +386,38 @@ class _LinksPageState extends State<LinksPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-              detailRow('检测目标', value('targetName', log.linkName)),
-              detailRow('实际检测 URL', value('checkedUrl'), selectable: true),
-              detailRow('本站站点名', value('siteName'), selectable: true),
-              detailRow('本站 URL', value('siteUrl'), selectable: true),
-              detailRow(
-                '检测关键词',
-                expectedKeywords.isEmpty ? '未记录' : expectedKeywords,
-              ),
-              detailRow(
-                '命中的关键词',
-                matchedKeywords.isEmpty ? '无' : matchedKeywords,
-              ),
-              detailRow(
-                '命中的本站反链 URL',
-                matchedUrls.isEmpty ? '无' : matchedUrls,
-                selectable: true,
-              ),
-              detailRow('反链锚文本', anchorTexts.isEmpty ? '无' : anchorTexts),
-              detailRow(
-                '关键词欺诈',
-                !evidenceAvailable
-                    ? '此节点未提供新版关键词欺诈判定'
-                    : log.keywordFraudDetected
-                    ? '检测到：${fraudReasons.isEmpty ? '原因未记录' : fraudReasons}'
-                    : '未检测到',
-              ),
-              detailRow('DOM 解析错误数', value('domParseErrorCount', '0')),
-              if (!evidenceAvailable)
-                const Text(
-                  '该节点未返回新版 DOM 检测证据；检测目标和关键词仍来自本次任务。',
-                  style: TextStyle(color: Colors.orange),
+                detailRow('检测目标', value('targetName', log.linkName)),
+                detailRow('实际检测 URL', value('checkedUrl'), selectable: true),
+                detailRow('本站站点名', value('siteName'), selectable: true),
+                detailRow('本站 URL', value('siteUrl'), selectable: true),
+                detailRow(
+                  '检测关键词',
+                  expectedKeywords.isEmpty ? '未记录' : expectedKeywords,
                 ),
+                detailRow(
+                  '命中的关键词',
+                  matchedKeywords.isEmpty ? '无' : matchedKeywords,
+                ),
+                detailRow(
+                  '命中的本站反链 URL',
+                  matchedUrls.isEmpty ? '无' : matchedUrls,
+                  selectable: true,
+                ),
+                detailRow('反链锚文本', anchorTexts.isEmpty ? '无' : anchorTexts),
+                detailRow(
+                  '关键词欺诈',
+                  !evidenceAvailable
+                      ? '此节点未提供新版关键词欺诈判定'
+                      : log.keywordFraudDetected
+                      ? '检测到：${fraudReasons.isEmpty ? '原因未记录' : fraudReasons}'
+                      : '未检测到',
+                ),
+                detailRow('DOM 解析错误数', value('domParseErrorCount', '0')),
+                if (!evidenceAvailable)
+                  const Text(
+                    '该节点未返回新版 DOM 检测证据；检测目标和关键词仍来自本次任务。',
+                    style: TextStyle(color: Colors.orange),
+                  ),
               ],
             ),
           ),
@@ -472,22 +475,19 @@ class _LinksPageState extends State<LinksPage>
                       label: Text(
                         '检测到关键词欺诈',
                         style: TextStyle(
-                          color:
-                              isDark
-                                  ? Colors.red.shade200
-                                  : Colors.red.shade900,
+                          color: isDark
+                              ? Colors.red.shade200
+                              : Colors.red.shade900,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      backgroundColor:
-                          isDark
-                              ? const Color(0xFF7F1D1D).withValues(alpha: 0.35)
-                              : Colors.red.shade50,
+                      backgroundColor: isDark
+                          ? const Color(0xFF7F1D1D).withValues(alpha: 0.35)
+                          : Colors.red.shade50,
                       side: BorderSide(
-                        color:
-                            isDark
-                                ? Colors.red.shade800.withValues(alpha: 0.5)
-                                : Colors.red.shade200,
+                        color: isDark
+                            ? Colors.red.shade800.withValues(alpha: 0.5)
+                            : Colors.red.shade200,
                       ),
                     );
                   },
@@ -649,26 +649,23 @@ class _LinksPageState extends State<LinksPage>
                                   '无引用，可删除',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color:
-                                        isDark
-                                            ? Colors.orange.shade200
-                                            : Colors.orange.shade900,
+                                    color: isDark
+                                        ? Colors.orange.shade200
+                                        : Colors.orange.shade900,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                backgroundColor:
-                                    isDark
-                                        ? const Color(
-                                          0xFF78350F,
-                                        ).withValues(alpha: 0.35)
-                                        : Colors.orange.shade50,
+                                backgroundColor: isDark
+                                    ? const Color(
+                                        0xFF78350F,
+                                      ).withValues(alpha: 0.35)
+                                    : Colors.orange.shade50,
                                 side: BorderSide(
-                                  color:
-                                      isDark
-                                          ? Colors.orange.shade800.withValues(
-                                            alpha: 0.5,
-                                          )
-                                          : Colors.orange.shade200,
+                                  color: isDark
+                                      ? Colors.orange.shade800.withValues(
+                                          alpha: 0.5,
+                                        )
+                                      : Colors.orange.shade200,
                                 ),
                                 visualDensity: VisualDensity.compact,
                               );

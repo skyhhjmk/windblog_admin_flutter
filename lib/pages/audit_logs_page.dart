@@ -200,8 +200,13 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
         : item.performedByUsername!;
     parts.add('${t(context, 'operator')}: $operatorName');
 
-    final timeText =
-        item.createdAtFormatted ?? item.createdAt?.toString() ?? '';
+    final timeText = item.createdAt != null
+        ? DateTimeFormatter.formatDateTime(
+            context,
+            item.createdAt,
+            includeSeconds: true,
+          )
+        : (item.createdAtFormatted ?? '');
     if (timeText.isNotEmpty) {
       parts.add('${t(context, 'time')}: $timeText');
     }
@@ -372,7 +377,13 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
                 ),
                 _buildDetailRow(
                   t(context, 'time'),
-                  item.createdAtFormatted ?? item.createdAt?.toString() ?? '',
+                  item.createdAt != null
+                      ? DateTimeFormatter.formatDateTime(
+                          context,
+                          item.createdAt,
+                          includeSeconds: true,
+                        )
+                      : (item.createdAtFormatted ?? ''),
                 ),
                 if (_hasRequestContext(item)) ...[
                   const Divider(height: 32),
@@ -580,28 +591,24 @@ class _AuditLogDetailDialogState extends State<_AuditLogDetailDialog> {
 
   Widget _buildJsonBox(dynamic data, {Color? color}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final defaultBg =
-        isDark
-            ? Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35)
-            : Colors.grey.shade100;
+    final defaultBg = isDark
+        ? Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35)
+        : Colors.grey.shade100;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: color ?? defaultBg,
         borderRadius: BorderRadius.circular(4),
-        border:
-            color != null
-                ? Border.all(
-                  color: isDark ? Colors.blue.shade700 : Colors.blue.shade200,
-                )
-                : Border.all(
-                  color: Theme.of(
-                    context,
-                  ).dividerColor.withValues(alpha: 0.2),
-                ),
+        border: color != null
+            ? Border.all(
+                color: isDark ? Colors.blue.shade700 : Colors.blue.shade200,
+              )
+            : Border.all(
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+              ),
       ),
       child: Text(
         const JsonEncoder.withIndent('  ').convert(data),

@@ -281,7 +281,7 @@ class _CdnCachePageState extends State<CdnCachePage> {
                   Text(desc, style: const TextStyle(fontSize: 13, height: 1.4)),
                   const SizedBox(height: 8),
                   Text(
-                    '探测目标: $targetBaseUrl | 检测时间: $checkedAt',
+                    '探测目标: $targetBaseUrl | ${t(context, 'checked_at')}: ${DateTimeFormatter.formatDateTime(context, checkedAt, includeSeconds: true)}',
                     style: TextStyle(
                       fontSize: 11,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,

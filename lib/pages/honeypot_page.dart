@@ -218,7 +218,14 @@ class _HoneypotPageState extends State<HoneypotPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _detailLine('时间', detail['createdAt']?.toString() ?? ''),
+                  _detailLine(
+                    t(context, 'time'),
+                    DateTimeFormatter.formatDateTime(
+                      context,
+                      detail['createdAt'],
+                      includeSeconds: true,
+                    ),
+                  ),
                   _detailLine('来源 IP', detail['clientIp']?.toString() ?? ''),
                   _detailLine(
                     '请求',
@@ -369,53 +376,57 @@ class _HoneypotPageState extends State<HoneypotPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _metric('命中总数', _stats['total'] ?? 0, Icons.warning_amber),
-            _metric('观察中', _stats['observed'] ?? 0, Icons.visibility_outlined),
-            _metric('已拦截', _stats['blocked'] ?? 0, Icons.block_outlined),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: byRule.isEmpty
-                ? const AdminStatusView.empty(title: '所选时间范围内暂无命中')
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _sectionTitle('按攻击规则统计'),
-                      ...byRule.map((row) {
-                        final map = (row as Map).cast<String, dynamic>();
-                        final key = map['ruleKey']?.toString() ?? '';
-                        final count = toInt(map['count']) ?? 0;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 7),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 140,
-                                child: Text(_ruleLabel(key)),
-                              ),
-                              Expanded(
-                                child: LinearProgressIndicator(
-                                  value: count / maxCount,
-                                  minHeight: 9,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              SizedBox(width: 48, child: Text('$count')),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _metric('命中总数', _stats['total'] ?? 0, Icons.warning_amber),
+              _metric(
+                '观察中',
+                _stats['observed'] ?? 0,
+                Icons.visibility_outlined,
+              ),
+              _metric('已拦截', _stats['blocked'] ?? 0, Icons.block_outlined),
+            ],
           ),
-        ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: byRule.isEmpty
+                  ? const AdminStatusView.empty(title: '所选时间范围内暂无命中')
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _sectionTitle('按攻击规则统计'),
+                        ...byRule.map((row) {
+                          final map = (row as Map).cast<String, dynamic>();
+                          final key = map['ruleKey']?.toString() ?? '';
+                          final count = toInt(map['count']) ?? 0;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 140,
+                                  child: Text(_ruleLabel(key)),
+                                ),
+                                Expanded(
+                                  child: LinearProgressIndicator(
+                                    value: count / maxCount,
+                                    minHeight: 9,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                SizedBox(width: 48, child: Text('$count')),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+            ),
+          ),
         ],
       ),
     );
@@ -452,41 +463,41 @@ class _HoneypotPageState extends State<HoneypotPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _sectionTitle('每日攻击命中'),
-                SizedBox(
-                  height: 280,
-                  width: double.infinity,
-                  child: CustomPaint(
-                    painter: _DailyTrendPainter(
-                      points: points,
-                      color: Theme.of(context).colorScheme.primary,
-                      labelColor: Theme.of(
-                        context,
-                      ).colorScheme.onSurfaceVariant,
-                      gridColor: Theme.of(context).dividerColor,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _sectionTitle('每日攻击命中'),
+                  SizedBox(
+                    height: 280,
+                    width: double.infinity,
+                    child: CustomPaint(
+                      painter: _DailyTrendPainter(
+                        points: points,
+                        color: Theme.of(context).colorScheme.primary,
+                        labelColor: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant,
+                        gridColor: Theme.of(context).dividerColor,
+                      ),
                     ),
                   ),
-                ),
-                if (!hasHits)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Center(child: Text('所选时间范围内暂无命中')),
-                  ),
-                if (_statsError != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text('刷新失败：${_statsError!}'),
-                  ),
-              ],
+                  if (!hasHits)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Center(child: Text('所选时间范围内暂无命中')),
+                    ),
+                  if (_statsError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text('刷新失败：${_statsError!}'),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
         ],
       ),
     );
@@ -504,11 +515,11 @@ class _HoneypotPageState extends State<HoneypotPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-        Card(
-          child: _rules.isEmpty
-              ? const AdminStatusView.empty(title: '暂无蜜罐规则')
-              : Column(children: _rules.map(_ruleTile).toList()),
-        ),
+          Card(
+            child: _rules.isEmpty
+                ? const AdminStatusView.empty(title: '暂无蜜罐规则')
+                : Column(children: _rules.map(_ruleTile).toList()),
+          ),
         ],
       ),
     );
@@ -623,7 +634,7 @@ class _HoneypotPageState extends State<HoneypotPage>
                         overflow: TextOverflow.ellipsis,
                       ),
                       subtitle: Text(
-                        '${event['clientIp']} · $rules · ${event['createdAt']}',
+                        '${event['clientIp']} · $rules · ${DateTimeFormatter.formatHuman(context, event['createdAt'])}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
