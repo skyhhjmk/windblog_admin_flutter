@@ -44,7 +44,7 @@ jobs:
       - name: Build Web (WASM)
         id: wasm
         continue-on-error: true
-        run: flutter build web --release --wasm
+        run: flutter build web --release --wasm --no-web-resources-cdn
 
       # 6. WASM 构建失败，自动回退到 JavaScript
       - name: Build Web (JavaScript Fallback)
@@ -52,7 +52,7 @@ jobs:
         run: |
           echo "WASM build failed."
           echo "Falling back to JavaScript build..."
-          flutter build web --release
+          flutter build web --release --no-web-resources-cdn
 
       # 7. 显示最终构建模式
       - name: Build result
