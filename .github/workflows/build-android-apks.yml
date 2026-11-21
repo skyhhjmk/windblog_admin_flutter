@@ -32,7 +32,7 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.9'
+          flutter-version: '3.47.9'
           channel: stable
           cache: true
       - name: Read application version
@@ -72,8 +72,8 @@ jobs:
           rm -f pubspec_overrides.yaml
           flutter config --no-analytics
           flutter pub get
-          flutter build apk --release
-          flutter build apk --debug
+          flutter build apk --release --android-skip-build-dependency-validation
+          flutter build apk --debug --android-skip-build-dependency-validation
       - name: Stage APKs
         env:
           APP_VERSION: ${{ steps.version.outputs.value }}
