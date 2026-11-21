@@ -1,0 +1,88 @@
+name: Build Flutter Web
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-web:
+    name: Build Flutter Web
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout Flutter 项目源码
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # 2. 安装 Flutter 3.47.9
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+          cache: true
+
+      # 3. 输出 Flutter 版本
+      - name: Flutter version
+        run: flutter --version
+
+      # 4. 安装项目依赖
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5. 优先使用 WASM 构建
+      - name: Build Web (WASM)
+        id: wasm
+        continue-on-error: true
+        run: flutter build web --release --wasm
+
+      # 6. WASM 构建失败，自动回退到 JavaScript
+      - name: Build Web (JavaScript Fallback)
+        if: steps.wasm.outcome == 'failure'
+        run: |
+          echo "WASM build failed."
+          echo "Falling back to JavaScript build..."
+          flutter build web --release
+
+      # 7. 显示最终构建模式
+      - name: Build result
+        run: |
+          if [ "${{ steps.wasm.outcome }}" = "success" ]; then
+            echo "Build mode: WASM"
+          else
+            echo "Build mode: JavaScript"
+          fi
+
+      # 8. 上传 GitHub Actions Artifact
+      - name: Upload pipeline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-build
+          path: build/web/
+          if-no-files-found: error
+          retention-days: 30
+
+      # 9. 打包 Web 构建产物
+      - name: Package Web Build
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cd build
+          zip -r flutter-web.zip web
+
+      # 10. 上传到对应 GitHub Release
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: build/flutter-web.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true
