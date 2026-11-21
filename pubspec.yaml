@@ -58,6 +58,7 @@ dependencies:
   flutter_local_authentication: ^2.1.1
   super_clipboard: ^0.9.1
   desktop_drop: ^0.8.4
+  web: ^1.1.0
   asciicast_editor:
     path: packages/asciicast_editor
 

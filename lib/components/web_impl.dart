@@ -1,37 +1,50 @@
-// ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter, unnecessary_cast
 import 'dart:async';
-import 'dart:html' as html;
-import 'dart:typed_data';
+import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:mime/mime.dart';
+import 'package:web/web.dart' as web;
+
+@JS('_windblogSavePicker')
+external void _windblogSavePicker(JSString blobUrl, JSString fileName);
+
+const _contextMenuEvents = web.EventStreamProvider<web.MouseEvent>(
+  'contextmenu',
+);
+const _pasteEvents = web.EventStreamProvider<web.ClipboardEvent>('paste');
 
 final Set<String> _registeredGrafanaFrames = <String>{};
+StreamSubscription<web.MouseEvent>? _contextMenuSubscription;
 
 Widget buildIFrame(String url) {
   final viewType = 'windblog-grafana-${url.hashCode}';
   if (_registeredGrafanaFrames.add(viewType)) {
     ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
-      return html.IFrameElement()
+      final iframe = web.HTMLIFrameElement()
         ..src = url
         ..style.border = '0'
         ..style.width = '100%'
-        ..style.height = '100%'
-        ..setAttribute('referrerpolicy', 'same-origin')
-        ..setAttribute('allow', 'fullscreen');
+        ..style.height = '100%';
+      iframe.setAttribute('referrerpolicy', 'same-origin');
+      iframe.setAttribute('allow', 'fullscreen');
+      return iframe;
     });
   }
   return HtmlElementView(viewType: viewType);
 }
 
-/// Web implementation using dart:html.
+/// Web implementation using package:web and dart:js_interop (WASM + JS compatible).
 void disableBrowserContextMenu() {
   SystemChannels.platform.invokeMethod('BrowserContextMenu.disable');
-  html.window.document.onContextMenu.listen((event) => event.preventDefault());
+  _contextMenuSubscription ??= _contextMenuEvents
+      .forTarget(web.document)
+      .listen((event) => event.preventDefault());
 }
 
 void enableBrowserContextMenu() {
+  _contextMenuSubscription?.cancel();
+  _contextMenuSubscription = null;
   SystemChannels.platform.invokeMethod('BrowserContextMenu.enable');
 }
 
@@ -42,16 +55,14 @@ typedef PastedFileCallback =
 /// archives, 3D models and so on. Clipboard entries without a file are left
 /// untouched so Flutter's built-in plain-text paste keeps working.
 StreamSubscription? listenToNativePaste(PastedFileCallback onFilePasted) {
-  return html.document.onPaste.listen((event) async {
-    final clipboardEvent = event as html.ClipboardEvent;
-    final data = clipboardEvent.clipboardData;
+  return _pasteEvents.forTarget(web.document).listen((event) async {
+    final data = event.clipboardData;
     if (data == null) return;
 
-    final files = <html.File>[];
+    final files = <web.File>[];
     final items = data.items;
-    final itemCount = items?.length ?? 0;
-    for (var i = 0; i < itemCount; i++) {
-      final item = items![i];
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
       if (item.kind != 'file') continue;
       final file = item.getAsFile();
       if (file != null) files.add(file);
@@ -59,14 +70,14 @@ StreamSubscription? listenToNativePaste(PastedFileCallback onFilePasted) {
     if (files.isEmpty) {
       // Some browsers only expose files through the FileList.
       final directFiles = data.files;
-      final directCount = directFiles?.length ?? 0;
-      for (var i = 0; i < directCount; i++) {
-        files.add(directFiles![i]);
+      for (var i = 0; i < directFiles.length; i++) {
+        final file = directFiles.item(i);
+        if (file != null) files.add(file);
       }
     }
     if (files.isEmpty) return;
 
-    clipboardEvent.preventDefault();
+    event.preventDefault();
 
     // Read every file before reporting so multiple pasted files keep their
     // clipboard order in the document.
@@ -89,8 +100,8 @@ StreamSubscription? listenToNativePaste(PastedFileCallback onFilePasted) {
   });
 }
 
-Future<Uint8List?> _readClipboardFileBytes(html.File file) async {
-  final reader = html.FileReader();
+Future<Uint8List?> _readClipboardFileBytes(web.File file) async {
+  final reader = web.FileReader();
   reader.readAsArrayBuffer(file);
   try {
     await reader.onLoadEnd.first;
@@ -98,12 +109,14 @@ Future<Uint8List?> _readClipboardFileBytes(html.File file) async {
     return null;
   }
   final result = reader.result;
-  if (result is Uint8List) return result;
-  if (result is ByteBuffer) return result.asUint8List();
+  if (result == null) return null;
+  if (result.isA<JSArrayBuffer>()) {
+    return (result as JSArrayBuffer).toDart.asUint8List();
+  }
   return null;
 }
 
-String _clipboardFileName(html.File file) {
+String _clipboardFileName(web.File file) {
   final name = file.name.trim();
   if (name.isNotEmpty) return name;
   final extension = extensionFromMime(file.type);
@@ -111,7 +124,7 @@ String _clipboardFileName(html.File file) {
   return 'pasted_file_${DateTime.now().millisecondsSinceEpoch}.$suffix';
 }
 
-String _clipboardMimeType(html.File file, String fileName) {
+String _clipboardMimeType(web.File file, String fileName) {
   final declared = file.type.trim().toLowerCase();
   if (declared.isNotEmpty) return declared;
   return lookupMimeType(fileName) ?? 'application/octet-stream';
@@ -130,43 +143,40 @@ class _PastedClipboardFile {
 }
 
 void openUrl(String url) {
-  html.window.open(url, '_blank');
+  web.window.open(url, '_blank');
 }
 
 void downloadFile(Uint8List bytes, String fileName, String mimeType) {
-  final blob = html.Blob([bytes], mimeType);
-  final blobUrl = html.Url.createObjectUrlFromBlob(blob);
+  final blob = web.Blob(
+    <JSAny>[bytes.toJS].toJS,
+    web.BlobPropertyBag(type: mimeType),
+  );
+  final blobUrl = web.URL.createObjectURL(blob);
 
-  final anchor = html.AnchorElement(href: blobUrl)
-    ..setAttribute('download', fileName)
-    ..style.display = 'none';
+  final anchor = web.HTMLAnchorElement()
+    ..href = blobUrl
+    ..download = fileName;
+  anchor.style.display = 'none';
 
-  html.document.body!.children.add(anchor);
+  web.document.body?.appendChild(anchor);
   anchor.click();
 
   Future.delayed(const Duration(milliseconds: 200), () {
     anchor.remove();
-    html.Url.revokeObjectUrl(blobUrl);
+    web.URL.revokeObjectURL(blobUrl);
   });
 }
 
 void saveFileWithPicker(Uint8List bytes, String fileName) {
-  final blob = html.Blob([bytes], 'application/zip');
-  final blobUrl = html.Url.createObjectUrlFromBlob(blob);
+  final blob = web.Blob(
+    <JSAny>[bytes.toJS].toJS,
+    web.BlobPropertyBag(type: 'application/zip'),
+  );
+  final blobUrl = web.URL.createObjectURL(blob);
 
-  final htmlContent =
-      '<!DOCTYPE html><html><body><script>'
-      'window.parent._windblogSavePicker("$blobUrl","$fileName");'
-      '</script></body></html>';
-
-  final iframe = html.IFrameElement()
-    ..style.display = 'none'
-    ..srcdoc = htmlContent;
-
-  html.document.body?.children.add(iframe);
+  _windblogSavePicker(blobUrl.toJS, fileName.toJS);
 
   Future.delayed(const Duration(seconds: 60), () {
-    html.Url.revokeObjectUrl(blobUrl);
-    iframe.remove();
+    web.URL.revokeObjectURL(blobUrl);
   });
 }

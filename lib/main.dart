@@ -24,7 +24,7 @@ import 'components/visibility_regions_selector.dart';
 import 'components/native_clipboard.dart';
 import 'l10n/app_localizations.dart';
 import 'components/web_stub.dart'
-    if (dart.library.html) 'components/web_impl.dart'
+    if (dart.library.js_interop) 'components/web_impl.dart'
     as web_helper;
 import 'utils/storage_service.dart';
 import 'utils/app_theme_controller.dart';
