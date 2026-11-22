@@ -22,6 +22,7 @@ import 'data/admin_api_client.dart';
 import 'data/models.dart';
 import 'components/visibility_regions_selector.dart';
 import 'components/native_clipboard.dart';
+import 'components/geekcore_logo.dart';
 import 'l10n/app_localizations.dart';
 import 'components/web_stub.dart'
     if (dart.library.js_interop) 'components/web_impl.dart'

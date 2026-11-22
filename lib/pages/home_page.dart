@@ -1207,32 +1207,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBrand(bool showText) {
-    final themeColor = brandColor;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [themeColor, themeColor.withValues(alpha: 0.7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: themeColor.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.air, color: Colors.white, size: 20),
-          ),
+          const GeekCoreLogo(size: 36, showShadow: true),
           if (showText) ...[
             const SizedBox(width: 10),
             const Text(

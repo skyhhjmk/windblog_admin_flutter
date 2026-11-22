@@ -165,36 +165,8 @@ class _LoginPageState extends State<LoginPage> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Beautiful brand logo
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    AdminTheme.brandColor,
-                                    Color(0xFF0EA5E9),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF2563EB,
-                                    ).withValues(alpha: 0.4),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.air,
-                                color: Colors.white,
-                                size: 36,
-                              ),
-                            ),
+                            // GeekCoreLab chip brand logo
+                            const GeekCoreLogo(size: 64, showShadow: true),
                             if (widget.onManageInstances != null) ...[
                               const SizedBox(height: 10),
                               TextButton.icon(
