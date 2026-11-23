@@ -283,8 +283,50 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Future<void> _publishLatestDraft(PostItem item) async {
+    bool sendArticleUpdate = true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('发布文章'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '将发布《${item.zhTitle.isNotEmpty ? item.zhTitle : item.slug}》的最新草稿，确定继续吗？',
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: sendArticleUpdate,
+                onChanged: (value) =>
+                    setDialogState(() => sendArticleUpdate = value ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('向订阅者发送新文章更新邮件'),
+                subtitle: const Text('取消勾选可阻止本次发布向外部订阅者发送邮件通知'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(t(context, 'cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('发布'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     try {
-      await widget.api.publishLatestDraftPost(item.id);
+      await widget.api.publishLatestDraftPost(
+        item.id,
+        sendArticleUpdate: sendArticleUpdate,
+      );
       await load();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -782,34 +824,56 @@ class _PostsPageState extends State<PostsPage> {
   }
 
   Future<void> _bulkPublish() async {
+    bool sendArticleUpdate = true;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(t(context, 'batch_publish', fallback: '批量发布')),
-        content: Text(
-          t(
-            dialogContext,
-            'batch_publish_confirm',
-            fallback: '将发布所选 ${_selected.length} 篇文章的最新草稿，确定继续吗？',
-          ).replaceAll('%d', _selected.length.toString()),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(t(context, 'batch_publish', fallback: '批量发布')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t(
+                  dialogContext,
+                  'batch_publish_confirm',
+                  fallback: '将发布所选 ${_selected.length} 篇文章的最新草稿，确定继续吗？',
+                ).replaceAll('%d', _selected.length.toString()),
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: sendArticleUpdate,
+                onChanged: (value) =>
+                    setDialogState(() => sendArticleUpdate = value ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('向订阅者发送新文章更新邮件'),
+                subtitle: const Text('取消勾选可阻止本次批量发布向外部订阅者发送邮件通知'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(t(context, 'cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('发布'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(t(context, 'cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('发布'),
-          ),
-        ],
       ),
     );
     if (confirmed != true || !mounted) return;
     setState(() => _bulkRunning = true);
     try {
       for (final id in _selected.toList()) {
-        await widget.api.publishLatestDraftPost(id);
+        await widget.api.publishLatestDraftPost(
+          id,
+          sendArticleUpdate: sendArticleUpdate,
+        );
       }
       if (mounted) {
         AdminFeedback.success(context, '已发布 ${_selected.length} 篇文章');

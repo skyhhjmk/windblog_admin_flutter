@@ -105,8 +105,52 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   Future<void> _updateCommentStatus(CommentItem comment, int newStatus) async {
+    bool sendEmailNotification = true;
+    if (newStatus == 1 && comment.status != 1 && comment.parentId != null) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: Text(t(context, 'approve')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('确认通过该条回复评论？'),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  value: sendEmailNotification,
+                  onChanged: (value) => setDialogState(
+                    () => sendEmailNotification = value ?? false,
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('向被回复用户发送邮件通知'),
+                  subtitle: const Text('取消勾选可阻止本次通过向外部用户发送回复邮件通知'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(t(context, 'cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(t(context, 'confirm')),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
     try {
-      await widget.api.updateComment(comment.id, status: newStatus);
+      await widget.api.updateComment(
+        comment.id,
+        status: newStatus,
+        sendEmailNotification: sendEmailNotification,
+      );
       await _loadComments();
     } on UnauthorizedException {
       widget.onAuthError();
@@ -132,6 +176,7 @@ class _CommentsPageState extends State<CommentsPage> {
       userName: comment.userName,
       guestEmail: comment.guestEmail,
       content: comment.content,
+      parentId: comment.parentId,
       status: comment.status,
       auditStatus: isReviewing == true ? 1 : comment.auditStatus,
       aiReviewData: comment.aiReviewData,
@@ -307,24 +352,47 @@ class _CommentsPageState extends State<CommentsPage> {
     bool destructive = false,
   }) async {
     if (_selected.isEmpty || _bulkRunning) return;
+    final bool maySendEmail = action == 'APPROVE';
+    bool sendEmailNotification = true;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(confirmMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(t(context, 'cancel')),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(confirmMessage),
+              if (maySendEmail) ...[
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  value: sendEmailNotification,
+                  onChanged: (value) => setDialogState(
+                    () => sendEmailNotification = value ?? false,
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('向被回复用户发送邮件通知'),
+                  subtitle: const Text('取消勾选可阻止本次批量通过向外部用户发送回复邮件通知'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ],
           ),
-          FilledButton(
-            style: destructive
-                ? FilledButton.styleFrom(backgroundColor: Colors.red)
-                : null,
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(t(context, 'confirm')),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(t(context, 'cancel')),
+            ),
+            FilledButton(
+              style: destructive
+                  ? FilledButton.styleFrom(backgroundColor: Colors.red)
+                  : null,
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(t(context, 'confirm')),
+            ),
+          ],
+        ),
       ),
     );
     if (confirmed != true) return;
@@ -334,6 +402,7 @@ class _CommentsPageState extends State<CommentsPage> {
       final result = await widget.api.batchComments(
         ids: _selected.toList(),
         action: action,
+        sendEmailNotification: sendEmailNotification,
       );
       if (mounted) {
         AdminFeedback.success(

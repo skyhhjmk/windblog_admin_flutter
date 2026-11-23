@@ -7,6 +7,7 @@ import 'package:windblog_admin_flutter/main.dart';
 class _FakeCommentAndQueueApi extends AdminApiClient {
   String? lastBatchAction;
   List<int>? lastBatchIds;
+  bool? lastBatchSendEmailNotification;
   bool abortedCalled = false;
 
   @override
@@ -109,9 +110,11 @@ class _FakeCommentAndQueueApi extends AdminApiClient {
   Future<CommentBatchResult> batchComments({
     required List<int> ids,
     required String action,
+    bool sendEmailNotification = true,
   }) async {
     lastBatchAction = action;
     lastBatchIds = List<int>.from(ids);
+    lastBatchSendEmailNotification = sendEmailNotification;
     return CommentBatchResult(
       requested: ids.length,
       succeeded: ids.length,
@@ -238,11 +241,19 @@ void main() {
 
       await tester.tap(find.text('批量通过'));
       await tester.pump();
+      expect(find.text('向被回复用户发送邮件通知'), findsOneWidget);
+      final notifyCheckbox = tester.widget<CheckboxListTile>(
+        find.byType(CheckboxListTile),
+      );
+      expect(notifyCheckbox.value, isTrue);
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pump();
       await tester.tap(find.byType(FilledButton).last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(api.lastBatchAction, 'APPROVE');
       expect(api.lastBatchIds, [101, 102]);
+      expect(api.lastBatchSendEmailNotification, isFalse);
 
       await tester.tap(find.text('中断'));
       await tester.pump();

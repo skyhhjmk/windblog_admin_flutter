@@ -169,9 +169,57 @@ class _LinksPageState extends State<LinksPage>
     if (_checkingLinkIds.contains(link.id)) {
       return;
     }
+    bool sendEmailNotification = true;
+    final bool mayNotifyOwner =
+        (link.email?.trim().isNotEmpty ?? false) &&
+        (link.notifyOnOffline ||
+            link.notifyOnBacklinkMissing ||
+            link.notifyOnKeywordFraud);
+    if (mayNotifyOwner) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: const Text('触发友链检测'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('将立即对「${link.name}」执行多节点检测，确定继续吗？'),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  value: sendEmailNotification,
+                  onChanged: (value) => setDialogState(
+                    () => sendEmailNotification = value ?? false,
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('检测异常时向友链站长发送邮件通知'),
+                  subtitle: const Text('取消勾选可阻止本次检测向外部站长发送异常提醒邮件'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(t(context, 'cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('开始检测'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
     setState(() => _checkingLinkIds.add(link.id));
     try {
-      var job = await widget.api.checkLink(link.id);
+      var job = await widget.api.checkLink(
+        link.id,
+        sendEmailNotification: sendEmailNotification,
+      );
       if (mounted) {
         AdminFeedback.showSnackBar(
           context,
@@ -209,6 +257,194 @@ class _LinksPageState extends State<LinksPage>
     } finally {
       if (mounted) {
         setState(() => _checkingLinkIds.remove(link.id));
+      }
+    }
+  }
+
+  Future<void> _openSiteUpdateNoticeDialog({AdminLinkItem? singleLink}) async {
+    Map<String, dynamic> preview;
+    try {
+      preview = await widget.api.previewLinkSiteUpdateNotice(
+        linkId: singleLink?.id,
+      );
+    } on UnauthorizedException {
+      widget.onAuthError();
+      return;
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('加载站点信息预览失败：$error')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    final eligibleCount = (preview['eligibleLinkCount'] as num?)?.toInt() ?? 0;
+    final siteName = preview['siteName']?.toString() ?? 'WindBlog';
+    final siteSubtitle = preview['siteSubtitle']?.toString() ?? '';
+    final siteUrl = preview['siteUrl']?.toString() ?? '';
+    final siteDescription = preview['siteDescription']?.toString() ?? '';
+    final siteIcon = preview['siteIcon']?.toString() ?? '';
+    final greeting = preview['greeting']?.toString() ?? '尊敬的友链站长：';
+
+    final subjectController = TextEditingController(
+      text: preview['defaultSubject']?.toString() ?? '[$siteName] 友链信息变更通知',
+    );
+    final noteController = TextEditingController();
+    bool sendEmailNotification = true;
+
+    String composePreviewBody(String note) {
+      final buffer = StringBuffer();
+      buffer.writeln(greeting);
+      buffer.writeln();
+      buffer.writeln('自您添加我站友链以来，我站信息已经变更，这是最新信息：');
+      buffer.writeln();
+      buffer.writeln('站点名称：$siteName');
+      if (siteSubtitle.isNotEmpty) {
+        buffer.writeln('站点副标题：$siteSubtitle');
+      }
+      buffer.writeln('站点链接：$siteUrl');
+      if (siteDescription.isNotEmpty) {
+        buffer.writeln('站点描述：$siteDescription');
+      }
+      if (siteIcon.isNotEmpty) {
+        buffer.writeln('站点图标：$siteIcon');
+      }
+      if (note.trim().isNotEmpty) {
+        buffer.writeln();
+        buffer.writeln('以下是附加备注：');
+        buffer.writeln(note.trim());
+      }
+      buffer.writeln();
+      buffer.write('如您方便，欢迎在贵站友链页面更新我站信息，感谢您的支持！');
+      return buffer.toString();
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(
+            singleLink == null
+                ? '批量发送友链更新通知'
+                : '向「${singleLink.name}」发送更新通知',
+          ),
+          content: SizedBox(
+            width: 620,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    singleLink == null
+                        ? '将向所有已通过且已填写联系邮箱的友链站长发送本站最新信息（当前符合条件：$eligibleCount 个）。'
+                        : '收件邮箱：${singleLink.email ?? '未填写'}',
+                    style: Theme.of(dialogContext).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: subjectController,
+                    decoration: const InputDecoration(
+                      labelText: '邮件主题',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteController,
+                    maxLines: 3,
+                    onChanged: (_) => setDialogState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: '附加备注（可选，对应 {admin_note}）',
+                      hintText: '例如：本站已从原域名 old.example.com 迁移到 new.example.com',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '邮件正文预览',
+                    style: Theme.of(dialogContext).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        dialogContext,
+                      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SelectableText(
+                      composePreviewBody(noteController.text),
+                      style: const TextStyle(fontSize: 13, height: 1.55),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  CheckboxListTile(
+                    value: sendEmailNotification,
+                    onChanged: (value) => setDialogState(
+                      () => sendEmailNotification = value ?? false,
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text('向外部友链站长发送邮件通知'),
+                    subtitle: const Text('取消勾选可阻止本次操作对外发送邮件'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(t(context, 'cancel')),
+            ),
+            FilledButton.icon(
+              onPressed: (singleLink == null && eligibleCount == 0)
+                  ? null
+                  : () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.send_outlined, size: 18),
+              label: const Text('确认发送'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final subject = subjectController.text.trim();
+    final adminNote = noteController.text.trim();
+    subjectController.dispose();
+    noteController.dispose();
+
+    if (confirmed != true || !mounted) return;
+    try {
+      final result = singleLink != null
+          ? await widget.api.notifyLinkSiteUpdate(
+              singleLink.id,
+              subject: subject,
+              adminNote: adminNote,
+              sendEmailNotification: sendEmailNotification,
+            )
+          : await widget.api.notifyBatchLinkSiteUpdate(
+              subject: subject,
+              adminNote: adminNote,
+              sendEmailNotification: sendEmailNotification,
+            );
+      if (mounted) {
+        final message = result['message']?.toString() ?? '已提交发送任务';
+        AdminFeedback.showSnackBar(context, SnackBar(content: Text(message)));
+      }
+    } on UnauthorizedException {
+      widget.onAuthError();
+    } catch (error) {
+      if (mounted) {
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(content: Text('发送变更通知失败：$error')),
+        );
       }
     }
   }
@@ -522,6 +758,14 @@ class _LinksPageState extends State<LinksPage>
                 ),
               ),
               const SizedBox(width: 16),
+              if (_activeTab == 0) ...[
+                OutlinedButton.icon(
+                  onPressed: () => _openSiteUpdateNoticeDialog(),
+                  icon: const Icon(Icons.campaign_outlined),
+                  label: const Text('发送变更通知'),
+                ),
+                const SizedBox(width: 8),
+              ],
               LinksAddButton(
                 label: t(context, 'add_link'),
                 tabIndex: _activeTab,
@@ -699,6 +943,16 @@ class _LinksPageState extends State<LinksPage>
                       color: Colors.orange,
                     ),
                     onPressed: () => _reviewApplication(link, false),
+                  ),
+                if (link.type != 3 && link.applicationStatus == 1)
+                  IconButton(
+                    tooltip: (link.email?.trim().isNotEmpty ?? false)
+                        ? '发送本站信息变更通知'
+                        : '该友链未填写邮箱，无法发送通知',
+                    icon: const Icon(Icons.forward_to_inbox_outlined),
+                    onPressed: (link.email?.trim().isNotEmpty ?? false)
+                        ? () => _openSiteUpdateNoticeDialog(singleLink: link)
+                        : null,
                   ),
                 if (link.type != 3 && link.applicationStatus == 1)
                   IconButton(

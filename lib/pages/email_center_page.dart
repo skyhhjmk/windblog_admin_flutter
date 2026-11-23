@@ -47,6 +47,7 @@ class _EmailCenterPageState extends State<EmailCenterPage>
   List<Map<String, dynamic>> groups = [];
   List<Map<String, dynamic>> routes = [];
   List<Map<String, dynamic>> templates = [];
+  List<Map<String, dynamic>> systemTemplates = [];
   List<Map<String, dynamic>> campaigns = [];
   List<EmailDeliveryItem> deliveries = [];
   int deliveryPage = 1;
@@ -80,6 +81,7 @@ class _EmailCenterPageState extends State<EmailCenterPage>
       groups = await widget.api.listEmailGroups();
       routes = await widget.api.listEmailRoutes();
       templates = await widget.api.listEmailTemplates();
+      systemTemplates = await widget.api.listSystemEmailTemplates();
       campaigns = await widget.api.listEmailCampaigns();
       await _loadDeliveries();
     } catch (_) {
@@ -524,87 +526,376 @@ class _EmailCenterPageState extends State<EmailCenterPage>
     );
   }
 
-  Future<void> _createTemplate() async {
-    final templateKey = TextEditingController();
-    final name = TextEditingController();
-    final subject = TextEditingController();
-    final title = TextEditingController();
-    final content = TextEditingController();
-    final buttonText = TextEditingController(text: '查看详情');
-    final buttonUrl = TextEditingController(text: 'https://example.com');
+  Future<void> _createTemplate({Map<String, dynamic>? initial}) async {
+    await _openTemplateEditor(initial: initial, isEdit: false);
+  }
+
+  Future<void> _editTemplate(Map<String, dynamic> template) async {
+    await _openTemplateEditor(initial: template, isEdit: true);
+  }
+
+  Future<void> _openTemplateEditor({
+    Map<String, dynamic>? initial,
+    required bool isEdit,
+  }) async {
+    final templateKey = TextEditingController(
+      text: initial?['templateKey']?.toString() ?? '',
+    );
+    final name = TextEditingController(
+      text: initial?['name']?.toString() ?? '',
+    );
+    final subject = TextEditingController(
+      text: initial?['subjectTemplate']?.toString() ?? '',
+    );
+    final title = TextEditingController(
+      text: initial?['title']?.toString() ?? '',
+    );
+    final greeting = TextEditingController(
+      text: initial?['greeting']?.toString() ?? '您好：',
+    );
+    final content = TextEditingController(
+      text: initial?['content']?.toString() ?? '',
+    );
+    final buttonText = TextEditingController(
+      text: initial?['buttonText']?.toString() ?? '查看详情',
+    );
+    final buttonUrl = TextEditingController(
+      text: initial?['buttonUrl']?.toString() ?? 'https://example.com',
+    );
+    bool published = initial == null ? true : (initial['published'] != false);
     final saved = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('新增固定主题模板'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: templateKey,
-                decoration: const InputDecoration(labelText: '模板标识'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(isEdit ? '编辑邮件模板' : '新增邮件模板'),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: templateKey,
+                    decoration: const InputDecoration(labelText: '模板标识'),
+                  ),
+                  TextField(
+                    controller: name,
+                    decoration: const InputDecoration(labelText: '名称'),
+                  ),
+                  TextField(
+                    controller: subject,
+                    decoration: const InputDecoration(labelText: '邮件主题'),
+                  ),
+                  TextField(
+                    controller: title,
+                    decoration: const InputDecoration(labelText: '标题'),
+                  ),
+                  TextField(
+                    controller: greeting,
+                    decoration: const InputDecoration(labelText: '称呼'),
+                  ),
+                  TextField(
+                    controller: content,
+                    maxLines: 5,
+                    decoration: const InputDecoration(labelText: '正文'),
+                  ),
+                  TextField(
+                    controller: buttonText,
+                    decoration: const InputDecoration(labelText: '按钮文字'),
+                  ),
+                  TextField(
+                    controller: buttonUrl,
+                    decoration: const InputDecoration(labelText: '按钮链接'),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    value: published,
+                    onChanged: (value) =>
+                        setDialogState(() => published = value),
+                    title: const Text('发布模板'),
+                    subtitle: const Text('仅已发布模板可用于发送测试邮件和批量活动'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ],
               ),
-              TextField(
-                controller: name,
-                decoration: const InputDecoration(labelText: '名称'),
-              ),
-              TextField(
-                controller: subject,
-                decoration: const InputDecoration(labelText: '邮件主题'),
-              ),
-              TextField(
-                controller: title,
-                decoration: const InputDecoration(labelText: '标题'),
-              ),
-              TextField(
-                controller: content,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: '正文'),
-              ),
-              TextField(
-                controller: buttonText,
-                decoration: const InputDecoration(labelText: '按钮文字'),
-              ),
-              TextField(
-                controller: buttonUrl,
-                decoration: const InputDecoration(labelText: '按钮链接'),
-              ),
-            ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(isEdit ? '保存修改' : '保存模板'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('保存并发布'),
-          ),
-        ],
       ),
     );
     if (saved == true) {
-      await widget.api.createEmailTemplate({
+      final payload = {
         'templateKey': templateKey.text.trim(),
         'name': name.text.trim(),
         'subjectTemplate': subject.text.trim(),
         'title': title.text.trim(),
-        'greeting': '您好：',
+        'greeting': greeting.text.trim(),
         'content': content.text.trim(),
         'buttonText': buttonText.text.trim(),
         'buttonUrl': buttonUrl.text.trim(),
-        'published': true,
-      });
-      await _load();
+        'published': published,
+      };
+      try {
+        if (isEdit && initial?['id'] != null) {
+          await widget.api.updateEmailTemplate(
+            (initial!['id'] as num).toInt(),
+            payload,
+          );
+          _showMessage('邮件模板已更新');
+        } else {
+          await widget.api.createEmailTemplate(payload);
+          _showMessage('邮件模板已创建');
+        }
+        await _load();
+      } catch (error) {
+        _showMessage('保存邮件模板失败：$error', error: true);
+      }
     }
     templateKey.dispose();
     name.dispose();
     subject.dispose();
     title.dispose();
+    greeting.dispose();
     content.dispose();
     buttonText.dispose();
     buttonUrl.dispose();
+  }
+
+  Future<void> _deleteTemplate(Map<String, dynamic> template) async {
+    final id = (template['id'] as num?)?.toInt();
+    if (id == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除邮件模板'),
+        content: Text('确定删除自定义模板「${template['name'] ?? ''}」吗？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.api.deleteEmailTemplate(id);
+      _showMessage('邮件模板已删除');
+      await _load();
+    } catch (error) {
+      _showMessage('删除邮件模板失败：$error', error: true);
+    }
+  }
+
+  Future<void> _testTemplate(Map<String, dynamic> template) async {
+    final id = (template['id'] as num?)?.toInt();
+    if (id == null) return;
+    if (template['published'] != true) {
+      _showMessage('请先发布该模板后再发送测试邮件', error: true);
+      return;
+    }
+    final recipient = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('发送模板测试 · ${template['name'] ?? ''}'),
+        content: TextField(
+          controller: recipient,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+            labelText: '测试收件邮箱',
+            hintText: 'name@example.com',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('发送测试'),
+          ),
+        ],
+      ),
+    );
+    final email = recipient.text.trim();
+    recipient.dispose();
+    if (confirmed != true || email.isEmpty) return;
+    try {
+      await widget.api.testEmailTemplate(id, email);
+      _showMessage('模板测试邮件已加入投递队列');
+      await _loadDeliveries();
+    } catch (error) {
+      _showMessage('发送模板测试邮件失败：$error', error: true);
+    }
+  }
+
+  Future<void> _viewTemplateDetail(
+    Map<String, dynamic> template, {
+    required bool isSystem,
+  }) async {
+    String? htmlPreview;
+    String? previewError;
+    try {
+      if (isSystem) {
+        final key = template['templateKey']?.toString() ?? '';
+        final res = await widget.api.previewSystemEmailTemplate(key);
+        htmlPreview = res['html']?.toString();
+      } else if (template['id'] != null) {
+        htmlPreview = await widget.api.previewEmailTemplate(
+          (template['id'] as num).toInt(),
+        );
+      }
+    } catch (error) {
+      previewError = error.toString();
+    }
+    if (!mounted) return;
+    final variables = (template['variables'] as List<dynamic>? ?? const [])
+        .map((e) => e.toString())
+        .toList();
+    Widget fieldRow(String label, String value) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(value.isEmpty ? '-' : value),
+          ],
+        ),
+      );
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Expanded(child: Text(template['name']?.toString() ?? '模板详情')),
+            Chip(
+              label: Text(isSystem ? '系统内置（只读）' : '自定义模板'),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 660,
+          height: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                fieldRow('模板标识', template['templateKey']?.toString() ?? ''),
+                if (isSystem &&
+                    (template['category']?.toString().isNotEmpty ?? false))
+                  fieldRow('模板分类', template['category']?.toString() ?? ''),
+                if (isSystem &&
+                    (template['description']?.toString().isNotEmpty ?? false))
+                  fieldRow('触发说明', template['description']?.toString() ?? ''),
+                fieldRow('邮件主题', template['subjectTemplate']?.toString() ?? ''),
+                fieldRow('邮件标题', template['title']?.toString() ?? ''),
+                fieldRow('称呼', template['greeting']?.toString() ?? ''),
+                fieldRow('正文模板', template['content']?.toString() ?? ''),
+                fieldRow('按钮文字', template['buttonText']?.toString() ?? ''),
+                fieldRow('按钮链接', template['buttonUrl']?.toString() ?? ''),
+                if (variables.isNotEmpty) ...[
+                  Text(
+                    '支持变量',
+                    style: Theme.of(dialogContext).textTheme.labelMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: variables
+                        .map(
+                          (v) => Chip(
+                            label: Text('{$v}'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Text(
+                  '渲染 HTML 预览源码',
+                  style: Theme.of(dialogContext).textTheme.labelMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(dialogContext)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SelectableText(
+                    previewError != null
+                        ? '预览加载失败：$previewError'
+                        : (htmlPreview ?? '暂无预览'),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          if (isSystem)
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _createTemplate(
+                  initial: {
+                    ...template,
+                    'templateKey':
+                        '${template['templateKey'] ?? 'CUSTOM'}_CUSTOM',
+                    'name': '${template['name'] ?? '模板'}（自定义副本）',
+                    'published': true,
+                  },
+                );
+              },
+              icon: const Icon(Icons.copy_outlined, size: 16),
+              label: const Text('复制为自定义模板'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _createCampaign() async {
@@ -979,22 +1270,110 @@ class _EmailCenterPageState extends State<EmailCenterPage>
   }
 
   Widget _buildTemplatesTab() {
-    if (templates.isEmpty) {
-      return const AdminStatusView.empty(title: '暂无邮件模板');
-    }
     return ListView(
       children: [
-        _buildSectionHeading('邮件模板'),
-        for (final template in templates)
-          Card(
-            child: ListTile(
-              title: Text(template['name']?.toString() ?? ''),
-              subtitle: Text(
-                '版本 ${template['version'] ?? 1} · '
-                '${template['published'] == true ? '已发布' : '草稿'}',
+        _buildSectionHeading('系统内置模板（只读）'),
+        if (systemTemplates.isEmpty)
+          const Card(
+            child: ListTile(title: Text('暂无系统内置模板')),
+          )
+        else
+          for (final template in systemTemplates)
+            Card(
+              child: ListTile(
+                title: Row(
+                  children: [
+                    Expanded(child: Text(template['name']?.toString() ?? '')),
+                    if (template['category']?.toString().isNotEmpty ?? false)
+                      Chip(
+                        label: Text(
+                          template['category'].toString(),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+                subtitle: Text(
+                  '${template['templateKey'] ?? ''} · ${template['description'] ?? ''}',
+                ),
+                onTap: () => _viewTemplateDetail(template, isSystem: true),
+                trailing: Wrap(
+                  spacing: 4,
+                  children: [
+                    TextButton(
+                      onPressed: () =>
+                          _viewTemplateDetail(template, isSystem: true),
+                      child: const Text('查看'),
+                    ),
+                    TextButton(
+                      onPressed: () => _createTemplate(
+                        initial: {
+                          ...template,
+                          'templateKey':
+                              '${template['templateKey'] ?? 'CUSTOM'}_CUSTOM',
+                          'name': '${template['name'] ?? '模板'}（自定义副本）',
+                          'published': true,
+                        },
+                      ),
+                      child: const Text('复制'),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _buildSectionHeading('自定义邮件模板')),
+            FilledButton.icon(
+              onPressed: () => _createTemplate(),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('新增模板'),
+            ),
+          ],
+        ),
+        if (templates.isEmpty)
+          const Card(
+            child: ListTile(title: Text('暂无自定义邮件模板，可点击右上角新增或从系统模板复制')),
+          )
+        else
+          for (final template in templates)
+            Card(
+              child: ListTile(
+                title: Text(template['name']?.toString() ?? ''),
+                subtitle: Text(
+                  '${template['templateKey'] ?? ''} · 版本 ${template['version'] ?? 1} · '
+                  '${template['published'] == true ? '已发布' : '草稿'}',
+                ),
+                onTap: () => _viewTemplateDetail(template, isSystem: false),
+                trailing: Wrap(
+                  spacing: 4,
+                  children: [
+                    TextButton(
+                      onPressed: () =>
+                          _viewTemplateDetail(template, isSystem: false),
+                      child: const Text('查看'),
+                    ),
+                    TextButton(
+                      onPressed: () => _editTemplate(template),
+                      child: const Text('编辑'),
+                    ),
+                    TextButton(
+                      onPressed: template['published'] == true
+                          ? () => _testTemplate(template)
+                          : null,
+                      child: const Text('测试'),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      onPressed: () => _deleteTemplate(template),
+                      child: const Text('删除'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
       ],
     );
   }

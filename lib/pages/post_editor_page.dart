@@ -2011,7 +2011,7 @@ class _PostEditorPageState extends State<PostEditorPage>
     if (_currentDetail == null) return;
     final publishSuccessText = t(context, 'publish_success');
     final operationFailedText = t(context, 'operation_failed');
-    bool sendArticleUpdate = false;
+    bool sendArticleUpdate = true;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -2026,11 +2026,14 @@ class _PostEditorPageState extends State<PostEditorPage>
                   'publish_revision_confirm',
                 ).replaceAll('%d', revisionNumber.toString()),
               ),
+              const SizedBox(height: 8),
               CheckboxListTile(
                 value: sendArticleUpdate,
                 onChanged: (value) =>
                     setDialogState(() => sendArticleUpdate = value ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
                 title: const Text('向订阅者发送新文章更新邮件'),
+                subtitle: const Text('取消勾选可阻止本次发布向外部订阅者发送邮件通知'),
                 contentPadding: EdgeInsets.zero,
               ),
             ],
@@ -2081,7 +2084,7 @@ class _PostEditorPageState extends State<PostEditorPage>
   }
 
   Future<bool?> _askWhetherToSendArticleUpdate() {
-    bool sendArticleUpdate = false;
+    bool sendArticleUpdate = true;
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -2091,7 +2094,9 @@ class _PostEditorPageState extends State<PostEditorPage>
             value: sendArticleUpdate,
             onChanged: (value) =>
                 setDialogState(() => sendArticleUpdate = value ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
             title: const Text('向订阅者发送新文章更新邮件'),
+            subtitle: const Text('取消勾选可阻止本次发布向外部订阅者发送邮件通知'),
             contentPadding: EdgeInsets.zero,
           ),
           actions: [

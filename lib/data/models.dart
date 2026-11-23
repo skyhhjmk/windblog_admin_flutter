@@ -2306,6 +2306,7 @@ class CommentItem {
     required this.userName,
     this.guestEmail,
     required this.content,
+    this.parentId,
     required this.status,
     required this.auditStatus,
     this.aiReviewData,
@@ -2326,6 +2327,7 @@ class CommentItem {
   final String userName;
   final String? guestEmail;
   final String content;
+  final int? parentId;
   final int status;
   final int auditStatus;
   final Map<String, dynamic>? aiReviewData;
@@ -2420,6 +2422,7 @@ class CommentItem {
       userName: map['userName']?.toString() ?? '',
       guestEmail: map['guestEmail']?.toString(),
       content: map['content']?.toString() ?? '',
+      parentId: toInt(map['parentId']),
       status: toInt(map['status']) ?? 0,
       auditStatus: toInt(map['auditStatus']) ?? 0,
       aiReviewData: map['aiReviewData'] is Map<String, dynamic>

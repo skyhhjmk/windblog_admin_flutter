@@ -1243,8 +1243,44 @@ class AdminApiClient {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> listSystemEmailTemplates() async {
+    final res = await _get('/api/admin/email-templates/system');
+    return (jsonDecode(res.body) as List<dynamic>)
+        .map((value) => _map(value))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> previewSystemEmailTemplate(
+    String templateKey,
+  ) async {
+    final res = await _get(
+      '/api/admin/email-templates/system/${Uri.encodeComponent(templateKey)}/preview',
+    );
+    return _map(jsonDecode(res.body));
+  }
+
   Future<void> createEmailTemplate(Map<String, dynamic> values) async {
     await _post('/api/admin/email-templates', body: values);
+  }
+
+  Future<void> updateEmailTemplate(int id, Map<String, dynamic> values) async {
+    await _put('/api/admin/email-templates/$id', body: values);
+  }
+
+  Future<void> deleteEmailTemplate(int id) async {
+    await _delete('/api/admin/email-templates/$id');
+  }
+
+  Future<String> previewEmailTemplate(int id) async {
+    final res = await _get('/api/admin/email-templates/$id/preview');
+    return res.body;
+  }
+
+  Future<void> testEmailTemplate(int id, String recipientAddress) async {
+    await _post(
+      '/api/admin/email-templates/$id/test',
+      body: {'recipientAddress': recipientAddress},
+    );
   }
 
   Future<List<Map<String, dynamic>>> listEmailCampaigns() async {
@@ -1889,8 +1925,15 @@ class AdminApiClient {
     return CommentListResult.fromMap(_map(jsonDecode(res.body)));
   }
 
-  Future<void> updateComment(int id, {required int status}) async {
-    await _put('/api/admin/comments/$id', body: {'status': status});
+  Future<void> updateComment(
+    int id, {
+    required int status,
+    bool sendEmailNotification = true,
+  }) async {
+    await _put(
+      '/api/admin/comments/$id',
+      body: {'status': status, 'sendEmailNotification': sendEmailNotification},
+    );
   }
 
   Future<void> deleteComment(int id) async {
@@ -1910,10 +1953,15 @@ class AdminApiClient {
   Future<CommentBatchResult> batchComments({
     required List<int> ids,
     required String action,
+    bool sendEmailNotification = true,
   }) async {
     final res = await _post(
       '/api/admin/comments/batch',
-      body: {'ids': ids, 'action': action},
+      body: {
+        'ids': ids,
+        'action': action,
+        'sendEmailNotification': sendEmailNotification,
+      },
     );
     return CommentBatchResult.fromMap(_map(jsonDecode(res.body)));
   }
@@ -2554,9 +2602,70 @@ class AdminApiClient {
     return list.map((e) => LinkReferenceItem.fromMap(_map(e))).toList();
   }
 
-  Future<LinkCheckJobItem> checkLink(int id) async {
-    final res = await _post('/api/admin/links/$id/check', body: {});
+  Future<LinkCheckJobItem> checkLink(
+    int id, {
+    bool sendEmailNotification = true,
+  }) async {
+    final res = await _post(
+      '/api/admin/links/$id/check',
+      body: {'sendEmailNotification': sendEmailNotification},
+    );
     return LinkCheckJobItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<Map<String, dynamic>> previewLinkSiteUpdateNotice({
+    int? linkId,
+    String? subject,
+    String? adminNote,
+  }) async {
+    final res = await _post(
+      '/api/admin/links/notify-site-update/preview',
+      query: linkId == null ? null : {'linkId': linkId.toString()},
+      body: {
+        if (subject != null) 'subject': subject,
+        if (adminNote != null) 'adminNote': adminNote,
+      },
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> notifyLinkSiteUpdate(
+    int id, {
+    String? subject,
+    String? adminNote,
+    bool sendEmailNotification = true,
+  }) async {
+    final res = await _post(
+      '/api/admin/links/$id/notify-site-update',
+      body: {
+        if (subject != null && subject.trim().isNotEmpty)
+          'subject': subject.trim(),
+        if (adminNote != null && adminNote.trim().isNotEmpty)
+          'adminNote': adminNote.trim(),
+        'sendEmailNotification': sendEmailNotification,
+      },
+    );
+    return _map(jsonDecode(res.body));
+  }
+
+  Future<Map<String, dynamic>> notifyBatchLinkSiteUpdate({
+    List<int>? linkIds,
+    String? subject,
+    String? adminNote,
+    bool sendEmailNotification = true,
+  }) async {
+    final res = await _post(
+      '/api/admin/links/notify-site-update',
+      body: {
+        if (linkIds != null && linkIds.isNotEmpty) 'linkIds': linkIds,
+        if (subject != null && subject.trim().isNotEmpty)
+          'subject': subject.trim(),
+        if (adminNote != null && adminNote.trim().isNotEmpty)
+          'adminNote': adminNote.trim(),
+        'sendEmailNotification': sendEmailNotification,
+      },
+    );
+    return _map(jsonDecode(res.body));
   }
 
   Future<LinkCheckJobItem> getLinkCheckJob(int id, String jobId) async {
@@ -2568,12 +2677,14 @@ class AdminApiClient {
     int id, {
     required bool approved,
     String? note,
+    bool sendEmailNotification = true,
   }) async {
     await _post(
       '/api/admin/links/$id/review',
       body: {
         'approved': approved,
         if (note != null && note.isNotEmpty) 'note': note,
+        'sendEmailNotification': sendEmailNotification,
       },
     );
   }

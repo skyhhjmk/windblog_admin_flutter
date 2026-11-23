@@ -391,9 +391,49 @@ class _TranslationsPageState extends State<TranslationsPage> {
   }
 
   Future<void> _publishTranslation(TranslationItem item) async {
+    bool sendArticleUpdate = true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text('发布 $_targetLabel 译本'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('将发布该文章的最新草稿译本，确定继续吗？'),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: sendArticleUpdate,
+                onChanged: (value) =>
+                    setDialogState(() => sendArticleUpdate = value ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('向订阅者发送新文章更新邮件'),
+                subtitle: const Text('取消勾选可阻止本次发布向外部订阅者发送邮件通知'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('发布'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     setState(() => _busy.add(item.id));
     try {
-      await widget.api.publishLatestDraftPost(item.id);
+      await widget.api.publishLatestDraftPost(
+        item.id,
+        sendArticleUpdate: sendArticleUpdate,
+      );
       if (!mounted) return;
       AdminFeedback.success(context, '已发布 $_targetLabel 译本');
       await _load();
