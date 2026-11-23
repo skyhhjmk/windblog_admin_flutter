@@ -1874,11 +1874,15 @@ class AdminApiClient {
     required int page,
     required int pageSize,
     String? status,
+    String? auditStatus,
     String? keyword,
     int? postId,
   }) async {
     final query = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
     if (status != null && status.isNotEmpty) query['status'] = status;
+    if (auditStatus != null && auditStatus.isNotEmpty) {
+      query['auditStatus'] = auditStatus;
+    }
     if (keyword != null && keyword.isNotEmpty) query['keyword'] = keyword;
     if (postId != null) query['postId'] = '$postId';
     final res = await _get('/api/admin/comments', query: query);
@@ -1896,6 +1900,22 @@ class AdminApiClient {
   Future<CommentItem> auditComment(int id) async {
     final res = await _post('/api/admin/comments/$id/audit', body: {});
     return CommentItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<CommentItem> abortCommentAudit(int id) async {
+    final res = await _post('/api/admin/comments/$id/audit/abort', body: {});
+    return CommentItem.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<CommentBatchResult> batchComments({
+    required List<int> ids,
+    required String action,
+  }) async {
+    final res = await _post(
+      '/api/admin/comments/batch',
+      body: {'ids': ids, 'action': action},
+    );
+    return CommentBatchResult.fromMap(_map(jsonDecode(res.body)));
   }
 
   // ==================== Outbox API ====================
@@ -1926,11 +1946,14 @@ class AdminApiClient {
 
   // ==================== 队列监控 API ====================
 
-  Future<List<QueueInfo>> listQueues() async {
+  Future<QueueMonitorOverview> getQueueMonitorOverview() async {
     final res = await _get('/api/admin/queues');
-    final map = _map(jsonDecode(res.body));
-    final list = (map['data'] as List<dynamic>? ?? []);
-    return list.map((e) => QueueInfo.fromMap(_map(e))).toList();
+    return QueueMonitorOverview.fromMap(_map(jsonDecode(res.body)));
+  }
+
+  Future<List<QueueInfo>> listQueues() async {
+    final overview = await getQueueMonitorOverview();
+    return overview.queues;
   }
 
   Future<QueueInfo> getQueueInfo(String queueName) async {

@@ -2223,6 +2223,80 @@ String _bizTypeText(String bizType) {
 
 // ==================== 评论相关模型 ====================
 
+class AiAuditState {
+  AiAuditState({
+    required this.phase,
+    required this.label,
+    this.detail,
+    required this.stuck,
+    required this.canAbort,
+    this.attemptCount = 0,
+    this.maxAttempts = 0,
+    this.elapsedSeconds,
+    this.lastError,
+    this.updatedAt,
+    this.nextRetryAt,
+  });
+
+  final String phase;
+  final String label;
+  final String? detail;
+  final bool stuck;
+  final bool canAbort;
+  final int attemptCount;
+  final int maxAttempts;
+  final int? elapsedSeconds;
+  final String? lastError;
+  final DateTime? updatedAt;
+  final DateTime? nextRetryAt;
+
+  factory AiAuditState.fromMap(Map<String, dynamic> map) {
+    return AiAuditState(
+      phase: map['phase']?.toString() ?? 'IDLE',
+      label: map['label']?.toString() ?? '',
+      detail: map['detail']?.toString(),
+      stuck: toBool(map['stuck']) ?? false,
+      canAbort: toBool(map['canAbort']) ?? false,
+      attemptCount: toInt(map['attemptCount']) ?? 0,
+      maxAttempts: toInt(map['maxAttempts']) ?? 0,
+      elapsedSeconds: toInt(map['elapsedSeconds']),
+      lastError: map['lastError']?.toString(),
+      updatedAt: parseDate(map['updatedAt']),
+      nextRetryAt: parseDate(map['nextRetryAt']),
+    );
+  }
+}
+
+class CommentBatchResult {
+  CommentBatchResult({
+    required this.requested,
+    required this.succeeded,
+    required this.skipped,
+    required this.failed,
+    required this.failedIds,
+    required this.message,
+  });
+
+  final int requested;
+  final int succeeded;
+  final int skipped;
+  final int failed;
+  final List<int> failedIds;
+  final String message;
+
+  factory CommentBatchResult.fromMap(Map<String, dynamic> map) {
+    final rawFailed = (map['failedIds'] as List<dynamic>?) ?? const [];
+    return CommentBatchResult(
+      requested: toInt(map['requested']) ?? 0,
+      succeeded: toInt(map['succeeded']) ?? 0,
+      skipped: toInt(map['skipped']) ?? 0,
+      failed: toInt(map['failed']) ?? 0,
+      failedIds: rawFailed.map((e) => toInt(e) ?? 0).where((id) => id > 0).toList(),
+      message: map['message']?.toString() ?? '',
+    );
+  }
+}
+
 class CommentItem {
   CommentItem({
     required this.id,
@@ -2236,6 +2310,7 @@ class CommentItem {
     required this.auditStatus,
     this.aiReviewData,
     required this.isReviewing,
+    this.aiAuditState,
     required this.createdAt,
     this.quoteId,
     this.quoteType,
@@ -2255,6 +2330,7 @@ class CommentItem {
   final int auditStatus;
   final Map<String, dynamic>? aiReviewData;
   final bool isReviewing;
+  final AiAuditState? aiAuditState;
   final DateTime createdAt;
   final int? quoteId;
   final String? quoteType;
@@ -2263,6 +2339,8 @@ class CommentItem {
   final int? quoteStatus;
 
   bool get hasQuote => quoteType != null && quoteType!.isNotEmpty;
+
+  bool get canAbortAudit => isReviewing || (aiAuditState?.canAbort ?? false);
 
   String get quoteTypeText {
     switch (quoteType) {
@@ -2319,13 +2397,21 @@ class CommentItem {
   }
 
   String? get aiResultText {
+    if (aiAuditState != null &&
+        aiAuditState!.label.isNotEmpty &&
+        aiAuditState!.phase != 'IDLE') {
+      return aiAuditState!.label;
+    }
     if (aiReviewData == null) return null;
+    if (aiReviewData!['aborted'] == true) return '已强制中断';
+    if (aiReviewData!['failed'] == true) return 'AI 审核失败';
     final isSafe = aiReviewData!['isSafe'];
     if (isSafe == null) return '无结果';
     return isSafe == true ? '建议通过' : '建议驳回';
   }
 
   factory CommentItem.fromMap(Map<String, dynamic> map) {
+    final rawState = map['aiAuditState'];
     return CommentItem(
       id: toInt(map['id']) ?? 0,
       postId: toInt(map['postId']) ?? 0,
@@ -2336,8 +2422,13 @@ class CommentItem {
       content: map['content']?.toString() ?? '',
       status: toInt(map['status']) ?? 0,
       auditStatus: toInt(map['auditStatus']) ?? 0,
-      aiReviewData: map['aiReviewData'] as Map<String, dynamic>?,
+      aiReviewData: map['aiReviewData'] is Map<String, dynamic>
+          ? map['aiReviewData'] as Map<String, dynamic>
+          : null,
       isReviewing: toBool(map['isReviewing']) ?? false,
+      aiAuditState: rawState is Map<String, dynamic>
+          ? AiAuditState.fromMap(rawState)
+          : null,
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
       quoteId: toInt(map['quoteId']),
       quoteType: map['quoteType']?.toString(),
@@ -2386,6 +2477,16 @@ class QueueInfo {
     this.description = '',
     required this.deadLetterQueue,
     this.deadLetterMessageCount = 0,
+    this.isDeadLetter = false,
+    this.exists = true,
+    this.status = 'HEALTHY',
+    this.activeTaskCount = 0,
+    this.outboxEventType,
+    this.outboxPendingCount = 0,
+    this.outboxInFlightCount = 0,
+    this.outboxFailedCount = 0,
+    this.unprocessedDeadLetterCount = 0,
+    this.error,
   });
 
   final String name;
@@ -2394,6 +2495,16 @@ class QueueInfo {
   final String description;
   final String deadLetterQueue;
   final int deadLetterMessageCount;
+  final bool isDeadLetter;
+  final bool exists;
+  final String status;
+  final int activeTaskCount;
+  final String? outboxEventType;
+  final int outboxPendingCount;
+  final int outboxInFlightCount;
+  final int outboxFailedCount;
+  final int unprocessedDeadLetterCount;
+  final String? error;
 
   factory QueueInfo.fromMap(Map<String, dynamic> map) {
     return QueueInfo(
@@ -2403,6 +2514,249 @@ class QueueInfo {
       description: map['description']?.toString() ?? '',
       deadLetterQueue: map['deadLetterQueue']?.toString() ?? '',
       deadLetterMessageCount: toInt(map['deadLetterMessageCount']) ?? 0,
+      isDeadLetter: toBool(map['isDeadLetter']) ?? false,
+      exists: toBool(map['exists']) ?? true,
+      status: map['status']?.toString() ?? 'HEALTHY',
+      activeTaskCount: toInt(map['activeTaskCount']) ?? 0,
+      outboxEventType: map['outboxEventType']?.toString(),
+      outboxPendingCount: toInt(map['outboxPendingCount']) ?? 0,
+      outboxInFlightCount: toInt(map['outboxInFlightCount']) ?? 0,
+      outboxFailedCount: toInt(map['outboxFailedCount']) ?? 0,
+      unprocessedDeadLetterCount: toInt(map['unprocessedDeadLetterCount']) ?? 0,
+      error: map['error']?.toString(),
+    );
+  }
+}
+
+class QueueSummary {
+  QueueSummary({
+    required this.brokerConnected,
+    required this.brokerHost,
+    required this.brokerPort,
+    this.brokerError,
+    required this.nodeRole,
+    required this.outboxEnabled,
+    required this.outboxPending,
+    required this.outboxInFlight,
+    required this.outboxFailed,
+    required this.outboxPublished24h,
+    required this.outboxOldestPendingSeconds,
+    required this.activeTaskCount,
+    required this.unprocessedDeadLetters,
+    required this.reviewingCommentsCount,
+    this.checkedAt,
+  });
+
+  final bool brokerConnected;
+  final String brokerHost;
+  final int brokerPort;
+  final String? brokerError;
+  final String nodeRole;
+  final bool outboxEnabled;
+  final int outboxPending;
+  final int outboxInFlight;
+  final int outboxFailed;
+  final int outboxPublished24h;
+  final int outboxOldestPendingSeconds;
+  final int activeTaskCount;
+  final int unprocessedDeadLetters;
+  final int reviewingCommentsCount;
+  final DateTime? checkedAt;
+
+  factory QueueSummary.fromMap(Map<String, dynamic> map) {
+    return QueueSummary(
+      brokerConnected: toBool(map['brokerConnected']) ?? false,
+      brokerHost: map['brokerHost']?.toString() ?? '',
+      brokerPort: toInt(map['brokerPort']) ?? 5672,
+      brokerError: map['brokerError']?.toString(),
+      nodeRole: map['nodeRole']?.toString() ?? 'primary',
+      outboxEnabled: toBool(map['outboxEnabled']) ?? true,
+      outboxPending: toInt(map['outboxPending']) ?? 0,
+      outboxInFlight: toInt(map['outboxInFlight']) ?? 0,
+      outboxFailed: toInt(map['outboxFailed']) ?? 0,
+      outboxPublished24h: toInt(map['outboxPublished24h']) ?? 0,
+      outboxOldestPendingSeconds: toInt(map['outboxOldestPendingSeconds']) ?? 0,
+      activeTaskCount: toInt(map['activeTaskCount']) ?? 0,
+      unprocessedDeadLetters: toInt(map['unprocessedDeadLetters']) ?? 0,
+      reviewingCommentsCount: toInt(map['reviewingCommentsCount']) ?? 0,
+      checkedAt: parseDate(map['checkedAt']),
+    );
+  }
+}
+
+class ActiveQueueTask {
+  ActiveQueueTask({
+    required this.runId,
+    required this.queueName,
+    required this.targetType,
+    required this.targetId,
+    required this.stage,
+    required this.stageLabel,
+    required this.stageDetail,
+    required this.retryCount,
+    required this.maxRetries,
+    required this.elapsedSeconds,
+    required this.aborting,
+    this.startedAt,
+    this.stageUpdatedAt,
+  });
+
+  final String runId;
+  final String queueName;
+  final String targetType;
+  final int targetId;
+  final String stage;
+  final String stageLabel;
+  final String stageDetail;
+  final int retryCount;
+  final int maxRetries;
+  final int elapsedSeconds;
+  final bool aborting;
+  final DateTime? startedAt;
+  final DateTime? stageUpdatedAt;
+
+  factory ActiveQueueTask.fromMap(Map<String, dynamic> map) {
+    return ActiveQueueTask(
+      runId: map['runId']?.toString() ?? '',
+      queueName: map['queueName']?.toString() ?? '',
+      targetType: map['targetType']?.toString() ?? '',
+      targetId: toInt(map['targetId']) ?? 0,
+      stage: map['stage']?.toString() ?? '',
+      stageLabel: map['stageLabel']?.toString() ?? '',
+      stageDetail: map['stageDetail']?.toString() ?? '',
+      retryCount: toInt(map['retryCount']) ?? 0,
+      maxRetries: toInt(map['maxRetries']) ?? 0,
+      elapsedSeconds: toInt(map['elapsedSeconds']) ?? 0,
+      aborting: toBool(map['aborting']) ?? false,
+      startedAt: parseDate(map['startedAt']),
+      stageUpdatedAt: parseDate(map['stageUpdatedAt']),
+    );
+  }
+}
+
+class RecentQueueEvent {
+  RecentQueueEvent({
+    required this.runId,
+    required this.queueName,
+    required this.targetType,
+    required this.targetId,
+    required this.status,
+    required this.detail,
+    this.error,
+    required this.retryCount,
+    required this.maxRetries,
+    required this.durationMs,
+    this.finishedAt,
+  });
+
+  final String runId;
+  final String queueName;
+  final String targetType;
+  final int targetId;
+  final String status;
+  final String detail;
+  final String? error;
+  final int retryCount;
+  final int maxRetries;
+  final int durationMs;
+  final DateTime? finishedAt;
+
+  factory RecentQueueEvent.fromMap(Map<String, dynamic> map) {
+    return RecentQueueEvent(
+      runId: map['runId']?.toString() ?? '',
+      queueName: map['queueName']?.toString() ?? '',
+      targetType: map['targetType']?.toString() ?? '',
+      targetId: toInt(map['targetId']) ?? 0,
+      status: map['status']?.toString() ?? '',
+      detail: map['detail']?.toString() ?? '',
+      error: map['error']?.toString(),
+      retryCount: toInt(map['retryCount']) ?? 0,
+      maxRetries: toInt(map['maxRetries']) ?? 0,
+      durationMs: toInt(map['durationMs']) ?? 0,
+      finishedAt: parseDate(map['finishedAt']),
+    );
+  }
+}
+
+class OutboxIssueItem {
+  OutboxIssueItem({
+    required this.id,
+    required this.eventType,
+    required this.aggregateType,
+    required this.aggregateId,
+    required this.status,
+    required this.attemptCount,
+    this.lastError,
+    this.availableAt,
+    this.createdAt,
+  });
+
+  final int id;
+  final String eventType;
+  final String aggregateType;
+  final String aggregateId;
+  final String status;
+  final int attemptCount;
+  final String? lastError;
+  final DateTime? availableAt;
+  final DateTime? createdAt;
+
+  factory OutboxIssueItem.fromMap(Map<String, dynamic> map) {
+    return OutboxIssueItem(
+      id: toInt(map['id']) ?? 0,
+      eventType: map['eventType']?.toString() ?? '',
+      aggregateType: map['aggregateType']?.toString() ?? '',
+      aggregateId: map['aggregateId']?.toString() ?? '',
+      status: map['status']?.toString() ?? '',
+      attemptCount: toInt(map['attemptCount']) ?? 0,
+      lastError: map['lastError']?.toString(),
+      availableAt: parseDate(map['availableAt']),
+      createdAt: parseDate(map['createdAt']),
+    );
+  }
+}
+
+class QueueMonitorOverview {
+  QueueMonitorOverview({
+    required this.queues,
+    this.summary,
+    required this.activeTasks,
+    required this.recentEvents,
+    required this.recentOutboxIssues,
+  });
+
+  final List<QueueInfo> queues;
+  final QueueSummary? summary;
+  final List<ActiveQueueTask> activeTasks;
+  final List<RecentQueueEvent> recentEvents;
+  final List<OutboxIssueItem> recentOutboxIssues;
+
+  factory QueueMonitorOverview.fromMap(Map<String, dynamic> map) {
+    final rawQueues = (map['data'] as List<dynamic>?) ?? const [];
+    final rawSummary = map['summary'];
+    final rawActive = (map['activeTasks'] as List<dynamic>?) ?? const [];
+    final rawRecent = (map['recentEvents'] as List<dynamic>?) ?? const [];
+    final rawIssues = (map['recentOutboxIssues'] as List<dynamic>?) ?? const [];
+    return QueueMonitorOverview(
+      queues: rawQueues
+          .whereType<Map<String, dynamic>>()
+          .map(QueueInfo.fromMap)
+          .toList(),
+      summary: rawSummary is Map<String, dynamic>
+          ? QueueSummary.fromMap(rawSummary)
+          : null,
+      activeTasks: rawActive
+          .whereType<Map<String, dynamic>>()
+          .map(ActiveQueueTask.fromMap)
+          .toList(),
+      recentEvents: rawRecent
+          .whereType<Map<String, dynamic>>()
+          .map(RecentQueueEvent.fromMap)
+          .toList(),
+      recentOutboxIssues: rawIssues
+          .whereType<Map<String, dynamic>>()
+          .map(OutboxIssueItem.fromMap)
+          .toList(),
     );
   }
 }
