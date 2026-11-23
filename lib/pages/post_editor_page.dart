@@ -83,6 +83,7 @@ class _PostEditorPageState extends State<PostEditorPage>
 
   bool _isDirty = false;
   bool _isSaving = false;
+  bool _isGeneratingPreview = false;
   Timer? _slugDebounce;
   bool _slugFollowsTitle = false;
   bool _suppressSlugListener = false;
@@ -1073,6 +1074,270 @@ class _PostEditorPageState extends State<PostEditorPage>
       _isDirty = _checkIfDirty();
     });
     _scheduleDraftSave();
+  }
+
+  Future<PostPreviewLink> _requestPreviewLink({int ttlMinutes = 60}) async {
+    final previewTitles = Map<String, String>.from(_titles);
+    previewTitles['zh-cn'] = titleCtrl.text.trim();
+    final previewSummaries = Map<String, String>.from(_summaries);
+    previewSummaries['zh-cn'] = summaryCtrl.text.trim();
+    final previewContents = Map<String, String>.from(_contents);
+    previewContents['zh-cn'] = contentCtrl.text.trim();
+
+    return widget.api.createPostPreviewLink(
+      postId: _currentDetail?.id,
+      slug: slugCtrl.text.trim(),
+      title: previewTitles,
+      summary: previewSummaries,
+      aiSummary: Map<String, String>.from(_currentDetail?.aiSummary ?? {}),
+      contentMarkdown: previewContents,
+      visibility: visibility,
+      seoTitle: seoTitleCtrl.text.trim(),
+      seoDescription: seoDescriptionCtrl.text.trim(),
+      seoKeywords: seoKeywordsCtrl.text.trim(),
+      renderType: renderType,
+      aiSummaryStatus: aiSummaryStatus,
+      pointsPrice: int.tryParse(pointsPriceCtrl.text.trim()),
+      categoryId: categoryId,
+      categoryIds: categoryIds,
+      tagIds: tagIds,
+      contentDeclarations: contentDeclarations,
+      repostPolicyCode: repostPolicyCode,
+      articleMode: articleMode,
+      tutorialMeta: articleMode == 1
+          ? {
+              if (tutorialDifficultyCtrl.text.trim().isNotEmpty)
+                'difficulty': {'zh-cn': tutorialDifficultyCtrl.text.trim()},
+              if (int.tryParse(tutorialMinutesCtrl.text.trim()) != null)
+                'estimatedMinutes': int.parse(tutorialMinutesCtrl.text.trim()),
+              if (tutorialPrereqsCtrl.text.trim().isNotEmpty)
+                'prerequisites': {
+                  'zh-cn': tutorialPrereqsCtrl.text
+                      .split('\n')
+                      .map((s) => s.trim())
+                      .where((s) => s.isNotEmpty)
+                      .toList(),
+                },
+              if (tutorialAudienceCtrl.text.trim().isNotEmpty)
+                'targetAudience': {'zh-cn': tutorialAudienceCtrl.text.trim()},
+            }
+          : null,
+      resourceMeta: articleMode == 2
+          ? {
+              if (resourceVersionCtrl.text.trim().isNotEmpty)
+                'version': resourceVersionCtrl.text.trim(),
+              if (resourceFileSizeCtrl.text.trim().isNotEmpty)
+                'fileSize': resourceFileSizeCtrl.text.trim(),
+              if (resourcePlatformsCtrl.text.trim().isNotEmpty)
+                'platforms': resourcePlatformsCtrl.text
+                    .split(RegExp(r'[,，]'))
+                    .map((s) => s.trim())
+                    .where((s) => s.isNotEmpty)
+                    .toList(),
+              if (resourceOfficialUrlCtrl.text.trim().isNotEmpty)
+                'officialUrl': resourceOfficialUrlCtrl.text.trim(),
+              if (resourceLicenseCtrl.text.trim().isNotEmpty)
+                'license': resourceLicenseCtrl.text.trim(),
+              if (resourceChecksumSha256Ctrl.text.trim().isNotEmpty)
+                'checksumSha256': resourceChecksumSha256Ctrl.text.trim(),
+              if (resourceMirrors.isNotEmpty) 'mirrors': resourceMirrors,
+            }
+          : null,
+      authorName: authorNameCtrl.text.trim().isEmpty
+          ? null
+          : authorNameCtrl.text.trim(),
+      userId: _selectedUserId,
+      language: 'zh-cn',
+      ttlMinutes: ttlMinutes,
+    );
+  }
+
+  Future<void> _openPreviewLinkDialog() async {
+    setState(() => _isGeneratingPreview = true);
+    try {
+      final initialLink = await _requestPreviewLink(ttlMinutes: 60);
+      if (!mounted) return;
+      setState(() => _isGeneratingPreview = false);
+
+      PostPreviewLink currentLink = initialLink;
+      int selectedTtl = 60;
+      bool regenerating = false;
+
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              final expiresText = DateTimeFormatter.formatDateTime(
+                context,
+                currentLink.expiresAt,
+              );
+              return AlertDialog(
+                title: Row(
+                  children: [
+                    const Icon(Icons.visibility_outlined, size: 22),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(t(context, 'preview_link_title'))),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 520,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t(context, 'preview_link_hint'),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                        ),
+                        child: SelectableText(
+                          currentLink.previewUrl,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Text(
+                            '${t(context, 'preview_link_expires_at')}: $expiresText',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            '${t(context, 'preview_link_ttl')}:',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          for (final option in const [
+                            (30, '30m'),
+                            (60, '1h'),
+                            (360, '6h'),
+                            (1440, '24h'),
+                          ])
+                            ChoiceChip(
+                              label: Text(option.$2),
+                              selected: selectedTtl == option.$1,
+                              onSelected: regenerating
+                                  ? null
+                                  : (selected) async {
+                                      if (!selected ||
+                                          selectedTtl == option.$1) {
+                                        return;
+                                      }
+                                      setDialogState(() {
+                                        selectedTtl = option.$1;
+                                        regenerating = true;
+                                      });
+                                      try {
+                                        final next = await _requestPreviewLink(
+                                          ttlMinutes: selectedTtl,
+                                        );
+                                        if (dialogContext.mounted) {
+                                          setDialogState(() {
+                                            currentLink = next;
+                                            regenerating = false;
+                                          });
+                                        }
+                                      } catch (e) {
+                                        if (dialogContext.mounted) {
+                                          setDialogState(
+                                            () => regenerating = false,
+                                          );
+                                          AdminFeedback.showSnackBar(
+                                            dialogContext,
+                                            SnackBar(
+                                              content: Text(
+                                                '${t(dialogContext, 'preview_link_generate_failed')}: $e',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                            ),
+                          if (regenerating)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: Text(t(context, 'close')),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: regenerating
+                        ? null
+                        : () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: currentLink.previewUrl),
+                            );
+                            if (dialogContext.mounted) {
+                              AdminFeedback.showSnackBar(
+                                dialogContext,
+                                SnackBar(
+                                  content: Text(
+                                    t(dialogContext, 'preview_link_copied'),
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: Text(t(context, 'preview_link_copy')),
+                  ),
+                  FilledButton.icon(
+                    onPressed: regenerating
+                        ? null
+                        : () => web_helper.openUrl(currentLink.previewUrl),
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: Text(t(context, 'preview_link_open_browser')),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isGeneratingPreview = false);
+        AdminFeedback.showSnackBar(
+          context,
+          SnackBar(
+            content: Text('${t(context, 'preview_link_generate_failed')}: $e'),
+          ),
+        );
+      }
+    }
   }
 
   Future<bool> _save({bool force = false}) async {
@@ -2382,6 +2647,35 @@ class _PostEditorPageState extends State<PostEditorPage>
               icon: const Icon(Icons.auto_awesome),
               onPressed: _openLocalAiWriting,
             ),
+            if (isPhone)
+              IconButton(
+                tooltip: t(context, 'generate_preview_link'),
+                icon: _isGeneratingPreview
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.visibility_outlined),
+                onPressed: _isGeneratingPreview ? null : _openPreviewLinkDialog,
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: OutlinedButton.icon(
+                  onPressed: _isGeneratingPreview
+                      ? null
+                      : _openPreviewLinkDialog,
+                  icon: _isGeneratingPreview
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.visibility_outlined, size: 17),
+                  label: Text(t(context, 'preview_link')),
+                ),
+              ),
             if (_isDirty)
               Padding(
                 padding: const EdgeInsets.only(right: 8),

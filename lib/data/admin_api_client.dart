@@ -589,6 +589,95 @@ class AdminApiClient {
     return data['slug']?.toString() ?? '';
   }
 
+  Future<PostPreviewLink> createPostPreviewLink({
+    int? postId,
+    required String slug,
+    required Map<String, String> title,
+    required Map<String, String> summary,
+    required Map<String, String> aiSummary,
+    required Map<String, String> contentMarkdown,
+    required int visibility,
+    String? seoTitle,
+    String? seoDescription,
+    String? seoKeywords,
+    required int renderType,
+    required int aiSummaryStatus,
+    int? pointsPrice,
+    int? categoryId,
+    List<int> categoryIds = const [],
+    List<int> tagIds = const [],
+    List<String> contentDeclarations = const [],
+    String? repostPolicyCode,
+    int articleMode = 0,
+    Map<String, dynamic>? tutorialMeta,
+    Map<String, dynamic>? resourceMeta,
+    String? authorName,
+    int? userId,
+    String? language,
+    int ttlMinutes = 60,
+  }) async {
+    final res = await _post(
+      '/api/admin/posts/preview-links',
+      body: {
+        'postId': ?postId,
+        'slug': slug,
+        'title': title,
+        'summary': summary,
+        'aiSummary': aiSummary,
+        'contentMarkdown': contentMarkdown,
+        'visibility': visibility,
+        if (seoTitle != null && seoTitle.isNotEmpty) 'seoTitle': seoTitle,
+        if (seoDescription != null && seoDescription.isNotEmpty)
+          'seoDescription': seoDescription,
+        if (seoKeywords != null && seoKeywords.isNotEmpty)
+          'seoKeywords': seoKeywords,
+        'renderType': renderType,
+        'aiSummaryStatus': aiSummaryStatus,
+        'pointsPrice': ?pointsPrice,
+        'categoryId': ?categoryId,
+        'categoryIds': categoryIds,
+        'tagIds': tagIds,
+        'contentDeclarations': contentDeclarations,
+        if (repostPolicyCode != null && repostPolicyCode.isNotEmpty)
+          'repostPolicyCode': repostPolicyCode,
+        'articleMode': articleMode,
+        'tutorialMeta': ?tutorialMeta,
+        'resourceMeta': ?resourceMeta,
+        if (authorName != null && authorName.isNotEmpty)
+          'authorName': authorName,
+        'userId': ?userId,
+        if (language != null && language.isNotEmpty) 'language': language,
+        'ttlMinutes': ttlMinutes,
+      },
+    );
+    final data = _map(jsonDecode(res.body));
+    final previewPath = data['previewPath']?.toString() ?? '';
+    final serverPreviewUrl = data['previewUrl']?.toString() ?? '';
+    final resolvedUrl = _resolvePreviewOpenUrl(previewPath, serverPreviewUrl);
+    return PostPreviewLink(
+      token: data['token']?.toString() ?? '',
+      previewPath: previewPath,
+      previewUrl: resolvedUrl,
+      expiresAt: DateTime.tryParse(data['expiresAt']?.toString() ?? ''),
+    );
+  }
+
+  String _resolvePreviewOpenUrl(String previewPath, String serverPreviewUrl) {
+    final baseUri = Uri.tryParse(baseUrl);
+    final isLocalBase =
+        baseUri != null &&
+        (baseUri.host == 'localhost' ||
+            baseUri.host == '127.0.0.1' ||
+            baseUri.host == '::1');
+    if (previewPath.isNotEmpty && (isLocalBase || serverPreviewUrl.isEmpty)) {
+      return normalizeUrl(previewPath);
+    }
+    if (serverPreviewUrl.isNotEmpty) {
+      return serverPreviewUrl;
+    }
+    return normalizeUrl(previewPath);
+  }
+
   Future<List<RepostPolicyItem>> listRepostPolicies() async {
     final res = await _get('/api/admin/repost/policies');
     final list = jsonDecode(res.body) as List<dynamic>? ?? [];

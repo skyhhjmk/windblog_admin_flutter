@@ -972,5 +972,16 @@
   "time_minutes_ago": "{n}m ago",
   "time_hours_ago": "{n}h ago",
   "time_days_ago": "{n}d ago",
-  "checked_at": "Checked At"
+  "checked_at": "Checked At",
+  "preview_link": "Preview Link",
+  "generate_preview_link": "Generate Preview Link",
+  "preview_link_title": "Temporary Preview Link",
+  "preview_link_hint": "This link previews your current editor content (including unsaved edits) and is not publicly listed or indexed.",
+  "preview_link_expires_at": "Expires at",
+  "preview_link_ttl": "Validity",
+  "preview_link_regenerate": "Regenerate",
+  "preview_link_open_browser": "Open in Browser",
+  "preview_link_copy": "Copy Link",
+  "preview_link_copied": "Preview link copied to clipboard",
+  "preview_link_generate_failed": "Failed to generate preview link"
 }

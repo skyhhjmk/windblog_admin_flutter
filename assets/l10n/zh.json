@@ -972,5 +972,16 @@
   "time_minutes_ago": "{n} 分钟前",
   "time_hours_ago": "{n} 小时前",
   "time_days_ago": "{n} 天前",
-  "checked_at": "检测时间"
+  "checked_at": "检测时间",
+  "preview_link": "预览链接",
+  "generate_preview_link": "生成预览链接",
+  "preview_link_title": "文章临时预览链接",
+  "preview_link_hint": "此链接支持直接预览当前编辑器内容（含未保存修改），不会公开展示或被搜索引擎收录。",
+  "preview_link_expires_at": "有效期至",
+  "preview_link_ttl": "有效期",
+  "preview_link_regenerate": "重新生成",
+  "preview_link_open_browser": "在浏览器中打开",
+  "preview_link_copy": "复制链接",
+  "preview_link_copied": "预览链接已复制到剪贴板",
+  "preview_link_generate_failed": "生成预览链接失败"
 }

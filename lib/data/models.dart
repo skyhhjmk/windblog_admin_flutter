@@ -438,6 +438,20 @@ class PostRevisionItem {
   }
 }
 
+class PostPreviewLink {
+  PostPreviewLink({
+    required this.token,
+    required this.previewPath,
+    required this.previewUrl,
+    this.expiresAt,
+  });
+
+  final String token;
+  final String previewPath;
+  final String previewUrl;
+  final DateTime? expiresAt;
+}
+
 class PostEditRequest {
   PostEditRequest({
     required this.slug,
