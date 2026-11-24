@@ -201,6 +201,17 @@ class _UserManagementPageState extends State<UserManagementPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('${user.email} · ${user.roleName}'),
+                            if ((user.lastLoginIp?.isNotEmpty == true) ||
+                                (user.lastLoginLocation?.isNotEmpty == true))
+                              Text(
+                                '${t(context, 'last_login_address', fallback: '最后登录地址')}：${_formatUserLastLoginSummary(context, user)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Theme.of(context).hintColor,
+                                  fontSize: 12,
+                                ),
+                              ),
                             if (user.pointsBalance != null)
                               Text(
                                 '${t(context, 'points')}：${user.pointsBalance}',
@@ -238,6 +249,17 @@ class _UserManagementPageState extends State<UserManagementPage> {
         ],
       ),
     );
+  }
+  String _formatUserLastLoginSummary(BuildContext context, UserListItem user) {
+    final ip = user.lastLoginIp?.trim() ?? '';
+    final location = user.lastLoginLocation?.trim() ?? '';
+    final address = location.isNotEmpty && ip.isNotEmpty
+        ? '$location ($ip)'
+        : (location.isNotEmpty ? location : ip);
+    if (user.lastLoginAt == null) {
+      return address;
+    }
+    return '$address · ${DateTimeFormatter.formatDateTime(context, user.lastLoginAt!)}';
   }
 }
 
@@ -441,6 +463,48 @@ class _UserManagementDialogState extends State<_UserManagementDialog> {
                   onChanged: widget.isSuperAdmin
                       ? (value) => setState(() => roleName = value ?? roleName)
                       : null,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t(context, 'last_login_address', fallback: '最后登录地址'),
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${t(context, 'last_login_ip', fallback: '最后登录 IP')}：${(widget.user.lastLoginIp?.isNotEmpty == true) ? widget.user.lastLoginIp! : '暂无记录'}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${t(context, 'last_login_location', fallback: '最后登录地点')}：${(widget.user.lastLoginLocation?.isNotEmpty == true) ? widget.user.lastLoginLocation! : '暂无记录'}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${t(context, 'last_login_time', fallback: '最后登录时间')}：${widget.user.lastLoginAt != null ? DateTimeFormatter.formatDateTime(context, widget.user.lastLoginAt!) : '暂无记录'}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

@@ -54,6 +54,8 @@ class _FakeCommentAndQueueApi extends AdminApiClient {
                   lastError: 'Connection refused',
                 ),
           createdAt: DateTime.utc(2026, 11, 23, 12, 0),
+          clientIp: '223.5.5.5',
+          ipLocation: '中国 浙江省 杭州市 (阿里)',
         ),
         CommentItem(
           id: 102,
@@ -73,6 +75,8 @@ class _FakeCommentAndQueueApi extends AdminApiClient {
             canAbort: false,
           ),
           createdAt: DateTime.utc(2026, 11, 23, 12, 1),
+          clientIp: '1.1.1.1',
+          ipLocation: 'Australia Queensland Brisbane',
         ),
       ],
       total: 2,
@@ -103,6 +107,8 @@ class _FakeCommentAndQueueApi extends AdminApiClient {
         canAbort: false,
       ),
       createdAt: DateTime.utc(2026, 11, 23, 12, 0),
+      clientIp: '223.5.5.5',
+      ipLocation: '中国 浙江省 杭州市 (阿里)',
     );
   }
 
@@ -229,6 +235,24 @@ void main() {
 
       expect(find.textContaining('卡在 Outbox 投递重试'), findsOneWidget);
       expect(find.textContaining('Connection refused'), findsOneWidget);
+      expect(
+        find.textContaining('IP: 223.5.5.5 · 中国 浙江省 杭州市 (阿里)'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('IP: 1.1.1.1 · Australia Queensland Brisbane'),
+        findsOneWidget,
+      );
+
+      // 打开评论详情弹窗并验证 IP 与地理位置展示
+      await tester.tap(find.text('Bob'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('1.1.1.1'), findsOneWidget);
+      expect(find.text('Australia Queensland Brisbane'), findsOneWidget);
+      await tester.tap(find.text('close'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
       final checkboxes = find.byType(Checkbox);
       expect(checkboxes, findsNWidgets(3));

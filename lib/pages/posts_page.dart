@@ -577,6 +577,20 @@ class _PostsPageState extends State<PostsPage> {
                       ],
                     ],
                   ),
+                  if (it.publishIp?.isNotEmpty == true) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      it.publishLocation?.isNotEmpty == true
+                          ? '${t(context, 'publish_ip', fallback: '发布 IP')}: ${it.publishIp} · ${it.publishLocation}'
+                          : '${t(context, 'publish_ip', fallback: '发布 IP')}: ${it.publishIp}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -692,7 +706,15 @@ class _PostsPageState extends State<PostsPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '更新 ${_formatDate(it.updatedAt ?? it.createdAt)}',
+                      [
+                        '更新 ${_formatDate(it.updatedAt ?? it.createdAt)}',
+                        if (it.publishIp?.isNotEmpty == true)
+                          it.publishLocation?.isNotEmpty == true
+                              ? '发布 IP ${it.publishIp} (${it.publishLocation})'
+                              : '发布 IP ${it.publishIp}',
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 11,
@@ -1044,7 +1066,13 @@ class _PostsPageState extends State<PostsPage> {
           style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
         ),
         subtitle: Text(
-          '${it.userName ?? t(context, 'unknown')} · ${_formatDate(it.updatedAt ?? it.createdAt)}',
+          [
+            '${it.userName ?? t(context, 'unknown')} · ${_formatDate(it.updatedAt ?? it.createdAt)}',
+            if (it.publishIp?.isNotEmpty == true)
+              it.publishLocation?.isNotEmpty == true
+                  ? '${it.publishIp} (${it.publishLocation})'
+                  : it.publishIp!,
+          ].join(' · '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: Colors.grey.shade500, fontSize: 11),

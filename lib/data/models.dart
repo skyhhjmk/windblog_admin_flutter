@@ -73,6 +73,8 @@ class PostItem {
     this.createdAt,
     this.updatedAt,
     this.articleMode = 0,
+    this.publishIp,
+    this.publishLocation,
   });
   final int id;
   final String slug;
@@ -97,6 +99,8 @@ class PostItem {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final int articleMode;
+  final String? publishIp;
+  final String? publishLocation;
 
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
@@ -151,6 +155,8 @@ class PostItem {
           ? null
           : DateTime.tryParse(map['updatedAt'].toString()),
       articleMode: toInt(map['articleMode']) ?? 0,
+      publishIp: map['publishIp']?.toString(),
+      publishLocation: map['publishLocation']?.toString(),
     );
   }
 }
@@ -197,6 +203,8 @@ class PostDetail {
     this.articleMode = 0,
     this.tutorialMeta,
     this.resourceMeta,
+    this.publishIp,
+    this.publishLocation,
   });
 
   final int id;
@@ -239,6 +247,8 @@ class PostDetail {
   final int articleMode;
   final Map<String, dynamic>? tutorialMeta;
   final Map<String, dynamic>? resourceMeta;
+  final String? publishIp;
+  final String? publishLocation;
 
   String get zhTitle =>
       title['zh-cn'] ?? (title.isEmpty ? '' : title.values.first);
@@ -311,6 +321,8 @@ class PostDetail {
       resourceMeta: map['resourceMeta'] is Map
           ? Map<String, dynamic>.from(map['resourceMeta'] as Map)
           : null,
+      publishIp: map['publishIp']?.toString(),
+      publishLocation: map['publishLocation']?.toString(),
     );
   }
 }
@@ -1139,6 +1151,9 @@ class UserListItem {
     required this.createdAt,
     required this.updatedAt,
     this.pointsBalance,
+    this.lastLoginIp,
+    this.lastLoginLocation,
+    this.lastLoginAt,
   });
 
   final int id;
@@ -1152,6 +1167,9 @@ class UserListItem {
   final DateTime createdAt;
   final DateTime updatedAt;
   final int? pointsBalance;
+  final String? lastLoginIp;
+  final String? lastLoginLocation;
+  final DateTime? lastLoginAt;
 
   String get statusText => userStatusText(status);
 
@@ -1190,6 +1208,9 @@ class UserListItem {
       createdAt: parseDate(map['createdAt']) ?? DateTime.now(),
       updatedAt: parseDate(map['updatedAt']) ?? DateTime.now(),
       pointsBalance: toInt(map['pointsBalance']),
+      lastLoginIp: map['lastLoginIp']?.toString(),
+      lastLoginLocation: map['lastLoginLocation']?.toString(),
+      lastLoginAt: parseDate(map['lastLoginAt']),
     );
   }
 }
@@ -2332,6 +2353,8 @@ class CommentItem {
     this.quoteText,
     this.quoteAnchorData,
     this.quoteStatus,
+    this.clientIp,
+    this.ipLocation,
   });
 
   final int id;
@@ -2353,6 +2376,8 @@ class CommentItem {
   final String? quoteText;
   final Map<String, dynamic>? quoteAnchorData;
   final int? quoteStatus;
+  final String? clientIp;
+  final String? ipLocation;
 
   bool get hasQuote => quoteType != null && quoteType!.isNotEmpty;
 
@@ -2454,6 +2479,8 @@ class CommentItem {
           ? map['quoteAnchorData'] as Map<String, dynamic>
           : null,
       quoteStatus: toInt(map['quoteStatus']),
+      clientIp: map['clientIp']?.toString(),
+      ipLocation: map['ipLocation']?.toString(),
     );
   }
 }

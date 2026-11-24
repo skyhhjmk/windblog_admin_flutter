@@ -188,6 +188,8 @@ class _CommentsPageState extends State<CommentsPage> {
       quoteText: comment.quoteText,
       quoteAnchorData: comment.quoteAnchorData,
       quoteStatus: comment.quoteStatus,
+      clientIp: comment.clientIp,
+      ipLocation: comment.ipLocation,
     );
   }
 
@@ -874,6 +876,20 @@ class _CommentsPageState extends State<CommentsPage> {
                         t(context, 'time'),
                         _formatDate(dialogComment.createdAt),
                       ),
+                      _buildSimpleInfoRow(
+                        Icons.lan_outlined,
+                        t(context, 'comment_ip', fallback: '评论 IP'),
+                        (dialogComment.clientIp?.isNotEmpty == true)
+                            ? dialogComment.clientIp!
+                            : '—',
+                      ),
+                      _buildSimpleInfoRow(
+                        Icons.location_on_outlined,
+                        t(context, 'ip_location', fallback: '地理位置'),
+                        (dialogComment.ipLocation?.isNotEmpty == true)
+                            ? dialogComment.ipLocation!
+                            : '—',
+                      ),
                       const Divider(height: 24),
                       Text(
                         dialogComment.content,
@@ -1391,6 +1407,32 @@ class _CommentTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
+            if ((comment.clientIp?.isNotEmpty == true) ||
+                (comment.ipLocation?.isNotEmpty == true)) ...[
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  Icon(Icons.public, size: 13, color: Colors.grey.shade500),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      [
+                        if (comment.clientIp?.isNotEmpty == true)
+                          'IP: ${comment.clientIp}',
+                        if (comment.ipLocation?.isNotEmpty == true)
+                          comment.ipLocation!,
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 5),
             Text(
               comment.content,

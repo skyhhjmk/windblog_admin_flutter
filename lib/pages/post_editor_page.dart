@@ -3135,6 +3135,19 @@ class _PostEditorPageState extends State<PostEditorPage>
               t(context, 'published_at'),
               _formatDate(d.publishedAt!),
             ),
+          if ((d.publishIp != null && d.publishIp!.isNotEmpty) ||
+              d.hasPublishedRevision)
+            MetadataItem(
+              t(context, 'publish_ip', fallback: '发布 IP'),
+              (d.publishIp != null && d.publishIp!.isNotEmpty)
+                  ? d.publishIp!
+                  : '—',
+            ),
+          if (d.publishLocation != null && d.publishLocation!.isNotEmpty)
+            MetadataItem(
+              t(context, 'publish_location', fallback: '发布地点'),
+              d.publishLocation!,
+            ),
         ],
       ),
     );
