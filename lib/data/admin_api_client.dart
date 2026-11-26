@@ -2711,8 +2711,8 @@ class AdminApiClient {
       '/api/admin/links/notify-site-update/preview',
       query: linkId == null ? null : {'linkId': linkId.toString()},
       body: {
-        if (subject != null) 'subject': subject,
-        if (adminNote != null) 'adminNote': adminNote,
+        'subject': ?subject,
+        'adminNote': ?adminNote,
       },
     );
     return _map(jsonDecode(res.body));

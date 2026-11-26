@@ -820,10 +820,12 @@ class FlutterMcpServer {
         final effectiveTitle = title;
         final effectiveContent = contentMarkdown;
 
-        if (effectiveTitle.isEmpty)
+        if (effectiveTitle.isEmpty) {
           throw Exception('Source article title is empty');
-        if (effectiveContent.isEmpty)
+        }
+        if (effectiveContent.isEmpty) {
           throw Exception('Source article content is empty');
+        }
 
         final translation = await api.translatePost(
           postId,
@@ -854,12 +856,15 @@ class FlutterMcpServer {
         final summary = args['summary'] as String?;
         final contentMarkdown = (args['contentMarkdown'] as String?)?.trim();
 
-        if (targetLanguage == null || targetLanguage.isEmpty)
+        if (targetLanguage == null || targetLanguage.isEmpty) {
           throw Exception('targetLanguage is required');
-        if (title == null || title.isEmpty)
+        }
+        if (title == null || title.isEmpty) {
           throw Exception('title is required');
-        if (contentMarkdown == null || contentMarkdown.isEmpty)
+        }
+        if (contentMarkdown == null || contentMarkdown.isEmpty) {
           throw Exception('contentMarkdown is required');
+        }
 
         final updatedPost = await api.savePostTranslation(
           postId,
@@ -908,12 +913,15 @@ class FlutterMcpServer {
         final summary = args['summary'] as String?;
         final contentMarkdown = (args['contentMarkdown'] as String?)?.trim();
 
-        if (targetLanguage == null || targetLanguage.isEmpty)
+        if (targetLanguage == null || targetLanguage.isEmpty) {
           throw Exception('targetLanguage is required');
-        if (title == null || title.isEmpty)
+        }
+        if (title == null || title.isEmpty) {
           throw Exception('title is required');
-        if (contentMarkdown == null || contentMarkdown.isEmpty)
+        }
+        if (contentMarkdown == null || contentMarkdown.isEmpty) {
           throw Exception('contentMarkdown is required');
+        }
 
         _activeEditor!.applyTranslation(
           targetLanguage: targetLanguage,

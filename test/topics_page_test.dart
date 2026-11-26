@@ -260,6 +260,7 @@ class _TopicsApiStub extends AdminApiClient {
     String language = 'zh-CN',
     String instructions = '',
     String? repostPolicyCode,
+    bool enableTools = true,
     String? stepUpToken,
   }) async {
     startDraftCalls++;
@@ -279,6 +280,7 @@ class _TopicsApiStub extends AdminApiClient {
     String? language,
     String? instructions,
     String? repostPolicyCode,
+    bool enableTools = true,
     String? stepUpToken,
   }) async {
     regenerateArticleCalls++;
